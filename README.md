@@ -1,5 +1,11 @@
 # SFCスマホビューアー
 
+## ■画面イメージ
+
+![画面1](screenshot1.JPG)
+![画面2](screenshot2.JPG)
+![画面3](screenshot3.JPG)
+
 SXF（SFC）図面をスマートフォンで閲覧・計測できるWebツール
 
 👉 https://iku190t.github.io/ais-survey-tool/
