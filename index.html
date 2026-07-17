@@ -2703,6 +2703,10 @@ function applyLineType(ctx2,ltype,widthPx,dashOverride){
   ctx2.setLineDash(pattern);
   ctx2.lineCap = (Number(ltype) === 7 || Number(ltype) === 17) ? 'round' : 'butt';
 }
+function sxfArcSweepDegrees(directionReversed,startDegrees,endDegrees){
+  const positive=value=>((value%360)+360)%360;
+  return directionReversed ? positive(startDegrees-endDegrees) : -positive(endDegrees-startDegrees);
+}
 function segmentIntersection(a,b,c,d){
   const x1=a.x,y1=a.y,x2=b.x,y2=b.y,x3=c.x,y3=c.y,x4=d.x,y4=d.y;
   const den=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
@@ -3059,9 +3063,9 @@ function draw(){
     if(!isLayerVisible(a.layer)) continue;
     const c=worldToScreen(a.cx,a.cy);
     const sa=(-a.start-rotationDeg)*Math.PI/180;
-    const ea=(-a.end-rotationDeg)*Math.PI/180;
+    const sweep=sxfArcSweepDegrees(!!a.direction,a.start,a.end)*Math.PI/180;
     ctx.beginPath();
-    ctx.arc(c[0],c[1],Math.max(1,Math.abs(a.r*view.scale)),sa,ea,!!a.direction);
+    ctx.arc(c[0],c[1],Math.max(1,Math.abs(a.r*view.scale)),sa,sa+sweep,sweep<0);
     ctx.strokeStyle=colorFromIndex(a.color);
     ctx.lineWidth=Math.max(0.20,Math.min(2.2,widthValueToScreenPx(a.width)));
     applyLineType(ctx,a.ltype,ctx.lineWidth,a.dash);
@@ -3082,8 +3086,10 @@ function draw(){
   for(const e of data.ellipseArcs||[]){
     if(!isLayerVisible(e.layer)) continue;
     const c=worldToScreen(e.cx,e.cy);
+    const start=(-e.start)*Math.PI/180;
+    const sweep=sxfArcSweepDegrees(!!e.direction,e.start,e.end)*Math.PI/180;
     ctx.beginPath();
-    ctx.ellipse(c[0],c[1],Math.max(1,Math.abs(e.rx*view.scale)),Math.max(1,Math.abs(e.ry*view.scale)),(-(e.rot+rotationDeg))*Math.PI/180,(-e.start)*Math.PI/180,(-e.end)*Math.PI/180,!!e.direction);
+    ctx.ellipse(c[0],c[1],Math.max(1,Math.abs(e.rx*view.scale)),Math.max(1,Math.abs(e.ry*view.scale)),(-(e.rot+rotationDeg))*Math.PI/180,start,start+sweep,sweep<0);
     ctx.strokeStyle=colorFromIndex(e.color);
     ctx.lineWidth=Math.max(0.20,Math.min(2.2,widthValueToScreenPx(e.width)));
     applyLineType(ctx,e.ltype,ctx.lineWidth,e.dash);
