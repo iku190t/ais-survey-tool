@@ -2028,15 +2028,15 @@ function adaptContrastColor(c){
   }
 }
 function colorFromIndex(idx){
-  const map = data && (data._colorFeatureMap || data._colorCodeMap);
-  const resolved = map ? (map[Number(idx)] || null) : null;
+  const n = Number(idx);
+  const resolved = data ? ((data._colorFeatureMap && data._colorFeatureMap[n]) || (data._colorCodeMap && data._colorCodeMap[n]) || null) : null;
   const c = (resolved || sxfBaseColorFromIndex(idx)).toLowerCase();
   return adaptContrastColor(c);
 }
 
 function textColorFromIndex(idx){
-  const map = data && (data._colorFeatureMap || data._colorCodeMap);
-  const resolved = map ? (map[Number(idx)] || null) : null;
+  const n = Number(idx);
+  const resolved = data ? ((data._colorFeatureMap && data._colorFeatureMap[n]) || (data._colorCodeMap && data._colorCodeMap[n]) || null) : null;
   const c = (resolved || sxfBaseColorFromIndex(idx)).toLowerCase();
   return adaptContrastColor(c);
 }
@@ -2201,25 +2201,35 @@ function parseSfcText(srcText, fileName){
   const flat = getFlatSxfText(srcText);
   const records = parseSxfFeatureRecords(flat);
   const layerDefs=[], widthDefs=[], fontDefs=[], colorDefs=[], preLineDefs=[], userLineDefs=[];
+  const parseTupleNumbers=arg=>{
+    let s=unquoteSxfValue(arg);
+    if(s.startsWith('(')&&s.endsWith(')')) s=s.slice(1,-1);
+    return splitSxfArgs(s).map(v=>parseFloat(unquoteSxfValue(v))).filter(Number.isFinite);
+  };
   for(const rec of records){
     if(rec.name==='layer_feature'){
       const rawName=unquoteSxfValue(rec.args[0]||'');
-      layerDefs.push({featureId:rec.id, rawName, name:decodeShiftJisFromLatin1(rawName)});
+      layerDefs.push({featureId:rec.id, rawName, name:decodeShiftJisFromLatin1(rawName), visible:parseInt(unquoteSxfValue(rec.args[1]||'1'),10)!==0});
     }else if(rec.name==='width_feature') widthDefs.push({featureId:rec.id, value:parseFloat(unquoteSxfValue(rec.args[0]||'0'))});
-    else if(rec.name.includes('font')){ const rawName=unquoteSxfValue(rec.args[0]||''); const name=decodeShiftJisFromLatin1(rawName); if(name) fontDefs.push({featureId:rec.id, rawName, name}); }
+    else if(rec.name==='text_font_feature'){ const rawName=unquoteSxfValue(rec.args[0]||''); const name=decodeShiftJisFromLatin1(rawName); if(name) fontDefs.push({featureId:rec.id, rawName, name}); }
     else if(rec.name==='pre_defined_colour_feature') colorDefs.push({featureId:rec.id, kind:'pre', value:String(unquoteSxfValue(rec.args[0]||'')).toLowerCase()});
     else if(rec.name==='user_defined_colour_feature') colorDefs.push({featureId:rec.id, kind:'rgb', r:+unquoteSxfValue(rec.args[0]||0), g:+unquoteSxfValue(rec.args[1]||0), b:+unquoteSxfValue(rec.args[2]||0)});
-    else if(rec.name==='pre_defined_linetype_feature') preLineDefs.push({featureId:rec.id, name:String(unquoteSxfValue(rec.args[0]||'')).toLowerCase()});
-    else if(rec.name==='user_defined_linetype_feature') userLineDefs.push({featureId:rec.id, name:String(unquoteSxfValue(rec.args[0]||'')).toLowerCase(), pitches:rec.args.slice(2).map(v=>parseFloat(unquoteSxfValue(v))).filter(Number.isFinite)});
+    else if(rec.name==='pre_defined_font_feature'||rec.name==='pre_defined_linetype_feature') preLineDefs.push({featureId:rec.id, name:String(unquoteSxfValue(rec.args[0]||'')).toLowerCase()});
+    else if(rec.name==='user_defined_font_feature'||rec.name==='user_defined_linetype_feature') userLineDefs.push({featureId:rec.id, name:String(unquoteSxfValue(rec.args[0]||'')).toLowerCase(), pitches:rec.args.slice(2).flatMap(parseTupleNumbers).filter(v=>v>0)});
   }
   layerDefs.sort((a,b)=>a.featureId-b.featureId); widthDefs.sort((a,b)=>a.featureId-b.featureId); fontDefs.sort((a,b)=>a.featureId-b.featureId); colorDefs.sort((a,b)=>a.featureId-b.featureId); preLineDefs.sort((a,b)=>a.featureId-b.featureId); userLineDefs.sort((a,b)=>a.featureId-b.featureId);
-  const layerMap={}, layerRefToIdx={}, layerNames={}; layerDefs.forEach((d,idx)=>{layerMap[d.featureId]=d.name; layerRefToIdx[d.featureId]=idx+1; layerNames[String(idx+1)]=d.name;});
+  const layerMap={}, layerRefToIdx={}, layerNames={}, layerVisibleByDefault={}; layerDefs.forEach((d,idx)=>{layerMap[d.featureId]=d.name; layerRefToIdx[d.featureId]=idx+1; layerNames[String(idx+1)]=d.name; layerVisibleByDefault[String(idx+1)]=d.visible!==false;});
   const widthFeatureMap={}, widthCodeMap={}; widthDefs.forEach((d,idx)=>{widthFeatureMap[d.featureId]=d.value; widthCodeMap[idx+1]=d.value;});
   const fontFeatureMap={}, fontCodeMap={}; fontDefs.forEach((d,idx)=>{fontFeatureMap[d.featureId]=d.name; fontCodeMap[idx+1]=d.name;});
   const predefinedColorNameMap={black:'#000000',red:'#ff0000',green:'#00ff00',blue:'#0000ff',yellow:'#ffff00',magenta:'#ff00ff',cyan:'#00ffff',white:'#ffffff',brown:'#8b4513',orange:'#ffa500',lightgreen:'#90ee90',lightblue:'#87cefa',lavender:'#9370db',lightgray:'#d3d3d3',darkgray:'#808080',deeppink:'#ff1493'};
   const colorFeatureMap={}, colorCodeMap={}; colorDefs.forEach((d,idx)=>{ let hex='#000000'; if(d.kind==='pre') hex=predefinedColorNameMap[d.value]||'#000000'; else hex=`#${Math.max(0,Math.min(255,d.r||0)).toString(16).padStart(2,'0')}${Math.max(0,Math.min(255,d.g||0)).toString(16).padStart(2,'0')}${Math.max(0,Math.min(255,d.b||0)).toString(16).padStart(2,'0')}`; colorFeatureMap[d.featureId]=hex.toLowerCase(); colorCodeMap[idx+1]=hex.toLowerCase(); });
-  const predefinedLinetypeDashMap={continuous:[],dashed:[6,4],'dashed spaced':[6,8],'long dashed dotted':[12,4,1.5,4],'long dashed triplicate-dotted':[12,4,1.5,4,1.5,4,1.5,4],dotted:[1.5,3],chain:[10,3,1.5,3],'chain double dash':[10,3,6,3],'dashed dotted':[6,3,1.5,3],'double-dashed dotted':[6,3,6,3,1.5,3],'dashed double-dotted':[6,3,1.5,3,1.5,3],'dashed triplicate-dotted':[6,3,1.5,3,1.5,3,1.5,3],'double-dashed triplicate-dotted':[6,3,6,3,1.5,3,1.5,3,1.5,3],'long dashed double-dotted':[12,4,1.5,4,1.5,4],'double-dashed double-dotted':[6,3,6,3,1.5,3,1.5,3]};
-  const linetypeFeatureMap={}, linetypeCodeMap={}; let lineCode=1; for(const d of preLineDefs){const dash=predefinedLinetypeDashMap[d.name]||[]; linetypeFeatureMap[d.featureId]={name:d.name,dash}; linetypeCodeMap[lineCode++]={name:d.name,dash};} for(const d of userLineDefs){const dash=(d.pitches||[]).filter(v=>Number.isFinite(v)&&v>0); linetypeFeatureMap[d.featureId]={name:d.name,dash}; linetypeCodeMap[lineCode++]={name:d.name,dash};}
+  const predefinedLineTypeNames=['continuous','dashed','dashed spaced','long dashed dotted','long dashed double-dotted','long dashed triplicate-dotted','dotted','chain','chain double dash','dashed dotted','double-dashed dotted','dashed double-dotted','double-dashed double-dotted','dashed triplicate-dotted','double-dashed triplicate-dotted',''];
+  const predefinedLinetypeDashMap={continuous:[],dashed:[6,4],'dashed spaced':[6,8],'long dashed dotted':[12,4,1.5,4],'long dashed double-dotted':[12,4,1.5,4,1.5,4],'long dashed triplicate-dotted':[12,4,1.5,4,1.5,4,1.5,4],dotted:[1.5,3],chain:[10,3,1.5,3],'chain double dash':[10,3,6,3],'dashed dotted':[6,3,1.5,3],'double-dashed dotted':[6,3,6,3,1.5,3],'dashed double-dotted':[6,3,1.5,3,1.5,3],'double-dashed double-dotted':[6,3,6,3,1.5,3,1.5,3],'dashed triplicate-dotted':[6,3,1.5,3,1.5,3,1.5,3],'double-dashed triplicate-dotted':[6,3,6,3,1.5,3,1.5,3,1.5,3]};
+  const linetypeFeatureMap={}, linetypeCodeMap={};
+  predefinedLineTypeNames.forEach((name,idx)=>{linetypeCodeMap[idx+1]={name,dash:predefinedLinetypeDashMap[name]||[]};});
+  for(const d of preLineDefs){const dash=predefinedLinetypeDashMap[d.name]||[]; linetypeFeatureMap[d.featureId]={name:d.name,dash}; const code=predefinedLineTypeNames.indexOf(d.name)+1; if(code>0) linetypeCodeMap[code]={name:d.name,dash};}
+  let userLineCode=17;
+  for(const d of userLineDefs){const dash=(d.pitches||[]).filter(v=>Number.isFinite(v)&&v>0); linetypeFeatureMap[d.featureId]={name:d.name,dash}; linetypeCodeMap[userLineCode++]={name:d.name,dash};}
   const resolveWidth=ref=>{const n=+unquoteSxfValue(ref); return Number.isFinite(widthFeatureMap[n])?widthFeatureMap[n]:(Number.isFinite(widthCodeMap[n])?widthCodeMap[n]:(Number.isFinite(n)?n:1));};
   const resolveFontName=ref=>{const n=+unquoteSxfValue(ref); return fontFeatureMap[n]||fontCodeMap[n]||'';};
   const resolveColor=ref=>{const n=+unquoteSxfValue(ref); return Number.isFinite(n)?n:1;};
@@ -2227,19 +2237,24 @@ function parseSfcText(srcText, fileName){
   const resolveLineDash=ref=>{const n=+unquoteSxfValue(ref); return (linetypeFeatureMap[n]||linetypeCodeMap[n]||{dash:null}).dash;};
   const resolveLayer=ref=>{const n=+unquoteSxfValue(ref); return layerRefToIdx[n]!=null?layerRefToIdx[n]:(Number.isFinite(n)?n:1);};
   const num=ref=>{const n=parseFloat(unquoteSxfValue(ref)); return Number.isFinite(n)?n:0;};
-  const parseTupleNums=arg=>{ let s=String(arg||'').trim(); if(s.startsWith('(')&&s.endsWith(')')) s=s.slice(1,-1); return splitSxfArgs(s).map(v=>parseFloat(unquoteSxfValue(v))).filter(Number.isFinite); };
-  const lines=[], polys=[], splines=[], texts=[], circles=[], arcs=[], ellipses=[], ellipseArcs=[];
+  const parseTupleNums=parseTupleNumbers;
+  const lines=[], polys=[], splines=[], texts=[], circles=[], arcs=[], ellipses=[], ellipseArcs=[], markers=[];
   for(const rec of records){
     if(rec.name==='line_feature' && rec.args.length>=8) lines.push([num(rec.args[4]),num(rec.args[5]),num(rec.args[6]),num(rec.args[7]),resolveLayer(rec.args[0]),resolveColor(rec.args[1]),resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]);
-    else if(rec.name==='polyline_feature' && rec.args.length>=6){ const xlist=parseTupleNums(rec.args[4]), ylist=parseTupleNums(rec.args[5]); if(xlist.length&&xlist.length===ylist.length) polys.push([xlist.map((x,i)=>[x,ylist[i]]),resolveLayer(rec.args[0]),resolveColor(rec.args[1]),resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]); }
+    else if(rec.name==='polyline_feature' && rec.args.length>=7){ const expected=Math.trunc(num(rec.args[4])); const xlist=parseTupleNums(rec.args[5]), ylist=parseTupleNums(rec.args[6]); const layer=resolveLayer(rec.args[0]), color=resolveColor(rec.args[1]); if(layer===0&&color===0) continue; if(expected>0&&xlist.length===expected&&xlist.length===ylist.length) polys.push([xlist.map((x,i)=>[x,ylist[i]]),layer,color,resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]); }
     else if(rec.name==='spline_feature' && rec.args.length>=8){ const xlist=parseTupleNums(rec.args[6]), ylist=parseTupleNums(rec.args[7]); if(xlist.length&&xlist.length===ylist.length) splines.push([xlist.map((x,i)=>[x,ylist[i]]),resolveLayer(rec.args[0]),resolveColor(rec.args[1]),resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]); }
     else if(rec.name==='text_string_feature' && rec.args.length>=13) texts.push({text:decodeShiftJisFromLatin1(unquoteSxfValue(rec.args[3])),x:num(rec.args[4]),y:num(rec.args[5]),h:num(rec.args[6]),w:num(rec.args[7]),sp:num(rec.args[8]),angle:num(rec.args[9]),slant:num(rec.args[10]),align1:+unquoteSxfValue(rec.args[11])||1,align2:+unquoteSxfValue(rec.args[12])||1,layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),font_id:+unquoteSxfValue(rec.args[2])||1,font_name:resolveFontName(rec.args[2])});
     else if(rec.name==='circle_feature' && rec.args.length>=7) circles.push([num(rec.args[4]),num(rec.args[5]),num(rec.args[6]),resolveLayer(rec.args[0]),resolveColor(rec.args[1]),resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]);
     else if(rec.name==='arc_feature' && rec.args.length>=10) arcs.push({layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),width:resolveWidth(rec.args[3]),ltype:resolveLineType(rec.args[2]),dash:resolveLineDash(rec.args[2]),cx:num(rec.args[4]),cy:num(rec.args[5]),r:num(rec.args[6]),direction:+unquoteSxfValue(rec.args[7])||0,start:num(rec.args[8]),end:num(rec.args[9])});
     else if(rec.name==='ellipse_feature' && rec.args.length>=9) ellipses.push({layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),width:resolveWidth(rec.args[3]),ltype:resolveLineType(rec.args[2]),dash:resolveLineDash(rec.args[2]),cx:num(rec.args[4]),cy:num(rec.args[5]),rx:num(rec.args[6]),ry:num(rec.args[7]),rot:num(rec.args[8])});
     else if(rec.name==='ellipse_arc_feature' && rec.args.length>=12) ellipseArcs.push({layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),width:resolveWidth(rec.args[3]),ltype:resolveLineType(rec.args[2]),dash:resolveLineDash(rec.args[2]),cx:num(rec.args[4]),cy:num(rec.args[5]),rx:num(rec.args[6]),ry:num(rec.args[7]),direction:+unquoteSxfValue(rec.args[8])||0,rot:num(rec.args[9]),start:num(rec.args[10]),end:num(rec.args[11])});
+    else if(rec.name==='point_marker_feature' && rec.args.length>=7) markers.push({layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),x:num(rec.args[2]),y:num(rec.args[3]),code:Math.trunc(num(rec.args[4])),angle:num(rec.args[5]),scale:num(rec.args[6])||1});
   }
-  const totalCount = lines.length + polys.length + splines.length + texts.length + circles.length + arcs.length + ellipses.length + ellipseArcs.length;
+  const scaledFigures=records.filter(r=>r.name==='sfig_locate_feature'&&r.args.length>=7).map(r=>({name:decodeShiftJisFromLatin1(unquoteSxfValue(r.args[1])),sx:num(r.args[5]),sy:num(r.args[6])})).filter(v=>v.sx>0&&v.sy>0&&(Math.abs(v.sx-1)>1e-9||Math.abs(v.sy-1)>1e-9));
+  const mainFigures=scaledFigures.filter(v=>!v.name.startsWith('~'));
+  const scaleSource=(mainFigures.length?mainFigures:scaledFigures).sort((a,b)=>Math.min(a.sx,a.sy)-Math.min(b.sx,b.sy))[0];
+  const drawingToPaperScale=scaleSource?Math.max(1e-9,Math.sqrt(scaleSource.sx*scaleSource.sy)):1;
+  const totalCount = lines.length + polys.length + splines.length + texts.length + circles.length + arcs.length + ellipses.length + ellipseArcs.length + markers.length;
   if(!totalCount){
     try{
       const legacy = parseSfcTextLegacyFallback(srcText, fileName);
@@ -2248,7 +2263,7 @@ function parseSfcText(srcText, fileName){
       }
     }catch(err){ console.error(err); }
   }
-  return {lines,polys,splines,texts,circles,arcs,ellipses,ellipseArcs,markers:[],layerNames,source_name:fileName||'loaded.sfc',_layerMap:layerMap,_layerRefToIdx:layerRefToIdx,_fontCodeMap:fontCodeMap,_flat:flat,_colorFeatureMap:colorFeatureMap,_colorCodeMap:colorCodeMap,_linetypeFeatureMap:linetypeFeatureMap,_linetypeCodeMap:linetypeCodeMap};
+  return {lines,polys,splines,texts,circles,arcs,ellipses,ellipseArcs,markers,layerNames,source_name:fileName||'loaded.sfc',_layerMap:layerMap,_layerRefToIdx:layerRefToIdx,_layerVisibleByDefault:layerVisibleByDefault,_fontCodeMap:fontCodeMap,_flat:flat,_colorFeatureMap:colorFeatureMap,_colorCodeMap:colorCodeMap,_linetypeFeatureMap:linetypeFeatureMap,_linetypeCodeMap:linetypeCodeMap,_drawingToPaperScale:drawingToPaperScale};
 }
 
 function normalize180(a){
@@ -2497,6 +2512,7 @@ function getBounds(){
   for(const e of data.ellipses || []){ add(e.cx-e.rx,e.cy-e.ry); add(e.cx+e.rx,e.cy+e.ry); }
   for(const e of data.ellipseArcs || []){ add(e.cx-e.rx,e.cy-e.ry); add(e.cx+e.rx,e.cy+e.ry); }
   for(const t of data.texts || []) add(t.x, t.y);
+  for(const m of data.markers || []) add(m.x, m.y);
   if(!isFinite(minx)) return {minx:0,miny:0,maxx:1,maxy:1};
   return {minx,miny,maxx,maxy};
 }
@@ -2511,6 +2527,7 @@ function getRobustBounds(){
   for(const e of data.ellipses || []){ push(e.cx-e.rx,e.cy-e.ry); push(e.cx+e.rx,e.cy+e.ry); }
   for(const e of data.ellipseArcs || []){ push(e.cx-e.rx,e.cy-e.ry); push(e.cx+e.rx,e.cy+e.ry); }
   for(const t of data.texts || []) push(t.x, t.y);
+  for(const m of data.markers || []) push(m.x, m.y);
   if (pts.length < 30) return getBounds();
   const xs=pts.map(p=>p[0]).sort((a,b)=>a-b);
   const ys=pts.map(p=>p[1]).sort((a,b)=>a-b);
@@ -2560,10 +2577,14 @@ function getAllLayers(){
   for(const v of (data.splines||[])) set.add(v[1]);
   for(const t of data.texts) set.add(t.layer);
   for(const c of data.circles) set.add(c[3]);
+  for(const a of data.arcs || []) set.add(a.layer);
+  for(const e of data.ellipses || []) set.add(e.layer);
+  for(const e of data.ellipseArcs || []) set.add(e.layer);
+  for(const m of data.markers || []) set.add(m.layer);
   return Array.from(set).sort((a,b)=>a-b);
 }
 function ensureLayerVisibility(){
-  for(const layer of getAllLayers()) if(!(layer in layerVisibility)) layerVisibility[layer]=true;
+  for(const layer of getAllLayers()) if(!(layer in layerVisibility)) layerVisibility[layer]=data._layerVisibleByDefault ? data._layerVisibleByDefault[String(layer)]!==false : true;
 }
 function isLayerVisible(layer){ return layerVisibility[layer]===true; }
 function renderLayerList(){
@@ -2659,8 +2680,16 @@ function drawTextExact(t){
 function applyLineType(ctx2,ltype,widthPx,dashOverride){
   const w = Math.max(1, widthPx || 1);
   if (Array.isArray(dashOverride) && dashOverride.length){
-    const mmScale = Math.max(0.8, w * 0.65);
-    ctx2.setLineDash(dashOverride.map(v => Math.max(1, v * mmScale)));
+    const paperMmPx = view.scale / Math.max(1e-9, Number(data && data._drawingToPaperScale) || 1);
+    const compactDotted = Math.max(...dashOverride) <= 2;
+    let intervals = dashOverride.map((v,index)=>{
+      const exact = Number(v) * paperMmPx;
+      return compactDotted
+        ? (index%2===0 ? Math.max(w*0.55,exact) : Math.max(w*2.75,exact))
+        : (index%2===0 ? Math.max(w*1.8,exact) : Math.max(w*1.4,exact));
+    }).filter(v=>Number.isFinite(v)&&v>0);
+    if(intervals.length%2===1) intervals=intervals.concat(intervals[intervals.length-1]);
+    ctx2.setLineDash(intervals.length>=2?intervals:[]);
     ctx2.lineCap = 'butt';
     return;
   }
@@ -2697,6 +2726,9 @@ function rebuildMeasurePoints(){
       pts.push({x:polyPts[i][0],y:polyPts[i][1],layer});
       if(i>0) lines.push([{x:polyPts[i-1][0],y:polyPts[i-1][1]}, {x:polyPts[i][0],y:polyPts[i][1]}, layer]);
     }
+  }
+  for(const m of data.markers || []){
+    if(isLayerVisible(m.layer)) pts.push({x:m.x,y:m.y,layer:m.layer,marker:true});
   }
   if(lines.length<=1500){
     for(let i=0;i<lines.length;i++){
@@ -3458,8 +3490,8 @@ function getFlatSxfText(srcText){
 function splitSxfArgs(body){
   const out=[]; let cur=''; let depth=0; let quote='';
   for(let i=0;i<body.length;i++){
-    const ch=body[i], prev=i>0?body[i-1]:'';
-    if(quote){ cur+=ch; if(ch===quote && prev!=='\\') quote=''; continue; }
+    const ch=body[i];
+    if(quote){ cur+=ch; if(ch===quote) quote=''; continue; }
     if(ch==='\''||ch==='"'){ quote=ch; cur+=ch; continue; }
     if(ch==='('){ depth++; cur+=ch; continue; }
     if(ch===')'){ if(depth>0) depth--; cur+=ch; continue; }
@@ -3471,7 +3503,7 @@ function splitSxfArgs(body){
 }
 function unquoteSxfValue(v){
   let s=String(v==null?'':v).trim();
-  if((s.startsWith("\\'") && s.endsWith("\\'")) || (s.startsWith("\'") && s.endsWith("\'"))){ s=s.slice(2,-2); }
+  if(s.startsWith("\\'") && s.endsWith("\\'")){ s=s.slice(2,-2); }
   else if((s.startsWith("'") && s.endsWith("'")) || (s.startsWith('"') && s.endsWith('"'))){ s=s.slice(1,-1); }
   s=s.replace(/\\'/g,"'").replace(/\\\\/g,'\\');
   return s;
@@ -3492,8 +3524,8 @@ function parseSxfFeatureRecords(flat){
     if(flat[j]!=='(' || !name){ i=j; continue; }
     let depth=0, quote=''; const bodyStart=j+1; let k=j;
     for(;k<flat.length;k++){
-      const ch=flat[k], prev=k>0?flat[k-1]:'';
-      if(quote){ if(ch===quote && prev!=='\\') quote=''; continue; }
+      const ch=flat[k];
+      if(quote){ if(ch===quote) quote=''; continue; }
       if(ch==='\''||ch==='"'){ quote=ch; continue; }
       if(ch==='(') depth++;
       else if(ch===')'){ depth--; if(depth===0) break; }
@@ -3659,6 +3691,7 @@ function getDataWorldBounds(){
   for(const e of data.ellipses||[]) add(+e.cx,+e.cy);
   for(const e of data.ellipseArcs||[]) add(+e.cx,+e.cy);
   for(const t of data.texts||[]) add(+t.x,+t.y);
+  for(const m of data.markers||[]) add(+m.x,+m.y);
   if(!Number.isFinite(minx)) return {minx:0,miny:0,maxx:0,maxy:0,width:0,height:0};
   return {minx,miny,maxx,maxy,width:maxx-minx,height:maxy-miny};
 }
