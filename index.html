@@ -988,6 +988,16 @@ gtag('config', 'G-88B9YPJXWP');
             </div>
           </div>
 
+          <div class="helpSection" data-help-section="profile">
+            <div class="helpSectionTitle">地形断面</div>
+            <div class="helpSectionBody">
+              <div class="helpBlock"><div class="helpHead">使い方</div><b>断面</b>を押し、図面上で起点と終点を順にタップすると自動で断面図を表示します。</div>
+              <div class="helpBlock"><div class="helpHead">グラフ操作</div>1本指でなぞると図面上の対応位置を表示します。2本指で拡大縮小・移動できます。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報</div>SFC座標を緯度経度へ変換するため、最初の利用時に端末の現在地を使用します。</div>
+              <div class="helpBlock"><div class="helpHead">注意</div>国土地理院のDEMを使った概略断面です。測量成果には使用できません。</div>
+            </div>
+          </div>
+
           <div class="helpSection" data-help-section="memo">
             <div class="helpSectionTitle">手書きメモ</div>
             <div class="helpSectionBody">
@@ -1920,66 +1930,18 @@ function getGpsEnvironmentMessage(){
   }
   return "";
 }
-function refreshEnvironmentNotice(){
-  const el = document.getElementById("envNotice");
-  if (!el) return;
-  const msg = getGpsEnvironmentMessage();
-  if (msg){
-    el.textContent = msg;
-    el.style.display = "block";
-  }else{
-    el.style.display = "none";
-  }
+function jgd2024XYToLatLon(xNorth, yEast, zone){
+  if (!ensureProj4Defs()) throw new Error("proj4未読込");
+  const result = proj4("JGD2024_ZONE_" + zone, "EPSG:4326", [yEast, xNorth]);
+  return {lon:result[0], lat:result[1]};
 }
-function updateGpsUi(){
-  const btn = document.getElementById("gpsBtn");
-  if (btn){
-    const available = hasLoadedDrawing();
-    btn.classList.toggle("activeGpsBtn", !!gpsEnabled && available);
-    btn.classList.toggle("dimmed", !available);
-    btn.disabled = false;
-    btn.style.pointerEvents = "auto";
-    if (gpsEnabled && available){
-      btn.style.background = "#0A84FF";
-      btn.style.color = "#fff";
-      btn.style.borderColor = "#0066cc";
-    }else{
-      btn.style.background = "";
-      btn.style.color = "";
-      btn.style.borderColor = "";
-    }
-  }
-  const gpsDetailFab = document.getElementById("gpsDetailFab");
-  if (gpsDetailFab){
-    gpsDetailFab.classList.toggle("activeGpsDetailBtn", !!gpsDetailOpen);
-    gpsDetailFab.style.background = gpsDetailOpen ? "#0A84FF" : "";
-    gpsDetailFab.style.color = gpsDetailOpen ? "#fff" : "";
-    gpsDetailFab.style.borderColor = gpsDetailOpen ? "#0066cc" : "";
-  }
-  if (!gpsBox) return;
-  gpsBox.style.display = gpsDetailOpen ? "block" : "none";
-  const el = document.getElementById("gpsText");
-  if (!el) return;
-  if (!gpsEnabled){
-    const msg = getGpsEnvironmentMessage();
-    el.innerHTML = msg ? msg : "GPSはOFFです。";
-    return;
-  }
-  if (!gpsPosition){
-    const msg = getGpsEnvironmentMessage();
-    el.innerHTML = msg ? msg : "測位中です…";
-    return;
-  }
-  const zoneMemo = gpsPosition.zone === 4 && gpsPosition.lat >= 32.4 && gpsPosition.lat <= 34.9 && gpsPosition.lon >= 132.0 && gpsPosition.lon <= 134.95
-    ? "4系（四国エリア自動判定）"
-    : `${gpsPosition.zone}系（自動）`;
-  const altitudeText = gpsPosition.altitude != null
-    ? `${gpsPosition.altitude.toFixed(2)}m（デジタル標高モデル）`
-    : '取得中';
-  el.innerHTML = `測地系: ${JGD2024_NAME}<br>系番号: ${zoneMemo}<br>緯度: ${gpsPosition.lat.toFixed(7)}<br>経度: ${gpsPosition.lon.toFixed(7)}<br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>標高TP: ${altitudeText}<br>精度: 約${Math.round(gpsPosition.accuracy || 0)}m`;
+function getProfileDrawingKey(){
+  const b = getLoadedSfcBoundsWorld();
+  if (!b) return "";
+  return `${data.source_name||"sfc"}|${Math.round(b.cx/1000)}|${Math.round(b.cy/1000)}`;
 }
-function hasLoadedDrawing(){
-  return !!(data && ((data.lines && data.lines.length) || (data.polys && data.polys.length) || (data.texts && data.texts.length) || (data.circles && data.circles.length)));
+function readProfileZoneCache(){
+  try{ return JSON.parse(localStorage.getItem(PROFILE_ZONE_CACHE_KEY) || "{}"); }catch(e){ return {}; }
 }
 function enterGpsOnlyBlankMode(){
   gpsOnlyBlankMode = true;
@@ -2474,15 +2436,10 @@ function isIOSLike(){
 async function shareBlobForIOS(blob, fileName){
   if (!(window.File && navigator.share && isIOSLike())) return false;
   try{
-    const file = new File([blob], fileName, {type:'text/html;charset=utf-8'});
-    if (navigator.canShare && !navigator.canShare({files:[file]})) return false;
-    await navigator.share({files:[file]});
-    return true;
-  }catch(e){
-    if (e && e.name === 'AbortError') return true;
-    console.error(e);
-    return false;
-  }
+    const all = readProfileZoneCache();
+    all[key] = {zone, savedAt:Date.now()};
+    localStorage.setItem(PROFILE_ZONE_CACHE_KEY, JSON.stringify(all));
+  }catch(e){}
 }
 function updateStopBtnUI(){
   const btn = document.getElementById("stopBtn");
@@ -2499,237 +2456,35 @@ function updateStopBtnUI(){
     btn.style.borderColor = "";
   }
 }
-function applyMobileUiTweaks(){
-  const saveBtn = document.getElementById("saveIconBtn");
-  if(saveBtn){
-    if (isIOSLike()) saveBtn.classList.add("mobile-hide");
-    else saveBtn.classList.remove("mobile-hide");
-  }
+function profileZoneFromDevicePosition(pos){
+  if (!pos || !pos.coords) return null;
+  const lat = +pos.coords.latitude, lon = +pos.coords.longitude;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const zone = chooseJapanPlaneZone(lat, lon);
+  const xy = latLonToJgd2024XY(lat, lon, zone);
+  const sfc = planeToSfcWorld(xy.x, xy.y);
+  const distance = calcDistanceFromSfcBoundsMeters(sfc.x, sfc.y);
+  // A zone cannot be determined from local plane coordinates alone.  The
+  // device position must be in the same broad work area at least once.
+  if (distance != null && distance > 250000) return null;
+  rememberProfileZone(zone);
+  return zone;
 }
-
-let __lastTouchEndTs = 0;
-document.addEventListener("gesturestart", e=>{ e.preventDefault(); }, {passive:false});
-document.addEventListener("gesturechange", e=>{ e.preventDefault(); }, {passive:false});
-document.addEventListener("gestureend", e=>{ e.preventDefault(); }, {passive:false});
-document.addEventListener("touchend", e=>{
-  const now = Date.now();
-  if (now - __lastTouchEndTs <= 300) e.preventDefault();
-  __lastTouchEndTs = now;
-}, {passive:false});
-
-function updateModeIcons(){
-  const ids = {
-    center:"pickCenterBtn",
-    cross:"pickCrossBtn",
-    end:"pickEndBtn",
-    free:"pickFreeBtn",
-    line:"pickLineBtn"
-  };
-  for (const id of Object.values(ids)){
-    const el = document.getElementById(id);
-    if (!el) continue;
-    el.classList.remove("pick-active");
+async function resolveProfileZone(){
+  if (!hasLoadedDrawing() || !ensureProj4Defs()) return null;
+  const remembered = getRememberedProfileZone();
+  if (remembered) return remembered;
+  if (gpsPosition){
+    const zone = profileZoneFromDevicePosition({coords:{latitude:gpsPosition.lat, longitude:gpsPosition.lon}});
+    if (zone) return zone;
   }
-  for (const mode of activePickModes){
-    const el = document.getElementById(ids[mode]);
-    if (!el) continue;
-    el.classList.add("pick-active");
-  }
-  const mbtn = document.getElementById("measureBtn");
-  if (!measureMode) {
-    if (mbtn) mbtn.classList.remove("activeMeasureBtn");
-    return;
-  }
-  if (mbtn) mbtn.classList.add("activeMeasureBtn");
-  
-}
-function sxfBaseColorFromIndex(idx){
-  const map = {
-    1:"#000000", 2:"#ff0000", 3:"#00ff00", 4:"#0000ff",
-    5:"#ffff00", 6:"#ff00ff", 7:"#00ffff", 8:"#ffffff",
-    9:"#c000c0", 10:"#8b4513", 11:"#ffa500", 12:"#90ee90",
-    13:"#87cefa", 14:"#9370db", 15:"#d3d3d3", 16:"#808080"
-  };
-  return (map[Number(idx)] || "#000000").toLowerCase();
-}
-function adaptContrastColor(c){
-  const color = String(c || "#000000").toLowerCase();
-  if (darkTheme){
-    if (color === "#000000") return "#ffffff";
-    return color;
-  } else {
-    if (color === "#ffffff") return "#000000";
-    return color;
-  }
-}
-function colorFromIndex(idx){
-  const n = Number(idx);
-  const resolved = data ? ((data._colorFeatureMap && data._colorFeatureMap[n]) || (data._colorCodeMap && data._colorCodeMap[n]) || null) : null;
-  const c = (resolved || sxfBaseColorFromIndex(idx)).toLowerCase();
-  return adaptContrastColor(c);
-}
-
-function textColorFromIndex(idx){
-  const n = Number(idx);
-  const resolved = data ? ((data._colorFeatureMap && data._colorFeatureMap[n]) || (data._colorCodeMap && data._colorCodeMap[n]) || null) : null;
-  const c = (resolved || sxfBaseColorFromIndex(idx)).toLowerCase();
-  return adaptContrastColor(c);
-}
-function quoteFontName(name){
-  return "'" + String(name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
-}
-function normalizeSfcFontName(name){
-  return String(name || '')
-    .replace(/[\u3000\t]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
-function fontCssFromSfcName(name, id){
-  const raw = String(name || '').replace(/[\u0000-\u001f]/g, '').trim();
-  const norm = normalizeSfcFontName(raw);
-  if (norm){
-    if (norm.includes('ms pゴシック') || norm.includes('ms pgothic') || norm.includes('ｍｓ ｐゴシック')){
-      return "'MS PGothic','ＭＳ Ｐゴシック','MS Gothic','ＭＳ ゴシック',sans-serif";
-    }
-    if (norm.includes('ms ゴシック') || norm.includes('ms gothic') || norm.includes('ｍｓ ゴシック')){
-      return "'MS Gothic','ＭＳ ゴシック','MS PGothic','ＭＳ Ｐゴシック',sans-serif";
-    }
-    if (norm.includes('ms p明朝') || norm.includes('ms pmincho') || norm.includes('ｍｓ ｐ明朝')){
-      return "'MS PMincho','ＭＳ Ｐ明朝','MS Mincho','ＭＳ 明朝',serif";
-    }
-    if (norm.includes('ms 明朝') || norm.includes('ms mincho') || norm.includes('ｍｓ 明朝')){
-      return "'MS Mincho','ＭＳ 明朝','MS PMincho','ＭＳ Ｐ明朝',serif";
-    }
-    if (norm.includes('游ゴシック') || norm.includes('yu gothic')){
-      return "'Yu Gothic','Yu Gothic UI','游ゴシック','Meiryo','MS Gothic','ＭＳ ゴシック',sans-serif";
-    }
-    if (norm.includes('游明朝') || norm.includes('yu mincho')){
-      return "'Yu Mincho','游明朝','MS Mincho','ＭＳ 明朝',serif";
-    }
-    if (norm.includes('メイリオ') || norm.includes('meiryo')){
-      return "'Meiryo','MS Gothic','ＭＳ ゴシック',sans-serif";
-    }
-    return quoteFontName(raw) + ",'MS Gothic','ＭＳ ゴシック',sans-serif";
-  }
-  if (id === 2) return "'MS PGothic','ＭＳ Ｐゴシック','MS Gothic','ＭＳ ゴシック',sans-serif";
-  return "'MS Gothic','ＭＳ ゴシック','MS PGothic','ＭＳ Ｐゴシック',sans-serif";
-}
-function decodeShiftJisFromLatin1(str){
-  try {
-    const bytes = new Uint8Array(str.length);
-    for(let i=0;i<str.length;i++) bytes[i] = str.charCodeAt(i) & 0xff;
-    return new TextDecoder("shift_jis").decode(bytes);
-  } catch(e){ return str; }
-}
-function parseSfcTextLegacyFallback(srcText, fileName){
-  // /*SXF\n...\nSXF*/ 形式と 直接 #N=xxx 形式の両方に対応するため
-  // ブロックを取り出してフラットなテキストに正規化する
-  let flat = String(srcText || '');
-  flat = flat.replace(/\/\*\s*---\s*sfcviewer_generated_begin\s*---\s*\*\/[\s\S]*?\/\*\s*---\s*sfcviewer_generated_end\s*---\s*\*\//g, "");
-  // /*SXF...SXF*/ ブロックを中身だけ取り出す（\r\n両対応）
-  flat = flat.replace(/\/\*SXF(?:3(?:\.1)?)?\r?\n([\s\S]*?)\r?\nSXF(?:3(?:\.1)?)?\*\//g, (_, inner) => inner + "\n");
-
-  // width_feature の参照番号→mm値マップを作る
-  // #N = width_feature('0.130000') → widthMap[N] = 0.13
-  const widthMap = {};
-  const widthDefRe = /#(\d+)\s*=\s*width_feature\('([^']+)'\)/g;
-  let wm;
-  while((wm = widthDefRe.exec(flat)) !== null){
-    widthMap[+wm[1]] = parseFloat(wm[2]);
-  }
-  // widthをmm値に解決するヘルパー
-  function resolveWidth(ref){
-    const v = widthMap[+ref];
-    return v != null ? v : +ref || 1;
-  }
-
-  // layer_feature の参照番号→名前マップ
-  // #N = layer_feature(\\'名前\\',...) → layerMap[N] = 名前
-  const layerMap = {};
-  const layerDefRe = /#(\d+)\s*=\s*layer_feature\(\\'(.*?)\\'.*?\)/g;
-  let lm;
-  let layerIdx = 1;
-  while((lm = layerDefRe.exec(flat)) !== null){
-    layerMap[+lm[1]] = decodeShiftJisFromLatin1(lm[2]);
-    layerIdx++;
-  }
-  // 番号→インデックス（1始まり）マップも作る
-  const layerRefToIdx = {};
-  let i2 = 1;
-  for(const k of Object.keys(layerMap).map(Number).sort((a,b)=>a-b)){
-    layerRefToIdx[k] = i2++;
-  }
-  function resolveLayer(ref){ return layerRefToIdx[+ref] != null ? layerRefToIdx[+ref] : +ref || 1; }
-
-  // font_feature 系を定義順で拾い、文字フォントコード(1始まり)→フォント名にする
-  const fontCodeMap = {};
-  const fontDefRe = /#\d+\s*=\s*([A-Za-z_][A-Za-z0-9_]*)\(\s*(?:\'([^']*?)\'|'([^']*?)'|"([^"]*?)")/g;
-  let fm;
-  let fontCode = 1;
-  while((fm = fontDefRe.exec(flat)) !== null){
-    const featureName = String(fm[1] || '').toLowerCase();
-    if (!featureName.includes('font')) continue;
-    const rawName = fm[2] != null ? fm[2] : (fm[3] != null ? fm[3] : (fm[4] != null ? fm[4] : ''));
-    const decoded = decodeShiftJisFromLatin1(rawName);
-    if (!decoded) continue;
-    fontCodeMap[fontCode++] = decoded;
-  }
-  function resolveFontName(fontCode){
-    return fontCodeMap[+fontCode] || '';
-  }
-
-  const lineRe  = /#\d+\s*=\s*line_feature\('([^']*)','([^']*)','([^']*)','([^']*)','([^']*)','([^']*)','([^']*)','([^']*)'\)/g;
-  const polyRe  = /#\d+\s*=\s*polyline_feature\('([^']*)','([^']*)','([^']*)','([^']*)','([^']*)','\(([^)]*)\)','\(([^)]*)\)'\)/g;
-  const splineRe= /#\d+\s*=\s*spline_feature\('([^']*)','([^']*)','([^']*)','([^']*)','([^']*)','([^']*)','\(([^)]*)\)','\(([^)]*)\)'\)/g;
-  const txtRe   = /#\d+\s*=\s*text_string_feature\('([^']*)','([^']*)','([^']*)',\\'(.*?)\\','([^']*)','([^']*)','([^']*)','([^']*)','([^']*)','([^']*)','([^']*)','([^']*)','([^']*)'\)/gs;
-  const cirRe   = /#\d+\s*=\s*circle_feature\('([^']*)','([^']*)','([^']*)','([^']*)','([^']*)','([^']*)','([^']*)'\)/g;
-
-  const lines=[], polys=[], splines=[], texts=[], circles=[];
-  let m;
-  while((m=lineRe.exec(flat))!==null){
-    const [_, layerRef, color, ltype, widthRef, x1,y1,x2,y2] = m;
-    lines.push([+x1,+y1,+x2,+y2, resolveLayer(layerRef), +color, resolveWidth(widthRef), +ltype]);
-  }
-  while((m=polyRe.exec(flat))!==null){
-    const [_, layerRef, color, ltype, widthRef, count, xs, ys] = m;
-    const xlist = xs.split(",").filter(Boolean).map(Number);
-    const ylist = ys.split(",").filter(Boolean).map(Number);
-    if(xlist.length!==ylist.length || !xlist.length) continue;
-    if(+layerRef===0 && +color===0 && +widthRef===0 &&
-       Math.max(...xlist.map(v=>Math.abs(v)))<1000 &&
-       Math.max(...ylist.map(v=>Math.abs(v)))<1000) continue;
-    polys.push([xlist.map((x,i)=>[x,ylist[i]]), resolveLayer(layerRef), +color, resolveWidth(widthRef), +ltype]);
-  }
-  while((m=splineRe.exec(flat))!==null){
-    const [_, layerRef, color, ltype, widthRef, degree, count, xs, ys] = m;
-    const xlist = xs.split(",").filter(Boolean).map(Number);
-    const ylist = ys.split(",").filter(Boolean).map(Number);
-    if(xlist.length!==ylist.length || !xlist.length) continue;
-    splines.push([xlist.map((x,i)=>[x,ylist[i]]), resolveLayer(layerRef), +color, resolveWidth(widthRef), +ltype]);
-  }
-  while((m=txtRe.exec(flat))!==null){
-    const [_, layerRef, color, font_id, s, x, y, h, w, sp, angle, slant, align1, align2] = m;
-    texts.push({
-      text: decodeShiftJisFromLatin1(s),
-      x:+x, y:+y, h:+h, w:+w, sp:+sp, angle:+angle, slant:+slant,
-      layer: resolveLayer(layerRef), color:+color, font_id:+font_id, font_name: resolveFontName(font_id), align1:+align1, align2:+align2
+  if (!navigator.geolocation) return null;
+  const pos = await new Promise(resolve=>{
+    navigator.geolocation.getCurrentPosition(resolve, ()=>resolve(null), {
+      enableHighAccuracy:false, maximumAge:300000, timeout:8000
     });
-  }
-  while((m=cirRe.exec(flat))!==null){
-    const [_, layerRef, color, ltype, widthRef, x, y, r] = m;
-    circles.push([+x,+y,+r, resolveLayer(layerRef), +color, resolveWidth(widthRef), +ltype]);
-  }
-
-  // layerNames を 1始まりインデックス→名前 で作る
-  const layerNames = {};
-  let ni = 1;
-  for(const k of Object.keys(layerMap).map(Number).sort((a,b)=>a-b)){
-    layerNames[String(ni++)] = layerMap[k];
-  }
-
-  return { lines, polys, splines, texts, circles, markers:[], layerNames, source_name:fileName || "loaded.sfc",
-           _layerMap: layerMap, _layerRefToIdx: layerRefToIdx, _fontCodeMap: fontCodeMap };
+  });
+  return profileZoneFromDevicePosition(pos);
 }
 
 function normalizeDrawingMetadataText(value){
@@ -2807,49 +2562,130 @@ function parseSfcText(srcText, fileName){
     if(s.startsWith('(')&&s.endsWith(')')) s=s.slice(1,-1);
     return splitSxfArgs(s).map(v=>parseFloat(unquoteSxfValue(v))).filter(Number.isFinite);
   };
-  for(const rec of records){
-    if(rec.name==='layer_feature'){
-      const rawName=unquoteSxfValue(rec.args[0]||'');
-      layerDefs.push({featureId:rec.id, rawName, name:decodeShiftJisFromLatin1(rawName), visible:parseInt(unquoteSxfValue(rec.args[1]||'1'),10)!==0});
-    }else if(rec.name==='width_feature') widthDefs.push({featureId:rec.id, value:parseFloat(unquoteSxfValue(rec.args[0]||'0'))});
-    else if(rec.name==='text_font_feature'){ const rawName=unquoteSxfValue(rec.args[0]||''); const name=decodeShiftJisFromLatin1(rawName); if(name) fontDefs.push({featureId:rec.id, rawName, name}); }
-    else if(rec.name==='pre_defined_colour_feature') colorDefs.push({featureId:rec.id, kind:'pre', value:String(unquoteSxfValue(rec.args[0]||'')).toLowerCase()});
-    else if(rec.name==='user_defined_colour_feature') colorDefs.push({featureId:rec.id, kind:'rgb', r:+unquoteSxfValue(rec.args[0]||0), g:+unquoteSxfValue(rec.args[1]||0), b:+unquoteSxfValue(rec.args[2]||0)});
-    else if(rec.name==='pre_defined_font_feature'||rec.name==='pre_defined_linetype_feature') preLineDefs.push({featureId:rec.id, name:String(unquoteSxfValue(rec.args[0]||'')).toLowerCase()});
-    else if(rec.name==='user_defined_font_feature'||rec.name==='user_defined_linetype_feature') userLineDefs.push({featureId:rec.id, name:String(unquoteSxfValue(rec.args[0]||'')).toLowerCase(), pitches:rec.args.slice(2).flatMap(parseTupleNumbers).filter(v=>v>0)});
+}
+function profileDemUrl(source, ref){
+  return source.url.replace("{z}", source.z).replace("{x}", ref.x).replace("{y}", ref.y);
+}
+async function profileMapLimit(items, limit, worker){
+  let next = 0;
+  const runners = Array.from({length:Math.min(limit, items.length)}, async()=>{
+    while(next < items.length){
+      const i = next++;
+      await worker(items[i], i);
+    }
+  });
+  await Promise.all(runners);
+}
+async function getProfileTileResponse(url){
+  let cache = null, response = null;
+  try{
+    if (window.caches){
+      cache = await caches.open(PROFILE_TILE_CACHE);
+      response = await cache.match(url);
+    }
+  }catch(e){}
+  if (!response){
+    try{
+      response = await fetch(url, {mode:"cors", cache:"force-cache"});
+      if (!response.ok) return null;
+      if (cache){
+        try{
+          await cache.put(url, response.clone());
+          const keys = await cache.keys();
+          if (keys.length > 120) await Promise.all(keys.slice(0, keys.length - 120).map(k=>cache.delete(k)));
+        }catch(e){}
+      }
+    }catch(e){ return null; }
   }
-  layerDefs.sort((a,b)=>a.featureId-b.featureId); widthDefs.sort((a,b)=>a.featureId-b.featureId); fontDefs.sort((a,b)=>a.featureId-b.featureId); colorDefs.sort((a,b)=>a.featureId-b.featureId); preLineDefs.sort((a,b)=>a.featureId-b.featureId); userLineDefs.sort((a,b)=>a.featureId-b.featureId);
-  const layerMap={}, layerRefToIdx={}, layerNames={}, layerVisibleByDefault={}; layerDefs.forEach((d,idx)=>{layerMap[d.featureId]=d.name; layerRefToIdx[d.featureId]=idx+1; layerNames[String(idx+1)]=d.name; layerVisibleByDefault[String(idx+1)]=d.visible!==false;});
-  const widthFeatureMap={}, widthCodeMap={}; widthDefs.forEach((d,idx)=>{widthFeatureMap[d.featureId]=d.value; widthCodeMap[idx+1]=d.value;});
-  const fontFeatureMap={}, fontCodeMap={}; fontDefs.forEach((d,idx)=>{fontFeatureMap[d.featureId]=d.name; fontCodeMap[idx+1]=d.name;});
-  const predefinedColorNameMap={black:'#000000',red:'#ff0000',green:'#00ff00',blue:'#0000ff',yellow:'#ffff00',magenta:'#ff00ff',cyan:'#00ffff',white:'#ffffff',brown:'#8b4513',orange:'#ffa500',lightgreen:'#90ee90',lightblue:'#87cefa',lavender:'#9370db',lightgray:'#d3d3d3',darkgray:'#808080',deeppink:'#ff1493'};
-  const colorFeatureMap={}, colorCodeMap={}; colorDefs.forEach((d,idx)=>{ let hex='#000000'; if(d.kind==='pre') hex=predefinedColorNameMap[d.value]||'#000000'; else hex=`#${Math.max(0,Math.min(255,d.r||0)).toString(16).padStart(2,'0')}${Math.max(0,Math.min(255,d.g||0)).toString(16).padStart(2,'0')}${Math.max(0,Math.min(255,d.b||0)).toString(16).padStart(2,'0')}`; colorFeatureMap[d.featureId]=hex.toLowerCase(); colorCodeMap[idx+1]=hex.toLowerCase(); });
-  const predefinedLineTypeNames=['continuous','dashed','dashed spaced','long dashed dotted','long dashed double-dotted','long dashed triplicate-dotted','dotted','chain','chain double dash','dashed dotted','double-dashed dotted','dashed double-dotted','double-dashed double-dotted','dashed triplicate-dotted','double-dashed triplicate-dotted',''];
-  const predefinedLinetypeDashMap={continuous:[],dashed:[6,4],'dashed spaced':[6,8],'long dashed dotted':[12,4,1.5,4],'long dashed double-dotted':[12,4,1.5,4,1.5,4],'long dashed triplicate-dotted':[12,4,1.5,4,1.5,4,1.5,4],dotted:[1.5,3],chain:[10,3,1.5,3],'chain double dash':[10,3,6,3],'dashed dotted':[6,3,1.5,3],'double-dashed dotted':[6,3,6,3,1.5,3],'dashed double-dotted':[6,3,1.5,3,1.5,3],'double-dashed double-dotted':[6,3,6,3,1.5,3,1.5,3],'dashed triplicate-dotted':[6,3,1.5,3,1.5,3,1.5,3],'double-dashed triplicate-dotted':[6,3,6,3,1.5,3,1.5,3,1.5,3]};
-  const linetypeFeatureMap={}, linetypeCodeMap={};
-  predefinedLineTypeNames.forEach((name,idx)=>{linetypeCodeMap[idx+1]={name,dash:predefinedLinetypeDashMap[name]||[]};});
-  for(const d of preLineDefs){const dash=predefinedLinetypeDashMap[d.name]||[]; linetypeFeatureMap[d.featureId]={name:d.name,dash}; const code=predefinedLineTypeNames.indexOf(d.name)+1; if(code>0) linetypeCodeMap[code]={name:d.name,dash};}
-  let userLineCode=17;
-  for(const d of userLineDefs){const dash=(d.pitches||[]).filter(v=>Number.isFinite(v)&&v>0); linetypeFeatureMap[d.featureId]={name:d.name,dash}; linetypeCodeMap[userLineCode++]={name:d.name,dash};}
-  const resolveWidth=ref=>{const n=+unquoteSxfValue(ref); return Number.isFinite(widthFeatureMap[n])?widthFeatureMap[n]:(Number.isFinite(widthCodeMap[n])?widthCodeMap[n]:(Number.isFinite(n)?n:1));};
-  const resolveFontName=ref=>{const n=+unquoteSxfValue(ref); return fontFeatureMap[n]||fontCodeMap[n]||'';};
-  const resolveColor=ref=>{const n=+unquoteSxfValue(ref); return Number.isFinite(n)?n:1;};
-  const resolveLineType=ref=>{const n=+unquoteSxfValue(ref); return Number.isFinite(n)?n:1;};
-  const resolveLineDash=ref=>{const n=+unquoteSxfValue(ref); return (linetypeFeatureMap[n]||linetypeCodeMap[n]||{dash:null}).dash;};
-  const resolveLayer=ref=>{const n=+unquoteSxfValue(ref); return layerRefToIdx[n]!=null?layerRefToIdx[n]:(Number.isFinite(n)?n:1);};
-  const num=ref=>{const n=parseFloat(unquoteSxfValue(ref)); return Number.isFinite(n)?n:0;};
-  const parseTupleNums=parseTupleNumbers;
-  const lines=[], polys=[], splines=[], texts=[], circles=[], arcs=[], ellipses=[], ellipseArcs=[], markers=[];
-  for(const rec of records){
-    if(rec.name==='line_feature' && rec.args.length>=8) lines.push([num(rec.args[4]),num(rec.args[5]),num(rec.args[6]),num(rec.args[7]),resolveLayer(rec.args[0]),resolveColor(rec.args[1]),resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]);
-    else if(rec.name==='polyline_feature' && rec.args.length>=7){ const expected=Math.trunc(num(rec.args[4])); const xlist=parseTupleNums(rec.args[5]), ylist=parseTupleNums(rec.args[6]); const layer=resolveLayer(rec.args[0]), color=resolveColor(rec.args[1]); if(layer===0&&color===0) continue; if(expected>0&&xlist.length===expected&&xlist.length===ylist.length) polys.push([xlist.map((x,i)=>[x,ylist[i]]),layer,color,resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]); }
-    else if(rec.name==='spline_feature' && rec.args.length>=8){ const xlist=parseTupleNums(rec.args[6]), ylist=parseTupleNums(rec.args[7]); if(xlist.length&&xlist.length===ylist.length) splines.push([xlist.map((x,i)=>[x,ylist[i]]),resolveLayer(rec.args[0]),resolveColor(rec.args[1]),resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]); }
-    else if(rec.name==='text_string_feature' && rec.args.length>=13) texts.push({text:decodeShiftJisFromLatin1(unquoteSxfValue(rec.args[3])),x:num(rec.args[4]),y:num(rec.args[5]),h:num(rec.args[6]),w:num(rec.args[7]),sp:num(rec.args[8]),angle:num(rec.args[9]),slant:num(rec.args[10]),align1:+unquoteSxfValue(rec.args[11])||1,align2:+unquoteSxfValue(rec.args[12])||1,layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),font_id:+unquoteSxfValue(rec.args[2])||1,font_name:resolveFontName(rec.args[2])});
-    else if(rec.name==='circle_feature' && rec.args.length>=7) circles.push([num(rec.args[4]),num(rec.args[5]),num(rec.args[6]),resolveLayer(rec.args[0]),resolveColor(rec.args[1]),resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]);
-    else if(rec.name==='arc_feature' && rec.args.length>=10) arcs.push({layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),width:resolveWidth(rec.args[3]),ltype:resolveLineType(rec.args[2]),dash:resolveLineDash(rec.args[2]),cx:num(rec.args[4]),cy:num(rec.args[5]),r:num(rec.args[6]),direction:+unquoteSxfValue(rec.args[7])||0,start:num(rec.args[8]),end:num(rec.args[9])});
-    else if(rec.name==='ellipse_feature' && rec.args.length>=9) ellipses.push({layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),width:resolveWidth(rec.args[3]),ltype:resolveLineType(rec.args[2]),dash:resolveLineDash(rec.args[2]),cx:num(rec.args[4]),cy:num(rec.args[5]),rx:num(rec.args[6]),ry:num(rec.args[7]),rot:num(rec.args[8])});
-    else if(rec.name==='ellipse_arc_feature' && rec.args.length>=12) ellipseArcs.push({layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),width:resolveWidth(rec.args[3]),ltype:resolveLineType(rec.args[2]),dash:resolveLineDash(rec.args[2]),cx:num(rec.args[4]),cy:num(rec.args[5]),rx:num(rec.args[6]),ry:num(rec.args[7]),direction:+unquoteSxfValue(rec.args[8])||0,rot:num(rec.args[9]),start:num(rec.args[10]),end:num(rec.args[11])});
-    else if(rec.name==='point_marker_feature' && rec.args.length>=7) markers.push({layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),x:num(rec.args[2]),y:num(rec.args[3]),code:Math.trunc(num(rec.args[4])),angle:num(rec.args[5]),scale:num(rec.args[6])||1});
+  return response;
+}
+async function decodeProfileDemTile(url){
+  if (profileTileMemoryCache.has(url)) return profileTileMemoryCache.get(url);
+  const pending = (async()=>{
+    const response = await getProfileTileResponse(url);
+    if (!response) return null;
+    try{
+      const blob = await response.blob();
+      let image = null, revokeUrl = "";
+      if (window.createImageBitmap){
+        image = await createImageBitmap(blob);
+      }else{
+        revokeUrl = URL.createObjectURL(blob);
+        image = await new Promise((resolve,reject)=>{
+          const img = new Image();
+          img.onload=()=>resolve(img); img.onerror=reject; img.src=revokeUrl;
+        });
+      }
+      const c = document.createElement("canvas");
+      c.width=256; c.height=256;
+      const cctx=c.getContext("2d", {willReadFrequently:true});
+      cctx.drawImage(image,0,0,256,256);
+      const pixels=cctx.getImageData(0,0,256,256).data;
+      if (image && image.close) image.close();
+      if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+      return pixels;
+    }catch(e){ return null; }
+  })();
+  profileTileMemoryCache.set(url, pending);
+  const pixels = await pending;
+  // A temporary network failure must not poison the in-memory cache for the
+  // rest of the session. Successful tiles remain shared by nearby profiles.
+  if (!pixels) profileTileMemoryCache.delete(url);
+  return pixels;
+}
+function decodeProfileElevation(pixels, px, py){
+  if (!pixels) return null;
+  const i = (py * 256 + px) * 4;
+  const x = pixels[i] * 65536 + pixels[i+1] * 256 + pixels[i+2];
+  if (x === 8388608) return null;
+  return (x < 8388608 ? x : x - 16777216) * 0.01;
+}
+function getProfileDataCache(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(PROFILE_DATA_CACHE_KEY)||"[]");
+    return Array.isArray(parsed)?parsed:[];
+  }catch(e){ return []; }
+}
+function getProfileCacheKey(start,end,zone){
+  const q=v=>Math.round(v/1000);
+  return `${getProfileDrawingKey()}|${zone}|${q(start.x)},${q(start.y)}|${q(end.x)},${q(end.y)}`;
+}
+function restoreCachedProfile(start,end,zone){
+  const key=getProfileCacheKey(start,end,zone);
+  const item=getProfileDataCache().find(v=>v.key===key);
+  if (!item || !Array.isArray(item.samples) || item.samples.length<2) return null;
+  const length=Math.hypot(end.x-start.x,end.y-start.y)/1000;
+  return {
+    start:{...start}, end:{...end}, zone, length,
+    samples:item.samples.map(s=>({
+      t:s.t, distance:s.t*length, elevation:s.elevation, source:s.source,
+      worldX:start.x+(end.x-start.x)*s.t, worldY:start.y+(end.y-start.y)*s.t
+    }))
+  };
+}
+function rememberProfileData(result){
+  try{
+    const key=getProfileCacheKey(result.start,result.end,result.zone);
+    let all=getProfileDataCache().filter(v=>v.key!==key);
+    all.push({key,savedAt:Date.now(),samples:result.samples.map(s=>({t:s.t,elevation:s.elevation,source:s.source}))});
+    if(all.length>12) all=all.slice(all.length-12);
+    localStorage.setItem(PROFILE_DATA_CACHE_KEY,JSON.stringify(all));
+  }catch(e){}
+}
+async function buildProfileData(start,end,zone){
+  const cached=restoreCachedProfile(start,end,zone);
+  if(cached) return cached;
+  const length=Math.hypot(end.x-start.x,end.y-start.y)/1000;
+  if (!(length>0.05)) return null;
+  const sampleCount=Math.max(2,Math.min(601,Math.ceil(length/Math.max(1,length/600))+1));
+  const samples=[];
+  for(let i=0;i<sampleCount;i++){
+    const t=i/(sampleCount-1);
+    const worldX=start.x+(end.x-start.x)*t;
+    const worldY=start.y+(end.y-start.y)*t;
+    const plane=sfcWorldToPlane(worldX,worldY);
+    const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
+    samples.push({t,distance:length*t,worldX,worldY,lat:ll.lat,lon:ll.lon,elevation:null,source:null});
   }
   const partialFigures=records.filter(r=>r.name==='sfig_locate_feature'&&r.args.length>=7).map(r=>({
     featureId:r.id,
@@ -3792,6 +3628,27 @@ function draw(){
       drawTextExact(t);
     }
   }
+  }
+
+  if(profileStartWorld){
+    const a=worldToScreen(profileStartWorld.x,profileStartWorld.y);
+    const end=profileEndWorld||profileHoverWorld;
+    ctx.save();
+    if(end){
+      const b=worldToScreen(end.x,end.y);
+      ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
+      ctx.strokeStyle="#ff9800";ctx.lineWidth=2.5;ctx.setLineDash([]);ctx.stroke();
+      ctx.fillStyle="#ff9800";ctx.beginPath();ctx.arc(b[0],b[1],6,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke();
+    }
+    ctx.fillStyle="#ff9800";ctx.beginPath();ctx.arc(a[0],a[1],6,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke();
+    ctx.restore();
+  }
+  if(profileHoverWorld&&profileData){
+    const h=worldToScreen(profileHoverWorld.x,profileHoverWorld.y);
+    ctx.save();ctx.fillStyle="#ffd000";ctx.strokeStyle="#111";ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.arc(h[0],h[1],6,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();
   }
 
   if(profileStartWorld){
@@ -5690,6 +5547,82 @@ if(profileChart){
   profileChart.addEventListener("dblclick",()=>{resetProfileGraphView();drawProfileChart();});
 }
 
+if(profileBtn) profileBtn.addEventListener("click",()=>{
+  if(profileMode){
+    profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;
+    updateProfileUi();updateStopBtnUI();scheduleDraw();
+  }else beginProfileMode();
+});
+if(profileCloseBtn) profileCloseBtn.addEventListener("click",closeProfileModal);
+if(profileModal) profileModal.addEventListener("click",e=>{if(e.target===profileModal)closeProfileModal();});
+if(profileChart){
+  const traceProfileAtClientX=clientX=>{
+    if(!profileData) return;
+    const g=getProfileGraphGeometry();if(!g)return;
+    const rect=profileChart.getBoundingClientRect();
+    const localX=clientX-rect.left;
+    const baseX=(localX-g.originX-profileGraphOffsetX)/Math.max(.001,profileGraphScaleX);
+    const distance=Math.max(0,Math.min(profileData.length,baseX/g.pixelsPerMeter));
+    let nearest=profileData.samples[0];
+    for(const sample of profileData.samples) if(Math.abs(sample.distance-distance)<Math.abs(nearest.distance-distance))nearest=sample;
+    profileHoverWorld={x:nearest.worldX,y:nearest.worldY};drawProfileChart();scheduleDraw();
+  };
+  profileChart.addEventListener("pointerdown",e=>{
+    e.preventDefault();profileChart.setPointerCapture?.(e.pointerId);
+    profileGraphPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(profileGraphPointers.size===1){traceProfileAtClientX(e.clientX);profileGraphGesture=null;}
+    if(profileGraphPointers.size===2){
+      const p=[...profileGraphPointers.values()],rect=profileChart.getBoundingClientRect();
+      const mid={x:(p[0].x+p[1].x)/2-rect.left,y:(p[0].y+p[1].y)/2-rect.top};
+      const g=getProfileGraphGeometry();
+      profileGraphGesture={distance:Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y),mid,
+        scale:profileGraphScaleX,offsetX:profileGraphOffsetX,offsetY:profileGraphOffsetY,
+        anchorX:g?(mid.x-g.originX-profileGraphOffsetX)/profileGraphScaleX:0,
+        anchorY:g?(mid.y-g.originY-profileGraphOffsetY)/profileGraphScaleY:0};
+    }
+  });
+  profileChart.addEventListener("pointermove",e=>{
+    if(!profileGraphPointers.has(e.pointerId)) return;
+    e.preventDefault();profileGraphPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(profileGraphPointers.size===1){traceProfileAtClientX(e.clientX);return;}
+    if(profileGraphPointers.size>=2&&profileGraphGesture){
+      const p=[...profileGraphPointers.values()].slice(0,2),rect=profileChart.getBoundingClientRect();
+      const mid={x:(p[0].x+p[1].x)/2-rect.left,y:(p[0].y+p[1].y)/2-rect.top};
+      const distance=Math.max(1,Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y));
+      const ratio=distance/Math.max(1,profileGraphGesture.distance);
+      const nextScale=Math.max(1,Math.min(10,profileGraphGesture.scale*ratio));
+      const g=getProfileGraphGeometry();
+      if(g){
+        profileGraphOffsetX=mid.x-g.originX-profileGraphGesture.anchorX*nextScale;
+        profileGraphOffsetY=mid.y-g.originY-profileGraphGesture.anchorY*nextScale;
+      }
+      profileGraphScaleX=nextScale;profileGraphScaleY=nextScale;drawProfileChart();
+    }
+  });
+  const finishProfilePointer=e=>{
+    profileGraphPointers.delete(e.pointerId);
+    if(profileGraphPointers.size<2)profileGraphGesture=null;
+  };
+  profileChart.addEventListener("pointerup",finishProfilePointer);
+  profileChart.addEventListener("pointercancel",finishProfilePointer);
+  profileChart.addEventListener("wheel",e=>{
+    e.preventDefault();
+    const rect=profileChart.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
+    const factor=e.deltaY<0?1.18:1/1.18;
+    const oldScale=profileGraphScaleX;
+    const nextScale=Math.max(1,Math.min(10,oldScale*factor));
+    const g=getProfileGraphGeometry();
+    if(g){
+      const anchorX=(mx-g.originX-profileGraphOffsetX)/oldScale;
+      const anchorY=(my-g.originY-profileGraphOffsetY)/oldScale;
+      profileGraphOffsetX=mx-g.originX-anchorX*nextScale;
+      profileGraphOffsetY=my-g.originY-anchorY*nextScale;
+    }
+    profileGraphScaleX=nextScale;profileGraphScaleY=nextScale;drawProfileChart();
+  },{passive:false});
+  profileChart.addEventListener("dblclick",()=>{resetProfileGraphView();drawProfileChart();});
+}
+
 document.getElementById("measureBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
   if(profileMode){profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();}
@@ -6037,6 +5970,18 @@ window.addEventListener("mousemove", e=>{
     scheduleDraw();
     return;
   }
+
+  if(inkDrawing && currentStroke){
+    const p = screenToWorld(ox, oy);
+    const tolWorld = 14 / Math.max(view.scale || 1, 0.000001);
+    const snapped = { x:p[0], y:p[1], mode:"free", free:true };
+    const prev = currentStroke.points[currentStroke.points.length - 1];
+    if (!prev || Math.hypot((snapped.x - prev.x), (snapped.y - prev.y)) >= 1 / Math.max(view.scale || 1, 0.000001)) {
+      currentStroke.points.push({x:snapped.x, y:snapped.y});
+    }
+    scheduleDraw();
+    return;
+  }
   if(dragging){
     view.tx += e.clientX-lastX; view.ty += e.clientY-lastY;
     lastX=e.clientX; lastY=e.clientY; scheduleDraw(); return;
@@ -6274,6 +6219,13 @@ canvas.addEventListener("touchend", e=>{
     if(move<=12){
       const p=screenToWorld(profileTouchCandidate.screenX,profileTouchCandidate.screenY);
       suppressClickUntil=Date.now()+700;selectProfileWorldPoint({x:p[0],y:p[1]});
+    }
+    profileTouchCandidate=null;return;
+  }
+  if(inkDrawing && currentStroke){
+    if (currentStroke.points && currentStroke.points.length>=2) {
+      inkStrokes.push(currentStroke); redoStrokes=[]; updateUndoRedoUI();
+      markMemoChanged();
     }
     profileTouchCandidate=null;return;
   }
