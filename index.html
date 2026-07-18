@@ -1011,9 +1011,9 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">現在地GPS</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開始・終了</div><b>現在地</b> を押すとGPSを開始し、現在位置を図面上へ表示します。もう一度押すと終了し、図面を全体表示へ戻します。</div>
-              <div class="helpBlock"><div class="helpHead">詳細</div>GPS開始中は左側の <b>詳細</b> から座標・精度などを確認できます。詳細画面は同じボタンで閉じられます。</div>
+              <div class="helpBlock"><div class="helpHead">詳細</div>GPS開始中は左側の <b>詳細</b> から座標・誤差などを確認できます。詳細画面は同じボタンで閉じられます。</div>
               <div class="helpBlock"><div class="helpHead">図面との距離</div>現在地が図面から離れすぎている場合は、図面までのおよその距離を表示します。測地系や座標系が違う場合も大きく離れて表示されます。</div>
-              <div class="helpBlock"><div class="helpHead">精度</div>端末GPSの値は概略です。屋外の開けた場所で少し待つと改善する場合がありますが、測量成果には使用しないでください。</div>
+              <div class="helpBlock"><div class="helpHead">誤差</div>表示される誤差は端末GPSの推定値です。屋外の開けた場所で少し待つと小さくなる場合がありますが、測量成果には使用しないでください。</div>
               <div class="helpBlock"><div class="helpHead">使えない時</div>位置情報を許可し、HTTPSの公開ページで使用してください。iPhoneでローカルHTMLを直接開いた場合はGPSが動かないことがあります。</div>
             </div>
           </div>
@@ -1995,7 +1995,7 @@ function updateGpsUi(){
   const altitudeText = gpsPosition.altitude != null
     ? `${gpsPosition.altitude.toFixed(2)}m（デジタル標高モデル）`
     : '取得中';
-  el.innerHTML = `測地系: ${JGD2024_NAME}<br>系番号: ${zoneMemo}<br>緯度: ${gpsPosition.lat.toFixed(7)}<br>経度: ${gpsPosition.lon.toFixed(7)}<br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>標高TP: ${altitudeText}<br>精度: 約${Math.round(gpsPosition.accuracy || 0)}m`;
+  el.innerHTML = `測地系: ${JGD2024_NAME}<br>系番号: ${zoneMemo}<br>緯度: ${gpsPosition.lat.toFixed(7)}<br>経度: ${gpsPosition.lon.toFixed(7)}<br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>標高TP: ${altitudeText}<br>誤差: 約${Math.round(gpsPosition.accuracy || 0)}m`;
 }
 function hasLoadedDrawing(){
   return !!(data && ((data.lines && data.lines.length) || (data.polys && data.polys.length) || (data.texts && data.texts.length) || (data.circles && data.circles.length)));
