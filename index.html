@@ -290,6 +290,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #photoTimeSlider{width:100%;accent-color:#f2a400;}
 #photoTimeEnds{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:1px;}
 #photoStatus{font-size:12px;line-height:1.45;margin-top:8px;color:var(--muted);}
+#photoCancelBtn{width:100%;min-height:36px;margin-top:9px;}
 #photoCredit{display:none;position:absolute;right:8px;bottom:8px;z-index:55;padding:3px 6px;border-radius:5px;background:rgba(0,0,0,.68);color:#fff;font-size:10px;text-decoration:none;pointer-events:auto;}
 #photoCredit.show{display:block;}
 #photoToggleBtn.active{background:#f2a400;color:#111;border-color:#ffd35a;}
@@ -904,6 +905,7 @@ gtag('config', 'G-88B9YPJXWP');
     <input id="photoTimeSlider" type="range" min="0" max="1" step="1" value="0" aria-label="航空写真の年代">
     <div id="photoTimeEnds"><span>現在</span><span>過去</span></div>
     <div id="photoStatus">スライダーを右へ動かすほど古い航空写真になります。</div>
+    <button id="photoCancelBtn" type="button">キャンセル</button>
   </div>
 
   <a id="photoCredit" href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院 地理院タイル</a>
@@ -1116,7 +1118,8 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">航空写真</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開き方</div>上部の <b>背景</b> を押し、<b>航空写真：OFF</b> を押すと図面の背面へ航空写真を表示します。</div>
-              <div class="helpBlock"><div class="helpHead">年代の変更</div>スライダーは左端が現在の最新写真です。右へ動かすほど古くなり、年度別写真から1945～1950年まで確認できます。一部地域ではさらに古い写真も選べます。</div>
+              <div class="helpBlock"><div class="helpHead">年代の変更</div>スライダーは左端が現在の最新写真です。右へ動かしている途中から、その位置の年代へすぐ切り替わります。確定操作は不要です。</div>
+              <div class="helpBlock"><div class="helpHead">閉じる・キャンセル</div><b>閉じる</b> は選んだ航空写真を残して設定画面だけ閉じます。<b>キャンセル</b> は航空写真を消して設定画面を閉じます。</div>
               <div class="helpBlock"><div class="helpHead">写真がない場合</div>年度別写真は地域によって未整備です。「写真がありません」と表示された時はスライダーを前後へ動かしてください。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>SFCと航空写真を合わせるため、初回は現在地から図面の座標系を確認します。位置情報の利用を許可してください。</div>
               <div class="helpBlock"><div class="helpHead">出典</div>国土地理院の地理院タイルを通信で表示します。航空写真表示中は画面右下に出典を表示します。</div>
@@ -1441,6 +1444,7 @@ let aerialPhotoSourceIndex = 0;
 let aerialPhotoZone = null;
 let aerialPhotoResolveBusy = false;
 let aerialPhotoSliderTimer = 0;
+let aerialPhotoEnableRequestId = 0;
 
 const helpModal = document.getElementById("helpModal");
 const helpModalBox = document.getElementById("helpModalBox");
@@ -1693,11 +1697,13 @@ function updateAerialPhotoUi(){
 async function enableAerialPhoto(){
   if(aerialPhotoResolveBusy||aerialPhotoEnabled) return;
   if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
+  const requestId=++aerialPhotoEnableRequestId;
   aerialPhotoResolveBusy=true;
   setAerialPhotoStatus("図面の位置を確認しています…");
   try{
     aerialPhotoZone=profileZone||getRememberedProfileZone()||await resolveProfileZone();
   }catch(e){aerialPhotoZone=null;}
+  if(requestId!==aerialPhotoEnableRequestId){aerialPhotoResolveBusy=false;return;}
   aerialPhotoResolveBusy=false;
   if(!aerialPhotoZone){
     aerialPhotoEnabled=false;updateAerialPhotoUi();
@@ -5710,6 +5716,7 @@ document.getElementById("canvasBgToggleBtn")?.addEventListener("click",()=>{
 });
 photoToggleBtn?.addEventListener("click",async()=>{
   if(aerialPhotoEnabled){
+    aerialPhotoEnableRequestId++;
     aerialPhotoEnabled=false;updateAerialPhotoUi();
     setAerialPhotoStatus("航空写真はOFFです。スライダーで年代を選べます。");scheduleDraw();
   }else await enableAerialPhoto();
@@ -5717,6 +5724,7 @@ photoToggleBtn?.addEventListener("click",async()=>{
 photoTimeSlider?.addEventListener("input",()=>{
   aerialPhotoSourceIndex=Math.max(0,Math.min(AERIAL_PHOTO_SOURCES.length-1,parseInt(photoTimeSlider.value,10)||0));
   updateAerialPhotoUi();
+  if(!aerialPhotoEnabled&&!aerialPhotoResolveBusy) enableAerialPhoto();
   if(aerialPhotoEnabled){
     setAerialPhotoStatus("航空写真を読み込んでいます…");
     clearTimeout(aerialPhotoSliderTimer);
@@ -5726,6 +5734,15 @@ photoTimeSlider?.addEventListener("input",()=>{
 photoTimeSlider?.addEventListener("change",async()=>{
   if(!aerialPhotoEnabled) await enableAerialPhoto();
   else scheduleDraw();
+});
+document.getElementById("photoCancelBtn")?.addEventListener("click",()=>{
+  aerialPhotoEnableRequestId++;
+  aerialPhotoResolveBusy=false;
+  aerialPhotoEnabled=false;
+  updateAerialPhotoUi();
+  setAerialPhotoStatus("航空写真は表示していません。");
+  if(aerialPhotoPanel) aerialPhotoPanel.style.display="none";
+  scheduleDraw();
 });
 const SUPPORT_URL = "https://ofuse.me/f475dafe/letter";
 const supportBtn = document.getElementById("supportBtn");
