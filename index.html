@@ -1726,14 +1726,23 @@ function getProfileGraphGeometry(){
   let minE=Math.min(...valid.map(s=>s.elevation)),maxE=Math.max(...valid.map(s=>s.elevation));
   if(maxE-minE<1){const mid=(minE+maxE)/2;minE=mid-.5;maxE=mid+.5;}
   const pad=(maxE-minE)*.08;minE-=pad;maxE+=pad;
-  return {dpr,w,h,margin,plotW:w-margin.left-margin.right,plotH:h-margin.top-margin.bottom,minE,maxE};
+  const plotW=w-margin.left-margin.right,plotH=h-margin.top-margin.bottom;
+  const length=Math.max(.001,profileData.length);
+  const elevationRange=Math.max(.001,maxE-minE);
+  // Horizontal distance and elevation always use the same pixels-per-metre.
+  // The initial scale is chosen only to fit the complete section in the box.
+  const pixelsPerMeter=Math.max(.001,Math.min(plotW/length,plotH/elevationRange));
+  const contentW=length*pixelsPerMeter,contentH=elevationRange*pixelsPerMeter;
+  const originX=margin.left+(plotW-contentW)/2;
+  const originY=margin.top+(plotH-contentH)/2;
+  return {dpr,w,h,margin,plotW,plotH,minE,maxE,length,elevationRange,pixelsPerMeter,contentW,contentH,originX,originY};
 }
 function profileGraphXY(sample,g){
-  const baseX=sample.distance/Math.max(.001,profileData.length)*g.plotW;
-  const baseY=(g.maxE-sample.elevation)/(g.maxE-g.minE)*g.plotH;
+  const baseX=sample.distance*g.pixelsPerMeter;
+  const baseY=(g.maxE-sample.elevation)*g.pixelsPerMeter;
   return {
-    x:g.margin.left+baseX*profileGraphScaleX+profileGraphOffsetX,
-    y:g.margin.top+baseY*profileGraphScaleY+profileGraphOffsetY
+    x:g.originX+baseX*profileGraphScaleX+profileGraphOffsetX,
+    y:g.originY+baseY*profileGraphScaleY+profileGraphOffsetY
   };
 }
 function drawProfileChart(){
@@ -1752,17 +1761,25 @@ function drawProfileChart(){
   const grid=dark?"rgba(255,255,255,.12)":"rgba(0,0,0,.10)";
   ctxp.font="11px system-ui,sans-serif";ctxp.textBaseline="middle";
   ctxp.strokeStyle=grid;ctxp.lineWidth=1;ctxp.fillStyle=axis;
+  const x0=g.originX+profileGraphOffsetX;
+  const x1=x0+g.contentW*profileGraphScaleX;
+  const y0=g.originY+profileGraphOffsetY;
+  const y1=y0+g.contentH*profileGraphScaleY;
   for(let i=0;i<=4;i++){
-    const y=g.margin.top+g.plotH*i/4;
-    ctxp.beginPath();ctxp.moveTo(g.margin.left,y);ctxp.lineTo(g.margin.left+g.plotW,y);ctxp.stroke();
+    const y=y0+(y1-y0)*i/4;
+    ctxp.save();ctxp.beginPath();ctxp.rect(g.margin.left,g.margin.top,g.plotW,g.plotH);ctxp.clip();
+    ctxp.beginPath();ctxp.moveTo(x0,y);ctxp.lineTo(x1,y);ctxp.stroke();ctxp.restore();
     const e=g.maxE-(g.maxE-g.minE)*i/4;
-    ctxp.textAlign="right";ctxp.fillText(e.toFixed(1),g.margin.left-5,y);
+    if(y>=g.margin.top&&y<=g.margin.top+g.plotH){ctxp.textAlign="right";ctxp.fillText(e.toFixed(1),g.margin.left-5,y);}
   }
   for(let i=0;i<=4;i++){
-    const x=g.margin.left+g.plotW*i/4;
-    ctxp.beginPath();ctxp.moveTo(x,g.margin.top);ctxp.lineTo(x,g.margin.top+g.plotH);ctxp.stroke();
-    ctxp.textAlign="center";ctxp.textBaseline="top";
-    ctxp.fillText(formatProfileDistance(profileData.length*i/4),x,g.margin.top+g.plotH+7);
+    const x=x0+(x1-x0)*i/4;
+    ctxp.save();ctxp.beginPath();ctxp.rect(g.margin.left,g.margin.top,g.plotW,g.plotH);ctxp.clip();
+    ctxp.beginPath();ctxp.moveTo(x,y0);ctxp.lineTo(x,y1);ctxp.stroke();ctxp.restore();
+    if(x>=g.margin.left&&x<=g.margin.left+g.plotW&&y1>=g.margin.top&&y1<=g.margin.top+g.plotH){
+      ctxp.textAlign="center";ctxp.textBaseline="top";
+      ctxp.fillText(formatProfileDistance(profileData.length*i/4),x,Math.min(g.margin.top+g.plotH+7,y1+7));
+    }
   }
   ctxp.save();
   ctxp.beginPath();ctxp.rect(g.margin.left,g.margin.top,g.plotW,g.plotH);ctxp.clip();
@@ -1795,7 +1812,7 @@ function updateProfileSummary(){
   const valid=profileData.samples.filter(s=>s.elevation!=null);
   const first=valid[0],last=valid[valid.length-1];
   const diff=first&&last?last.elevation-first.elevation:0;
-  profileSummary.textContent=`延長 ${formatProfileDistance(profileData.length)}　高低差 ${diff>=0?"+":""}${diff.toFixed(2)}m`;
+  profileSummary.textContent=`延長 ${formatProfileDistance(profileData.length)}　高低差 ${diff>=0?"+":""}${diff.toFixed(2)}m　縦横1:1`;
 }
 async function completeProfileSelection(){
   if(!profileStartWorld||!profileEndWorld||!profileZone) return;
@@ -5429,8 +5446,8 @@ if(profileChart){
     const g=getProfileGraphGeometry();if(!g)return;
     const rect=profileChart.getBoundingClientRect();
     const localX=clientX-rect.left;
-    const baseX=(localX-g.margin.left-profileGraphOffsetX)/Math.max(.001,profileGraphScaleX);
-    const distance=Math.max(0,Math.min(profileData.length,baseX/g.plotW*profileData.length));
+    const baseX=(localX-g.originX-profileGraphOffsetX)/Math.max(.001,profileGraphScaleX);
+    const distance=Math.max(0,Math.min(profileData.length,baseX/g.pixelsPerMeter));
     let nearest=profileData.samples[0];
     for(const sample of profileData.samples) if(Math.abs(sample.distance-distance)<Math.abs(nearest.distance-distance))nearest=sample;
     profileHoverWorld={x:nearest.worldX,y:nearest.worldY};drawProfileChart();scheduleDraw();
@@ -5442,8 +5459,11 @@ if(profileChart){
     if(profileGraphPointers.size===2){
       const p=[...profileGraphPointers.values()],rect=profileChart.getBoundingClientRect();
       const mid={x:(p[0].x+p[1].x)/2-rect.left,y:(p[0].y+p[1].y)/2-rect.top};
+      const g=getProfileGraphGeometry();
       profileGraphGesture={distance:Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y),mid,
-        scaleX:profileGraphScaleX,scaleY:profileGraphScaleY,offsetX:profileGraphOffsetX,offsetY:profileGraphOffsetY};
+        scale:profileGraphScaleX,offsetX:profileGraphOffsetX,offsetY:profileGraphOffsetY,
+        anchorX:g?(mid.x-g.originX-profileGraphOffsetX)/profileGraphScaleX:0,
+        anchorY:g?(mid.y-g.originY-profileGraphOffsetY)/profileGraphScaleY:0};
     }
   });
   profileChart.addEventListener("pointermove",e=>{
@@ -5455,11 +5475,13 @@ if(profileChart){
       const mid={x:(p[0].x+p[1].x)/2-rect.left,y:(p[0].y+p[1].y)/2-rect.top};
       const distance=Math.max(1,Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y));
       const ratio=distance/Math.max(1,profileGraphGesture.distance);
-      const nextX=Math.max(1,Math.min(10,profileGraphGesture.scaleX*ratio));
-      const nextY=Math.max(1,Math.min(10,profileGraphGesture.scaleY*ratio));
-      profileGraphOffsetX=profileGraphGesture.offsetX+(mid.x-profileGraphGesture.mid.x)+(profileGraphGesture.mid.x*(1-nextX/profileGraphGesture.scaleX));
-      profileGraphOffsetY=profileGraphGesture.offsetY+(mid.y-profileGraphGesture.mid.y)+(profileGraphGesture.mid.y*(1-nextY/profileGraphGesture.scaleY));
-      profileGraphScaleX=nextX;profileGraphScaleY=nextY;drawProfileChart();
+      const nextScale=Math.max(1,Math.min(10,profileGraphGesture.scale*ratio));
+      const g=getProfileGraphGeometry();
+      if(g){
+        profileGraphOffsetX=mid.x-g.originX-profileGraphGesture.anchorX*nextScale;
+        profileGraphOffsetY=mid.y-g.originY-profileGraphGesture.anchorY*nextScale;
+      }
+      profileGraphScaleX=nextScale;profileGraphScaleY=nextScale;drawProfileChart();
     }
   });
   const finishProfilePointer=e=>{
@@ -5472,11 +5494,16 @@ if(profileChart){
     e.preventDefault();
     const rect=profileChart.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
     const factor=e.deltaY<0?1.18:1/1.18;
-    const nextX=Math.max(1,Math.min(10,profileGraphScaleX*factor));
-    const nextY=Math.max(1,Math.min(10,profileGraphScaleY*factor));
-    profileGraphOffsetX=mx-(mx-profileGraphOffsetX)*nextX/profileGraphScaleX;
-    profileGraphOffsetY=my-(my-profileGraphOffsetY)*nextY/profileGraphScaleY;
-    profileGraphScaleX=nextX;profileGraphScaleY=nextY;drawProfileChart();
+    const oldScale=profileGraphScaleX;
+    const nextScale=Math.max(1,Math.min(10,oldScale*factor));
+    const g=getProfileGraphGeometry();
+    if(g){
+      const anchorX=(mx-g.originX-profileGraphOffsetX)/oldScale;
+      const anchorY=(my-g.originY-profileGraphOffsetY)/oldScale;
+      profileGraphOffsetX=mx-g.originX-anchorX*nextScale;
+      profileGraphOffsetY=my-g.originY-anchorY*nextScale;
+    }
+    profileGraphScaleX=nextScale;profileGraphScaleY=nextScale;drawProfileChart();
   },{passive:false});
   profileChart.addEventListener("dblclick",()=>{resetProfileGraphView();drawProfileChart();});
 }
