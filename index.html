@@ -82,6 +82,25 @@ body{display:flex;flex-direction:column;}
 #viewerLabel{font-size:13px; font-weight:700; opacity:.9; color:var(--fg); line-height:1; white-space:nowrap; cursor:pointer; margin-top:auto; padding:0 0 1px 0;}
 #textSearchModal{display:none;position:fixed;inset:0;z-index:96;background:rgba(0,0,0,.10);align-items:flex-start;justify-content:flex-end;padding:54px 12px calc(10px + env(safe-area-inset-bottom)) 12px;box-sizing:border-box;pointer-events:none;}
 #textSearchModalBox{width:min(260px,68vw);max-width:260px;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.28);padding:10px 10px 9px 10px;pointer-events:auto;touch-action:manipulation;}
+#profileModal{display:none;position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.58);align-items:flex-end;justify-content:center;padding:10px;box-sizing:border-box;}
+#profileModal.open{display:flex;}
+#profileBox{width:min(760px,100%);height:min(62vh,520px);min-height:330px;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;box-shadow:0 14px 34px rgba(0,0,0,.42);display:flex;flex-direction:column;overflow:hidden;}
+#profileHeader{display:flex;align-items:center;gap:10px;padding:10px 12px 8px;border-bottom:1px solid var(--border);}
+#profileTitle{font-size:16px;font-weight:800;white-space:nowrap;}
+#profileSummary{font-size:13px;line-height:1.45;flex:1;min-width:0;}
+#profileCloseBtn{min-width:62px;height:34px;border-radius:17px;}
+#profileChartWrap{position:relative;flex:1;min-height:0;padding:6px 8px 0;}
+#profileChart{display:block;width:100%;height:100%;touch-action:none;border-radius:9px;background:rgba(127,127,127,.06);}
+#profileLoading{display:none;position:absolute;inset:6px 8px 0;align-items:center;justify-content:center;background:rgba(20,20,20,.36);border-radius:9px;color:#fff;font-weight:800;z-index:2;}
+#profileLoading.show{display:flex;}
+#profileNotice{font-size:12px;line-height:1.45;text-align:center;padding:7px 10px 9px;color:var(--muted);}
+#profileBtn.profileActive{background:#f2a400;color:#111;border-color:#ffd35a;}
+@media(max-width:560px){
+  #profileBox{height:min(58vh,470px);min-height:320px;}
+  #profileHeader{padding:8px 9px 7px;gap:7px;}
+  #profileSummary{font-size:12px;}
+  #profileNotice{font-size:11px;padding:6px 8px 8px;}
+}
 #textSearchModalTitle{font-size:14px;font-weight:700;margin:0 0 5px 0;}
 #textSearchModalHint{display:none;}
 #textSearchInput{width:100%;height:34px;box-sizing:border-box;padding:6px 8px;border-radius:9px;border:1px solid var(--border);background:var(--button);color:var(--buttonText);font-size:16px;outline:none;-webkit-user-select:text;user-select:text;}
@@ -688,6 +707,12 @@ gtag('config', 'G-88B9YPJXWP');
         <path d="M16.8 7.2v9.6"></path>
       </svg>
     </button>
+    <button id="profileBtn" class="toolIconBtn" data-help-label="断面" title="地理院DEM断面" aria-label="断面">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 19h18"></path>
+        <path d="M4 17 9 11.5l3 3 3.1-6L20 17"></path>
+      </svg>
+    </button>
     <button id="drawBtn" class="toolIconBtn" data-help-label="手書き" title="手書きメモ" aria-label="手書きメモ">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 19h3l11-11-3-3L4 16v3z"></path><path d="M15 5l3 3"></path><path d="M8 20h12"></path>
@@ -799,6 +824,21 @@ gtag('config', 'G-88B9YPJXWP');
     <div id="gpsText" style="font-size:13px; line-height:1.6;">GPSはOFFです。</div>
   </div>
 
+  <div id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+    <div id="profileBox">
+      <div id="profileHeader">
+        <div id="profileTitle">地形断面</div>
+        <div id="profileSummary">断面データを取得しています</div>
+        <button id="profileCloseBtn" type="button">閉じる</button>
+      </div>
+      <div id="profileChartWrap">
+        <canvas id="profileChart"></canvas>
+        <div id="profileLoading">標高データを取得中…</div>
+      </div>
+      <div id="profileNotice">この断面図は概略です。測量には使用できません。<br>地理院タイル（標高タイル（基盤地図情報数値標高モデル））を加工して作成</div>
+    </div>
+  </div>
+
   <div id="drawPanel" class="panel">
     <div class="panelTitle">手書きメモ</div>
     <div class="stack">
@@ -892,6 +932,7 @@ gtag('config', 'G-88B9YPJXWP');
             <button type="button" class="helpMenuBtn" data-help-section="opensave">開く・保存</button>
             <button type="button" class="helpMenuBtn" data-help-section="gps">現在地GPS</button>
             <button type="button" class="helpMenuBtn" data-help-section="measure">計測</button>
+            <button type="button" class="helpMenuBtn" data-help-section="profile">断面</button>
             <button type="button" class="helpMenuBtn" data-help-section="memo">手書きメモ</button>
             <button type="button" class="helpMenuBtn" data-help-section="search">文字検索</button>
             <button type="button" class="helpMenuBtn" data-help-section="pick">点の取り方</button>
@@ -934,6 +975,16 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">2点間</div>2点を取ると距離が出ます。</div>
               <div class="helpBlock"><div class="helpHead">3点垂直</div>基準線の2点と、離れた1点を取ると、垂直距離を出します。</div>
               <div class="helpBlock"><div class="helpHead">やめる</div><b>中止</b> を押すと計測を終了します。</div>
+            </div>
+          </div>
+
+          <div class="helpSection" data-help-section="profile">
+            <div class="helpSectionTitle">地形断面</div>
+            <div class="helpSectionBody">
+              <div class="helpBlock"><div class="helpHead">使い方</div><b>断面</b>を押し、図面上で起点と終点を順にタップすると自動で断面図を表示します。</div>
+              <div class="helpBlock"><div class="helpHead">グラフ操作</div>1本指でなぞると図面上の対応位置を表示します。2本指で拡大縮小・移動できます。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報</div>SFC座標を緯度経度へ変換するため、最初の利用時に端末の現在地を使用します。</div>
+              <div class="helpBlock"><div class="helpHead">注意</div>国土地理院のDEMを使った概略断面です。測量成果には使用できません。</div>
             </div>
           </div>
 
@@ -1252,6 +1303,31 @@ let searchHighlightUntil = 0;
 let textSearchPopupOpen = false;
 let helpModalOpen = false;
 let toolbarHelpLabelsOpen = false;
+let profileMode = false;
+let profileStartWorld = null;
+let profileEndWorld = null;
+let profileHoverWorld = null;
+let profileData = null;
+let profileZone = null;
+let profileTouchCandidate = null;
+let profileGraphScaleX = 1;
+let profileGraphScaleY = 1;
+let profileGraphOffsetX = 0;
+let profileGraphOffsetY = 0;
+const profileTileMemoryCache = new Map();
+const profileGraphPointers = new Map();
+let profileGraphGesture = null;
+
+const PROFILE_TILE_CACHE = "sfc-dem-tiles-v1";
+const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v1";
+const PROFILE_ZONE_CACHE_KEY = "sfc-dem-zones-v1";
+const PROFILE_DEM_SOURCES = [
+  {id:"DEM1A", url:"https://cyberjapandata.gsi.go.jp/xyz/dem1a_png/{z}/{x}/{y}.png", z:17},
+  {id:"DEM5A", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{z}/{x}/{y}.png", z:15},
+  {id:"DEM5B", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/{z}/{x}/{y}.png", z:15},
+  {id:"DEM5C", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5c_png/{z}/{x}/{y}.png", z:15},
+  {id:"DEM10B",url:"https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png", z:14}
+];
 
 const helpModal = document.getElementById("helpModal");
 const helpModalBox = document.getElementById("helpModalBox");
@@ -1261,6 +1337,12 @@ const helpCloseBtn = document.getElementById("helpCloseBtn");
 const viewerSupportModal = document.getElementById("viewerSupportModal");
 const viewerSupportCloseBtn = document.getElementById("viewerSupportCloseBtn");
 const viewerLabel = document.getElementById("viewerLabel");
+const profileBtn = document.getElementById("profileBtn");
+const profileModal = document.getElementById("profileModal");
+const profileCloseBtn = document.getElementById("profileCloseBtn");
+const profileSummary = document.getElementById("profileSummary");
+const profileChart = document.getElementById("profileChart");
+const profileLoading = document.getElementById("profileLoading");
 const helpMenuView = document.getElementById("helpMenuView");
 const helpSectionWrap = document.getElementById("helpSectionWrap");
 const helpBackBtn = document.getElementById("helpBackBtn");
@@ -1372,6 +1454,380 @@ function planeToSfcWorld(xNorth, yEast){
   const sfcX = (GPS_TO_SFC.xFrom === "X" ? xNorth : yEast) * GPS_TO_SFC.xSign + GPS_TO_SFC.offsetX;
   const sfcY = (GPS_TO_SFC.yFrom === "X" ? xNorth : yEast) * GPS_TO_SFC.ySign + GPS_TO_SFC.offsetY;
   return {x:sfcX, y:sfcY};
+}
+function sfcWorldToPlane(xWorldMm, yWorldMm){
+  const sfcX = xWorldMm / 1000;
+  const sfcY = yWorldMm / 1000;
+  const first = (sfcX - GPS_TO_SFC.offsetX) / GPS_TO_SFC.xSign;
+  const second = (sfcY - GPS_TO_SFC.offsetY) / GPS_TO_SFC.ySign;
+  let xNorth = 0, yEast = 0;
+  if (GPS_TO_SFC.xFrom === "X") xNorth = first; else yEast = first;
+  if (GPS_TO_SFC.yFrom === "X") xNorth = second; else yEast = second;
+  return {xNorth, yEast};
+}
+function jgd2024XYToLatLon(xNorth, yEast, zone){
+  if (!ensureProj4Defs()) throw new Error("proj4未読込");
+  const result = proj4("JGD2024_ZONE_" + zone, "EPSG:4326", [yEast, xNorth]);
+  return {lon:result[0], lat:result[1]};
+}
+function getProfileDrawingKey(){
+  const b = getLoadedSfcBoundsWorld();
+  if (!b) return "";
+  return `${data.source_name||"sfc"}|${Math.round(b.cx/1000)}|${Math.round(b.cy/1000)}`;
+}
+function readProfileZoneCache(){
+  try{ return JSON.parse(localStorage.getItem(PROFILE_ZONE_CACHE_KEY) || "{}"); }catch(e){ return {}; }
+}
+function rememberProfileZone(zone){
+  const key = getProfileDrawingKey();
+  if (!key || !zone) return;
+  try{
+    const all = readProfileZoneCache();
+    all[key] = {zone, savedAt:Date.now()};
+    localStorage.setItem(PROFILE_ZONE_CACHE_KEY, JSON.stringify(all));
+  }catch(e){}
+}
+function getRememberedProfileZone(){
+  const key = getProfileDrawingKey();
+  const item = key ? readProfileZoneCache()[key] : null;
+  return item && item.zone >= 1 && item.zone <= 19 ? item.zone : null;
+}
+function profileZoneFromDevicePosition(pos){
+  if (!pos || !pos.coords) return null;
+  const lat = +pos.coords.latitude, lon = +pos.coords.longitude;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const zone = chooseJapanPlaneZone(lat, lon);
+  const xy = latLonToJgd2024XY(lat, lon, zone);
+  const sfc = planeToSfcWorld(xy.x, xy.y);
+  const distance = calcDistanceFromSfcBoundsMeters(sfc.x, sfc.y);
+  // A zone cannot be determined from local plane coordinates alone.  The
+  // device position must be in the same broad work area at least once.
+  if (distance != null && distance > 250000) return null;
+  rememberProfileZone(zone);
+  return zone;
+}
+async function resolveProfileZone(){
+  if (!hasLoadedDrawing() || !ensureProj4Defs()) return null;
+  const remembered = getRememberedProfileZone();
+  if (remembered) return remembered;
+  if (gpsPosition){
+    const zone = profileZoneFromDevicePosition({coords:{latitude:gpsPosition.lat, longitude:gpsPosition.lon}});
+    if (zone) return zone;
+  }
+  if (!navigator.geolocation) return null;
+  const pos = await new Promise(resolve=>{
+    navigator.geolocation.getCurrentPosition(resolve, ()=>resolve(null), {
+      enableHighAccuracy:false, maximumAge:300000, timeout:8000
+    });
+  });
+  return profileZoneFromDevicePosition(pos);
+}
+function profileTileRef(lat, lon, z){
+  const n = Math.pow(2, z);
+  const clampedLat = Math.max(-85.05112878, Math.min(85.05112878, lat));
+  const latRad = clampedLat * Math.PI / 180;
+  const worldX = (lon + 180) / 360 * n;
+  const worldY = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
+  const x = Math.floor(worldX), y = Math.floor(worldY);
+  return {
+    x, y,
+    px:Math.max(0, Math.min(255, Math.floor((worldX - x) * 256))),
+    py:Math.max(0, Math.min(255, Math.floor((worldY - y) * 256)))
+  };
+}
+function profileDemUrl(source, ref){
+  return source.url.replace("{z}", source.z).replace("{x}", ref.x).replace("{y}", ref.y);
+}
+async function profileMapLimit(items, limit, worker){
+  let next = 0;
+  const runners = Array.from({length:Math.min(limit, items.length)}, async()=>{
+    while(next < items.length){
+      const i = next++;
+      await worker(items[i], i);
+    }
+  });
+  await Promise.all(runners);
+}
+async function getProfileTileResponse(url){
+  let cache = null, response = null;
+  try{
+    if (window.caches){
+      cache = await caches.open(PROFILE_TILE_CACHE);
+      response = await cache.match(url);
+    }
+  }catch(e){}
+  if (!response){
+    try{
+      response = await fetch(url, {mode:"cors", cache:"force-cache"});
+      if (!response.ok) return null;
+      if (cache){
+        try{
+          await cache.put(url, response.clone());
+          const keys = await cache.keys();
+          if (keys.length > 120) await Promise.all(keys.slice(0, keys.length - 120).map(k=>cache.delete(k)));
+        }catch(e){}
+      }
+    }catch(e){ return null; }
+  }
+  return response;
+}
+async function decodeProfileDemTile(url){
+  if (profileTileMemoryCache.has(url)) return profileTileMemoryCache.get(url);
+  const pending = (async()=>{
+    const response = await getProfileTileResponse(url);
+    if (!response) return null;
+    try{
+      const blob = await response.blob();
+      let image = null, revokeUrl = "";
+      if (window.createImageBitmap){
+        image = await createImageBitmap(blob);
+      }else{
+        revokeUrl = URL.createObjectURL(blob);
+        image = await new Promise((resolve,reject)=>{
+          const img = new Image();
+          img.onload=()=>resolve(img); img.onerror=reject; img.src=revokeUrl;
+        });
+      }
+      const c = document.createElement("canvas");
+      c.width=256; c.height=256;
+      const cctx=c.getContext("2d", {willReadFrequently:true});
+      cctx.drawImage(image,0,0,256,256);
+      const pixels=cctx.getImageData(0,0,256,256).data;
+      if (image && image.close) image.close();
+      if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+      return pixels;
+    }catch(e){ return null; }
+  })();
+  profileTileMemoryCache.set(url, pending);
+  const pixels = await pending;
+  // A temporary network failure must not poison the in-memory cache for the
+  // rest of the session. Successful tiles remain shared by nearby profiles.
+  if (!pixels) profileTileMemoryCache.delete(url);
+  return pixels;
+}
+function decodeProfileElevation(pixels, px, py){
+  if (!pixels) return null;
+  const i = (py * 256 + px) * 4;
+  const x = pixels[i] * 65536 + pixels[i+1] * 256 + pixels[i+2];
+  if (x === 8388608) return null;
+  return (x < 8388608 ? x : x - 16777216) * 0.01;
+}
+function getProfileDataCache(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(PROFILE_DATA_CACHE_KEY)||"[]");
+    return Array.isArray(parsed)?parsed:[];
+  }catch(e){ return []; }
+}
+function getProfileCacheKey(start,end,zone){
+  const q=v=>Math.round(v/1000);
+  return `${getProfileDrawingKey()}|${zone}|${q(start.x)},${q(start.y)}|${q(end.x)},${q(end.y)}`;
+}
+function restoreCachedProfile(start,end,zone){
+  const key=getProfileCacheKey(start,end,zone);
+  const item=getProfileDataCache().find(v=>v.key===key);
+  if (!item || !Array.isArray(item.samples) || item.samples.length<2) return null;
+  const length=Math.hypot(end.x-start.x,end.y-start.y)/1000;
+  return {
+    start:{...start}, end:{...end}, zone, length,
+    samples:item.samples.map(s=>({
+      t:s.t, distance:s.t*length, elevation:s.elevation, source:s.source,
+      worldX:start.x+(end.x-start.x)*s.t, worldY:start.y+(end.y-start.y)*s.t
+    }))
+  };
+}
+function rememberProfileData(result){
+  try{
+    const key=getProfileCacheKey(result.start,result.end,result.zone);
+    let all=getProfileDataCache().filter(v=>v.key!==key);
+    all.push({key,savedAt:Date.now(),samples:result.samples.map(s=>({t:s.t,elevation:s.elevation,source:s.source}))});
+    if(all.length>12) all=all.slice(all.length-12);
+    localStorage.setItem(PROFILE_DATA_CACHE_KEY,JSON.stringify(all));
+  }catch(e){}
+}
+async function buildProfileData(start,end,zone){
+  const cached=restoreCachedProfile(start,end,zone);
+  if(cached) return cached;
+  const length=Math.hypot(end.x-start.x,end.y-start.y)/1000;
+  if (!(length>0.05)) return null;
+  const sampleCount=Math.max(2,Math.min(601,Math.ceil(length/Math.max(1,length/600))+1));
+  const samples=[];
+  for(let i=0;i<sampleCount;i++){
+    const t=i/(sampleCount-1);
+    const worldX=start.x+(end.x-start.x)*t;
+    const worldY=start.y+(end.y-start.y)*t;
+    const plane=sfcWorldToPlane(worldX,worldY);
+    const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
+    samples.push({t,distance:length*t,worldX,worldY,lat:ll.lat,lon:ll.lon,elevation:null,source:null});
+  }
+  for(const source of PROFILE_DEM_SOURCES){
+    const refs=new Map();
+    for(const sample of samples){
+      if(sample.elevation!=null) continue;
+      const ref=profileTileRef(sample.lat,sample.lon,source.z);
+      const url=profileDemUrl(source,ref);
+      sample._profileRef={ref,url};
+      if(!refs.has(url)) refs.set(url,null);
+    }
+    const urls=[...refs.keys()];
+    await profileMapLimit(urls,5,async url=>{ refs.set(url,await decodeProfileDemTile(url)); });
+    for(const sample of samples){
+      if(sample.elevation!=null||!sample._profileRef) continue;
+      const {ref,url}=sample._profileRef;
+      const elevation=decodeProfileElevation(refs.get(url),ref.px,ref.py);
+      if(elevation!=null&&Number.isFinite(elevation)){
+        sample.elevation=elevation;
+        sample.source=source.id;
+      }
+      delete sample._profileRef;
+    }
+    if(samples.every(s=>s.elevation!=null)) break;
+  }
+  if(samples.filter(s=>s.elevation!=null).length<2) return null;
+  const result={start:{...start},end:{...end},zone,length,samples};
+  rememberProfileData(result);
+  return result;
+}
+function formatProfileDistance(m){
+  return m>=1000?`${(m/1000).toFixed(2)}km`:`${m.toFixed(m<100?1:0)}m`;
+}
+function updateProfileUi(){
+  if(profileBtn) profileBtn.classList.toggle("profileActive",profileMode);
+}
+function closeProfileModal(){
+  if(profileModal) profileModal.classList.remove("open");
+  profileHoverWorld=null;
+  profileGraphPointers.clear();
+  profileGraphGesture=null;
+  scheduleDraw();
+}
+function openProfileModal(loading){
+  if(!profileModal) return;
+  profileModal.classList.add("open");
+  profileLoading?.classList.toggle("show",!!loading);
+  requestAnimationFrame(()=>{resizeProfileChart();drawProfileChart();});
+}
+function resetProfileGraphView(){
+  profileGraphScaleX=1;profileGraphScaleY=1;profileGraphOffsetX=0;profileGraphOffsetY=0;
+}
+function resizeProfileChart(){
+  if(!profileChart) return;
+  const rect=profileChart.getBoundingClientRect();
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const w=Math.max(1,Math.round(rect.width*dpr)),h=Math.max(1,Math.round(rect.height*dpr));
+  if(profileChart.width!==w||profileChart.height!==h){profileChart.width=w;profileChart.height=h;}
+}
+function getProfileGraphGeometry(){
+  if(!profileChart||!profileData) return null;
+  const dpr=profileChart.width/Math.max(1,profileChart.getBoundingClientRect().width);
+  const w=profileChart.width/dpr,h=profileChart.height/dpr;
+  const margin={left:48,right:14,top:15,bottom:32};
+  const valid=profileData.samples.filter(s=>s.elevation!=null&&Number.isFinite(s.elevation));
+  if(valid.length<2) return null;
+  let minE=Math.min(...valid.map(s=>s.elevation)),maxE=Math.max(...valid.map(s=>s.elevation));
+  if(maxE-minE<1){const mid=(minE+maxE)/2;minE=mid-.5;maxE=mid+.5;}
+  const pad=(maxE-minE)*.08;minE-=pad;maxE+=pad;
+  return {dpr,w,h,margin,plotW:w-margin.left-margin.right,plotH:h-margin.top-margin.bottom,minE,maxE};
+}
+function profileGraphXY(sample,g){
+  const baseX=sample.distance/Math.max(.001,profileData.length)*g.plotW;
+  const baseY=(g.maxE-sample.elevation)/(g.maxE-g.minE)*g.plotH;
+  return {
+    x:g.margin.left+baseX*profileGraphScaleX+profileGraphOffsetX,
+    y:g.margin.top+baseY*profileGraphScaleY+profileGraphOffsetY
+  };
+}
+function drawProfileChart(){
+  if(!profileChart) return;
+  resizeProfileChart();
+  const ctxp=profileChart.getContext("2d");
+  const rect=profileChart.getBoundingClientRect();
+  const dpr=profileChart.width/Math.max(1,rect.width);
+  ctxp.setTransform(dpr,0,0,dpr,0,0);
+  ctxp.clearRect(0,0,rect.width,rect.height);
+  const dark=document.body.classList.contains("dark")||darkTheme;
+  ctxp.fillStyle=dark?"#111820":"#f8fafc";ctxp.fillRect(0,0,rect.width,rect.height);
+  const g=getProfileGraphGeometry();
+  if(!g) return;
+  const axis=dark?"rgba(255,255,255,.58)":"rgba(0,0,0,.55)";
+  const grid=dark?"rgba(255,255,255,.12)":"rgba(0,0,0,.10)";
+  ctxp.font="11px system-ui,sans-serif";ctxp.textBaseline="middle";
+  ctxp.strokeStyle=grid;ctxp.lineWidth=1;ctxp.fillStyle=axis;
+  for(let i=0;i<=4;i++){
+    const y=g.margin.top+g.plotH*i/4;
+    ctxp.beginPath();ctxp.moveTo(g.margin.left,y);ctxp.lineTo(g.margin.left+g.plotW,y);ctxp.stroke();
+    const e=g.maxE-(g.maxE-g.minE)*i/4;
+    ctxp.textAlign="right";ctxp.fillText(e.toFixed(1),g.margin.left-5,y);
+  }
+  for(let i=0;i<=4;i++){
+    const x=g.margin.left+g.plotW*i/4;
+    ctxp.beginPath();ctxp.moveTo(x,g.margin.top);ctxp.lineTo(x,g.margin.top+g.plotH);ctxp.stroke();
+    ctxp.textAlign="center";ctxp.textBaseline="top";
+    ctxp.fillText(formatProfileDistance(profileData.length*i/4),x,g.margin.top+g.plotH+7);
+  }
+  ctxp.save();
+  ctxp.beginPath();ctxp.rect(g.margin.left,g.margin.top,g.plotW,g.plotH);ctxp.clip();
+  ctxp.strokeStyle="#22a7f0";ctxp.lineWidth=2;ctxp.lineJoin="round";ctxp.lineCap="round";
+  ctxp.beginPath();
+  let started=false;
+  for(const sample of profileData.samples){
+    if(sample.elevation==null){started=false;continue;}
+    const p=profileGraphXY(sample,g);
+    if(!started){ctxp.moveTo(p.x,p.y);started=true;}else ctxp.lineTo(p.x,p.y);
+  }
+  ctxp.stroke();
+  if(profileHoverWorld){
+    const nearest=profileData.samples.reduce((best,s)=>{
+      const d=Math.hypot(s.worldX-profileHoverWorld.x,s.worldY-profileHoverWorld.y);
+      return !best||d<best.d?{s,d}:best;
+    },null)?.s;
+    if(nearest&&nearest.elevation!=null){
+      const p=profileGraphXY(nearest,g);
+      ctxp.strokeStyle="#ffb000";ctxp.lineWidth=1.5;ctxp.beginPath();ctxp.moveTo(p.x,g.margin.top);ctxp.lineTo(p.x,g.margin.top+g.plotH);ctxp.stroke();
+      ctxp.fillStyle="#ffb000";ctxp.beginPath();ctxp.arc(p.x,p.y,4,0,Math.PI*2);ctxp.fill();
+      ctxp.fillStyle=dark?"#fff":"#111";ctxp.font="bold 11px system-ui,sans-serif";ctxp.textAlign="left";ctxp.textBaseline="bottom";
+      ctxp.fillText(`${formatProfileDistance(nearest.distance)}  ${nearest.elevation.toFixed(2)}m`,Math.min(p.x+6,g.margin.left+g.plotW-112),Math.max(g.margin.top+14,p.y-5));
+    }
+  }
+  ctxp.restore();
+}
+function updateProfileSummary(){
+  if(!profileSummary||!profileData) return;
+  const valid=profileData.samples.filter(s=>s.elevation!=null);
+  const first=valid[0],last=valid[valid.length-1];
+  const diff=first&&last?last.elevation-first.elevation:0;
+  profileSummary.textContent=`延長 ${formatProfileDistance(profileData.length)}　高低差 ${diff>=0?"+":""}${diff.toFixed(2)}m`;
+}
+async function completeProfileSelection(){
+  if(!profileStartWorld||!profileEndWorld||!profileZone) return;
+  profileMode=false;updateProfileUi();resetProfileGraphView();
+  if(profileSummary) profileSummary.textContent="断面データを取得しています";
+  openProfileModal(true);
+  try{
+    profileData=await buildProfileData(profileStartWorld,profileEndWorld,profileZone);
+  }catch(e){console.error(e);profileData=null;}
+  profileLoading?.classList.remove("show");
+  if(!profileData){
+    closeProfileModal();showToast("標高データを取得できません",2600);return;
+  }
+  updateProfileSummary();drawProfileChart();scheduleDraw();
+}
+function selectProfileWorldPoint(world){
+  if(!profileMode||!world) return;
+  if(!profileStartWorld){
+    profileStartWorld={x:world.x,y:world.y};profileEndWorld=null;profileData=null;profileHoverWorld=null;
+    showToast("断面の終点をタップしてください",2400);scheduleDraw();return;
+  }
+  profileEndWorld={x:world.x,y:world.y};profileHoverWorld=null;scheduleDraw();completeProfileSelection();
+}
+async function beginProfileMode(){
+  if(!hasLoadedDrawing()) return;
+  measureMode=false;measureFreeMode=false;measureOffsetMode=false;resetMeasureUI();
+  inkEnabled=false;inkDrawing=false;currentStroke=null;pendingTouchInk=null;
+  closeTextSearchPopup();closePanelsExcept();
+  profileZone=await resolveProfileZone();
+  if(!profileZone){showToast("このSFC図面には位置情報が設定されていません",3000);return;}
+  profileMode=true;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;
+  updateProfileUi();updateStopBtnUI();showToast("断面の起点をタップしてください",2400);scheduleDraw();
 }
 function getGpsEnvironmentMessage(){
   const secure = window.isSecureContext || location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
@@ -1953,7 +2409,7 @@ function updateStopBtnUI(){
   const btn = document.getElementById("stopBtn");
   if(!btn) return;
   const panelOpen = !!(measureModePanel && measureModePanel.style.display === "block");
-  const active = !!(measureMode || inkEnabled || panelOpen || textSearchPopupOpen);
+  const active = !!(measureMode || inkEnabled || panelOpen || textSearchPopupOpen || profileMode);
   if(active){
     btn.style.background = "#c40000";
     btn.style.color = "#fff";
@@ -3183,6 +3639,27 @@ function draw(){
   }
   }
 
+  if(profileStartWorld){
+    const a=worldToScreen(profileStartWorld.x,profileStartWorld.y);
+    const end=profileEndWorld||profileHoverWorld;
+    ctx.save();
+    if(end){
+      const b=worldToScreen(end.x,end.y);
+      ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
+      ctx.strokeStyle="#ff9800";ctx.lineWidth=2.5;ctx.setLineDash([]);ctx.stroke();
+      ctx.fillStyle="#ff9800";ctx.beginPath();ctx.arc(b[0],b[1],6,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke();
+    }
+    ctx.fillStyle="#ff9800";ctx.beginPath();ctx.arc(a[0],a[1],6,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke();
+    ctx.restore();
+  }
+  if(profileHoverWorld&&profileData){
+    const h=worldToScreen(profileHoverWorld.x,profileHoverWorld.y);
+    ctx.save();ctx.fillStyle="#ffd000";ctx.strokeStyle="#111";ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.arc(h[0],h[1],6,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();
+  }
+
   for(const stroke of inkStrokes) drawInkStroke(stroke);
   if(currentStroke) drawInkStroke(currentStroke);
 
@@ -3326,7 +3803,7 @@ function applyPortraitPreference(){
 }
 function updateDrawingDependentUi(){
   const available = hasLoadedDrawing();
-  const ids = ["saveIconBtn","saveAsIconBtn","fitBtn","gpsBtn","measureBtn","drawBtn","textSearchOpenBtn","layerFab","gpsDetailFab"];
+  const ids = ["saveIconBtn","saveAsIconBtn","fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn","textSearchOpenBtn","layerFab","gpsDetailFab"];
   ids.forEach(id=>{
     const el = document.getElementById(id);
     if (!el) return;
@@ -3360,9 +3837,11 @@ function resetSessionFromLoad(){
   if (textSearchInput) textSearchInput.value = "";
   resetMeasureUI();
   measureMode=false; measureType="2point"; activePickModes=["center","cross","end"];
+  profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;profileZone=null;profileTouchCandidate=null;
   inkEnabled=false; inkDrawing=false; currentStroke=null; pendingTouchInk=null; suppressTouchInkUntil=0;
   hoverCursorScreen=null; flashCursorScreen=null; flashCursorUntil=0;
   updateModeIcons();
+  updateProfileUi();
   updatePickStatus();
   if (supportPanel) supportPanel.style.display = "none";
   updateStopBtnUI();
@@ -4745,6 +5224,7 @@ if (supportLinkBtn) supportLinkBtn.addEventListener('click', (e)=>{
 if (textSearchOpenBtn) textSearchOpenBtn.addEventListener("click", (e)=>{
   e.stopPropagation();
   if (!isDrawingActionAvailable()) return;
+  if(profileMode){profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();}
   openTextSearchPopup();
 });
 if (sizeToggleBtn) sizeToggleBtn.addEventListener("click", (e)=>{
@@ -4935,8 +5415,75 @@ document.getElementById("pickEndBtn").addEventListener("click", ()=> togglePickM
 document.getElementById("pickFreeBtn").addEventListener("click", ()=> togglePickMode("free"));
 document.getElementById("pickLineBtn").addEventListener("click", ()=> togglePickMode("line"));
 
+if(profileBtn) profileBtn.addEventListener("click",()=>{
+  if(profileMode){
+    profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;
+    updateProfileUi();updateStopBtnUI();scheduleDraw();
+  }else beginProfileMode();
+});
+if(profileCloseBtn) profileCloseBtn.addEventListener("click",closeProfileModal);
+if(profileModal) profileModal.addEventListener("click",e=>{if(e.target===profileModal)closeProfileModal();});
+if(profileChart){
+  const traceProfileAtClientX=clientX=>{
+    if(!profileData) return;
+    const g=getProfileGraphGeometry();if(!g)return;
+    const rect=profileChart.getBoundingClientRect();
+    const localX=clientX-rect.left;
+    const baseX=(localX-g.margin.left-profileGraphOffsetX)/Math.max(.001,profileGraphScaleX);
+    const distance=Math.max(0,Math.min(profileData.length,baseX/g.plotW*profileData.length));
+    let nearest=profileData.samples[0];
+    for(const sample of profileData.samples) if(Math.abs(sample.distance-distance)<Math.abs(nearest.distance-distance))nearest=sample;
+    profileHoverWorld={x:nearest.worldX,y:nearest.worldY};drawProfileChart();scheduleDraw();
+  };
+  profileChart.addEventListener("pointerdown",e=>{
+    e.preventDefault();profileChart.setPointerCapture?.(e.pointerId);
+    profileGraphPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(profileGraphPointers.size===1){traceProfileAtClientX(e.clientX);profileGraphGesture=null;}
+    if(profileGraphPointers.size===2){
+      const p=[...profileGraphPointers.values()],rect=profileChart.getBoundingClientRect();
+      const mid={x:(p[0].x+p[1].x)/2-rect.left,y:(p[0].y+p[1].y)/2-rect.top};
+      profileGraphGesture={distance:Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y),mid,
+        scaleX:profileGraphScaleX,scaleY:profileGraphScaleY,offsetX:profileGraphOffsetX,offsetY:profileGraphOffsetY};
+    }
+  });
+  profileChart.addEventListener("pointermove",e=>{
+    if(!profileGraphPointers.has(e.pointerId)) return;
+    e.preventDefault();profileGraphPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(profileGraphPointers.size===1){traceProfileAtClientX(e.clientX);return;}
+    if(profileGraphPointers.size>=2&&profileGraphGesture){
+      const p=[...profileGraphPointers.values()].slice(0,2),rect=profileChart.getBoundingClientRect();
+      const mid={x:(p[0].x+p[1].x)/2-rect.left,y:(p[0].y+p[1].y)/2-rect.top};
+      const distance=Math.max(1,Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y));
+      const ratio=distance/Math.max(1,profileGraphGesture.distance);
+      const nextX=Math.max(1,Math.min(10,profileGraphGesture.scaleX*ratio));
+      const nextY=Math.max(1,Math.min(10,profileGraphGesture.scaleY*ratio));
+      profileGraphOffsetX=profileGraphGesture.offsetX+(mid.x-profileGraphGesture.mid.x)+(profileGraphGesture.mid.x*(1-nextX/profileGraphGesture.scaleX));
+      profileGraphOffsetY=profileGraphGesture.offsetY+(mid.y-profileGraphGesture.mid.y)+(profileGraphGesture.mid.y*(1-nextY/profileGraphGesture.scaleY));
+      profileGraphScaleX=nextX;profileGraphScaleY=nextY;drawProfileChart();
+    }
+  });
+  const finishProfilePointer=e=>{
+    profileGraphPointers.delete(e.pointerId);
+    if(profileGraphPointers.size<2)profileGraphGesture=null;
+  };
+  profileChart.addEventListener("pointerup",finishProfilePointer);
+  profileChart.addEventListener("pointercancel",finishProfilePointer);
+  profileChart.addEventListener("wheel",e=>{
+    e.preventDefault();
+    const rect=profileChart.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
+    const factor=e.deltaY<0?1.18:1/1.18;
+    const nextX=Math.max(1,Math.min(10,profileGraphScaleX*factor));
+    const nextY=Math.max(1,Math.min(10,profileGraphScaleY*factor));
+    profileGraphOffsetX=mx-(mx-profileGraphOffsetX)*nextX/profileGraphScaleX;
+    profileGraphOffsetY=my-(my-profileGraphOffsetY)*nextY/profileGraphScaleY;
+    profileGraphScaleX=nextX;profileGraphScaleY=nextY;drawProfileChart();
+  },{passive:false});
+  profileChart.addEventListener("dblclick",()=>{resetProfileGraphView();drawProfileChart();});
+}
+
 document.getElementById("measureBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
+  if(profileMode){profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();}
   if (measureMode) {
     resetMeasureUI();
     measureType = "2point";
@@ -4964,6 +5511,7 @@ document.getElementById("measure3vBtn").addEventListener("click", ()=>{
 
 document.getElementById("drawBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
+  if(profileMode){profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();}
   // 計測中なら必ず中止
   if (measureMode || selectedMeasurePoints.length) {
     measureMode = false;
@@ -4991,13 +5539,14 @@ document.getElementById("stopBtn").addEventListener("click", (e)=>{
     closeTextSearchPopup();
   }
   const panelOpen = !!(measureModePanel && measureModePanel.style.display === "block");
-  const hasWorkToStop = !!(measureMode || inkEnabled || panelOpen);
+  const hasWorkToStop = !!(measureMode || inkEnabled || panelOpen || profileMode);
   if (!hasWorkToStop) {
     updateStopBtnUI();
     scheduleDraw();
     return;
   }
   measureMode = false;
+  profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();
   measureFreeMode = false;
   measureOffsetMode = false;
   resetMeasureUI();
@@ -5218,6 +5767,7 @@ canvas.addEventListener("mousedown", e=>{
     lastY = e.clientY;
     return;
   }
+  if(profileMode&&e.button===0) return;
   if(inkEnabled && !measureMode && e.button === 0){
     const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
     const p = screenToWorld(local.x, local.y);
@@ -5263,6 +5813,10 @@ window.addEventListener("mousemove", e=>{
   const ptLocal = getCanvasLocalPointFromClient(e.clientX, e.clientY);
   const ox = ptLocal.x, oy = ptLocal.y;
 
+  if(profileMode&&!dragging){
+    const p=screenToWorld(ox,oy);profileHoverWorld={x:p[0],y:p[1]};scheduleDraw();return;
+  }
+
   if(inkDrawing && currentStroke){
     const p = screenToWorld(ox, oy);
     const tolWorld = 14 / Math.max(view.scale || 1, 0.000001);
@@ -5307,6 +5861,10 @@ canvas.addEventListener("dblclick", e=>{
 
 canvas.addEventListener("click", e=>{
   if(Date.now() < suppressClickUntil) return;
+  if(profileMode){
+    const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
+    const p=screenToWorld(local.x,local.y);selectProfileWorldPoint({x:p[0],y:p[1]});return;
+  }
   if(measureMode){
     const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
     const pt=chooseMeasurePointByMode(local.x,local.y);
@@ -5352,6 +5910,11 @@ canvas.addEventListener("touchstart", e=>{
   if(now < suppressTouchInkUntil) { touchTapCandidate=null; touchPanCandidate=null; return; }
   const ptLocal = getCanvasLocalPointFromClient(e.touches[0].clientX, e.touches[0].clientY);
   const x=ptLocal.x, y=ptLocal.y;
+
+  if(profileMode){
+    profileTouchCandidate={clientX:e.touches[0].clientX,clientY:e.touches[0].clientY,screenX:x,screenY:y};
+    return;
+  }
 
   if(inkEnabled && !measureMode){
     const p = screenToWorld(x,y);
@@ -5414,6 +5977,12 @@ canvas.addEventListener("touchmove", e=>{
   if(e.touches.length!==1) return;
   const ptLocal = getCanvasLocalPointFromClient(e.touches[0].clientX, e.touches[0].clientY);
   const x=ptLocal.x, y=ptLocal.y;
+
+  if(profileMode&&profileTouchCandidate){
+    const move=Math.hypot(e.touches[0].clientX-profileTouchCandidate.clientX,e.touches[0].clientY-profileTouchCandidate.clientY);
+    if(move>12)profileTouchCandidate=null;
+    e.preventDefault();return;
+  }
 
   if(pendingTouchInk){
     const movePx = Math.hypot(e.touches[0].clientX - pendingTouchInk.startClientX, e.touches[0].clientY - pendingTouchInk.startClientY);
@@ -5490,6 +6059,15 @@ canvas.addEventListener("touchend", e=>{
     suppressTouchInkUntil = Date.now() + 420;
     scheduleDraw();
   }
+  if(profileMode&&profileTouchCandidate&&e.touches.length===0){
+    const changed=e.changedTouches&&e.changedTouches[0];
+    const move=changed?Math.hypot(changed.clientX-profileTouchCandidate.clientX,changed.clientY-profileTouchCandidate.clientY):999;
+    if(move<=12){
+      const p=screenToWorld(profileTouchCandidate.screenX,profileTouchCandidate.screenY);
+      suppressClickUntil=Date.now()+700;selectProfileWorldPoint({x:p[0],y:p[1]});
+    }
+    profileTouchCandidate=null;return;
+  }
   if(inkDrawing && currentStroke){
     if (currentStroke.points && currentStroke.points.length>=2) {
       inkStrokes.push(currentStroke); redoStrokes=[]; updateUndoRedoUI();
@@ -5558,7 +6136,7 @@ canvas.addEventListener("touchcancel", ()=>{
       markMemoChanged();
     }
   }
-  currentStroke=null; inkDrawing=false; touchTapCandidate=null; touchPanCandidate=null; touchPanMoved=false;
+  currentStroke=null; inkDrawing=false; touchTapCandidate=null; touchPanCandidate=null; touchPanMoved=false;profileTouchCandidate=null;
 }, {passive:true});
 
 if (compassFab) {
@@ -5645,12 +6223,20 @@ function relayoutAndResizeStable(){
       refreshEnvironmentNotice();
       updateDrawingDependentUi();
       updateDrawingDependentUi();
+      if (profileModal?.classList.contains("open")) {
+        resizeProfileChart();
+        drawProfileChart();
+      }
     } else {
       positionMeasurePanel();
       applyMobileUiTweaks();
       refreshEnvironmentNotice();
       updateDrawingDependentUi();
       updateDrawingDependentUi();
+      if (profileModal?.classList.contains("open")) {
+        resizeProfileChart();
+        drawProfileChart();
+      }
     }
   });
 }
