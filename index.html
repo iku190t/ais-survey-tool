@@ -28,6 +28,8 @@ Tokushima Japan
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- Gmail直接送信用。Google Cloudの「ウェブ アプリケーション」OAuthクライアントIDをcontentへ設定する。 -->
+<meta name="gmail-oauth-client-id" content="">
 <title>SFC測量現場メモツール | Ezアイズ Survey Tools</title>
 <style>
 :root{
@@ -337,6 +339,9 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #saveAsChoiceModal{display:none;position:fixed;inset:0;z-index:230;background:rgba(0,0,0,.58);align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
 #saveAsChoiceBox{width:min(340px,92vw);background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;padding:16px;box-shadow:0 14px 34px rgba(0,0,0,.44);}
 #saveAsChoiceTitle{font-size:17px;font-weight:800;margin-bottom:12px;}
+#gmailRecipientLabel{display:block;margin-bottom:12px;font-size:12px;font-weight:700;color:var(--muted);}
+#gmailRecipientInput{display:block;width:100%;height:42px;margin-top:6px;padding:8px 10px;box-sizing:border-box;border:1px solid var(--border);border-radius:9px;background:var(--panel);color:var(--fg);font-size:16px;}
+#gmailDirectHint{margin:-3px 0 12px;font-size:11px;line-height:1.55;color:var(--muted);}
 #saveAsChoiceActions{display:grid;gap:9px;}
 #saveAsChoiceActions button{min-height:44px;font-size:14px;font-weight:700;}
 #miniHint{display:none !important;}
@@ -956,9 +961,13 @@ gtag('config', 'G-88B9YPJXWP');
   <div id="saveAsChoiceModal" role="dialog" aria-modal="true" aria-labelledby="saveAsChoiceTitle">
     <div id="saveAsChoiceBox">
       <div id="saveAsChoiceTitle">Gmailで送信</div>
+      <label id="gmailRecipientLabel" for="gmailRecipientInput">送信先メールアドレス
+        <input id="gmailRecipientInput" type="email" inputmode="email" autocomplete="email" placeholder="example@gmail.com">
+      </label>
+      <div id="gmailDirectHint">送信先はこの端末に保存されます。初回だけGoogleアカウントの許可画面が表示されます。</div>
       <div id="saveAsChoiceActions">
-        <button id="saveAsRawShareBtn" type="button">SFCをGmailで送信</button>
-        <button id="saveAsZipShareBtn" type="button">ZIP圧縮してGmailで送信</button>
+        <button id="saveAsRawShareBtn" type="button">SFCを直接送信</button>
+        <button id="saveAsZipShareBtn" type="button">ZIP圧縮して直接送信</button>
         <button id="saveAsChoiceCancelBtn" type="button">キャンセル</button>
       </div>
     </div>
@@ -1035,7 +1044,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開く</div><b>開く</b> でSFCまたは保存済みHTMLを選びます。読み込み後は図面全体が画面に収まり、図面に適した向きで表示されます。</div>
               <div class="helpBlock"><div class="helpHead">上書き</div><b>上書き</b> は、手書きメモを含む現在の内容をSFCまたはHTMLへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
-              <div class="helpBlock"><div class="helpHead">別保存・Gmail送信</div><b>別保存</b> を押すと、<b>SFCをGmailで送信</b> または <b>ZIP圧縮してGmailで送信</b> を選べます。iPhoneの共有画面が開いたらGmailを1回選んで送信してください。</div>
+              <div class="helpBlock"><div class="helpHead">別保存・Gmail送信</div><b>別保存</b> を押し、送信先を入力して <b>SFCを直接送信</b> または <b>ZIP圧縮して直接送信</b> を選びます。送信先は端末に保存され、次回から入力不要です。初回だけGoogleアカウントの許可画面が表示されます。直接送信できない端末では従来の共有画面へ切り替わります。</div>
               <div class="helpBlock"><div class="helpHead">SFCへの書き込み</div>SFCを開いて保存すると、手書きの線は <b>「線」レイヤー</b>、丸は <b>「丸」レイヤー</b>のSFC要素として書き込みます。重要な原本は念のため別に保管してください。</div>
               <div class="helpBlock"><div class="helpHead">ブラウザー内の自動保存</div>メモ、レイヤー表示、表示色などは復元用として端末内にも保存されます。詳しくは <b>復元保存</b> を確認してください。</div>
             </div>
@@ -2815,6 +2824,145 @@ async function shareBlobFile(blob, fileName){
     return false;
   }
 }
+
+const GMAIL_RECIPIENT_STORAGE_KEY="sfcviewer.gmail.recipient.v1";
+let gmailAccessToken="";
+let googleIdentityLoadPromise=null;
+
+function getGmailOAuthClientId(){
+  const meta=document.querySelector('meta[name="gmail-oauth-client-id"]');
+  return meta ? String(meta.content||"").trim() : "";
+}
+function getSavedGmailRecipient(){
+  try{return String(localStorage.getItem(GMAIL_RECIPIENT_STORAGE_KEY)||"").trim();}catch(e){return "";}
+}
+function saveGmailRecipient(value){
+  const email=String(value||"").trim();
+  try{localStorage.setItem(GMAIL_RECIPIENT_STORAGE_KEY,email);}catch(e){}
+  return email;
+}
+function isValidEmailAddress(value){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value||"").trim());
+}
+function loadGoogleIdentityServices(){
+  if(window.google && google.accounts && google.accounts.oauth2)return Promise.resolve();
+  if(googleIdentityLoadPromise)return googleIdentityLoadPromise;
+  googleIdentityLoadPromise=new Promise((resolve,reject)=>{
+    const existing=document.querySelector('script[data-gmail-google-identity]');
+    if(existing){
+      existing.addEventListener("load",resolve,{once:true});
+      existing.addEventListener("error",()=>reject(new Error("Google認証を読み込めません")),{once:true});
+      return;
+    }
+    const script=document.createElement("script");
+    script.src="https://accounts.google.com/gsi/client";
+    script.async=true;
+    script.defer=true;
+    script.dataset.gmailGoogleIdentity="1";
+    script.onload=()=>resolve();
+    script.onerror=()=>reject(new Error("Google認証を読み込めません"));
+    document.head.appendChild(script);
+  });
+  return googleIdentityLoadPromise;
+}
+async function requestGmailSendToken(){
+  if(gmailAccessToken)return gmailAccessToken;
+  const clientId=getGmailOAuthClientId();
+  if(!clientId)throw new Error("GMAIL_OAUTH_NOT_CONFIGURED");
+  await loadGoogleIdentityServices();
+  return new Promise((resolve,reject)=>{
+    const client=google.accounts.oauth2.initTokenClient({
+      client_id:clientId,
+      scope:"https://www.googleapis.com/auth/gmail.send",
+      callback:(response)=>{
+        if(response && response.access_token){
+          gmailAccessToken=response.access_token;
+          resolve(gmailAccessToken);
+        }else{
+          reject(new Error((response&&response.error)||"Google認証がキャンセルされました"));
+        }
+      },
+      error_callback:(error)=>reject(new Error((error&&error.type)||"Google認証を開けません"))
+    });
+    client.requestAccessToken({prompt:"consent"});
+  });
+}
+function bytesToBase64(bytes){
+  let binary="";
+  const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk){
+    binary+=String.fromCharCode(...bytes.subarray(i,Math.min(i+chunk,bytes.length)));
+  }
+  return btoa(binary);
+}
+function utf8ToBase64(value){
+  return bytesToBase64(new TextEncoder().encode(String(value||"")));
+}
+function wrapBase64(value){
+  return String(value||"").replace(/.{1,76}/g,"$&\r\n").trimEnd();
+}
+async function createGmailRawMessage(blob,fileName,recipient){
+  const boundary="sfcviewer_"+Date.now().toString(36)+Math.random().toString(36).slice(2);
+  const safeName=String(fileName||"drawing.sfc").replace(/[\r\n"]/g,"_");
+  const subject="=?UTF-8?B?"+utf8ToBase64(safeName)+"?=";
+  const body64=wrapBase64(utf8ToBase64("SFC図面を送信します。"));
+  const attachment64=wrapBase64(bytesToBase64(new Uint8Array(await blob.arrayBuffer())));
+  const mime=[
+    "To: "+recipient,
+    "Subject: "+subject,
+    "MIME-Version: 1.0",
+    "Content-Type: multipart/mixed; boundary=\""+boundary+"\"",
+    "",
+    "--"+boundary,
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    body64,
+    "--"+boundary,
+    "Content-Type: "+(blob.type||"application/octet-stream")+"; name=\""+safeName+"\"",
+    "Content-Disposition: attachment; filename=\""+safeName+"\"; filename*=UTF-8''"+encodeURIComponent(safeName),
+    "Content-Transfer-Encoding: base64",
+    "",
+    attachment64,
+    "--"+boundary+"--",
+    ""
+  ].join("\r\n");
+  return bytesToBase64(new TextEncoder().encode(mime)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+}
+async function sendBlobDirectlyWithGmail(blob,fileName,recipient){
+  const token=await requestGmailSendToken();
+  const raw=await createGmailRawMessage(blob,fileName,recipient);
+  const response=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send",{
+    method:"POST",
+    headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
+    body:JSON.stringify({raw})
+  });
+  if(response.status===401)gmailAccessToken="";
+  if(!response.ok){
+    let detail="";
+    try{detail=await response.text();}catch(e){}
+    throw new Error("Gmail送信エラー "+response.status+(detail?": "+detail:""));
+  }
+  return true;
+}
+async function sendBlobByGmailOrShare(blob,fileName,recipient){
+  if(getGmailOAuthClientId()){
+    try{
+      showToast("Googleアカウントを確認しています…",60000);
+      await sendBlobDirectlyWithGmail(blob,fileName,recipient);
+      showToast("Gmailで送信しました");
+      return true;
+    }catch(e){
+      console.error(e);
+      showToast("直接送信できないため共有画面を開きます",2400);
+    }
+  }
+  if(await shareBlobFile(blob,fileName)){
+    showToast("共有画面を開きました。Gmailを選んで送信してください");
+    return true;
+  }
+  return false;
+}
 function updateStopBtnUI(){
   const btn = document.getElementById("stopBtn");
   if(!btn) return;
@@ -3585,6 +3733,20 @@ function chooseSaveAsShareMode(){
   const modal=document.getElementById("saveAsChoiceModal");
   if(!modal)return Promise.resolve("raw");
   if(saveAsChoiceResolver)resolveSaveAsChoice(null);
+  const directEnabled=!!getGmailOAuthClientId();
+  const recipientInput=document.getElementById("gmailRecipientInput");
+  const recipientLabel=document.getElementById("gmailRecipientLabel");
+  const directHint=document.getElementById("gmailDirectHint");
+  const rawBtn=document.getElementById("saveAsRawShareBtn");
+  const zipBtn=document.getElementById("saveAsZipShareBtn");
+  if(recipientInput)recipientInput.value=getSavedGmailRecipient();
+  if(recipientLabel)recipientLabel.style.display=directEnabled?"block":"none";
+  if(directHint)directHint.style.display=directEnabled?"block":"none";
+  if(rawBtn){
+    const kind=/^HTML/.test(rawBtn.textContent||"")?"HTML":"SFC";
+    rawBtn.textContent=kind+(directEnabled?"を直接送信":"をGmailで送信");
+  }
+  if(zipBtn)zipBtn.textContent=directEnabled?"ZIP圧縮して直接送信":"ZIP圧縮してGmailで送信";
   modal.style.display="flex";
   return new Promise(resolve=>{saveAsChoiceResolver=resolve;});
 }
@@ -5517,9 +5679,15 @@ async function saveSfcWithAnnotations(){
   if (!exportData.ok) { showToast(exportData.reason); return; }
   const { blob, saveAsName } = exportData;
 
-  document.getElementById("saveAsRawShareBtn").textContent=savingSfc?"SFCをGmailで送信":"HTMLをGmailで送信";
+  document.getElementById("saveAsRawShareBtn").textContent=savingSfc?"SFCを直接送信":"HTMLを直接送信";
   const shareMode=await chooseSaveAsShareMode();
   if(!shareMode)return;
+  const directEnabled=!!getGmailOAuthClientId();
+  const recipient=directEnabled?saveGmailRecipient(document.getElementById("gmailRecipientInput")?.value||""):"";
+  if(directEnabled&&!isValidEmailAddress(recipient)){
+    showToast("正しい送信先メールアドレスを入力してください");
+    return;
+  }
   let shareBlob=blob;
   let shareName=saveAsName;
   if(shareMode==="zip"){
@@ -5528,8 +5696,7 @@ async function saveSfcWithAnnotations(){
     shareName=saveAsName.replace(/\.[^.]+$/,"")+".zip";
   }
 
-  if (await shareBlobFile(shareBlob, shareName)) {
-    showToast("共有画面を開きました。Gmailを選んで送信してください");
+  if (await sendBlobByGmailOrShare(shareBlob, shareName, recipient)) {
     return;
   }
 
@@ -6028,8 +6195,22 @@ document.getElementById("saveIconBtn").addEventListener("click", ()=>{
   saveRecoverySnapshot();
   saveSfcOverwrite().catch((e)=>{ console.error(e); showToast("上書きほぞんしっぱい"); });
 });
-document.getElementById("saveAsRawShareBtn").addEventListener("click",()=>resolveSaveAsChoice("raw"));
-document.getElementById("saveAsZipShareBtn").addEventListener("click",()=>resolveSaveAsChoice("zip"));
+function resolveGmailSaveChoice(mode){
+  if(!getGmailOAuthClientId()){
+    resolveSaveAsChoice(mode);
+    return;
+  }
+  const input=document.getElementById("gmailRecipientInput");
+  const recipient=saveGmailRecipient(input?.value||"");
+  if(!isValidEmailAddress(recipient)){
+    showToast("正しい送信先メールアドレスを入力してください");
+    if(input){input.focus();input.select();}
+    return;
+  }
+  resolveSaveAsChoice(mode);
+}
+document.getElementById("saveAsRawShareBtn").addEventListener("click",()=>resolveGmailSaveChoice("raw"));
+document.getElementById("saveAsZipShareBtn").addEventListener("click",()=>resolveGmailSaveChoice("zip"));
 document.getElementById("saveAsChoiceCancelBtn").addEventListener("click",()=>resolveSaveAsChoice(null));
 document.getElementById("saveAsChoiceModal").addEventListener("click",e=>{if(e.target.id==="saveAsChoiceModal")resolveSaveAsChoice(null);});
 document.getElementById("saveAsIconBtn").addEventListener("click", ()=>{
