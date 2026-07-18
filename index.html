@@ -2283,13 +2283,17 @@ function boundsForPoints(points){
 function hasDashPattern(item,dashIndex){
   return Array.isArray(item&&item[dashIndex])&&item[dashIndex].length>0;
 }
+// Mobile Safari / Android WebView can silently omit parts of an oversized
+// Canvas path.  Keep each batched stroke deliberately small so every SXF
+// feature is submitted to the renderer, while still reducing stroke calls.
+const MAX_RENDER_RUN_ITEMS=32;
 function makeAdjacentRenderRuns(items,styleKey,dashIndex){
   const runs=[];
   let current=null;
   for(const item of items||[]){
     const batchable=!hasDashPattern(item,dashIndex);
     const key=batchable?styleKey(item):null;
-    if(!batchable||!current||current.key!==key){
+    if(!batchable||!current||current.key!==key||current.items.length>=MAX_RENDER_RUN_ITEMS){
       current={key,items:[item],batchable};
       runs.push(current);
     }else current.items.push(item);
