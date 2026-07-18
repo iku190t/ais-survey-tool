@@ -242,13 +242,14 @@ label.fileBtn{
 #layerCloseBtn{min-width:72px;font-size:14px;}
 #layerBody{flex:1 1 auto;min-height:0;overflow:auto;padding:10px 12px 24px;}
 .layerActions{display:flex;gap:6px;flex-wrap:wrap;}
-.layerActions button{font-size:13px;min-height:34px;}
+.layerActions button,.layerActions .layerActionLabel{font-size:13px;min-height:34px;box-sizing:border-box;}
+.layerActions .layerActionLabel{display:inline-flex;align-items:center;justify-content:center;background:var(--button);color:var(--buttonText);border:1px solid var(--border);border-radius:8px;padding:6px 8px;cursor:pointer;}
 .layerItem{display:grid;grid-template-columns:auto minmax(0,1fr) 42px;align-items:center;gap:10px;margin:0;padding:9px 2px;border-bottom:1px solid rgba(128,128,128,.24);font-size:15px;}
 .layerItemName{overflow-wrap:anywhere;line-height:1.35;}
 .layerColorInput{width:38px;height:30px;padding:1px;border-radius:6px;border:1px solid var(--border);background:transparent;}
-#layersColorAllInput{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;}
+#layersColorAllInput{position:absolute;width:1px;height:1px;opacity:0;clip-path:inset(50%);}
 body.light #layerPanel, body.light #layerPanel *{color:#000 !important;}
-body.light #layerHeader .layerActions button{background:#fff;color:#000;}
+body.light #layerHeader .layerActions button,body.light #layerHeader .layerActions .layerActionLabel{background:#fff;color:#000;}
 #measureModePanel,#measureBox,#drawPanel,#supportPanel{display:none;padding:10px;}
 #supportPanel .supportActions{display:flex;gap:8px;margin-top:10px;}
 #supportPanel .supportHint{font-size:10px;color:var(--muted);line-height:1.5;margin-top:7px;}
@@ -807,7 +808,7 @@ gtag('config', 'G-88B9YPJXWP');
         <button id="layersAllOn">全部ON</button>
         <button id="layersAllOff">全部OFF</button>
         <button id="textBtn">文字: ON</button>
-        <button id="layersColorAllBtn">色を一括で変更</button><input id="layersColorAllInput" type="color" value="#ffffff" aria-label="全レイヤーの色を選択">
+        <label id="layersColorAllBtn" class="layerActionLabel" for="layersColorAllInput">色を一括で変更<input id="layersColorAllInput" type="color" value="#ffffff" aria-label="全レイヤーの色を選択"></label>
       </div>
     </div>
     <div id="layerBody"><div id="layerList"></div></div>
@@ -5603,14 +5604,14 @@ document.getElementById("layersAllOff").addEventListener("click", ()=>{
   cachedMeasurePointsDirty=true; renderLayerList(); draw();
 });
 const layersColorAllInput=document.getElementById("layersColorAllInput");
-document.getElementById("layersColorAllBtn").addEventListener("click",()=>layersColorAllInput.click());
-layersColorAllInput.addEventListener("input",()=>{
+function applyAllLayerColor(){
   const selected=layersColorAllInput.value.toLowerCase();
   for(const layer of getAllLayers()) layerColorOverrides[String(layer)]=selected;
   renderLayerList();
   draw();
-});
-layersColorAllInput.addEventListener("change",saveRecoverySnapshot);
+}
+layersColorAllInput.addEventListener("input",applyAllLayerColor);
+layersColorAllInput.addEventListener("change",()=>{applyAllLayerColor();saveRecoverySnapshot();});
 
 
 function togglePickMode(mode){
