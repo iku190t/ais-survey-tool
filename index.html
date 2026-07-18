@@ -2421,12 +2421,16 @@ function isIOSLike(){
   const touchMac = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
   return /iPhone|iPad|iPod/i.test(ua) || touchMac;
 }
-async function shareBlobForIOS(blob, fileName){
-  if (!(window.File && navigator.share && isIOSLike())) return false;
+async function shareBlobFile(blob, fileName){
+  if (!(window.File && navigator.share)) return false;
   try{
     const file = new File([blob], fileName, {type:blob.type || 'application/octet-stream'});
     if (navigator.canShare && !navigator.canShare({files:[file]})) return false;
-    await navigator.share({files:[file]});
+    await navigator.share({
+      title:fileName,
+      text:"SFC図面を送信します。",
+      files:[file]
+    });
     return true;
   }catch(e){
     if (e && e.name === 'AbortError') return true;
@@ -4998,7 +5002,7 @@ async function saveSfcOverwrite(){
     }
   }
 
-  if (await shareBlobForIOS(blob, overwriteName)) {
+  if (await shareBlobFile(blob, overwriteName)) {
     showToast('保存シートを開きました。ファイルへ保存してください');
     return;
   }
@@ -5015,6 +5019,13 @@ async function saveSfcWithAnnotations(){
   const exportData = savingSfc ? buildSfcExportBlobAndName() : buildHtmlExportBlobAndName();
   if (!exportData.ok) { showToast(exportData.reason); return; }
   const { blob, saveAsName } = exportData;
+
+  // 「別保存」は端末の共有画面を先に開く。Gmailを選ぶと
+  // 生成したSFC/HTMLファイルが添付された新規メールになる。
+  if (await shareBlobFile(blob, saveAsName)) {
+    showToast("共有画面を開きました。Gmailを選んで送信してください");
+    return;
+  }
 
   if(window.showSaveFilePicker){
     try{
@@ -5044,10 +5055,6 @@ async function saveSfcWithAnnotations(){
     }catch(e){
       if (e && e.name === "AbortError") return;
     }
-  }
-  if (await shareBlobForIOS(blob, saveAsName)) {
-    showToast('保存シートを開きました。ファイルへ保存してください');
-    return;
   }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
