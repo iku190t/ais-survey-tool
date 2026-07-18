@@ -61,6 +61,9 @@ body{display:flex;flex-direction:column;}
   flex-direction:column;
   gap:6px;
   overflow:visible;
+  position:relative;
+  z-index:200;
+  flex:0 0 auto;
 }
 .topbar-row{
   display:flex;
@@ -225,7 +228,7 @@ label.fileBtn{
   width:32px; height:32px; padding:0; font-size:18px;
 }
 #fileInput{display:none;}
-#wrap{position:relative;width:100vw;flex:1 1 auto;min-height:0;background:var(--bg);overflow:hidden;contain:layout paint size;}
+#wrap{position:relative;width:100vw;flex:1 1 auto;min-height:0;background:var(--bg);overflow:hidden;contain:layout paint;isolation:isolate;}
 #canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;background:var(--bg);}
 .panel{
   position:absolute; z-index:60; background:var(--panel2); color:var(--fg);
@@ -871,7 +874,7 @@ gtag('config', 'G-88B9YPJXWP');
   <div id="miniHint">2本指で移動・拡大縮小 / モードアイコンで 単点・フリー・線上・直角距離</div>
   <div id="pickStatus">選択候補: 丸の中心</div>
 
-  <div id="startupModal" style="display:none;">
+  <div id="startupModal" style="display:flex;">
     <div id="startupBox">
       <h2>ファイルを開いてください</h2>
       <p>SFCファイルを開くと、図面上にGPSで現在地を表示できます。</p>
@@ -6554,10 +6557,11 @@ if (!loadedSfcText && !(data && ((data.lines&&data.lines.length)||(data.polyline
 }
 updateMeasureBox();
 updateDrawingDependentUi();
+// iPhoneでは説明文字の追加でツールバー高が変わるため、先に確定してから図面高を計算する。
+syncInitialToolbarHelpLabels();
 baseViewportHeight = getViewportHeight();
 updateWrapLayout();
 resize();
-syncInitialToolbarHelpLabels();
 let __layoutRaf = 0;
 let __layoutTimer = 0;
 function relayoutAndResizeStable(){
