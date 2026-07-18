@@ -50,7 +50,7 @@ body.light{
   --button:#fff;
   --buttonText:#000;
 }
-html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:Segoe UI,"Yu Gothic UI",Meiryo,sans-serif;}
+html,body{margin:0;height:100%;min-height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:Segoe UI,"Yu Gothic UI",Meiryo,sans-serif;}
 body{display:flex;flex-direction:column;}
 #topbar{
   box-sizing:border-box;
@@ -236,7 +236,7 @@ label.fileBtn{
   width:32px; height:32px; padding:0; font-size:18px;
 }
 #fileInput{display:none;}
-#wrap{position:relative;width:100vw;flex:1 1 auto;min-height:0;background:var(--bg);overflow:hidden;contain:layout paint;isolation:isolate;}
+#wrap{position:relative;width:100vw;flex:1 1 auto;min-height:0;background:var(--bg);overflow:hidden;}
 #canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;background:var(--bg);}
 .panel{
   position:absolute; z-index:60; background:var(--panel2); color:var(--fg);
@@ -297,11 +297,13 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
   max-width:min(92vw,420px);text-align:center;box-shadow:0 10px 24px rgba(0,0,0,.28);pointer-events:none;
 }
 #startupModal{
-  /* 起動案内は図面を覆うが、常設の操作アイコン（z-index:70）は隠さない */
-  position:absolute;inset:0;z-index:65;display:flex;align-items:center;justify-content:center;
+  /* Safariでcanvasの合成レイヤーが消えても起動画面だけは必ず表示する。 */
+  position:fixed;left:0;right:0;top:var(--topbar-height,90px);bottom:0;z-index:180;
+  display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,.45);
 }
 #startupBox{
+  position:relative;z-index:1;
   width:min(320px,86vw);background:#fff;color:#000;border-radius:14px;
   padding:18px 16px;box-shadow:0 12px 32px rgba(0,0,0,.35);text-align:center;
 }
@@ -1231,6 +1233,7 @@ function updateWrapLayout(){
   const topbar = document.getElementById("topbar");
   const vh = getViewportHeight();
   const topH = topbar ? Math.ceil(topbar.getBoundingClientRect().height || topbar.offsetHeight || 54) : 54;
+  document.documentElement.style.setProperty("--topbar-height", topH + "px");
   const h = Math.max(120, Math.round(vh - topH));
   if (wrap){
     wrap.style.height = h + "px";
