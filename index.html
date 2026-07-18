@@ -259,7 +259,7 @@ label.fileBtn{
 #layersColorAllInput{position:absolute;width:1px;height:1px;opacity:0;clip-path:inset(50%);}
 body.light #layerPanel, body.light #layerPanel *{color:#000 !important;}
 body.light #layerHeader .layerActions button,body.light #layerHeader .layerActions .layerActionLabel{background:#fff;color:#000;}
-#measureModePanel,#measureBox,#drawPanel,#supportPanel{display:none;padding:10px;}
+#measureModePanel,#measureBox,#drawPanel,#supportPanel,#aerialPhotoPanel{display:none;padding:10px;}
 #supportPanel .supportActions{display:flex;gap:8px;margin-top:10px;}
 #supportPanel .supportHint{font-size:10px;color:var(--muted);line-height:1.5;margin-top:7px;}
 #supportPanel .supportHint strong{color:var(--fg);font-weight:800;}
@@ -281,6 +281,18 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #drawPanel .toolRow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;}
 #drawPanel .toolRow button{min-width:0;padding-left:0;padding-right:0;}
 #supportPanel{width:min(248px, calc(100vw - 16px)); right:10px; bottom:12px; top:auto; position:absolute; z-index:60;}
+#aerialPhotoPanel{width:min(320px,calc(100vw - 20px));right:10px;top:10px;z-index:78;box-sizing:border-box;}
+#aerialPhotoPanel .photoHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;}
+#aerialPhotoPanel .photoTitle{font-size:16px;font-weight:800;}
+#aerialPhotoPanel .photoActions{display:flex;gap:7px;margin-bottom:10px;}
+#aerialPhotoPanel .photoActions button{flex:1;min-height:36px;font-weight:700;}
+#photoTimeLabel{font-size:15px;font-weight:800;color:#f2a400;margin-bottom:5px;}
+#photoTimeSlider{width:100%;accent-color:#f2a400;}
+#photoTimeEnds{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:1px;}
+#photoStatus{font-size:12px;line-height:1.45;margin-top:8px;color:var(--muted);}
+#photoCredit{display:none;position:absolute;right:8px;bottom:8px;z-index:55;padding:3px 6px;border-radius:5px;background:rgba(0,0,0,.68);color:#fff;font-size:10px;text-decoration:none;pointer-events:auto;}
+#photoCredit.show{display:block;}
+#photoToggleBtn.active{background:#f2a400;color:#111;border-color:#ffd35a;}
 #supportPanel .panelTitle{margin-bottom:6px;}
 #supportPanelText{font-size:12px; line-height:1.7; color:var(--fg); opacity:0.92; white-space:normal;}
 #supportBtn{opacity:0.78; background:rgba(120,130,140,.18); border-color:rgba(150,160,170,.45);}
@@ -882,6 +894,20 @@ gtag('config', 'G-88B9YPJXWP');
     </div>
   </div>
 
+  <div id="aerialPhotoPanel" class="panel">
+    <div class="photoHeader"><div class="photoTitle">航空写真</div><button id="photoPanelCloseBtn" type="button">閉じる</button></div>
+    <div class="photoActions">
+      <button id="canvasBgToggleBtn" type="button">背景：黒</button>
+      <button id="photoToggleBtn" type="button">航空写真：OFF</button>
+    </div>
+    <div id="photoTimeLabel">現在（最新写真）</div>
+    <input id="photoTimeSlider" type="range" min="0" max="1" step="1" value="0" aria-label="航空写真の年代">
+    <div id="photoTimeEnds"><span>現在</span><span>過去</span></div>
+    <div id="photoStatus">スライダーを右へ動かすほど古い航空写真になります。</div>
+  </div>
+
+  <a id="photoCredit" href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院 地理院タイル</a>
+
   <div id="miniHint">2本指で移動・拡大縮小 / モードアイコンで 単点・フリー・線上・直角距離</div>
   <div id="pickStatus">選択候補: 丸の中心</div>
 
@@ -969,6 +995,7 @@ gtag('config', 'G-88B9YPJXWP');
             <button type="button" class="helpMenuBtn" data-help-section="opensave">開く・保存</button>
             <button type="button" class="helpMenuBtn" data-help-section="layers">レイヤー</button>
             <button type="button" class="helpMenuBtn" data-help-section="gps">現在地GPS</button>
+            <button type="button" class="helpMenuBtn" data-help-section="aerial">航空写真</button>
             <button type="button" class="helpMenuBtn" data-help-section="measure">計測</button>
             <button type="button" class="helpMenuBtn" data-help-section="profile">断面</button>
             <button type="button" class="helpMenuBtn" data-help-section="memo">手書きメモ</button>
@@ -1082,6 +1109,17 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">2本指</div>2本指で移動・拡大縮小・回転できます。</div>
               <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークは図面の回転に合わせて回ります。押すと北を上に戻します。</div>
               <div class="helpBlock"><div class="helpHead">全体表示</div><b>全体表示</b> で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。ダブルタップや方位長押しでは全体表示になりません。</div>
+            </div>
+          </div>
+
+          <div class="helpSection" data-help-section="aerial">
+            <div class="helpSectionTitle">航空写真</div>
+            <div class="helpSectionBody">
+              <div class="helpBlock"><div class="helpHead">開き方</div>上部の <b>背景</b> を押し、<b>航空写真：OFF</b> を押すと図面の背面へ航空写真を表示します。</div>
+              <div class="helpBlock"><div class="helpHead">年代の変更</div>スライダーは左端が現在の最新写真です。右へ動かすほど古くなり、年度別写真から1945～1950年まで確認できます。一部地域ではさらに古い写真も選べます。</div>
+              <div class="helpBlock"><div class="helpHead">写真がない場合</div>年度別写真は地域によって未整備です。「写真がありません」と表示された時はスライダーを前後へ動かしてください。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報</div>SFCと航空写真を合わせるため、初回は現在地から図面の座標系を確認します。位置情報の利用を許可してください。</div>
+              <div class="helpBlock"><div class="helpHead">出典</div>国土地理院の地理院タイルを通信で表示します。航空写真表示中は画面右下に出典を表示します。</div>
             </div>
           </div>
 
@@ -1382,6 +1420,28 @@ const PROFILE_DEM_SOURCES = [
   {id:"DEM10B",url:"https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png", z:14}
 ];
 
+const AERIAL_PHOTO_SOURCES = [
+  {id:"latest",label:"現在（最新写真）",url:"https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",minZ:14,maxZ:18},
+  ...Array.from({length:19},(_,i)=>{
+    const year=2025-i;
+    return {id:"year"+year,label:`${year}年度`,url:`https://cyberjapandata.gsi.go.jp/xyz/nendophoto${year}/{z}/{x}/{y}.png`,minZ:14,maxZ:18};
+  }),
+  {id:"gazo4",label:"1987～1990年",url:"https://cyberjapandata.gsi.go.jp/xyz/gazo4/{z}/{x}/{y}.jpg",minZ:10,maxZ:17},
+  {id:"gazo3",label:"1984～1986年",url:"https://cyberjapandata.gsi.go.jp/xyz/gazo3/{z}/{x}/{y}.jpg",minZ:10,maxZ:17},
+  {id:"gazo2",label:"1979～1983年",url:"https://cyberjapandata.gsi.go.jp/xyz/gazo2/{z}/{x}/{y}.jpg",minZ:10,maxZ:17},
+  {id:"gazo1",label:"1974～1978年",url:"https://cyberjapandata.gsi.go.jp/xyz/gazo1/{z}/{x}/{y}.jpg",minZ:10,maxZ:17},
+  {id:"ort_old10",label:"1961～1969年",url:"https://cyberjapandata.gsi.go.jp/xyz/ort_old10/{z}/{x}/{y}.png",minZ:10,maxZ:17},
+  {id:"ort_USA10",label:"1945～1950年",url:"https://cyberjapandata.gsi.go.jp/xyz/ort_USA10/{z}/{x}/{y}.png",minZ:10,maxZ:17},
+  {id:"ort_riku10",label:"1936～1942年頃（一部地域）",url:"https://cyberjapandata.gsi.go.jp/xyz/ort_riku10/{z}/{x}/{y}.png",minZ:13,maxZ:18},
+  {id:"ort_1928",label:"1928年頃（大阪市域）",url:"https://cyberjapandata.gsi.go.jp/xyz/ort_1928/{z}/{x}/{y}.png",minZ:13,maxZ:18}
+];
+const aerialPhotoTileCache = new Map();
+let aerialPhotoEnabled = false;
+let aerialPhotoSourceIndex = 0;
+let aerialPhotoZone = null;
+let aerialPhotoResolveBusy = false;
+let aerialPhotoSliderTimer = 0;
+
 const helpModal = document.getElementById("helpModal");
 const helpModalBox = document.getElementById("helpModalBox");
 const sizeToggleBtn = document.getElementById("sizeToggleBtn");
@@ -1392,6 +1452,12 @@ const viewerSupportCloseBtn = document.getElementById("viewerSupportCloseBtn");
 const viewerLabel = document.getElementById("viewerLabel");
 const profileBtn = document.getElementById("profileBtn");
 const profileModal = document.getElementById("profileModal");
+const aerialPhotoPanel = document.getElementById("aerialPhotoPanel");
+const photoTimeSlider = document.getElementById("photoTimeSlider");
+const photoTimeLabel = document.getElementById("photoTimeLabel");
+const photoStatus = document.getElementById("photoStatus");
+const photoToggleBtn = document.getElementById("photoToggleBtn");
+const photoCredit = document.getElementById("photoCredit");
 const profileCloseBtn = document.getElementById("profileCloseBtn");
 const profileSummary = document.getElementById("profileSummary");
 const profileChart = document.getElementById("profileChart");
@@ -1590,6 +1656,133 @@ function profileTileRef(lat, lon, z){
     px:Math.max(0, Math.min(255, Math.floor((worldX - x) * 256))),
     py:Math.max(0, Math.min(255, Math.floor((worldY - y) * 256)))
   };
+}
+function aerialPhotoTileFloat(lat,lon,z){
+  const n=Math.pow(2,z);
+  const clampedLat=Math.max(-85.05112878,Math.min(85.05112878,lat));
+  const latRad=clampedLat*Math.PI/180;
+  return {x:(lon+180)/360*n,y:(1-Math.log(Math.tan(latRad)+1/Math.cos(latRad))/Math.PI)/2*n};
+}
+function aerialPhotoTileLatLon(x,y,z){
+  const n=Math.pow(2,z);
+  const lon=x/n*360-180;
+  const lat=Math.atan(Math.sinh(Math.PI*(1-2*y/n)))*180/Math.PI;
+  return {lat,lon};
+}
+function aerialPhotoUrl(source,z,x,y){
+  return source.url.replace("{z}",z).replace("{x}",x).replace("{y}",y);
+}
+function setAerialPhotoStatus(text){
+  if(photoStatus&&photoStatus.textContent!==text) photoStatus.textContent=text;
+}
+function updateAerialPhotoUi(){
+  const source=AERIAL_PHOTO_SOURCES[aerialPhotoSourceIndex]||AERIAL_PHOTO_SOURCES[0];
+  if(photoTimeSlider){
+    photoTimeSlider.max=String(AERIAL_PHOTO_SOURCES.length-1);
+    photoTimeSlider.value=String(aerialPhotoSourceIndex);
+  }
+  if(photoTimeLabel) photoTimeLabel.textContent=source.label;
+  if(photoToggleBtn){
+    photoToggleBtn.textContent=`航空写真：${aerialPhotoEnabled?"ON":"OFF"}`;
+    photoToggleBtn.classList.toggle("active",aerialPhotoEnabled);
+  }
+  if(photoCredit) photoCredit.classList.toggle("show",aerialPhotoEnabled);
+  const bgBtn=document.getElementById("canvasBgToggleBtn");
+  if(bgBtn) bgBtn.textContent=`背景：${darkTheme?"黒":"白"}`;
+}
+async function enableAerialPhoto(){
+  if(aerialPhotoResolveBusy||aerialPhotoEnabled) return;
+  if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
+  aerialPhotoResolveBusy=true;
+  setAerialPhotoStatus("図面の位置を確認しています…");
+  try{
+    aerialPhotoZone=profileZone||getRememberedProfileZone()||await resolveProfileZone();
+  }catch(e){aerialPhotoZone=null;}
+  aerialPhotoResolveBusy=false;
+  if(!aerialPhotoZone){
+    aerialPhotoEnabled=false;updateAerialPhotoUi();
+    setAerialPhotoStatus("図面の位置を確認できません。現在地の利用を許可して、現場付近で再度お試しください。");
+    showToast("航空写真を重ねる図面位置を確認できません",2600);
+    return;
+  }
+  profileZone=aerialPhotoZone;
+  aerialPhotoEnabled=true;
+  updateAerialPhotoUi();
+  setAerialPhotoStatus("航空写真を読み込んでいます…");
+  scheduleDraw();
+}
+function getAerialPhotoTile(url){
+  let entry=aerialPhotoTileCache.get(url);
+  if(entry){entry.used=Date.now();return entry;}
+  const image=new Image();
+  entry={image,state:"loading",used:Date.now()};
+  aerialPhotoTileCache.set(url,entry);
+  image.crossOrigin="anonymous";
+  image.decoding="async";
+  image.onload=()=>{entry.state="loaded";entry.used=Date.now();scheduleDraw();};
+  image.onerror=()=>{entry.state="error";entry.used=Date.now();scheduleDraw();};
+  image.src=url;
+  if(aerialPhotoTileCache.size>180){
+    const removable=[...aerialPhotoTileCache.entries()].filter(([,v])=>v.state!=="loading").sort((a,b)=>a[1].used-b[1].used).slice(0,30);
+    for(const [key] of removable) aerialPhotoTileCache.delete(key);
+  }
+  return entry;
+}
+function aerialPhotoCornerScreen(tileX,tileY,z,zone){
+  const ll=aerialPhotoTileLatLon(tileX,tileY,z);
+  const xy=latLonToJgd2024XY(ll.lat,ll.lon,zone);
+  const world=planeToSfcWorld(xy.x,xy.y);
+  return worldToScreen(world.x*1000,world.y*1000);
+}
+function drawAerialPhoto(w,h){
+  if(!aerialPhotoEnabled||!aerialPhotoZone||!ensureProj4Defs()) return;
+  const source=AERIAL_PHOTO_SOURCES[aerialPhotoSourceIndex]||AERIAL_PHOTO_SOURCES[0];
+  try{
+    const centerWorld=screenToWorld(w/2,h/2);
+    const centerPlane=sfcWorldToPlane(centerWorld[0],centerWorld[1]);
+    const centerLl=jgd2024XYToLatLon(centerPlane.xNorth,centerPlane.yEast,aerialPhotoZone);
+    const metersPerPixel=1/Math.max(0.000001,view.scale*1000);
+    const idealZ=Math.round(Math.log2(156543.03392*Math.max(.15,Math.cos(centerLl.lat*Math.PI/180))/metersPerPixel));
+    const z=Math.max(source.minZ,Math.min(source.maxZ,idealZ));
+    const screenCorners=[[0,0],[w,0],[w,h],[0,h]];
+    const tileCorners=screenCorners.map(([sx,sy])=>{
+      const world=screenToWorld(sx,sy);
+      const plane=sfcWorldToPlane(world[0],world[1]);
+      const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,aerialPhotoZone);
+      return aerialPhotoTileFloat(ll.lat,ll.lon,z);
+    });
+    const n=Math.pow(2,z);
+    let minX=Math.max(0,Math.floor(Math.min(...tileCorners.map(v=>v.x)))-1);
+    let maxX=Math.min(n-1,Math.floor(Math.max(...tileCorners.map(v=>v.x)))+1);
+    let minY=Math.max(0,Math.floor(Math.min(...tileCorners.map(v=>v.y)))-1);
+    let maxY=Math.min(n-1,Math.floor(Math.max(...tileCorners.map(v=>v.y)))+1);
+    if((maxX-minX+1)*(maxY-minY+1)>49){
+      const c=aerialPhotoTileFloat(centerLl.lat,centerLl.lon,z),cx=Math.floor(c.x),cy=Math.floor(c.y);
+      minX=Math.max(0,cx-3);maxX=Math.min(n-1,cx+3);minY=Math.max(0,cy-3);maxY=Math.min(n-1,cy+3);
+    }
+    let loaded=0,pending=0,missing=0;
+    for(let ty=minY;ty<=maxY;ty++) for(let tx=minX;tx<=maxX;tx++){
+      const entry=getAerialPhotoTile(aerialPhotoUrl(source,z,tx,ty));
+      if(entry.state==="loading"){pending++;continue;}
+      if(entry.state!=="loaded"){missing++;continue;}
+      loaded++;
+      const tl=aerialPhotoCornerScreen(tx,ty,z,aerialPhotoZone);
+      const tr=aerialPhotoCornerScreen(tx+1,ty,z,aerialPhotoZone);
+      const bl=aerialPhotoCornerScreen(tx,ty+1,z,aerialPhotoZone);
+      ctx.save();
+      ctx.globalAlpha=.88;
+      ctx.imageSmoothingEnabled=true;
+      ctx.transform((tr[0]-tl[0])/256,(tr[1]-tl[1])/256,(bl[0]-tl[0])/256,(bl[1]-tl[1])/256,tl[0],tl[1]);
+      ctx.drawImage(entry.image,0,0,256,256);
+      ctx.restore();
+    }
+    if(loaded) setAerialPhotoStatus(`${source.label}を表示中${pending?"（読込中）":""}`);
+    else if(pending) setAerialPhotoStatus(`${source.label}を読み込んでいます…`);
+    else if(missing) setAerialPhotoStatus("この場所には選択した年代の航空写真がありません。年代を動かしてください。");
+  }catch(e){
+    console.error(e);
+    setAerialPhotoStatus("航空写真を表示できません。図面の座標系を確認してください。");
+  }
 }
 function profileDemUrl(source, ref){
   return source.url.replace("{z}", source.z).replace("{x}", ref.x).replace("{y}", ref.y);
@@ -3772,6 +3965,7 @@ function draw(){
   ctx.clearRect(0,0,w,h);
   ctx.fillStyle=bgColor();
   ctx.fillRect(0,0,w,h);
+  drawAerialPhoto(w,h);
 
   const totalCount=data.lines.length+data.polys.length+data.texts.length+data.circles.length+(data.arcs?.length||0)+(data.ellipses?.length||0)+(data.ellipseArcs?.length||0);
   if(totalCount){
@@ -4020,6 +4214,7 @@ function closePanelsExcept(except){
   if(except!=='measureMode' && measureModePanel) measureModePanel.style.display='none';
   if(except!=='draw') drawPanel.style.display='none';
   if(except!=='support' && supportPanel) supportPanel.style.display='none';
+  if(except!=='aerialPhoto' && aerialPhotoPanel) aerialPhotoPanel.style.display='none';
   if(except!=='textSearch') closeTextSearchPopup();
   updateStopBtnUI();
 }
@@ -4041,10 +4236,12 @@ function resetSessionFromLoad(){
   resetMeasureUI();
   measureMode=false; measureType="2point"; activePickModes=["center","cross","end"];
   profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;profileZone=null;profileTouchCandidate=null;
+  aerialPhotoEnabled=false;aerialPhotoZone=null;
   inkEnabled=false; inkDrawing=false; currentStroke=null; pendingTouchInk=null; suppressTouchInkUntil=0;
   hoverCursorScreen=null; flashCursorScreen=null; flashCursorUntil=0;
   updateModeIcons();
   updateProfileUi();
+  updateAerialPhotoUi();
   updatePickStatus();
   if (supportPanel) supportPanel.style.display = "none";
   updateStopBtnUI();
@@ -5501,9 +5698,34 @@ document.getElementById("textBtn").addEventListener("click", ()=>{
   draw();
 });
 document.getElementById("bgBtn").addEventListener("click", ()=>{
-  darkTheme = !darkTheme;
-  updateThemeUI();
-  draw();
+  closePanelsExcept('aerialPhoto');
+  if(aerialPhotoPanel){
+    aerialPhotoPanel.style.display=aerialPhotoPanel.style.display==='block'?'none':'block';
+    updateAerialPhotoUi();
+  }
+});
+document.getElementById("photoPanelCloseBtn")?.addEventListener("click",()=>{if(aerialPhotoPanel)aerialPhotoPanel.style.display="none";});
+document.getElementById("canvasBgToggleBtn")?.addEventListener("click",()=>{
+  darkTheme=!darkTheme;updateThemeUI();updateAerialPhotoUi();scheduleDraw();
+});
+photoToggleBtn?.addEventListener("click",async()=>{
+  if(aerialPhotoEnabled){
+    aerialPhotoEnabled=false;updateAerialPhotoUi();
+    setAerialPhotoStatus("航空写真はOFFです。スライダーで年代を選べます。");scheduleDraw();
+  }else await enableAerialPhoto();
+});
+photoTimeSlider?.addEventListener("input",()=>{
+  aerialPhotoSourceIndex=Math.max(0,Math.min(AERIAL_PHOTO_SOURCES.length-1,parseInt(photoTimeSlider.value,10)||0));
+  updateAerialPhotoUi();
+  if(aerialPhotoEnabled){
+    setAerialPhotoStatus("航空写真を読み込んでいます…");
+    clearTimeout(aerialPhotoSliderTimer);
+    aerialPhotoSliderTimer=setTimeout(scheduleDraw,100);
+  }
+});
+photoTimeSlider?.addEventListener("change",async()=>{
+  if(!aerialPhotoEnabled) await enableAerialPhoto();
+  else scheduleDraw();
 });
 const SUPPORT_URL = "https://ofuse.me/f475dafe/letter";
 const supportBtn = document.getElementById("supportBtn");
@@ -6595,6 +6817,7 @@ if (!loadedSfcText && !(data && ((data.lines&&data.lines.length)||(data.polyline
 }
 updateMeasureBox();
 updateDrawingDependentUi();
+updateAerialPhotoUi();
 // iPhoneでは説明文字の追加でツールバー高が変わるため、先に確定してから図面高を計算する。
 syncInitialToolbarHelpLabels();
 baseViewportHeight = getViewportHeight();
