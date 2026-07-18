@@ -976,7 +976,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">開く</div><b>開く</b> でSFCまたは保存済みHTMLを選びます。読み込み後は図面全体が画面に収まり、図面に適した向きで表示されます。</div>
               <div class="helpBlock"><div class="helpHead">上書き</div><b>上書き</b> は、手書きメモを含む現在の内容をSFCまたはHTMLへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">別保存・Gmail送信</div><b>別保存</b> を押すと、<b>SFCをGmailで送信</b> または <b>ZIP圧縮してGmailで送信</b> を選べます。iPhoneの共有画面が開いたらGmailを1回選んで送信してください。</div>
-              <div class="helpBlock"><div class="helpHead">SFCへの書き込み</div>SFCを開いて保存すると、手書きの線・丸などをSFC要素として書き込みます。重要な原本は念のため別に保管してください。</div>
+              <div class="helpBlock"><div class="helpHead">SFCへの書き込み</div>SFCを開いて保存すると、手書きの線は <b>「線」レイヤー</b>、丸は <b>「丸」レイヤー</b>のSFC要素として書き込みます。重要な原本は念のため別に保管してください。</div>
               <div class="helpBlock"><div class="helpHead">ブラウザー内の自動保存</div>メモ、レイヤー表示、表示色などは復元用として端末内にも保存されます。詳しくは <b>復元保存</b> を確認してください。</div>
             </div>
           </div>
@@ -1032,6 +1032,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。</div>
               <div class="helpBlock"><div class="helpHead">線</div>指でなぞって描きます。中心・交点・端点などが選択中でも、線を描く間はフリー選択へ切り替わり、終了時に元の点選択へ戻ります。</div>
               <div class="helpBlock"><div class="helpHead">丸</div>図面をタップすると、選んだ大きさの丸を配置します。中心・交点・端点・線上が有効な時は、その点へ丸の中心を合わせます。</div>
+              <div class="helpBlock"><div class="helpHead">保存レイヤー</div>SFC保存時は、手書きの線を <b>「線」</b>、丸を <b>「丸」</b>の別レイヤーへ保存します。</div>
               <div class="helpBlock"><div class="helpHead">図面操作</div>手書き中でも2本指の移動・拡大縮小・回転を使えます。指を2本置いた時点で、描きかけの線を確定して図面操作へ切り替えます。</div>
               <div class="helpBlock"><div class="helpHead">消去・やり直し</div><b>消しゴム</b> で個別に消します。<b>メモ全消去</b> は確認後に全削除します。図面左上の青い矢印で元に戻す・やり直しができます。</div>
               <div class="helpBlock"><div class="helpHead">終了</div><b>中止</b> を押すと手書き状態を終了します。</div>
@@ -4094,6 +4095,7 @@ function normalizeInkStrokeForSave(s){
     screenWidthPx: s.screenWidthPx != null ? +s.screenWidthPx : null,
     worldWidthMm: s.worldWidthMm != null ? +s.worldWidthMm : null,
     width: +(s.width || 1),
+    isCircleMemo: !!s.isCircleMemo,
     points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})) : []
   };
 }
@@ -4109,7 +4111,7 @@ function strokeToWorldPolyline(stroke){
       const t = (Math.PI * 2 * i) / segs;
       pts.push({x: cx + Math.cos(t) * r, y: cy + Math.sin(t) * r});
     }
-    return { type:"freehand", color: stroke.color || "#ff3030", opacity: stroke.opacity == null ? 1 : stroke.opacity, eraser:false, screenWidthPx: null, width:+(stroke.width || 1), points:pts };
+    return { type:"freehand", color: stroke.color || "#ff3030", opacity: stroke.opacity == null ? 1 : stroke.opacity, eraser:false, screenWidthPx: null, width:+(stroke.width || 1), isCircleMemo:true, points:pts };
   }
   if (!Array.isArray(stroke.points) || stroke.points.length < 2) return null;
   return {
@@ -4120,6 +4122,7 @@ function strokeToWorldPolyline(stroke){
     screenWidthPx: stroke.screenWidthPx != null ? +stroke.screenWidthPx : null,
     worldWidthMm: stroke.worldWidthMm != null ? +stroke.worldWidthMm : null,
     width: +(stroke.width || 1),
+    isCircleMemo: !!stroke.isCircleMemo,
     points: stroke.points.map(p => ({x:+p.x||0, y:+p.y||0}))
   };
 }
@@ -4160,6 +4163,10 @@ function buildCircleStrokeFromScreenPoint(sx, sy){
 }
 const MEMO_LAYER_NAME = "手書きメモ";
 const MEMO_LAYER_NAME_SJIS_LATIN1 = "\x8e\xe8\x8f\x91\x82\xab\x83\x81\x83\x82";
+const MEMO_LINE_LAYER_NAME = "線";
+const MEMO_LINE_LAYER_NAME_SJIS_LATIN1 = "\x90\xfc";
+const MEMO_CIRCLE_LAYER_NAME = "丸";
+const MEMO_CIRCLE_LAYER_NAME_SJIS_LATIN1 = "\x8a\xdb";
 const MEMO_COLOR_TO_FILE_CODE = {
   "#000000": "1",
   "#ff3030": "2",
@@ -4402,6 +4409,32 @@ function getMemoLayerInfo(srcText){
   const idx = defs.findIndex(d => d.name === MEMO_LAYER_NAME || d.rawName === MEMO_LAYER_NAME || d.rawName === MEMO_LAYER_NAME_SJIS_LATIN1);
   return { flat, defs, index: idx, code: idx >= 0 ? (idx + 1) : (defs.length + 1), featureId: idx >= 0 ? defs[idx].featureId : null };
 }
+function buildMemoLayerDefinitions(baseText, startId, strokes){
+  const flat = getFlatSxfText(baseText);
+  const defs = parseLayerFeatureDefsFlat(flat);
+  const required = [];
+  if ((strokes || []).some(s => !s.isCircleMemo)) required.push({name:MEMO_LINE_LAYER_NAME, rawName:MEMO_LINE_LAYER_NAME_SJIS_LATIN1});
+  if ((strokes || []).some(s => !!s.isCircleMemo)) required.push({name:MEMO_CIRCLE_LAYER_NAME, rawName:MEMO_CIRCLE_LAYER_NAME_SJIS_LATIN1});
+
+  let id = startId;
+  const parts = [];
+  const codes = {};
+  for (const item of required) {
+    const existingIndex = defs.findIndex(d => d.name === item.name || d.rawName === item.name || d.rawName === item.rawName);
+    if (existingIndex >= 0) {
+      codes[item.name] = existingIndex + 1;
+      continue;
+    }
+    const code = defs.length + 1;
+    defs.push({featureId:id, rawName:item.rawName, name:item.name});
+    codes[item.name] = code;
+    parts.push(`/*SXF
+#${id} = layer_feature(\'${item.rawName}\',\'1\')
+SXF*/`);
+    id += 1;
+  }
+  return {layerText:parts.join("\r\n"), nextId:id, codes};
+}
 function getMemoWidthInfo(srcText){
   const flat = getFlatSxfText(srcText);
   const defs = parseWidthFeatureDefsFlat(flat);
@@ -4626,10 +4659,12 @@ function buildInkPolylineFeatureText(baseText){
   const colorBuild = buildMemoColorDefinitionText(baseText, id, normalized);
   const colorText = colorBuild.colorText;
   id = colorBuild.nextId;
+  const layerBuild = buildMemoLayerDefinitions(baseText, id, normalized);
+  const layerText = layerBuild.layerText;
+  id = layerBuild.nextId;
 
   const lineParts = [];
   const sourceSegs = getSourceFeatureSegments(baseText);
-  const fallbackLayerCode = String(getAnnotationLayer());
 
   for (const s of normalized) {
     const exportPts = Array.isArray(s.points)
@@ -4638,10 +4673,26 @@ function buildInkPolylineFeatureText(baseText){
     if (exportPts.length < 2) continue;
 
     const segStyle = getNearestSourceSegmentStyleForPoints(exportPts, sourceSegs);
-    const layerCode = segStyle?.layerRef || fallbackLayerCode;
+    const layerName = s.isCircleMemo ? MEMO_CIRCLE_LAYER_NAME : MEMO_LINE_LAYER_NAME;
+    const layerCode = String(layerBuild.codes[layerName] || getAnnotationLayer());
     const colorCode = memoStrokeColorToFileCode(s.color);
     const typeCode = segStyle?.typeRef || MEMO_FILE_TYPE_CODE;
     const widthCode = segStyle?.widthRef || MEMO_FILE_WIDTH_CODE;
+
+    if (s.isCircleMemo) {
+      const first = exportPts[0], last = exportPts[exportPts.length - 1];
+      const uniquePts = exportPts.length > 2 && Math.hypot(first.x-last.x, first.y-last.y) < 1e-7 ? exportPts.slice(0,-1) : exportPts;
+      const cx = uniquePts.reduce((sum,p)=>sum+p.x,0) / uniquePts.length;
+      const cy = uniquePts.reduce((sum,p)=>sum+p.y,0) / uniquePts.length;
+      const radius = uniquePts.reduce((sum,p)=>sum+Math.hypot(p.x-cx,p.y-cy),0) / uniquePts.length;
+      if (Number.isFinite(radius) && radius > 1e-9) {
+        lineParts.push(`/*SXF
+#${id} = circle_feature('${layerCode}','${colorCode}','${typeCode}','${widthCode}','${cx.toFixed(6)}','${cy.toFixed(6)}','${radius.toFixed(6)}')
+SXF*/`);
+        id += 1;
+      }
+      continue;
+    }
 
     for (let i = 1; i < exportPts.length; i++) {
       const p0 = exportPts[i - 1];
@@ -4653,7 +4704,7 @@ SXF*/`);
       id += 1;
     }
   }
-  return { colorText, layerText: "", lineText: lineParts.join("\r\n") };
+  return { colorText, layerText, lineText: lineParts.join("\r\n") };
 }
 function stripEmbeddedAnnotations(srcText){
   let text = String(srcText || "");
@@ -4682,6 +4733,7 @@ function buildMemoMetaComment(){
       opacity: s.opacity == null ? 1 : s.opacity,
       screenWidthPx: s.screenWidthPx == null ? null : +s.screenWidthPx,
       width: +(s.width || 1),
+      isCircleMemo: !!s.isCircleMemo,
       points: s.points.map(p => ({x:+p.x||0, y:+p.y||0}))
     }));
     const payload = { version:1, strokes };
@@ -4775,6 +4827,7 @@ function buildSfcExportBlobAndName(){
   const validation = validateSfcExportAgainstSource(base, ann);
   if (!validation.ok) return { ok:false, reason: validation.reason || 'SFC保存を中止しました' };
   base = insertMemoColorDefinitions(base, ann.colorText);
+  base = insertMemoLayerDefinition(base, ann.layerText);
   const metaComment = buildMemoMetaComment();
   const exportText = ann.lineText + (metaComment ? "\r\n" + metaComment : "");
   const newSfc = insertMemoGeneralFeatures(base, exportText).replace(/[\s\r\n]*$/, "\r\n");
@@ -5185,6 +5238,7 @@ function restoreInkStrokesFromSourceText(srcText){
       width: +(s.width || 1),
       opacity: s.opacity == null ? 1 : +s.opacity,
       eraser: false,
+      isCircleMemo: !!s.isCircleMemo,
       points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y)) : []
     })).filter(s => s.points.length >= 2);
   }
