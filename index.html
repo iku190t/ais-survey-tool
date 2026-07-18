@@ -296,6 +296,11 @@ body.light #layerHeader .layerActions button{background:#fff;color:#000;}
 }
 #startupBox h2{margin:0 0 8px 0;font-size:18px;}
 #startupBox p{margin:0 0 12px 0;font-size:14px;line-height:1.5;}
+#saveAsChoiceModal{display:none;position:fixed;inset:0;z-index:230;background:rgba(0,0,0,.58);align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
+#saveAsChoiceBox{width:min(340px,92vw);background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;padding:16px;box-shadow:0 14px 34px rgba(0,0,0,.44);}
+#saveAsChoiceTitle{font-size:17px;font-weight:800;margin-bottom:12px;}
+#saveAsChoiceActions{display:grid;gap:9px;}
+#saveAsChoiceActions button{min-height:44px;font-size:14px;font-weight:700;}
 #miniHint{display:none !important;}
 input[type=range]{width:110px;}
 
@@ -886,6 +891,17 @@ gtag('config', 'G-88B9YPJXWP');
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button id="confirmNoBtn">いいえ</button>
         <button id="confirmYesBtn">はい</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="saveAsChoiceModal" role="dialog" aria-modal="true" aria-labelledby="saveAsChoiceTitle">
+    <div id="saveAsChoiceBox">
+      <div id="saveAsChoiceTitle">送信方法を選んでください</div>
+      <div id="saveAsChoiceActions">
+        <button id="saveAsRawShareBtn" type="button">SFCのまま送信</button>
+        <button id="saveAsZipShareBtn" type="button">ZIP圧縮して送信</button>
+        <button id="saveAsChoiceCancelBtn" type="button">キャンセル</button>
       </div>
     </div>
   </div>
@@ -3196,6 +3212,69 @@ function renderLayerList(){
     row.appendChild(cb);row.appendChild(sp);row.appendChild(color);layerList.appendChild(row);
   }
 }
+let saveAsChoiceResolver=null;
+function resolveSaveAsChoice(value){
+  const modal=document.getElementById("saveAsChoiceModal");
+  if(modal)modal.style.display="none";
+  const resolve=saveAsChoiceResolver;
+  saveAsChoiceResolver=null;
+  if(resolve)resolve(value);
+}
+function chooseSaveAsShareMode(){
+  const modal=document.getElementById("saveAsChoiceModal");
+  if(!modal)return Promise.resolve("raw");
+  if(saveAsChoiceResolver)resolveSaveAsChoice(null);
+  modal.style.display="flex";
+  return new Promise(resolve=>{saveAsChoiceResolver=resolve;});
+}
+const ZIP_CRC32_TABLE=(()=>{
+  const table=new Uint32Array(256);
+  for(let n=0;n<256;n++){
+    let c=n;
+    for(let k=0;k<8;k++)c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1);
+    table[n]=c>>>0;
+  }
+  return table;
+})();
+function zipCrc32(bytes){
+  let c=0xffffffff;
+  for(const b of bytes)c=ZIP_CRC32_TABLE[(c^b)&0xff]^(c>>>8);
+  return (c^0xffffffff)>>>0;
+}
+function concatBytes(parts){
+  const length=parts.reduce((sum,p)=>sum+p.length,0);
+  const out=new Uint8Array(length);let offset=0;
+  for(const p of parts){out.set(p,offset);offset+=p.length;}
+  return out;
+}
+async function deflateRawForZip(source){
+  if(typeof CompressionStream!=="function")return null;
+  try{
+    const compressedStream=new Blob([source]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(compressedStream).arrayBuffer());
+  }catch(e){console.warn("ZIP compression fallback",e);return null;}
+}
+async function createSingleFileZip(blob,fileName){
+  const source=new Uint8Array(await blob.arrayBuffer());
+  const compressed=await deflateRawForZip(source);
+  const body=compressed||source;
+  const method=compressed?8:0;
+  const nameBytes=new TextEncoder().encode(String(fileName||"drawing.sfc"));
+  const crc=zipCrc32(source);
+  const now=new Date();
+  const dosTime=((now.getHours()&31)<<11)|((now.getMinutes()&63)<<5)|((Math.floor(now.getSeconds()/2))&31);
+  const dosDate=(((Math.max(1980,now.getFullYear())-1980)&127)<<9)|(((now.getMonth()+1)&15)<<5)|(now.getDate()&31);
+  const local=new Uint8Array(30+nameBytes.length),lv=new DataView(local.buffer);
+  lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0x0800,true);lv.setUint16(8,method,true);lv.setUint16(10,dosTime,true);lv.setUint16(12,dosDate,true);lv.setUint32(14,crc,true);lv.setUint32(18,body.length,true);lv.setUint32(22,source.length,true);lv.setUint16(26,nameBytes.length,true);local.set(nameBytes,30);
+  const central=new Uint8Array(46+nameBytes.length),cv=new DataView(central.buffer);
+  cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0x0800,true);cv.setUint16(10,method,true);cv.setUint16(12,dosTime,true);cv.setUint16(14,dosDate,true);cv.setUint32(16,crc,true);cv.setUint32(20,body.length,true);cv.setUint32(24,source.length,true);cv.setUint16(28,nameBytes.length,true);cv.setUint16(30,0,true);cv.setUint16(32,0,true);cv.setUint16(34,0,true);cv.setUint16(36,0,true);cv.setUint32(38,0,true);cv.setUint32(42,0,true);central.set(nameBytes,46);
+  const eocd=new Uint8Array(22),ev=new DataView(eocd.buffer);
+  ev.setUint32(0,0x06054b50,true);ev.setUint16(4,0,true);ev.setUint16(6,0,true);ev.setUint16(8,1,true);ev.setUint16(10,1,true);ev.setUint32(12,central.length,true);ev.setUint32(16,local.length+body.length,true);ev.setUint16(20,0,true);
+  return new Blob([concatBytes([local,body,central,eocd])],{type:"application/zip"});
+}
+function downloadBlob(blob,fileName){
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fileName;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
 function getAnchorOffset(align1,widthPx,heightPx){
   const a = Number(align1) || 1;
   let ox = 0, oy = 0;
@@ -5020,10 +5099,25 @@ async function saveSfcWithAnnotations(){
   if (!exportData.ok) { showToast(exportData.reason); return; }
   const { blob, saveAsName } = exportData;
 
-  // 「別保存」は端末の共有画面を先に開く。Gmailを選ぶと
-  // 生成したSFC/HTMLファイルが添付された新規メールになる。
-  if (await shareBlobFile(blob, saveAsName)) {
+  document.getElementById("saveAsRawShareBtn").textContent=savingSfc?"SFCのまま送信":"HTMLのまま送信";
+  const shareMode=await chooseSaveAsShareMode();
+  if(!shareMode)return;
+  let shareBlob=blob;
+  let shareName=saveAsName;
+  if(shareMode==="zip"){
+    showToast("ZIP圧縮中…",60000);
+    shareBlob=await createSingleFileZip(blob,saveAsName);
+    shareName=saveAsName.replace(/\.[^.]+$/,"")+".zip";
+  }
+
+  if (await shareBlobFile(shareBlob, shareName)) {
     showToast("共有画面を開きました。Gmailを選んで送信してください");
+    return;
+  }
+
+  if(shareMode==="zip"){
+    downloadBlob(shareBlob,shareName);
+    showToast("ZIPをダウンロード保存しました");
     return;
   }
 
@@ -5479,6 +5573,10 @@ document.getElementById("saveIconBtn").addEventListener("click", ()=>{
   saveRecoverySnapshot();
   saveSfcOverwrite().catch((e)=>{ console.error(e); showToast("上書きほぞんしっぱい"); });
 });
+document.getElementById("saveAsRawShareBtn").addEventListener("click",()=>resolveSaveAsChoice("raw"));
+document.getElementById("saveAsZipShareBtn").addEventListener("click",()=>resolveSaveAsChoice("zip"));
+document.getElementById("saveAsChoiceCancelBtn").addEventListener("click",()=>resolveSaveAsChoice(null));
+document.getElementById("saveAsChoiceModal").addEventListener("click",e=>{if(e.target.id==="saveAsChoiceModal")resolveSaveAsChoice(null);});
 document.getElementById("saveAsIconBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
   saveRecoverySnapshot();
