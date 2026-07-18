@@ -82,6 +82,25 @@ body{display:flex;flex-direction:column;}
 #viewerLabel{font-size:13px; font-weight:700; opacity:.9; color:var(--fg); line-height:1; white-space:nowrap; cursor:pointer; margin-top:auto; padding:0 0 1px 0;}
 #textSearchModal{display:none;position:fixed;inset:0;z-index:96;background:rgba(0,0,0,.10);align-items:flex-start;justify-content:flex-end;padding:54px 12px calc(10px + env(safe-area-inset-bottom)) 12px;box-sizing:border-box;pointer-events:none;}
 #textSearchModalBox{width:min(260px,68vw);max-width:260px;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.28);padding:10px 10px 9px 10px;pointer-events:auto;touch-action:manipulation;}
+#profileModal{display:none;position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.58);align-items:flex-end;justify-content:center;padding:10px;box-sizing:border-box;}
+#profileModal.open{display:flex;}
+#profileBox{width:min(760px,100%);height:min(62vh,520px);min-height:330px;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;box-shadow:0 14px 34px rgba(0,0,0,.42);display:flex;flex-direction:column;overflow:hidden;}
+#profileHeader{display:flex;align-items:center;gap:10px;padding:10px 12px 8px;border-bottom:1px solid var(--border);}
+#profileTitle{font-size:16px;font-weight:800;white-space:nowrap;}
+#profileSummary{font-size:13px;line-height:1.45;flex:1;min-width:0;}
+#profileCloseBtn{min-width:62px;height:34px;border-radius:17px;}
+#profileChartWrap{position:relative;flex:1;min-height:0;padding:6px 8px 0;}
+#profileChart{display:block;width:100%;height:100%;touch-action:none;border-radius:9px;background:rgba(127,127,127,.06);}
+#profileLoading{display:none;position:absolute;inset:6px 8px 0;align-items:center;justify-content:center;background:rgba(20,20,20,.36);border-radius:9px;color:#fff;font-weight:800;z-index:2;}
+#profileLoading.show{display:flex;}
+#profileNotice{font-size:12px;line-height:1.45;text-align:center;padding:7px 10px 9px;color:var(--muted);}
+#profileBtn.profileActive{background:#f2a400;color:#111;border-color:#ffd35a;}
+@media(max-width:560px){
+  #profileBox{height:min(58vh,470px);min-height:320px;}
+  #profileHeader{padding:8px 9px 7px;gap:7px;}
+  #profileSummary{font-size:12px;}
+  #profileNotice{font-size:11px;padding:6px 8px 8px;}
+}
 #textSearchModalTitle{font-size:14px;font-weight:700;margin:0 0 5px 0;}
 #textSearchModalHint{display:none;}
 #textSearchInput{width:100%;height:34px;box-sizing:border-box;padding:6px 8px;border-radius:9px;border:1px solid var(--border);background:var(--button);color:var(--buttonText);font-size:16px;outline:none;-webkit-user-select:text;user-select:text;}
@@ -653,14 +672,14 @@ gtag('config', 'G-88B9YPJXWP');
       </svg>
     </button>
     <input type="file" id="fileInput" accept=".sfc,.html,application/octet-stream,text/plain,text/html" />
-    <button id="saveIconBtn" class="toolIconBtn" data-help-label="上書き" title="HTMLを上書き保存" aria-label="HTMLを上書き保存" style="width:32px;height:32px;padding:0;">
+    <button id="saveIconBtn" class="toolIconBtn" data-help-label="上書き" title="SFCを上書き保存" aria-label="SFCを上書き保存" style="width:32px;height:32px;padding:0;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:21px;height:21px;">
         <path d="M5 5h12l2 2v12H5z"></path>
         <path d="M8 5v5h7V5"></path>
         <rect x="8" y="14" width="8" height="5" rx="1"></rect>
       </svg>
     </button>
-    <button id="saveAsIconBtn" class="toolIconBtn" data-help-label="別保存" title="HTMLを別名で保存" aria-label="HTMLを別名で保存" style="width:32px;height:32px;padding:0;">
+    <button id="saveAsIconBtn" class="toolIconBtn" data-help-label="別保存" title="SFCを別名で保存" aria-label="SFCを別名で保存" style="width:32px;height:32px;padding:0;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;">
         <path d="M5 5h11.5l2.5 2.5V19H5z"></path>
         <path d="M8 5v5h6.5V5"></path>
@@ -686,6 +705,12 @@ gtag('config', 'G-88B9YPJXWP');
         <path d="M6.8 7.2v9.6"></path>
         <path d="M11.8 10v6.8"></path>
         <path d="M16.8 7.2v9.6"></path>
+      </svg>
+    </button>
+    <button id="profileBtn" class="toolIconBtn" data-help-label="断面" title="地理院DEM断面" aria-label="断面">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 19h18"></path>
+        <path d="M4 17 9 11.5l3 3 3.1-6L20 17"></path>
       </svg>
     </button>
     <button id="drawBtn" class="toolIconBtn" data-help-label="手書き" title="手書きメモ" aria-label="手書きメモ">
@@ -756,7 +781,7 @@ gtag('config', 'G-88B9YPJXWP');
   <button id="undoFab" title="もどす" style="position:absolute;left:88px;top:12px;z-index:70;width:40px;height:34px;padding:0;font-weight:900;font-size:24px;color:#1f6fff;">↶</button>
   <button id="redoFab" title="やりなおし" style="position:absolute;left:134px;top:12px;z-index:70;width:40px;height:34px;padding:0;font-weight:900;font-size:24px;color:#1f6fff;">↷</button>
   <button id="compassFab" title="北を上に戻す"><span class="compassFace"><span class="compassN">N</span><span class="compassNeedle"></span><span class="compassDot"></span></span></button>
-  <button id="gpsDetailFab" style="position:absolute;left:12px;bottom:12px;z-index:70;display:inline-flex;align-items:center;gap:6px;">
+  <button id="gpsDetailFab" style="position:absolute;left:12px;top:58px;bottom:auto;z-index:70;display:inline-flex;align-items:center;gap:6px;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.95;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;">
         <path d="M4 12 20 4 12 20 10.2 13.8 4 12z"></path>
         <path d="M10.2 13.8 20 4"></path>
@@ -794,9 +819,24 @@ gtag('config', 'G-88B9YPJXWP');
     
   </div>
 
-  <div id="gpsBox" class="panel" style="display:none;left:12px;bottom:54px;width:260px;padding:10px;z-index:60;background:rgba(20,20,20,.45);backdrop-filter:blur(4px);">
+  <div id="gpsBox" class="panel" style="display:none;left:12px;top:100px;bottom:auto;width:260px;max-height:calc(100% - 112px);overflow:auto;padding:10px;z-index:60;background:rgba(20,20,20,.45);backdrop-filter:blur(4px);">
     <div class="panelTitle">現在地</div>
     <div id="gpsText" style="font-size:13px; line-height:1.6;">GPSはOFFです。</div>
+  </div>
+
+  <div id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+    <div id="profileBox">
+      <div id="profileHeader">
+        <div id="profileTitle">地形断面</div>
+        <div id="profileSummary">断面データを取得しています</div>
+        <button id="profileCloseBtn" type="button">閉じる</button>
+      </div>
+      <div id="profileChartWrap">
+        <canvas id="profileChart"></canvas>
+        <div id="profileLoading">標高データを取得中…</div>
+      </div>
+      <div id="profileNotice">この断面図は概略です。測量には使用できません。<br>地理院タイル（標高タイル（基盤地図情報数値標高モデル））を加工して作成</div>
+    </div>
   </div>
 
   <div id="drawPanel" class="panel">
@@ -892,6 +932,7 @@ gtag('config', 'G-88B9YPJXWP');
             <button type="button" class="helpMenuBtn" data-help-section="opensave">開く・保存</button>
             <button type="button" class="helpMenuBtn" data-help-section="gps">現在地GPS</button>
             <button type="button" class="helpMenuBtn" data-help-section="measure">計測</button>
+            <button type="button" class="helpMenuBtn" data-help-section="profile">断面</button>
             <button type="button" class="helpMenuBtn" data-help-section="memo">手書きメモ</button>
             <button type="button" class="helpMenuBtn" data-help-section="search">文字検索</button>
             <button type="button" class="helpMenuBtn" data-help-section="pick">点の取り方</button>
@@ -910,9 +951,9 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開く</div>左上の <b>📂</b> で SFC または保存済みHTMLを開きます。最初に全体が見えない時は <b>全体表示</b> を押してください。</div>
               <div class="helpBlock"><div class="helpHead">このブラウザー内の保存</div>メモ書きや表示状態は、この端末のブラウザー内に毎回一時保存されます。あとで同じ図面を開くと、前回の状態を復元できます。</div>
-              <div class="helpBlock"><div class="helpHead">別名保存</div><b>💾+</b> は別の名前で保存します。保存して残すときは、こちらを使ってください。メモ付きビューアーHTMLとして残るので、配布用やバックアップ用にも向いています。</div>
-              <div class="helpBlock"><div class="helpHead">上書き保存</div><b>💾</b> は今開いているHTMLへ保存します。スマホでは出ない場合があります。対応していない環境では保存先を聞かれることがあります。</div>
-              <div class="helpBlock"><div class="helpHead">元のSFC</div>元のSFCは自動では書き変わりません。別名保存しない限り、元ファイルはそのままです。</div>
+              <div class="helpBlock"><div class="helpHead">別名保存</div><b>💾+</b> は、手書きメモをSXF図形として追加したSFCを別名で保存します。</div>
+              <div class="helpBlock"><div class="helpHead">上書き保存</div><b>💾</b> は、対応ブラウザーでは今開いているSFCへ上書きします。iPhoneでは保存先の選択画面が開きます。</div>
+              <div class="helpBlock"><div class="helpHead">SFC書き込み</div>元図形・部分図・レイヤーは保持し、手書きメモを主平面図へ追加して保存します。</div>
             </div>
           </div>
 
@@ -934,6 +975,16 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">2点間</div>2点を取ると距離が出ます。</div>
               <div class="helpBlock"><div class="helpHead">3点垂直</div>基準線の2点と、離れた1点を取ると、垂直距離を出します。</div>
               <div class="helpBlock"><div class="helpHead">やめる</div><b>中止</b> を押すと計測を終了します。</div>
+            </div>
+          </div>
+
+          <div class="helpSection" data-help-section="profile">
+            <div class="helpSectionTitle">地形断面</div>
+            <div class="helpSectionBody">
+              <div class="helpBlock"><div class="helpHead">使い方</div><b>断面</b>を押し、図面上で起点と終点を順にタップすると自動で断面図を表示します。</div>
+              <div class="helpBlock"><div class="helpHead">グラフ操作</div>1本指でなぞると図面上の対応位置を表示します。2本指で拡大縮小・移動できます。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報</div>SFC座標を緯度経度へ変換するため、最初の利用時に端末の現在地を使用します。</div>
+              <div class="helpBlock"><div class="helpHead">注意</div>国土地理院のDEMを使った概略断面です。測量成果には使用できません。</div>
             </div>
           </div>
 
@@ -1252,6 +1303,31 @@ let searchHighlightUntil = 0;
 let textSearchPopupOpen = false;
 let helpModalOpen = false;
 let toolbarHelpLabelsOpen = false;
+let profileMode = false;
+let profileStartWorld = null;
+let profileEndWorld = null;
+let profileHoverWorld = null;
+let profileData = null;
+let profileZone = null;
+let profileTouchCandidate = null;
+let profileGraphScaleX = 1;
+let profileGraphScaleY = 1;
+let profileGraphOffsetX = 0;
+let profileGraphOffsetY = 0;
+const profileTileMemoryCache = new Map();
+const profileGraphPointers = new Map();
+let profileGraphGesture = null;
+
+const PROFILE_TILE_CACHE = "sfc-dem-tiles-v1";
+const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v1";
+const PROFILE_ZONE_CACHE_KEY = "sfc-dem-zones-v1";
+const PROFILE_DEM_SOURCES = [
+  {id:"DEM1A", url:"https://cyberjapandata.gsi.go.jp/xyz/dem1a_png/{z}/{x}/{y}.png", z:17},
+  {id:"DEM5A", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{z}/{x}/{y}.png", z:15},
+  {id:"DEM5B", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/{z}/{x}/{y}.png", z:15},
+  {id:"DEM5C", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5c_png/{z}/{x}/{y}.png", z:15},
+  {id:"DEM10B",url:"https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png", z:14}
+];
 
 const helpModal = document.getElementById("helpModal");
 const helpModalBox = document.getElementById("helpModalBox");
@@ -1261,6 +1337,12 @@ const helpCloseBtn = document.getElementById("helpCloseBtn");
 const viewerSupportModal = document.getElementById("viewerSupportModal");
 const viewerSupportCloseBtn = document.getElementById("viewerSupportCloseBtn");
 const viewerLabel = document.getElementById("viewerLabel");
+const profileBtn = document.getElementById("profileBtn");
+const profileModal = document.getElementById("profileModal");
+const profileCloseBtn = document.getElementById("profileCloseBtn");
+const profileSummary = document.getElementById("profileSummary");
+const profileChart = document.getElementById("profileChart");
+const profileLoading = document.getElementById("profileLoading");
 const helpMenuView = document.getElementById("helpMenuView");
 const helpSectionWrap = document.getElementById("helpSectionWrap");
 const helpBackBtn = document.getElementById("helpBackBtn");
@@ -1298,12 +1380,14 @@ const JAPAN_PLANE_ZONES = [
   {zone:19, lat0:26, lon0:154}
 ];
 const GPS_TO_SFC = {
-  xFrom: "Y",   // easting -> SFC x
-  yFrom: "X",   // northing -> SFC y
+  xFrom: "X",   // auto detected: northing/easting -> SFC x
+  yFrom: "Y",   // auto detected: northing/easting -> SFC y
   xSign: 1,
   ySign: 1,
   offsetX: 0,
-  offsetY: 0
+  offsetY: 0,
+  zone: null,
+  reliable: false
 };
 
 function ensureProj4Defs(){
@@ -1336,7 +1420,65 @@ function getLoadedSfcBoundsWorld(){
     return null;
   }
 }
+function applyGpsMapping(mapping){
+  if (!mapping) return;
+  GPS_TO_SFC.xFrom = mapping.xFrom || "X";
+  GPS_TO_SFC.yFrom = mapping.yFrom || "Y";
+  GPS_TO_SFC.xSign = mapping.xSign < 0 ? -1 : 1;
+  GPS_TO_SFC.ySign = mapping.ySign < 0 ? -1 : 1;
+  GPS_TO_SFC.offsetX = Number.isFinite(+mapping.offsetX) ? +mapping.offsetX : 0;
+  GPS_TO_SFC.offsetY = Number.isFinite(+mapping.offsetY) ? +mapping.offsetY : 0;
+  GPS_TO_SFC.zone = mapping.zone >= 1 && mapping.zone <= 19 ? +mapping.zone : null;
+  GPS_TO_SFC.reliable = mapping.reliable !== false;
+}
+function worldDistanceToBoundsMeters(worldX, worldY, bounds){
+  if (!bounds || !Number.isFinite(worldX) || !Number.isFinite(worldY)) return Infinity;
+  const dx = worldX < bounds.minX ? bounds.minX-worldX : (worldX > bounds.maxX ? worldX-bounds.maxX : 0);
+  const dy = worldY < bounds.minY ? bounds.minY-worldY : (worldY > bounds.maxY ? worldY-bounds.maxY : 0);
+  return Math.hypot(dx,dy)/1000;
+}
+function detectGpsReferenceForPosition(lat, lon){
+  if (!data || data._isProfileOnly || !ensureProj4Defs()) return null;
+  const bounds = getLoadedSfcBoundsWorld();
+  if (!bounds) return null;
+  const zoneHint = +data._coordinateZoneHint;
+  const zones = zoneHint >= 1 && zoneHint <= 19 ? [zoneHint] : JAPAN_PLANE_ZONES.map(v=>v.zone);
+  const layouts = [
+    {xFrom:"X",yFrom:"Y",xSign:1,ySign:1},
+    {xFrom:"Y",yFrom:"X",xSign:1,ySign:1},
+    {xFrom:"X",yFrom:"Y",xSign:-1,ySign:1},
+    {xFrom:"X",yFrom:"Y",xSign:1,ySign:-1},
+    {xFrom:"Y",yFrom:"X",xSign:-1,ySign:1},
+    {xFrom:"Y",yFrom:"X",xSign:1,ySign:-1},
+    {xFrom:"X",yFrom:"Y",xSign:-1,ySign:-1},
+    {xFrom:"Y",yFrom:"X",xSign:-1,ySign:-1}
+  ];
+  const candidates=[];
+  for (const zone of zones){
+    let xy;
+    try{ xy=latLonToJgd2024XY(lat,lon,zone); }catch(_e){ continue; }
+    for (const layout of layouts){
+      const sx=(layout.xFrom==="X"?xy.x:xy.y)*layout.xSign*1000;
+      const sy=(layout.yFrom==="X"?xy.x:xy.y)*layout.ySign*1000;
+      const distance=worldDistanceToBoundsMeters(sx,sy,bounds);
+      candidates.push({...layout,zone,distance,worldX:sx,worldY:sy});
+    }
+  }
+  candidates.sort((a,b)=>a.distance-b.distance);
+  const best=candidates[0];
+  if (!best) return null;
+  const second=candidates.find(v=>v.zone!==best.zone||v.xFrom!==best.xFrom||v.xSign!==best.xSign||v.ySign!==best.ySign);
+  const unique=!second || second.distance-best.distance>Math.max(500,Math.min(5000,best.distance*0.15));
+  const reliable=best.distance<=250000 && (zoneHint || unique);
+  const result={...best,reliable};
+  applyGpsMapping(result);
+  data._resolvedCoordinateZone=best.zone;
+  data._resolvedGpsMapping={xFrom:best.xFrom,yFrom:best.yFrom,xSign:best.xSign,ySign:best.ySign};
+  return result;
+}
 function chooseJapanPlaneZone(lat, lon){
+  if (GPS_TO_SFC.zone >= 1 && GPS_TO_SFC.zone <= 19) return GPS_TO_SFC.zone;
+  if (data && data._coordinateZoneHint >= 1 && data._coordinateZoneHint <= 19) return +data._coordinateZoneHint;
   // 四国エリアは実務上ほぼ4系で使う前提に固定する
   // 徳島・香川・愛媛・高知の現在地で、変な系へ飛ばないようにする
   const inShikoku =
@@ -1369,9 +1511,401 @@ function latLonToJgd2024XY(lat, lon, zone){
   return { x: result[1], y: result[0] }; // X=northing, Y=easting
 }
 function planeToSfcWorld(xNorth, yEast){
-  const sfcX = (GPS_TO_SFC.xFrom === "X" ? xNorth : yEast) * GPS_TO_SFC.xSign + GPS_TO_SFC.offsetX;
-  const sfcY = (GPS_TO_SFC.yFrom === "X" ? xNorth : yEast) * GPS_TO_SFC.ySign + GPS_TO_SFC.offsetY;
+  const sfcX = ((GPS_TO_SFC.xFrom === "X" ? xNorth : yEast) * GPS_TO_SFC.xSign + GPS_TO_SFC.offsetX) * 1000;
+  const sfcY = ((GPS_TO_SFC.yFrom === "X" ? xNorth : yEast) * GPS_TO_SFC.ySign + GPS_TO_SFC.offsetY) * 1000;
   return {x:sfcX, y:sfcY};
+}
+function sfcWorldToPlane(xWorldMm, yWorldMm){
+  const sfcX = xWorldMm / 1000;
+  const sfcY = yWorldMm / 1000;
+  const first = (sfcX - GPS_TO_SFC.offsetX) / GPS_TO_SFC.xSign;
+  const second = (sfcY - GPS_TO_SFC.offsetY) / GPS_TO_SFC.ySign;
+  let xNorth = 0, yEast = 0;
+  if (GPS_TO_SFC.xFrom === "X") xNorth = first; else yEast = first;
+  if (GPS_TO_SFC.yFrom === "X") xNorth = second; else yEast = second;
+  return {xNorth, yEast};
+}
+function jgd2024XYToLatLon(xNorth, yEast, zone){
+  if (!ensureProj4Defs()) throw new Error("proj4未読込");
+  const result = proj4("JGD2024_ZONE_" + zone, "EPSG:4326", [yEast, xNorth]);
+  return {lon:result[0], lat:result[1]};
+}
+function getProfileDrawingKey(){
+  const b = getLoadedSfcBoundsWorld();
+  if (!b) return "";
+  return `${data.source_name||"sfc"}|${Math.round(b.cx/1000)}|${Math.round(b.cy/1000)}`;
+}
+function readProfileZoneCache(){
+  try{ return JSON.parse(localStorage.getItem(PROFILE_ZONE_CACHE_KEY) || "{}"); }catch(e){ return {}; }
+}
+function rememberProfileZone(zone){
+  const key = getProfileDrawingKey();
+  if (!key || !zone) return;
+  try{
+    const all = readProfileZoneCache();
+    all[key] = {zone, savedAt:Date.now()};
+    localStorage.setItem(PROFILE_ZONE_CACHE_KEY, JSON.stringify(all));
+  }catch(e){}
+}
+function getRememberedProfileZone(){
+  const key = getProfileDrawingKey();
+  const item = key ? readProfileZoneCache()[key] : null;
+  return item && item.zone >= 1 && item.zone <= 19 ? item.zone : null;
+}
+function profileZoneFromDevicePosition(pos){
+  if (!pos || !pos.coords) return null;
+  const lat = +pos.coords.latitude, lon = +pos.coords.longitude;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const detected = detectGpsReferenceForPosition(lat,lon);
+  const zone = detected ? detected.zone : chooseJapanPlaneZone(lat, lon);
+  const xy = latLonToJgd2024XY(lat, lon, zone);
+  const sfc = planeToSfcWorld(xy.x, xy.y);
+  const distance = calcDistanceFromSfcBoundsMeters(sfc.x, sfc.y);
+  // A zone cannot be determined from local plane coordinates alone.  The
+  // device position must be in the same broad work area at least once.
+  if (distance != null && distance > 250000 && !(data && data._coordinateZoneHint)) return null;
+  rememberProfileZone(zone);
+  return zone;
+}
+async function resolveProfileZone(){
+  if (!hasLoadedDrawing() || !ensureProj4Defs()) return null;
+  const remembered = getRememberedProfileZone();
+  if (remembered) return remembered;
+  if (gpsPosition){
+    const zone = profileZoneFromDevicePosition({coords:{latitude:gpsPosition.lat, longitude:gpsPosition.lon}});
+    if (zone) return zone;
+  }
+  if (!navigator.geolocation) return null;
+  const pos = await new Promise(resolve=>{
+    navigator.geolocation.getCurrentPosition(resolve, ()=>resolve(null), {
+      enableHighAccuracy:false, maximumAge:300000, timeout:8000
+    });
+  });
+  return profileZoneFromDevicePosition(pos);
+}
+function profileTileRef(lat, lon, z){
+  const n = Math.pow(2, z);
+  const clampedLat = Math.max(-85.05112878, Math.min(85.05112878, lat));
+  const latRad = clampedLat * Math.PI / 180;
+  const worldX = (lon + 180) / 360 * n;
+  const worldY = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
+  const x = Math.floor(worldX), y = Math.floor(worldY);
+  return {
+    x, y,
+    px:Math.max(0, Math.min(255, Math.floor((worldX - x) * 256))),
+    py:Math.max(0, Math.min(255, Math.floor((worldY - y) * 256)))
+  };
+}
+function profileDemUrl(source, ref){
+  return source.url.replace("{z}", source.z).replace("{x}", ref.x).replace("{y}", ref.y);
+}
+async function profileMapLimit(items, limit, worker){
+  let next = 0;
+  const runners = Array.from({length:Math.min(limit, items.length)}, async()=>{
+    while(next < items.length){
+      const i = next++;
+      await worker(items[i], i);
+    }
+  });
+  await Promise.all(runners);
+}
+async function getProfileTileResponse(url){
+  let cache = null, response = null;
+  try{
+    if (window.caches){
+      cache = await caches.open(PROFILE_TILE_CACHE);
+      response = await cache.match(url);
+    }
+  }catch(e){}
+  if (!response){
+    try{
+      response = await fetch(url, {mode:"cors", cache:"force-cache"});
+      if (!response.ok) return null;
+      if (cache){
+        try{
+          await cache.put(url, response.clone());
+          const keys = await cache.keys();
+          if (keys.length > 120) await Promise.all(keys.slice(0, keys.length - 120).map(k=>cache.delete(k)));
+        }catch(e){}
+      }
+    }catch(e){ return null; }
+  }
+  return response;
+}
+async function decodeProfileDemTile(url){
+  if (profileTileMemoryCache.has(url)) return profileTileMemoryCache.get(url);
+  const pending = (async()=>{
+    const response = await getProfileTileResponse(url);
+    if (!response) return null;
+    try{
+      const blob = await response.blob();
+      let image = null, revokeUrl = "";
+      if (window.createImageBitmap){
+        image = await createImageBitmap(blob);
+      }else{
+        revokeUrl = URL.createObjectURL(blob);
+        image = await new Promise((resolve,reject)=>{
+          const img = new Image();
+          img.onload=()=>resolve(img); img.onerror=reject; img.src=revokeUrl;
+        });
+      }
+      const c = document.createElement("canvas");
+      c.width=256; c.height=256;
+      const cctx=c.getContext("2d", {willReadFrequently:true});
+      cctx.drawImage(image,0,0,256,256);
+      const pixels=cctx.getImageData(0,0,256,256).data;
+      if (image && image.close) image.close();
+      if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+      return pixels;
+    }catch(e){ return null; }
+  })();
+  profileTileMemoryCache.set(url, pending);
+  const pixels = await pending;
+  // A temporary network failure must not poison the in-memory cache for the
+  // rest of the session. Successful tiles remain shared by nearby profiles.
+  if (!pixels) profileTileMemoryCache.delete(url);
+  return pixels;
+}
+function decodeProfileElevation(pixels, px, py){
+  if (!pixels) return null;
+  const i = (py * 256 + px) * 4;
+  const x = pixels[i] * 65536 + pixels[i+1] * 256 + pixels[i+2];
+  if (x === 8388608) return null;
+  return (x < 8388608 ? x : x - 16777216) * 0.01;
+}
+function getProfileDataCache(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(PROFILE_DATA_CACHE_KEY)||"[]");
+    return Array.isArray(parsed)?parsed:[];
+  }catch(e){ return []; }
+}
+function getProfileCacheKey(start,end,zone){
+  const q=v=>Math.round(v/1000);
+  return `${getProfileDrawingKey()}|${zone}|${q(start.x)},${q(start.y)}|${q(end.x)},${q(end.y)}`;
+}
+function restoreCachedProfile(start,end,zone){
+  const key=getProfileCacheKey(start,end,zone);
+  const item=getProfileDataCache().find(v=>v.key===key);
+  if (!item || !Array.isArray(item.samples) || item.samples.length<2) return null;
+  const length=Math.hypot(end.x-start.x,end.y-start.y)/1000;
+  return {
+    start:{...start}, end:{...end}, zone, length,
+    samples:item.samples.map(s=>({
+      t:s.t, distance:s.t*length, elevation:s.elevation, source:s.source,
+      worldX:start.x+(end.x-start.x)*s.t, worldY:start.y+(end.y-start.y)*s.t
+    }))
+  };
+}
+function rememberProfileData(result){
+  try{
+    const key=getProfileCacheKey(result.start,result.end,result.zone);
+    let all=getProfileDataCache().filter(v=>v.key!==key);
+    all.push({key,savedAt:Date.now(),samples:result.samples.map(s=>({t:s.t,elevation:s.elevation,source:s.source}))});
+    if(all.length>12) all=all.slice(all.length-12);
+    localStorage.setItem(PROFILE_DATA_CACHE_KEY,JSON.stringify(all));
+  }catch(e){}
+}
+async function buildProfileData(start,end,zone){
+  const cached=restoreCachedProfile(start,end,zone);
+  if(cached) return cached;
+  const length=Math.hypot(end.x-start.x,end.y-start.y)/1000;
+  if (!(length>0.05)) return null;
+  const sampleCount=Math.max(2,Math.min(601,Math.ceil(length/Math.max(1,length/600))+1));
+  const samples=[];
+  for(let i=0;i<sampleCount;i++){
+    const t=i/(sampleCount-1);
+    const worldX=start.x+(end.x-start.x)*t;
+    const worldY=start.y+(end.y-start.y)*t;
+    const plane=sfcWorldToPlane(worldX,worldY);
+    const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
+    samples.push({t,distance:length*t,worldX,worldY,lat:ll.lat,lon:ll.lon,elevation:null,source:null});
+  }
+  for(const source of PROFILE_DEM_SOURCES){
+    const refs=new Map();
+    for(const sample of samples){
+      if(sample.elevation!=null) continue;
+      const ref=profileTileRef(sample.lat,sample.lon,source.z);
+      const url=profileDemUrl(source,ref);
+      sample._profileRef={ref,url};
+      if(!refs.has(url)) refs.set(url,null);
+    }
+    const urls=[...refs.keys()];
+    await profileMapLimit(urls,5,async url=>{ refs.set(url,await decodeProfileDemTile(url)); });
+    for(const sample of samples){
+      if(sample.elevation!=null||!sample._profileRef) continue;
+      const {ref,url}=sample._profileRef;
+      const elevation=decodeProfileElevation(refs.get(url),ref.px,ref.py);
+      if(elevation!=null&&Number.isFinite(elevation)){
+        sample.elevation=elevation;
+        sample.source=source.id;
+      }
+      delete sample._profileRef;
+    }
+    if(samples.every(s=>s.elevation!=null)) break;
+  }
+  if(samples.filter(s=>s.elevation!=null).length<2) return null;
+  const result={start:{...start},end:{...end},zone,length,samples};
+  rememberProfileData(result);
+  return result;
+}
+function formatProfileDistance(m){
+  return m>=1000?`${(m/1000).toFixed(2)}km`:`${m.toFixed(m<100?1:0)}m`;
+}
+function updateProfileUi(){
+  if(profileBtn) profileBtn.classList.toggle("profileActive",profileMode);
+}
+function closeProfileModal(){
+  if(profileModal) profileModal.classList.remove("open");
+  profileHoverWorld=null;
+  profileGraphPointers.clear();
+  profileGraphGesture=null;
+  scheduleDraw();
+}
+function openProfileModal(loading){
+  if(!profileModal) return;
+  profileModal.classList.add("open");
+  profileLoading?.classList.toggle("show",!!loading);
+  requestAnimationFrame(()=>{resizeProfileChart();drawProfileChart();});
+}
+function resetProfileGraphView(){
+  profileGraphScaleX=1;profileGraphScaleY=1;profileGraphOffsetX=0;profileGraphOffsetY=0;
+}
+function resizeProfileChart(){
+  if(!profileChart) return;
+  const rect=profileChart.getBoundingClientRect();
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const w=Math.max(1,Math.round(rect.width*dpr)),h=Math.max(1,Math.round(rect.height*dpr));
+  if(profileChart.width!==w||profileChart.height!==h){profileChart.width=w;profileChart.height=h;}
+}
+function getProfileGraphGeometry(){
+  if(!profileChart||!profileData) return null;
+  const dpr=profileChart.width/Math.max(1,profileChart.getBoundingClientRect().width);
+  const w=profileChart.width/dpr,h=profileChart.height/dpr;
+  const margin={left:48,right:14,top:15,bottom:32};
+  const valid=profileData.samples.filter(s=>s.elevation!=null&&Number.isFinite(s.elevation));
+  if(valid.length<2) return null;
+  let minE=Math.min(...valid.map(s=>s.elevation)),maxE=Math.max(...valid.map(s=>s.elevation));
+  if(maxE-minE<1){const mid=(minE+maxE)/2;minE=mid-.5;maxE=mid+.5;}
+  const pad=(maxE-minE)*.08;minE-=pad;maxE+=pad;
+  const plotW=w-margin.left-margin.right,plotH=h-margin.top-margin.bottom;
+  const length=Math.max(.001,profileData.length);
+  const elevationRange=Math.max(.001,maxE-minE);
+  // Horizontal distance and elevation always use the same pixels-per-metre.
+  // The initial scale is chosen only to fit the complete section in the box.
+  const pixelsPerMeter=Math.max(.001,Math.min(plotW/length,plotH/elevationRange));
+  const contentW=length*pixelsPerMeter,contentH=elevationRange*pixelsPerMeter;
+  const originX=margin.left+(plotW-contentW)/2;
+  const originY=margin.top+(plotH-contentH)/2;
+  return {dpr,w,h,margin,plotW,plotH,minE,maxE,length,elevationRange,pixelsPerMeter,contentW,contentH,originX,originY};
+}
+function profileGraphXY(sample,g){
+  const baseX=sample.distance*g.pixelsPerMeter;
+  const baseY=(g.maxE-sample.elevation)*g.pixelsPerMeter;
+  return {
+    x:g.originX+baseX*profileGraphScaleX+profileGraphOffsetX,
+    y:g.originY+baseY*profileGraphScaleY+profileGraphOffsetY
+  };
+}
+function drawProfileChart(){
+  if(!profileChart) return;
+  resizeProfileChart();
+  const ctxp=profileChart.getContext("2d");
+  const rect=profileChart.getBoundingClientRect();
+  const dpr=profileChart.width/Math.max(1,rect.width);
+  ctxp.setTransform(dpr,0,0,dpr,0,0);
+  ctxp.clearRect(0,0,rect.width,rect.height);
+  const dark=document.body.classList.contains("dark")||darkTheme;
+  ctxp.fillStyle=dark?"#111820":"#f8fafc";ctxp.fillRect(0,0,rect.width,rect.height);
+  const g=getProfileGraphGeometry();
+  if(!g) return;
+  const axis=dark?"rgba(255,255,255,.58)":"rgba(0,0,0,.55)";
+  const grid=dark?"rgba(255,255,255,.12)":"rgba(0,0,0,.10)";
+  ctxp.font="11px system-ui,sans-serif";ctxp.textBaseline="middle";
+  ctxp.strokeStyle=grid;ctxp.lineWidth=1;ctxp.fillStyle=axis;
+  const x0=g.originX+profileGraphOffsetX;
+  const x1=x0+g.contentW*profileGraphScaleX;
+  const y0=g.originY+profileGraphOffsetY;
+  const y1=y0+g.contentH*profileGraphScaleY;
+  for(let i=0;i<=4;i++){
+    const y=y0+(y1-y0)*i/4;
+    ctxp.save();ctxp.beginPath();ctxp.rect(g.margin.left,g.margin.top,g.plotW,g.plotH);ctxp.clip();
+    ctxp.beginPath();ctxp.moveTo(x0,y);ctxp.lineTo(x1,y);ctxp.stroke();ctxp.restore();
+    const e=g.maxE-(g.maxE-g.minE)*i/4;
+    if(y>=g.margin.top&&y<=g.margin.top+g.plotH){ctxp.textAlign="right";ctxp.fillText(e.toFixed(1),g.margin.left-5,y);}
+  }
+  for(let i=0;i<=4;i++){
+    const x=x0+(x1-x0)*i/4;
+    ctxp.save();ctxp.beginPath();ctxp.rect(g.margin.left,g.margin.top,g.plotW,g.plotH);ctxp.clip();
+    ctxp.beginPath();ctxp.moveTo(x,y0);ctxp.lineTo(x,y1);ctxp.stroke();ctxp.restore();
+    if(x>=g.margin.left&&x<=g.margin.left+g.plotW&&y1>=g.margin.top&&y1<=g.margin.top+g.plotH){
+      ctxp.textAlign="center";ctxp.textBaseline="top";
+      ctxp.fillText(formatProfileDistance(profileData.length*i/4),x,Math.min(g.margin.top+g.plotH+7,y1+7));
+    }
+  }
+  ctxp.save();
+  ctxp.beginPath();ctxp.rect(g.margin.left,g.margin.top,g.plotW,g.plotH);ctxp.clip();
+  ctxp.strokeStyle="#22a7f0";ctxp.lineWidth=2;ctxp.lineJoin="round";ctxp.lineCap="round";
+  ctxp.beginPath();
+  let started=false;
+  for(const sample of profileData.samples){
+    if(sample.elevation==null){started=false;continue;}
+    const p=profileGraphXY(sample,g);
+    if(!started){ctxp.moveTo(p.x,p.y);started=true;}else ctxp.lineTo(p.x,p.y);
+  }
+  ctxp.stroke();
+  if(profileHoverWorld){
+    const nearest=profileData.samples.reduce((best,s)=>{
+      const d=Math.hypot(s.worldX-profileHoverWorld.x,s.worldY-profileHoverWorld.y);
+      return !best||d<best.d?{s,d}:best;
+    },null)?.s;
+    if(nearest&&nearest.elevation!=null){
+      const p=profileGraphXY(nearest,g);
+      ctxp.strokeStyle="#ffb000";ctxp.lineWidth=1.5;ctxp.beginPath();ctxp.moveTo(p.x,g.margin.top);ctxp.lineTo(p.x,g.margin.top+g.plotH);ctxp.stroke();
+      ctxp.fillStyle="#ffb000";ctxp.beginPath();ctxp.arc(p.x,p.y,4,0,Math.PI*2);ctxp.fill();
+      ctxp.fillStyle=dark?"#fff":"#111";ctxp.font="bold 11px system-ui,sans-serif";ctxp.textAlign="left";ctxp.textBaseline="bottom";
+      ctxp.fillText(`${formatProfileDistance(nearest.distance)}  ${nearest.elevation.toFixed(2)}m`,Math.min(p.x+6,g.margin.left+g.plotW-112),Math.max(g.margin.top+14,p.y-5));
+    }
+  }
+  ctxp.restore();
+}
+function updateProfileSummary(){
+  if(!profileSummary||!profileData) return;
+  const valid=profileData.samples.filter(s=>s.elevation!=null);
+  const first=valid[0],last=valid[valid.length-1];
+  const diff=first&&last?last.elevation-first.elevation:0;
+  profileSummary.textContent=`延長 ${formatProfileDistance(profileData.length)}　高低差 ${diff>=0?"+":""}${diff.toFixed(2)}m　縦横1:1`;
+}
+async function completeProfileSelection(){
+  if(!profileStartWorld||!profileEndWorld||!profileZone) return;
+  profileMode=false;updateProfileUi();resetProfileGraphView();
+  if(profileSummary) profileSummary.textContent="断面データを取得しています";
+  openProfileModal(true);
+  try{
+    profileData=await buildProfileData(profileStartWorld,profileEndWorld,profileZone);
+  }catch(e){console.error(e);profileData=null;}
+  profileLoading?.classList.remove("show");
+  if(!profileData){
+    closeProfileModal();showToast("標高データを取得できません",2600);return;
+  }
+  updateProfileSummary();drawProfileChart();scheduleDraw();
+}
+function selectProfileWorldPoint(world){
+  if(!profileMode||!world) return;
+  if(!profileStartWorld){
+    profileStartWorld={x:world.x,y:world.y};profileEndWorld=null;profileData=null;profileHoverWorld=null;
+    showToast("断面の終点をタップしてください",2400);scheduleDraw();return;
+  }
+  profileEndWorld={x:world.x,y:world.y};profileHoverWorld=null;scheduleDraw();completeProfileSelection();
+}
+async function beginProfileMode(){
+  if(!hasLoadedDrawing()) return;
+  measureMode=false;measureFreeMode=false;measureOffsetMode=false;resetMeasureUI();
+  inkEnabled=false;inkDrawing=false;currentStroke=null;pendingTouchInk=null;
+  closeTextSearchPopup();closePanelsExcept();
+  profileZone=await resolveProfileZone();
+  if(!profileZone){showToast("このSFC図面には位置情報が設定されていません",3000);return;}
+  profileMode=true;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;
+  updateProfileUi();updateStopBtnUI();showToast("断面の起点をタップしてください",2400);scheduleDraw();
 }
 function getGpsEnvironmentMessage(){
   const secure = window.isSecureContext || location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
@@ -1499,17 +2033,17 @@ function stopGps(fitIfFar = false){
   scheduleDraw();
 }
 
-function calcDistanceFromSfcBoundsMeters(xMeters, yMeters){
+function calcDistanceFromSfcBoundsMeters(xWorld, yWorld){
   const bounds = getLoadedSfcBoundsWorld();
   if (!bounds) return null;
-  const x = xMeters * 1000;
-  const y = yMeters * 1000;
+  const x = +xWorld;
+  const y = +yWorld;
   const dx = x < bounds.minX ? (bounds.minX - x) : (x > bounds.maxX ? (x - bounds.maxX) : 0);
   const dy = y < bounds.minY ? (bounds.minY - y) : (y > bounds.maxY ? (y - bounds.maxY) : 0);
   return Math.hypot(dx, dy) / 1000;
 }
-function maybeShowGpsFarMessage(xMeters, yMeters){
-  const distMeters = calcDistanceFromSfcBoundsMeters(xMeters, yMeters);
+function maybeShowGpsFarMessage(xWorld, yWorld){
+  const distMeters = calcDistanceFromSfcBoundsMeters(xWorld, yWorld);
   gpsLastDistanceMeters = distMeters;
   if (distMeters == null){
     gpsIsFarFromDrawing = false;
@@ -1549,7 +2083,8 @@ function startGps(){
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
       const accuracy = pos.coords.accuracy || 0;
-      const zone = chooseJapanPlaneZone(lat, lon);
+      const detected = detectGpsReferenceForPosition(lat,lon);
+      const zone = detected ? detected.zone : chooseJapanPlaneZone(lat, lon);
       const xy = latLonToJgd2024XY(lat, lon, zone);
       const sfc = planeToSfcWorld(xy.x, xy.y);
       gpsPosition = { lat, lon, accuracy, altitude: pos.coords.altitude, zone, x: xy.x, y: xy.y, sfcX: sfc.x, sfcY: sfc.y };
@@ -1953,7 +2488,7 @@ function updateStopBtnUI(){
   const btn = document.getElementById("stopBtn");
   if(!btn) return;
   const panelOpen = !!(measureModePanel && measureModePanel.style.display === "block");
-  const active = !!(measureMode || inkEnabled || panelOpen || textSearchPopupOpen);
+  const active = !!(measureMode || inkEnabled || panelOpen || textSearchPopupOpen || profileMode);
   if(active){
     btn.style.background = "#c40000";
     btn.style.color = "#fff";
@@ -2197,6 +2732,72 @@ function parseSfcTextLegacyFallback(srcText, fileName){
            _layerMap: layerMap, _layerRefToIdx: layerRefToIdx, _fontCodeMap: fontCodeMap };
 }
 
+function normalizeDrawingMetadataText(value){
+  return String(value||"").normalize("NFKC").replace(/\s+/g,"").toUpperCase();
+}
+function romanZoneNumber(value){
+  const s=String(value||"").toUpperCase();
+  if (/^\d{1,2}$/.test(s)) return +s;
+  const map={I:1,V:5,X:10}; let total=0,prev=0;
+  for(let i=s.length-1;i>=0;i--){ const n=map[s[i]]||0; if(!n)return null; total+=n<prev?-n:n; prev=Math.max(prev,n); }
+  return total>=1&&total<=19?total:null;
+}
+function detectCoordinateMetadata(texts){
+  const joined=normalizeDrawingMetadataText((texts||[]).map(t=>t&&t.text||"").join(" "));
+  const isPlan=/平面図|平面測量|現況平面/.test(joined);
+  const isProfile=/縦断図|横断図|縦断面|横断面/.test(joined);
+  let zone=null;
+  const patterns=[
+    /平面直角(?:座標系)?(?:第)?([0-9]{1,2}|XIX|XVIII|XVII|XVI|XV|XIV|XIII|XII|XI|IX|VIII|VII|VI|IV|III|II|I)系/,
+    /(?:座標系|測地系)(?:第)?([0-9]{1,2}|XIX|XVIII|XVII|XVI|XV|XIV|XIII|XII|XI|IX|VIII|VII|VI|IV|III|II|I)系/,
+    /第([0-9]{1,2}|XIX|XVIII|XVII|XVI|XV|XIV|XIII|XII|XI|IX|VIII|VII|VI|IV|III|II|I)系/
+  ];
+  for(const re of patterns){ const m=joined.match(re); if(m){ const n=romanZoneNumber(m[1]); if(n){zone=n;break;} } }
+  const datum=/JGD2024|測地成果2024/.test(joined)?"JGD2024":(/JGD2011|測地成果2011|世界測地系/.test(joined)?"JGD2011":null);
+  return {zone,datum,isPlan,isProfile,isProfileOnly:isProfile&&!isPlan,text:joined};
+}
+function collectPlacementSamplePoints(d,maxCount=2400){
+  const groups=[];
+  for(const v of d.lines||[]) groups.push([v[0],v[1]],[v[2],v[3]]);
+  for(const v of d.polys||[]) for(const p of v[0]||[]) groups.push(p);
+  for(const v of d.circles||[]) groups.push([v[0],v[1]]);
+  for(const t of d.texts||[]) groups.push([t.x,t.y]);
+  for(const m of d.markers||[]) groups.push([m.x,m.y]);
+  if(groups.length<=maxCount)return groups.filter(p=>p&&Number.isFinite(+p[0])&&Number.isFinite(+p[1]));
+  const out=[],step=groups.length/maxCount;
+  for(let i=0;i<maxCount;i++){const p=groups[Math.floor(i*step)];if(p&&Number.isFinite(+p[0])&&Number.isFinite(+p[1]))out.push(p);}
+  return out;
+}
+function worldPointToSheet(point,placement){
+  const x=(+point[0]||0)*(+placement.sx||1),y=(+point[1]||0)*(+placement.sy||1);
+  const a=(+placement.angle||0)*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
+  return {x:(+placement.originX||0)+x*c-y*s,y:(+placement.originY||0)+x*s+y*c};
+}
+function chooseMainPartialFigure(partialFigures,drawingSheet,collections,meta){
+  const candidates=(partialFigures||[]).filter(v=>v&&!String(v.name||"").startsWith("~")&&!String(v.name||"").startsWith("$$ATRU$$"));
+  if(!candidates.length)return null;
+  const pts=collectPlacementSamplePoints(collections);
+  const sw=+(drawingSheet&&drawingSheet.width)||0,sh=+(drawingSheet&&drawingSheet.height)||0;
+  const scored=candidates.map((p,index)=>{
+    const name=normalizeDrawingMetadataText(p.name);
+    let score=0;
+    if(/平面/.test(name))score+=300;
+    if(/縦断|横断/.test(name))score-=meta&&meta.isPlan?500:80;
+    if(sw>0&&sh>0&&pts.length){
+      let inside=0,total=0,minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+      for(const pt of pts){const q=worldPointToSheet(pt,p);if(!Number.isFinite(q.x)||!Number.isFinite(q.y))continue;total++;minx=Math.min(minx,q.x);miny=Math.min(miny,q.y);maxx=Math.max(maxx,q.x);maxy=Math.max(maxy,q.y);if(q.x>=-sw*.03&&q.x<=sw*1.03&&q.y>=-sh*.03&&q.y<=sh*1.03)inside++;}
+      const ratio=total?inside/total:0;
+      const cx=(minx+maxx)/2,cy=(miny+maxy)/2;
+      const centerPenalty=Number.isFinite(cx)?Math.hypot((cx-sw/2)/Math.max(sw,1),(cy-sh/2)/Math.max(sh,1)):10;
+      score+=ratio*1000-centerPenalty*35;
+    }
+    const denominator=1/Math.max(1e-12,Math.sqrt(Math.abs((+p.sx||1)*(+p.sy||1))));
+    if(denominator>=1&&denominator<=10000)score+=20;
+    return {p,score,index,denominator};
+  }).sort((a,b)=>b.score-a.score||a.index-b.index);
+  return Object.assign({},scored[0].p,{denominator:scored[0].denominator,selectionScore:scored[0].score});
+}
+
 function parseSfcText(srcText, fileName){
   const flat = getFlatSxfText(srcText);
   const records = parseSxfFeatureRecords(flat);
@@ -2250,10 +2851,16 @@ function parseSfcText(srcText, fileName){
     else if(rec.name==='ellipse_arc_feature' && rec.args.length>=12) ellipseArcs.push({layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),width:resolveWidth(rec.args[3]),ltype:resolveLineType(rec.args[2]),dash:resolveLineDash(rec.args[2]),cx:num(rec.args[4]),cy:num(rec.args[5]),rx:num(rec.args[6]),ry:num(rec.args[7]),direction:+unquoteSxfValue(rec.args[8])||0,rot:num(rec.args[9]),start:num(rec.args[10]),end:num(rec.args[11])});
     else if(rec.name==='point_marker_feature' && rec.args.length>=7) markers.push({layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),x:num(rec.args[2]),y:num(rec.args[3]),code:Math.trunc(num(rec.args[4])),angle:num(rec.args[5]),scale:num(rec.args[6])||1});
   }
-  const scaledFigures=records.filter(r=>r.name==='sfig_locate_feature'&&r.args.length>=7).map(r=>({name:decodeShiftJisFromLatin1(unquoteSxfValue(r.args[1])),sx:num(r.args[5]),sy:num(r.args[6])})).filter(v=>v.sx>0&&v.sy>0&&(Math.abs(v.sx-1)>1e-9||Math.abs(v.sy-1)>1e-9));
-  const mainFigures=scaledFigures.filter(v=>!v.name.startsWith('~'));
-  const scaleSource=(mainFigures.length?mainFigures:scaledFigures).sort((a,b)=>Math.min(a.sx,a.sy)-Math.min(b.sx,b.sy))[0];
-  const drawingToPaperScale=scaleSource?Math.max(1e-9,Math.sqrt(scaleSource.sx*scaleSource.sy)):1;
+  const partialFigures=records.filter(r=>r.name==='sfig_locate_feature'&&r.args.length>=7).map(r=>({
+    featureId:r.id,
+    name:decodeShiftJisFromLatin1(unquoteSxfValue(r.args[1])),
+    originX:num(r.args[2]),originY:num(r.args[3]),angle:num(r.args[4]),sx:num(r.args[5]),sy:num(r.args[6])
+  })).filter(v=>Number.isFinite(v.sx)&&Number.isFinite(v.sy)&&Math.abs(v.sx)>1e-12&&Math.abs(v.sy)>1e-12);
+  const sheetRecord=records.find(r=>r.name==='drawing_sheet_feature'&&r.args.length>=5);
+  const drawingSheet=sheetRecord?{width:num(sheetRecord.args[3]),height:num(sheetRecord.args[4])}:null;
+  const coordinateMeta=detectCoordinateMetadata(texts);
+  const mainDrawingPlacement=chooseMainPartialFigure(partialFigures,drawingSheet,{lines,polys,texts,circles,markers},coordinateMeta);
+  const drawingToPaperScale=mainDrawingPlacement?Math.max(1e-12,Math.sqrt(Math.abs(mainDrawingPlacement.sx*mainDrawingPlacement.sy))):1;
   const totalCount = lines.length + polys.length + splines.length + texts.length + circles.length + arcs.length + ellipses.length + ellipseArcs.length + markers.length;
   if(!totalCount){
     try{
@@ -2263,7 +2870,7 @@ function parseSfcText(srcText, fileName){
       }
     }catch(err){ console.error(err); }
   }
-  return {lines,polys,splines,texts,circles,arcs,ellipses,ellipseArcs,markers,layerNames,source_name:fileName||'loaded.sfc',_layerMap:layerMap,_layerRefToIdx:layerRefToIdx,_layerVisibleByDefault:layerVisibleByDefault,_fontCodeMap:fontCodeMap,_colorFeatureMap:colorFeatureMap,_colorCodeMap:colorCodeMap,_linetypeFeatureMap:linetypeFeatureMap,_linetypeCodeMap:linetypeCodeMap,_drawingToPaperScale:drawingToPaperScale};
+  return {lines,polys,splines,texts,circles,arcs,ellipses,ellipseArcs,markers,layerNames,source_name:fileName||'loaded.sfc',_layerMap:layerMap,_layerRefToIdx:layerRefToIdx,_layerVisibleByDefault:layerVisibleByDefault,_fontCodeMap:fontCodeMap,_colorFeatureMap:colorFeatureMap,_colorCodeMap:colorCodeMap,_linetypeFeatureMap:linetypeFeatureMap,_linetypeCodeMap:linetypeCodeMap,_drawingToPaperScale:drawingToPaperScale,_partialFigures:partialFigures,_mainDrawingPlacement:mainDrawingPlacement,_drawingSheet:drawingSheet,_coordinateZoneHint:coordinateMeta.zone,_coordinateDatum:coordinateMeta.datum,_isPlanDrawing:coordinateMeta.isPlan,_isProfileOnly:coordinateMeta.isProfileOnly};
 }
 
 function setRenderBounds(item,minx,miny,maxx,maxy){
@@ -2384,14 +2991,18 @@ function autoDetectRotationFor(d){
 }
 function determineBestRotation(d){
   try{
-    const base = autoDetectRotationFor(d);
-    const candidates = [base, base + 90, base - 90, base + 180].map(normalize180);
-    let bestRot = candidates[0], bestScore = -Infinity;
-    for (const rot of candidates){
-      const score = lineAlignmentScore(d, rot) + textHorizontalScore(d, rot) * 2.5;
-      if (score > bestScore){ bestScore = score; bestRot = rot; }
-    }
-    return bestRot;
+    // Same priority as the stakeout app: the main sfig placement is SXF's
+    // authoritative drawing-to-paper direction. JS rotates world coordinates
+    // before its Y inversion, so the placement angle is used with this sign.
+    const placement=d&&d._mainDrawingPlacement;
+    if(placement&&Number.isFinite(+placement.angle)) return normalize180(+placement.angle);
+    // Files without a usable placement fall back to the largest drawing text.
+    // The JS text renderer uses -(text angle + drawing rotation).
+    const largest=(d&&Array.isArray(d.texts)?d.texts:[]).filter(t=>t&&String(t.text||'').trim()&&+t.h>0).sort((a,b)=>{
+      const areaA=(+a.h||0)*Math.max(1,+a.w||0),areaB=(+b.h||0)*Math.max(1,+b.w||0);
+      return areaB-areaA||(+b.w||0)-(+a.w||0)||String(b.text||'').length-String(a.text||'').length;
+    })[0];
+    return largest?normalize180(-(+largest.angle||0)):0;
   }catch(e){
     console.error(e);
     return 0;
@@ -3183,6 +3794,27 @@ function draw(){
   }
   }
 
+  if(profileStartWorld){
+    const a=worldToScreen(profileStartWorld.x,profileStartWorld.y);
+    const end=profileEndWorld||profileHoverWorld;
+    ctx.save();
+    if(end){
+      const b=worldToScreen(end.x,end.y);
+      ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
+      ctx.strokeStyle="#ff9800";ctx.lineWidth=2.5;ctx.setLineDash([]);ctx.stroke();
+      ctx.fillStyle="#ff9800";ctx.beginPath();ctx.arc(b[0],b[1],6,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke();
+    }
+    ctx.fillStyle="#ff9800";ctx.beginPath();ctx.arc(a[0],a[1],6,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke();
+    ctx.restore();
+  }
+  if(profileHoverWorld&&profileData){
+    const h=worldToScreen(profileHoverWorld.x,profileHoverWorld.y);
+    ctx.save();ctx.fillStyle="#ffd000";ctx.strokeStyle="#111";ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.arc(h[0],h[1],6,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();
+  }
+
   for(const stroke of inkStrokes) drawInkStroke(stroke);
   if(currentStroke) drawInkStroke(currentStroke);
 
@@ -3326,7 +3958,7 @@ function applyPortraitPreference(){
 }
 function updateDrawingDependentUi(){
   const available = hasLoadedDrawing();
-  const ids = ["saveIconBtn","saveAsIconBtn","fitBtn","gpsBtn","measureBtn","drawBtn","textSearchOpenBtn","layerFab","gpsDetailFab"];
+  const ids = ["saveIconBtn","saveAsIconBtn","fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn","textSearchOpenBtn","layerFab","gpsDetailFab"];
   ids.forEach(id=>{
     const el = document.getElementById(id);
     if (!el) return;
@@ -3360,9 +3992,11 @@ function resetSessionFromLoad(){
   if (textSearchInput) textSearchInput.value = "";
   resetMeasureUI();
   measureMode=false; measureType="2point"; activePickModes=["center","cross","end"];
+  profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;profileZone=null;profileTouchCandidate=null;
   inkEnabled=false; inkDrawing=false; currentStroke=null; pendingTouchInk=null; suppressTouchInkUntil=0;
   hoverCursorScreen=null; flashCursorScreen=null; flashCursorUntil=0;
   updateModeIcons();
+  updateProfileUi();
   updatePickStatus();
   if (supportPanel) supportPanel.style.display = "none";
   updateStopBtnUI();
@@ -3561,6 +4195,16 @@ function getAnnotationLayer(){
   const layers = getAllLayers().map(v => +v).filter(v => Number.isFinite(v) && v > 0).sort((a,b)=>a-b);
   return layers.length ? layers[0] : 1;
 }
+function buildMemoLayerDefinitionText(baseText,startId){
+  const defs=parseLayerFeatureDefsFlat(getFlatSxfText(baseText));
+  const existingIndex=defs.findIndex(d=>d.name===MEMO_LAYER_NAME||d.rawName===MEMO_LAYER_NAME_SJIS_LATIN1);
+  if(existingIndex>=0)return {layerText:"",layerCode:String(existingIndex+1),nextId:startId};
+  const layerCode=String(defs.length+1);
+  const layerText=`/*SXF
+#${startId} = layer_feature(\\'${MEMO_LAYER_NAME_SJIS_LATIN1}\\','1')
+SXF*/`;
+  return {layerText,layerCode,nextId:startId+1};
+}
 function getNextSfcFeatureId(srcText){
   const nums = [...String(srcText || "").matchAll(/#(\d+)\s*=/g)].map(m => +m[1]).filter(Number.isFinite);
   let n = nums.length ? Math.max(...nums) + 1 : 10000;
@@ -3576,7 +4220,15 @@ function splitSxfArgs(body){
   const out=[]; let cur=''; let depth=0; let quote='';
   for(let i=0;i<body.length;i++){
     const ch=body[i];
+    if(quote==='escaped-single'){
+      cur+=ch;
+      if(ch==='\\' && body[i+1]==="'"){cur+=body[++i];quote='';}
+      continue;
+    }
     if(quote){ cur+=ch; if(ch===quote) quote=''; continue; }
+    // SFC uses \'...\' strings. A bare apostrophe inside such a value
+    // (for example NO.2') is data, not the end of the quoted value.
+    if(ch==='\\' && body[i+1]==="'"){cur+=ch+body[++i];quote='escaped-single';continue;}
     if(ch==='\''||ch==='"'){ quote=ch; cur+=ch; continue; }
     if(ch==='('){ depth++; cur+=ch; continue; }
     if(ch===')'){ if(depth>0) depth--; cur+=ch; continue; }
@@ -3613,12 +4265,18 @@ function parseSxfFeatureRecords(flat){
     let depth=0, quote=''; const bodyStart=j+1; let k=j;
     for(;k<flat.length;k++){
       const ch=flat[k];
+      if(quote==='escaped-single'){
+        if(ch==='\\' && flat[k+1]==="'"){k++;quote='';}
+        continue;
+      }
       if(quote){ if(ch===quote) quote=''; continue; }
+      if(ch==='\\' && flat[k+1]==="'"){k++;quote='escaped-single';continue;}
       if(ch==='\''||ch==='"'){ quote=ch; continue; }
       if(ch==='(') depth++;
       else if(ch===')'){ depth--; if(depth===0) break; }
     }
-    if(k>=flat.length) break;
+    // A malformed record must not discard every valid feature after it.
+    if(k>=flat.length){i=h+1;continue;}
     const body=flat.slice(bodyStart,k);
     // body/rawName は解析後に使わない。大容量SFCで原文を二重保持しない。
     records.push({id,name:name.toLowerCase(),args:splitSxfArgs(body)});
@@ -3674,30 +4332,36 @@ function parsePredefinedColourFeatureDefsFlat(flat){
   return defs;
 }
 function buildMemoColorDefinitionText(baseText, startId, strokes){
-  const flat = getFlatSxfText(baseText);
-  const existingNames = new Set(parsePredefinedColourFeatureDefsFlat(flat).map(d => d.name));
-  const needed = [];
-  for (const s of Array.isArray(strokes) ? strokes : []) {
-    const key = String(s?.color || '').trim().toLowerCase();
-    const code = memoStrokeColorToFileCode(key);
-    if (code === '8' || code === '1') continue;
-    const name = MEMO_COLOR_TO_PREDEFINED_NAME[key];
-    if (!name) continue;
-    if (existingNames.has(name)) continue;
-    if (needed.some(v => v.name === name)) continue;
-    needed.push({ key, code, name });
+  const records=parseSxfFeatureRecords(getFlatSxfText(baseText));
+  const named={black:'#000000',red:'#ff0000',green:'#00ff00',blue:'#0000ff',yellow:'#ffff00',magenta:'#ff00ff',cyan:'#00ffff',white:'#ffffff',brown:'#8b4513',orange:'#ffa500',lightgreen:'#90ee90',lightblue:'#87cefa',lavender:'#9370db',lightgray:'#d3d3d3',darkgray:'#808080',deeppink:'#ff1493'};
+  const defs=[];
+  for(const r of records){
+    if(r.name==='pre_defined_colour_feature')defs.push(named[String(unquoteSxfValue(r.args[0]||'')).toLowerCase()]||null);
+    else if(r.name==='user_defined_colour_feature'){
+      const rgb=r.args.slice(0,3).map(v=>Math.max(0,Math.min(255,+unquoteSxfValue(v)||0)));
+      defs.push(`#${rgb.map(v=>v.toString(16).padStart(2,'0')).join('')}`);
+    }
   }
-  if (!needed.length) return { colorText:'', nextId:startId };
-  let id = startId;
-  const parts = ['/* --- sfc_memo_colordef_begin --- */'];
-  for (const item of needed) {
+  const codeByColor={};
+  defs.forEach((hex,i)=>{if(hex&&!codeByColor[hex])codeByColor[hex]=String(i+1);});
+  const needed=[];
+  for(const s of Array.isArray(strokes)?strokes:[]){
+    const key=String(s&&s.color||'#000000').trim().toLowerCase();
+    if(!codeByColor[key]&&!needed.includes(key))needed.push(key);
+  }
+  let id=startId;
+  const parts=[];
+  for(const key of needed){
+    const clean=/^#[0-9a-f]{6}$/.test(key)?key:'#000000';
+    const rgb=[clean.slice(1,3),clean.slice(3,5),clean.slice(5,7)].map(v=>parseInt(v,16));
     parts.push(`/*SXF
-#${id} = pre_defined_colour_feature(\'${item.name}\')
+#${id} = user_defined_colour_feature('${rgb[0]}','${rgb[1]}','${rgb[2]}')
 SXF*/`);
-    id += 1;
+    codeByColor[key]=String(defs.length+1);
+    defs.push(key);
+    id+=1;
   }
-  parts.push('/* --- sfc_memo_colordef_end --- */');
-  return { colorText: parts.join("\r\n"), nextId:id };
+  return {colorText:parts.join("\r\n"),nextId:id,codeByColor};
 }
 
 function parseSourceFeatureSegmentsFlat(flat){
@@ -3968,13 +4632,17 @@ function buildInkPolylineFeatureText(baseText){
   if (!normalized.length) return { colorText: "", layerText: "", lineText: "" };
 
   let id = getNextSfcFeatureId(baseText);
+  const layerBuild = buildMemoLayerDefinitionText(baseText,id);
+  const layerText = layerBuild.layerText;
+  const memoLayerCode = layerBuild.layerCode;
+  id = layerBuild.nextId;
   const colorBuild = buildMemoColorDefinitionText(baseText, id, normalized);
   const colorText = colorBuild.colorText;
   id = colorBuild.nextId;
 
   const lineParts = [];
   const sourceSegs = getSourceFeatureSegments(baseText);
-  const fallbackLayerCode = String(getAnnotationLayer());
+  const fallbackLayerCode = memoLayerCode || String(getAnnotationLayer());
 
   for (const s of normalized) {
     const exportPts = Array.isArray(s.points)
@@ -3983,8 +4651,9 @@ function buildInkPolylineFeatureText(baseText){
     if (exportPts.length < 2) continue;
 
     const segStyle = getNearestSourceSegmentStyleForPoints(exportPts, sourceSegs);
-    const layerCode = segStyle?.layerRef || fallbackLayerCode;
-    const colorCode = memoStrokeColorToFileCode(s.color);
+    const layerCode = fallbackLayerCode;
+    const colorKey=String(s.color||'#000000').toLowerCase();
+    const colorCode = colorBuild.codeByColor?.[colorKey] || memoStrokeColorToFileCode(s.color);
     const typeCode = segStyle?.typeRef || MEMO_FILE_TYPE_CODE;
     const widthCode = segStyle?.widthRef || MEMO_FILE_WIDTH_CODE;
 
@@ -3998,7 +4667,7 @@ SXF*/`);
       id += 1;
     }
   }
-  return { colorText, layerText: "", lineText: lineParts.join("\r\n") };
+  return { colorText, layerText, lineText: lineParts.join("\r\n") };
 }
 function stripEmbeddedAnnotations(srcText){
   let text = String(srcText || "");
@@ -4079,6 +4748,14 @@ function insertMemoGeneralFeatures(baseText, lineText){
   if (!lineText) return String(baseText || "");
   let text = String(baseText || "");
   const block = `/* --- sfcviewer_generated_begin --- */\r\n${lineText}\r\n/* --- sfcviewer_generated_end --- */`;
+  // SXFの図形は、対象部分図を閉じる sfig_org_feature より前に置く必要がある。
+  // ENDSEC直前へ追加すると、他CADではレコード自体は存在しても部分図に所属せず表示されない。
+  const orgRe=/\/\*SXF(?:3(?:\.1)?)?\r?\n#\d+\s*=\s*sfig_org_feature\([\s\S]*?\)\r?\nSXF(?:3(?:\.1)?)?\*\//g;
+  let orgMatch=null,orgCandidate;
+  while((orgCandidate=orgRe.exec(text))!==null)orgMatch=orgCandidate;
+  if(orgMatch){
+    return text.slice(0,orgMatch.index)+block+"\r\n\r\n"+text.slice(orgMatch.index);
+  }
   const tailRe = /\r?\nENDSEC\s*;\s*\r?\nEND-ISO-10303-21\s*;/;
   const m = tailRe.exec(text);
   if (m) {
@@ -4113,13 +4790,13 @@ function validateSfcExportAgainstSource(baseText, ann){
   return {ok:true};
 }
 function buildSfcExportBlobAndName(){
+  if(!loadedSfcText || !/ISO-10303-21\s*;/i.test(loadedSfcText))return {ok:false,reason:"SFC図面を開いてください"};
   let base = stripEmbeddedAnnotations(String(loadedSfcText || "")).replace(/[\s\r\n]+$/, "");
-  // 末尾の ENDSEC / END-ISO を一旦外して本文を正規化
-  base = base.replace(/\r?\nENDSEC\s*;\s*\r?\nEND-ISO-10303-21\s*;\s*$/i, "");
   const ann = buildSfcAnnotations(base);
   const validation = validateSfcExportAgainstSource(base, ann);
   if (!validation.ok) return { ok:false, reason: validation.reason || 'SFC保存を中止しました' };
   base = insertMemoColorDefinitions(base, ann.colorText);
+  base = insertMemoLayerDefinition(base, ann.layerText);
   const metaComment = buildMemoMetaComment();
   const exportText = ann.lineText + (metaComment ? "\r\n" + metaComment : "");
   const newSfc = insertMemoGeneralFeatures(base, exportText).replace(/[\s\r\n]*$/, "\r\n");
@@ -4372,22 +5049,22 @@ function buildHtmlExportBlobAndName(){
   return { ok:true, blob, overwriteName, saveAsName, text:html };
 }
 async function saveSfcOverwrite(){
-  const exportData = buildHtmlExportBlobAndName();
+  const exportData = buildSfcExportBlobAndName();
   if (!exportData.ok) { showToast(exportData.reason); return; }
-  const { blob, overwriteName } = exportData;
+  const { blob, overwriteName, text } = exportData;
 
-  const silentHandle = (currentLoadedKind === "html" && currentOpenHandle && typeof currentOpenHandle.createWritable === "function")
-    ? currentOpenHandle
-    : (lastHtmlSaveHandle && typeof lastHtmlSaveHandle.createWritable === "function" ? lastHtmlSaveHandle : null);
+  const silentHandle = currentLoadedKind === "sfc" && currentOpenHandle && typeof currentOpenHandle.createWritable === "function" ? currentOpenHandle : null;
 
   if (silentHandle) {
     try{
       await writeBlobToHandle(silentHandle, blob);
-      lastHtmlSaveHandle = silentHandle;
+      loadedSfcText=text;
+      lastSaveHandle = silentHandle;
       currentOpenHandle = silentHandle;
       lastPickerHandle = silentHandle;
-      currentLoadedKind = "html";
+      currentLoadedKind = "sfc";
       data.source_name = (silentHandle && silentHandle.name) ? silentHandle.name : overwriteName;
+      showToast("SFCを上書き保存しました");
       return;
     }catch(e){
       if (!(e && e.name === "AbortError")) console.error(e);
@@ -4399,19 +5076,19 @@ async function saveSfcOverwrite(){
       const saveOpts = {
         id: "sfcviewer-workspace",
         suggestedName: overwriteName,
-        types: [{description:"HTML", accept:{"text/html":[".html"]}}]
+        types: [{description:"SFC図面", accept:{"application/octet-stream":[".sfc"],"text/plain":[".sfc"]}}]
       };
       const startHandle = getPickerStartHandle();
       if (startHandle) saveOpts.startIn = startHandle;
       const handle = await window.showSaveFilePicker(saveOpts);
-      const wasSfcSource = currentLoadedKind === "sfc";
       await writeBlobToHandle(handle, blob);
-      lastHtmlSaveHandle = handle;
+      loadedSfcText=text;
+      lastSaveHandle = handle;
       currentOpenHandle = handle;
       lastPickerHandle = handle;
-      currentLoadedKind = "html";
+      currentLoadedKind = "sfc";
       data.source_name = handle.name || overwriteName;
-      if (wasSfcSource) showToast("HTMLを保存しました");
+      showToast("SFCを保存しました");
       return;
     }catch(e){
       if (e && e.name === "AbortError") return;
@@ -4420,7 +5097,7 @@ async function saveSfcOverwrite(){
   }
 
   if (await shareBlobForIOS(blob, overwriteName)) {
-    showToast('保存シートを開きました。ファイルへ保存してください');
+    showToast('SFCの保存シートを開きました。ファイルへ保存してください');
     return;
   }
 
@@ -4429,37 +5106,38 @@ async function saveSfcOverwrite(){
   a.download = overwriteName;
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  showToast("HTMLをダウンロード保存しました");
+  showToast("SFCをダウンロード保存しました");
 }
 async function saveSfcWithAnnotations(){
-  const exportData = buildHtmlExportBlobAndName();
+  const exportData = buildSfcExportBlobAndName();
   if (!exportData.ok) { showToast(exportData.reason); return; }
-  const { blob, saveAsName } = exportData;
+  const { blob, saveAsName, text } = exportData;
 
   if(window.showSaveFilePicker){
     try{
       const saveOpts = {
         id: "sfcviewer-workspace",
         suggestedName: saveAsName,
-        types: [{description:"HTML", accept: {"text/html":[".html"]}}]
+        types: [{description:"SFC図面", accept:{"application/octet-stream":[".sfc"],"text/plain":[".sfc"]}}]
       };
       const startHandle = getPickerStartHandle();
       if (startHandle) saveOpts.startIn = startHandle;
       const handle = await window.showSaveFilePicker(saveOpts);
       await writeBlobToHandle(handle, blob);
-      lastHtmlSaveHandle = handle;
+      loadedSfcText=text;
+      lastSaveHandle = handle;
       currentOpenHandle = handle;
       lastPickerHandle = handle;
-      currentLoadedKind = "html";
+      currentLoadedKind = "sfc";
       data.source_name = handle.name || saveAsName;
-      showToast("HTMLで保存しました");
+      showToast("SFCを別名保存しました");
       return;
     }catch(e){
       if (e && e.name === "AbortError") return;
     }
   }
   if (await shareBlobForIOS(blob, saveAsName)) {
-    showToast('保存シートを開きました。ファイルへ保存してください');
+    showToast('SFCの保存シートを開きました。ファイルへ保存してください');
     return;
   }
   const a = document.createElement("a");
@@ -4467,7 +5145,7 @@ async function saveSfcWithAnnotations(){
   a.download = saveAsName;
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  showToast("HTMLで保存しました");
+  showToast("SFCをダウンロード保存しました");
 }
 
 async function readFileAsLatin1Text(file){
@@ -4745,6 +5423,7 @@ if (supportLinkBtn) supportLinkBtn.addEventListener('click', (e)=>{
 if (textSearchOpenBtn) textSearchOpenBtn.addEventListener("click", (e)=>{
   e.stopPropagation();
   if (!isDrawingActionAvailable()) return;
+  if(profileMode){profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();}
   openTextSearchPopup();
 });
 if (sizeToggleBtn) sizeToggleBtn.addEventListener("click", (e)=>{
@@ -4935,8 +5614,85 @@ document.getElementById("pickEndBtn").addEventListener("click", ()=> togglePickM
 document.getElementById("pickFreeBtn").addEventListener("click", ()=> togglePickMode("free"));
 document.getElementById("pickLineBtn").addEventListener("click", ()=> togglePickMode("line"));
 
+if(profileBtn) profileBtn.addEventListener("click",()=>{
+  if(profileMode){
+    profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;
+    updateProfileUi();updateStopBtnUI();scheduleDraw();
+  }else beginProfileMode();
+});
+if(profileCloseBtn) profileCloseBtn.addEventListener("click",closeProfileModal);
+if(profileModal) profileModal.addEventListener("click",e=>{if(e.target===profileModal)closeProfileModal();});
+if(profileChart){
+  const traceProfileAtClientX=clientX=>{
+    if(!profileData) return;
+    const g=getProfileGraphGeometry();if(!g)return;
+    const rect=profileChart.getBoundingClientRect();
+    const localX=clientX-rect.left;
+    const baseX=(localX-g.originX-profileGraphOffsetX)/Math.max(.001,profileGraphScaleX);
+    const distance=Math.max(0,Math.min(profileData.length,baseX/g.pixelsPerMeter));
+    let nearest=profileData.samples[0];
+    for(const sample of profileData.samples) if(Math.abs(sample.distance-distance)<Math.abs(nearest.distance-distance))nearest=sample;
+    profileHoverWorld={x:nearest.worldX,y:nearest.worldY};drawProfileChart();scheduleDraw();
+  };
+  profileChart.addEventListener("pointerdown",e=>{
+    e.preventDefault();profileChart.setPointerCapture?.(e.pointerId);
+    profileGraphPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(profileGraphPointers.size===1){traceProfileAtClientX(e.clientX);profileGraphGesture=null;}
+    if(profileGraphPointers.size===2){
+      const p=[...profileGraphPointers.values()],rect=profileChart.getBoundingClientRect();
+      const mid={x:(p[0].x+p[1].x)/2-rect.left,y:(p[0].y+p[1].y)/2-rect.top};
+      const g=getProfileGraphGeometry();
+      profileGraphGesture={distance:Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y),mid,
+        scale:profileGraphScaleX,offsetX:profileGraphOffsetX,offsetY:profileGraphOffsetY,
+        anchorX:g?(mid.x-g.originX-profileGraphOffsetX)/profileGraphScaleX:0,
+        anchorY:g?(mid.y-g.originY-profileGraphOffsetY)/profileGraphScaleY:0};
+    }
+  });
+  profileChart.addEventListener("pointermove",e=>{
+    if(!profileGraphPointers.has(e.pointerId)) return;
+    e.preventDefault();profileGraphPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(profileGraphPointers.size===1){traceProfileAtClientX(e.clientX);return;}
+    if(profileGraphPointers.size>=2&&profileGraphGesture){
+      const p=[...profileGraphPointers.values()].slice(0,2),rect=profileChart.getBoundingClientRect();
+      const mid={x:(p[0].x+p[1].x)/2-rect.left,y:(p[0].y+p[1].y)/2-rect.top};
+      const distance=Math.max(1,Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y));
+      const ratio=distance/Math.max(1,profileGraphGesture.distance);
+      const nextScale=Math.max(1,Math.min(10,profileGraphGesture.scale*ratio));
+      const g=getProfileGraphGeometry();
+      if(g){
+        profileGraphOffsetX=mid.x-g.originX-profileGraphGesture.anchorX*nextScale;
+        profileGraphOffsetY=mid.y-g.originY-profileGraphGesture.anchorY*nextScale;
+      }
+      profileGraphScaleX=nextScale;profileGraphScaleY=nextScale;drawProfileChart();
+    }
+  });
+  const finishProfilePointer=e=>{
+    profileGraphPointers.delete(e.pointerId);
+    if(profileGraphPointers.size<2)profileGraphGesture=null;
+  };
+  profileChart.addEventListener("pointerup",finishProfilePointer);
+  profileChart.addEventListener("pointercancel",finishProfilePointer);
+  profileChart.addEventListener("wheel",e=>{
+    e.preventDefault();
+    const rect=profileChart.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
+    const factor=e.deltaY<0?1.18:1/1.18;
+    const oldScale=profileGraphScaleX;
+    const nextScale=Math.max(1,Math.min(10,oldScale*factor));
+    const g=getProfileGraphGeometry();
+    if(g){
+      const anchorX=(mx-g.originX-profileGraphOffsetX)/oldScale;
+      const anchorY=(my-g.originY-profileGraphOffsetY)/oldScale;
+      profileGraphOffsetX=mx-g.originX-anchorX*nextScale;
+      profileGraphOffsetY=my-g.originY-anchorY*nextScale;
+    }
+    profileGraphScaleX=nextScale;profileGraphScaleY=nextScale;drawProfileChart();
+  },{passive:false});
+  profileChart.addEventListener("dblclick",()=>{resetProfileGraphView();drawProfileChart();});
+}
+
 document.getElementById("measureBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
+  if(profileMode){profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();}
   if (measureMode) {
     resetMeasureUI();
     measureType = "2point";
@@ -4964,6 +5720,7 @@ document.getElementById("measure3vBtn").addEventListener("click", ()=>{
 
 document.getElementById("drawBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
+  if(profileMode){profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();}
   // 計測中なら必ず中止
   if (measureMode || selectedMeasurePoints.length) {
     measureMode = false;
@@ -4991,13 +5748,14 @@ document.getElementById("stopBtn").addEventListener("click", (e)=>{
     closeTextSearchPopup();
   }
   const panelOpen = !!(measureModePanel && measureModePanel.style.display === "block");
-  const hasWorkToStop = !!(measureMode || inkEnabled || panelOpen);
+  const hasWorkToStop = !!(measureMode || inkEnabled || panelOpen || profileMode);
   if (!hasWorkToStop) {
     updateStopBtnUI();
     scheduleDraw();
     return;
   }
   measureMode = false;
+  profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();
   measureFreeMode = false;
   measureOffsetMode = false;
   resetMeasureUI();
@@ -5218,6 +5976,7 @@ canvas.addEventListener("mousedown", e=>{
     lastY = e.clientY;
     return;
   }
+  if(profileMode&&e.button===0) return;
   if(inkEnabled && !measureMode && e.button === 0){
     const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
     const p = screenToWorld(local.x, local.y);
@@ -5263,6 +6022,10 @@ window.addEventListener("mousemove", e=>{
   const ptLocal = getCanvasLocalPointFromClient(e.clientX, e.clientY);
   const ox = ptLocal.x, oy = ptLocal.y;
 
+  if(profileMode&&!dragging){
+    const p=screenToWorld(ox,oy);profileHoverWorld={x:p[0],y:p[1]};scheduleDraw();return;
+  }
+
   if(inkDrawing && currentStroke){
     const p = screenToWorld(ox, oy);
     const tolWorld = 14 / Math.max(view.scale || 1, 0.000001);
@@ -5307,6 +6070,10 @@ canvas.addEventListener("dblclick", e=>{
 
 canvas.addEventListener("click", e=>{
   if(Date.now() < suppressClickUntil) return;
+  if(profileMode){
+    const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
+    const p=screenToWorld(local.x,local.y);selectProfileWorldPoint({x:p[0],y:p[1]});return;
+  }
   if(measureMode){
     const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
     const pt=chooseMeasurePointByMode(local.x,local.y);
@@ -5352,6 +6119,11 @@ canvas.addEventListener("touchstart", e=>{
   if(now < suppressTouchInkUntil) { touchTapCandidate=null; touchPanCandidate=null; return; }
   const ptLocal = getCanvasLocalPointFromClient(e.touches[0].clientX, e.touches[0].clientY);
   const x=ptLocal.x, y=ptLocal.y;
+
+  if(profileMode){
+    profileTouchCandidate={clientX:e.touches[0].clientX,clientY:e.touches[0].clientY,screenX:x,screenY:y};
+    return;
+  }
 
   if(inkEnabled && !measureMode){
     const p = screenToWorld(x,y);
@@ -5414,6 +6186,12 @@ canvas.addEventListener("touchmove", e=>{
   if(e.touches.length!==1) return;
   const ptLocal = getCanvasLocalPointFromClient(e.touches[0].clientX, e.touches[0].clientY);
   const x=ptLocal.x, y=ptLocal.y;
+
+  if(profileMode&&profileTouchCandidate){
+    const move=Math.hypot(e.touches[0].clientX-profileTouchCandidate.clientX,e.touches[0].clientY-profileTouchCandidate.clientY);
+    if(move>12)profileTouchCandidate=null;
+    e.preventDefault();return;
+  }
 
   if(pendingTouchInk){
     const movePx = Math.hypot(e.touches[0].clientX - pendingTouchInk.startClientX, e.touches[0].clientY - pendingTouchInk.startClientY);
@@ -5490,6 +6268,15 @@ canvas.addEventListener("touchend", e=>{
     suppressTouchInkUntil = Date.now() + 420;
     scheduleDraw();
   }
+  if(profileMode&&profileTouchCandidate&&e.touches.length===0){
+    const changed=e.changedTouches&&e.changedTouches[0];
+    const move=changed?Math.hypot(changed.clientX-profileTouchCandidate.clientX,changed.clientY-profileTouchCandidate.clientY):999;
+    if(move<=12){
+      const p=screenToWorld(profileTouchCandidate.screenX,profileTouchCandidate.screenY);
+      suppressClickUntil=Date.now()+700;selectProfileWorldPoint({x:p[0],y:p[1]});
+    }
+    profileTouchCandidate=null;return;
+  }
   if(inkDrawing && currentStroke){
     if (currentStroke.points && currentStroke.points.length>=2) {
       inkStrokes.push(currentStroke); redoStrokes=[]; updateUndoRedoUI();
@@ -5558,7 +6345,7 @@ canvas.addEventListener("touchcancel", ()=>{
       markMemoChanged();
     }
   }
-  currentStroke=null; inkDrawing=false; touchTapCandidate=null; touchPanCandidate=null; touchPanMoved=false;
+  currentStroke=null; inkDrawing=false; touchTapCandidate=null; touchPanCandidate=null; touchPanMoved=false;profileTouchCandidate=null;
 }, {passive:true});
 
 if (compassFab) {
@@ -5645,12 +6432,20 @@ function relayoutAndResizeStable(){
       refreshEnvironmentNotice();
       updateDrawingDependentUi();
       updateDrawingDependentUi();
+      if (profileModal?.classList.contains("open")) {
+        resizeProfileChart();
+        drawProfileChart();
+      }
     } else {
       positionMeasurePanel();
       applyMobileUiTweaks();
       refreshEnvironmentNotice();
       updateDrawingDependentUi();
       updateDrawingDependentUi();
+      if (profileModal?.classList.contains("open")) {
+        resizeProfileChart();
+        drawProfileChart();
+      }
     }
   });
 }
