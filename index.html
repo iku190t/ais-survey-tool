@@ -235,12 +235,18 @@ label.fileBtn{
 }
 #topLeftToolbarMask{position:absolute;left:8px;top:8px;width:172px;height:42px;z-index:69;background:var(--bg);border-radius:12px;pointer-events:none;opacity:0.96;}
 #layerFab{position:absolute;left:12px;top:12px;z-index:70;}
-#layerPanel{left:12px;top:12px;width:240px;max-height:58vh;overflow:auto;display:none;padding:0;}
-#layerHeader{position:sticky;top:0;background:var(--panel2);z-index:2;border-bottom:1px solid var(--border);padding:10px;}
-#layerHeader h3{margin:0 0 8px 0;font-size:14px;}
-#layerBody{padding:10px;}
-.layerActions{display:flex;gap:6px;}
-.layerItem{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px;}
+#layerPanel{inset:0;width:auto;max-height:none;overflow:hidden;display:none;padding:0;border-radius:0;z-index:85;flex-direction:column;}
+#layerHeader{flex:0 0 auto;background:var(--panel2);z-index:2;border-bottom:1px solid var(--border);padding:12px;}
+#layerHeaderTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+#layerHeader h3{margin:0;font-size:18px;}
+#layerCloseBtn{min-width:72px;font-size:14px;}
+#layerBody{flex:1 1 auto;min-height:0;overflow:auto;padding:10px 12px 24px;}
+.layerActions{display:flex;gap:6px;flex-wrap:wrap;}
+.layerActions button{font-size:13px;min-height:34px;}
+.layerItem{display:grid;grid-template-columns:auto minmax(0,1fr) 42px 36px;align-items:center;gap:10px;margin:0;padding:9px 2px;border-bottom:1px solid rgba(128,128,128,.24);font-size:15px;}
+.layerItemName{overflow-wrap:anywhere;line-height:1.35;}
+.layerColorInput{width:38px;height:30px;padding:1px;border-radius:6px;border:1px solid var(--border);background:transparent;}
+.layerColorReset{width:34px;height:30px;padding:0;font-size:17px;}
 body.light #layerPanel, body.light #layerPanel *{color:#000 !important;}
 body.light #layerHeader .layerActions button{background:#fff;color:#000;}
 #measureModePanel,#measureBox,#drawPanel,#supportPanel{display:none;padding:10px;}
@@ -791,11 +797,12 @@ gtag('config', 'G-88B9YPJXWP');
 
   <div id="layerPanel" class="panel">
     <div id="layerHeader">
-      <h3>レイヤー表示</h3>
+      <div id="layerHeaderTop"><h3>レイヤー表示・色変更</h3><button id="layerCloseBtn">閉じる</button></div>
       <div class="layerActions">
         <button id="layersAllOn">全部ON</button>
         <button id="layersAllOff">全部OFF</button>
         <button id="textBtn">文字: ON</button>
+        <button id="layersColorsReset">全色を元に戻す</button>
       </div>
     </div>
     <div id="layerBody"><div id="layerList"></div></div>
@@ -1257,6 +1264,7 @@ let twoFingerStartTouches = null;
 let twoFingerGestureState = null;
 
 let layerVisibility = {};
+let layerColorOverrides = {};
 
 let measureMode = false;
 let measureType = "2point";
@@ -2505,18 +2513,18 @@ function adaptContrastColor(c){
     return color;
   }
 }
-function colorFromIndex(idx){
+function rawColorFromIndex(idx){
   const n = Number(idx);
   const resolved = data ? ((data._colorFeatureMap && data._colorFeatureMap[n]) || (data._colorCodeMap && data._colorCodeMap[n]) || null) : null;
-  const c = (resolved || sxfBaseColorFromIndex(idx)).toLowerCase();
-  return adaptContrastColor(c);
+  return (resolved || sxfBaseColorFromIndex(idx)).toLowerCase();
+}
+function colorFromIndex(idx,layer){
+  const override=layerColorOverrides&&layerColorOverrides[String(layer)];
+  return adaptContrastColor(override||rawColorFromIndex(idx));
 }
 
-function textColorFromIndex(idx){
-  const n = Number(idx);
-  const resolved = data ? ((data._colorFeatureMap && data._colorFeatureMap[n]) || (data._colorCodeMap && data._colorCodeMap[n]) || null) : null;
-  const c = (resolved || sxfBaseColorFromIndex(idx)).toLowerCase();
-  return adaptContrastColor(c);
+function textColorFromIndex(idx,layer){
+  return colorFromIndex(idx,layer);
 }
 function quoteFontName(name){
   return "'" + String(name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
@@ -3155,17 +3163,35 @@ function ensureLayerVisibility(){
   for(const layer of getAllLayers()) if(!(layer in layerVisibility)) layerVisibility[layer]=data._layerVisibleByDefault ? data._layerVisibleByDefault[String(layer)]!==false : true;
 }
 function isLayerVisible(layer){ return layerVisibility[layer]===true; }
+function getLayerBaseColor(layer){
+  const same=v=>String(v)===String(layer);
+  const line=(data.lines||[]).find(v=>same(v[4])); if(line)return rawColorFromIndex(line[5]);
+  const poly=(data.polys||[]).find(v=>same(v[1])); if(poly)return rawColorFromIndex(poly[2]);
+  const spline=(data.splines||[]).find(v=>same(v[1])); if(spline)return rawColorFromIndex(spline[2]);
+  const text=(data.texts||[]).find(v=>same(v.layer)); if(text)return rawColorFromIndex(text.color);
+  const circle=(data.circles||[]).find(v=>same(v[3])); if(circle)return rawColorFromIndex(circle[4]);
+  const arc=(data.arcs||[]).find(v=>same(v.layer)); if(arc)return rawColorFromIndex(arc.color);
+  const ellipse=(data.ellipses||[]).find(v=>same(v.layer)); if(ellipse)return rawColorFromIndex(ellipse.color);
+  const ellipseArc=(data.ellipseArcs||[]).find(v=>same(v.layer)); if(ellipseArc)return rawColorFromIndex(ellipseArc.color);
+  return darkTheme?"#ffffff":"#000000";
+}
 function renderLayerList(){
   ensureLayerVisibility();
   layerList.innerHTML="";
   for(const layer of getAllLayers()){
-    const row=document.createElement("label");
+    const row=document.createElement("div");
     row.className="layerItem";
     const cb=document.createElement("input");
     cb.type="checkbox"; cb.checked=!!layerVisibility[layer];
     cb.addEventListener("change", ()=>{ layerVisibility[layer]=cb.checked; cachedMeasurePointsDirty=true; draw(); });
-    const sp=document.createElement("span"); sp.textContent=getLayerLabel(layer);
-    row.appendChild(cb); row.appendChild(sp); layerList.appendChild(row);
+    const sp=document.createElement("span"); sp.className="layerItemName";sp.textContent=getLayerLabel(layer);
+    const color=document.createElement("input");color.type="color";color.className="layerColorInput";color.title="表示色を変更";
+    color.value=layerColorOverrides[String(layer)]||getLayerBaseColor(layer);
+    color.addEventListener("input",()=>{layerColorOverrides[String(layer)]=color.value.toLowerCase();draw();});
+    color.addEventListener("change",()=>{saveRecoverySnapshot();});
+    const reset=document.createElement("button");reset.type="button";reset.className="layerColorReset";reset.title="元の色へ戻す";reset.textContent="↺";
+    reset.addEventListener("click",()=>{delete layerColorOverrides[String(layer)];color.value=getLayerBaseColor(layer);saveRecoverySnapshot();draw();});
+    row.appendChild(cb);row.appendChild(sp);row.appendChild(color);row.appendChild(reset);layerList.appendChild(row);
   }
 }
 function getAnchorOffset(align1,widthPx,heightPx){
@@ -3203,7 +3229,7 @@ function drawVerticalText(t, sx, sy, screenH, targetW, fontFamily){
   ctx.rotate(-((t.angle + rotationDeg) * Math.PI / 180));
   if(t.slant) ctx.transform(1,0,Math.tan(t.slant*Math.PI/180),1,0,0);
   ctx.translate(ox, oy);
-  ctx.fillStyle = textColorFromIndex(t.color);
+  ctx.fillStyle = textColorFromIndex(t.color,t.layer);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.font = `${fontPx}px ${fontFamily}`;
@@ -3232,7 +3258,7 @@ function drawTextExact(t){
   ctx.translate(sx,sy);
   ctx.rotate(-((t.angle + rotationDeg) * Math.PI/180));
   if(t.slant) ctx.transform(1,0,Math.tan(t.slant*Math.PI/180),1,0,0);
-  ctx.fillStyle=textColorFromIndex(t.color);
+  ctx.fillStyle=textColorFromIndex(t.color,t.layer);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.font=`${screenH}px ${fontFamily}`;
@@ -3583,7 +3609,7 @@ function drawPolylineRenderRuns(runs,visibleBounds,fastMotion,isSpline){
       if(appendPolylineToCurrentPath(points,fastMotion)){hasPath=true;if(!styleItem)styleItem=item;}
     }
     if(!hasPath||!styleItem) continue;
-    ctx.strokeStyle=colorFromIndex(styleItem[2]);
+    ctx.strokeStyle=colorFromIndex(styleItem[2],styleItem[1]);
     ctx.lineWidth=isSpline?Math.max(0.60,Math.min(2.4,widthValueToScreenPx(styleItem[3]))):Math.max(0.20,Math.min(2.2,widthValueToScreenPx(styleItem[3])));
     applyLineType(ctx,styleItem[4],ctx.lineWidth,styleItem[5]);
     if(isSpline){ctx.lineJoin="round";ctx.lineCap="round";}
@@ -3601,7 +3627,7 @@ function drawLineRenderRuns(runs,visibleBounds,fastMotion){
       ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);hasPath=true;if(!styleItem)styleItem=item;
     }
     if(!hasPath||!styleItem) continue;
-    ctx.strokeStyle=colorFromIndex(styleItem[5]);
+    ctx.strokeStyle=colorFromIndex(styleItem[5],styleItem[4]);
     ctx.lineWidth=Math.max(0.20,Math.min(2.2,widthValueToScreenPx(styleItem[6])));
     applyLineType(ctx,styleItem[7],ctx.lineWidth,styleItem[8]);
     ctx.stroke();ctx.setLineDash([]);ctx.lineCap="butt";
@@ -3627,7 +3653,7 @@ function draw(){
     if(fastMotion&&Math.abs(r*view.scale)<0.35) continue;
     const c=worldToScreen(x,y);
     ctx.beginPath(); ctx.arc(c[0],c[1],Math.max(1,Math.abs(r*view.scale)),0,Math.PI*2);
-    ctx.strokeStyle=colorFromIndex(color);
+    ctx.strokeStyle=colorFromIndex(color,layer);
     ctx.lineWidth=Math.max(0.20,Math.min(2.2,widthValueToScreenPx(width)));
     applyLineType(ctx,ltype,ctx.lineWidth,dash);
     ctx.stroke();
@@ -3642,7 +3668,7 @@ function draw(){
     const sweep=sxfArcSweepDegrees(!!a.direction,a.start,a.end)*Math.PI/180;
     ctx.beginPath();
     ctx.arc(c[0],c[1],Math.max(1,Math.abs(a.r*view.scale)),sa,sa+sweep,sweep<0);
-    ctx.strokeStyle=colorFromIndex(a.color);
+    ctx.strokeStyle=colorFromIndex(a.color,a.layer);
     ctx.lineWidth=Math.max(0.20,Math.min(2.2,widthValueToScreenPx(a.width)));
     applyLineType(ctx,a.ltype,ctx.lineWidth,a.dash);
     ctx.stroke();
@@ -3654,7 +3680,7 @@ function draw(){
     const c=worldToScreen(e.cx,e.cy);
     ctx.beginPath();
     ctx.ellipse(c[0],c[1],Math.max(1,Math.abs(e.rx*view.scale)),Math.max(1,Math.abs(e.ry*view.scale)),(-(e.rot+rotationDeg))*Math.PI/180,0,Math.PI*2,false);
-    ctx.strokeStyle=colorFromIndex(e.color);
+    ctx.strokeStyle=colorFromIndex(e.color,e.layer);
     ctx.lineWidth=Math.max(0.20,Math.min(2.2,widthValueToScreenPx(e.width)));
     applyLineType(ctx,e.ltype,ctx.lineWidth,e.dash);
     ctx.stroke();
@@ -3668,7 +3694,7 @@ function draw(){
     const sweep=sxfArcSweepDegrees(!!e.direction,e.start,e.end)*Math.PI/180;
     ctx.beginPath();
     ctx.ellipse(c[0],c[1],Math.max(1,Math.abs(e.rx*view.scale)),Math.max(1,Math.abs(e.ry*view.scale)),(-(e.rot+rotationDeg))*Math.PI/180,start,start+sweep,sweep<0);
-    ctx.strokeStyle=colorFromIndex(e.color);
+    ctx.strokeStyle=colorFromIndex(e.color,e.layer);
     ctx.lineWidth=Math.max(0.20,Math.min(2.2,widthValueToScreenPx(e.width)));
     applyLineType(ctx,e.ltype,ctx.lineWidth,e.dash);
     ctx.stroke();
@@ -3870,6 +3896,7 @@ function resetMeasureUI(){
 }
 function resetSessionFromLoad(){
   layerVisibility={};
+  layerColorOverrides={};
   cachedMeasurePointsDirty=true;
   textSearchState = { raw:"", tokens:[], results:[], index:-1, exactMode:false };
   textSearchExactMode = false;
@@ -3923,6 +3950,7 @@ function getSessionPayload(){
     darkTheme,
     showText,
     layerVisibility,
+    layerColorOverrides,
     inkStrokes,
     view,
     rotationDeg
@@ -4733,6 +4761,7 @@ function saveRecoverySnapshot(){
       darkTheme: !!darkTheme,
       showText: !!showText,
       layerVisibility: layerVisibility || {},
+      layerColorOverrides: layerColorOverrides || {},
       inkStrokes: Array.isArray(inkStrokes) ? inkStrokes : [],
       view: view || null,
       rotationDeg: Number.isFinite(+rotationDeg) ? +rotationDeg : 0
@@ -4842,6 +4871,7 @@ function restoreRecoverySnapshotIfAvailable(){
     darkTheme = !!payload.darkTheme;
     showText = payload.showText !== false;
     layerVisibility = payload.layerVisibility && typeof payload.layerVisibility === "object" ? payload.layerVisibility : {};
+    layerColorOverrides = payload.layerColorOverrides && typeof payload.layerColorOverrides === "object" ? payload.layerColorOverrides : {};
     if (payload.view && typeof payload.view === "object") view = payload.view;
     if (Number.isFinite(+payload.rotationDeg)) rotationDeg = +payload.rotationDeg;
     updateThemeUI();
@@ -5134,6 +5164,7 @@ function handleLoadedHtmlPayload(payload, fileName, handleOverride){
   darkTheme = !!(payload && payload.darkTheme);
   showText = !payload || payload.showText !== false;
   layerVisibility = payload && payload.layerVisibility ? payload.layerVisibility : {};
+  layerColorOverrides = payload && payload.layerColorOverrides ? payload.layerColorOverrides : {};
   if (!count){ showToast("このHTML図面は読めません"); draw(); return; }
   rotationDeg = Number.isFinite(+(payload && payload.rotationDeg)) ? +(payload && payload.rotationDeg) : determineBestRotation(data);
   initialLoadRotationDeg = rotationDeg;
@@ -5457,8 +5488,9 @@ layerFab.addEventListener("click", (e)=>{
   e.stopPropagation();
   if (!hasLoadedDrawing()) return;
   closePanelsExcept('layer');
-  layerPanel.style.display = layerPanel.style.display==='block' ? 'none' : 'block';
+  layerPanel.style.display = layerPanel.style.display==='flex' ? 'none' : 'flex';
 });
+document.getElementById("layerCloseBtn").addEventListener("click",()=>{layerPanel.style.display='none';});
 document.getElementById("layersAllOn").addEventListener("click", ()=>{
   for(const layer of getAllLayers()) layerVisibility[layer]=true;
   cachedMeasurePointsDirty=true; renderLayerList(); draw();
@@ -5466,6 +5498,12 @@ document.getElementById("layersAllOn").addEventListener("click", ()=>{
 document.getElementById("layersAllOff").addEventListener("click", ()=>{
   for(const layer of getAllLayers()) layerVisibility[layer]=false;
   cachedMeasurePointsDirty=true; renderLayerList(); draw();
+});
+document.getElementById("layersColorsReset").addEventListener("click",()=>{
+  layerColorOverrides={};
+  renderLayerList();
+  saveRecoverySnapshot();
+  draw();
 });
 
 
@@ -6318,6 +6356,7 @@ if (window.__EMBED_PAYLOAD_B64__) {
       darkTheme = !!payload.darkTheme;
       showText = payload.showText !== false;
       layerVisibility = payload.layerVisibility || {};
+      layerColorOverrides = payload.layerColorOverrides || {};
       inkStrokes = Array.isArray(payload.inkStrokes) ? payload.inkStrokes : [];
       if (payload.view) view = payload.view;
       rotationDeg = Number.isFinite(+payload.rotationDeg) ? +payload.rotationDeg : determineBestRotation(data);
