@@ -147,8 +147,6 @@ body{display:flex;flex-direction:column;}
 .helpSectionBody .helpHead{font-weight:800;margin-bottom:2px;}
 #helpBackRow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;}
 #helpBackBtn{padding:6px 10px;font-size:12px;}
-#helpVersionList{font-size:12px;line-height:1.7;}
-#helpVersionList .ver{font-weight:800;}
 .helpIconRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .helpInlineIcon{
   display:inline-flex;align-items:center;justify-content:center;
@@ -954,6 +952,7 @@ gtag('config', 'G-88B9YPJXWP');
         <div id="helpMenuView">
           <div id="helpMenuGrid">
             <button type="button" class="helpMenuBtn" data-help-section="opensave">開く・保存</button>
+            <button type="button" class="helpMenuBtn" data-help-section="layers">レイヤー</button>
             <button type="button" class="helpMenuBtn" data-help-section="gps">現在地GPS</button>
             <button type="button" class="helpMenuBtn" data-help-section="measure">計測</button>
             <button type="button" class="helpMenuBtn" data-help-section="profile">断面</button>
@@ -961,6 +960,7 @@ gtag('config', 'G-88B9YPJXWP');
             <button type="button" class="helpMenuBtn" data-help-section="search">文字検索</button>
             <button type="button" class="helpMenuBtn" data-help-section="pick">点の取り方</button>
             <button type="button" class="helpMenuBtn" data-help-section="move">画面移動</button>
+            <button type="button" class="helpMenuBtn" data-help-section="display">表示設定</button>
             <button type="button" class="helpMenuBtn" data-help-section="recovery">復元保存</button>
                       </div>
           <div class="helpNote">見たい説明だけ押してください。</div>
@@ -973,21 +973,33 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="opensave">
             <div class="helpSectionTitle">開く・保存</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">開く</div>左上の <b>📂</b> で SFC または保存済みHTMLを開きます。最初に全体が見えない時は <b>全体表示</b> を押してください。</div>
-              <div class="helpBlock"><div class="helpHead">このブラウザー内の保存</div>メモ書きや表示状態は、この端末のブラウザー内に毎回一時保存されます。あとで同じ図面を開くと、前回の状態を復元できます。</div>
-              <div class="helpBlock"><div class="helpHead">別名保存</div><b>💾+</b> は別の名前で保存します。保存して残すときは、こちらを使ってください。メモ付きビューアーHTMLとして残るので、配布用やバックアップ用にも向いています。</div>
-              <div class="helpBlock"><div class="helpHead">上書き保存</div><b>💾</b> は今開いているHTMLへ保存します。スマホでは出ない場合があります。対応していない環境では保存先を聞かれることがあります。</div>
-              <div class="helpBlock"><div class="helpHead">元のSFC</div>元のSFCは自動では書き変わりません。別名保存しない限り、元ファイルはそのままです。</div>
+              <div class="helpBlock"><div class="helpHead">開く</div><b>開く</b> でSFCまたは保存済みHTMLを選びます。読み込み後は図面全体が画面に収まり、図面に適した向きで表示されます。</div>
+              <div class="helpBlock"><div class="helpHead">上書き</div><b>上書き</b> は、手書きメモを含む現在の内容をSFCまたはHTMLへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
+              <div class="helpBlock"><div class="helpHead">別保存・Gmail送信</div><b>別保存</b> を押すと、<b>SFCをGmailで送信</b> または <b>ZIP圧縮してGmailで送信</b> を選べます。iPhoneの共有画面が開いたらGmailを1回選んで送信してください。</div>
+              <div class="helpBlock"><div class="helpHead">SFCへの書き込み</div>SFCを開いて保存すると、手書きの線・丸などをSFC要素として書き込みます。重要な原本は念のため別に保管してください。</div>
+              <div class="helpBlock"><div class="helpHead">ブラウザー内の自動保存</div>メモ、レイヤー表示、表示色などは復元用として端末内にも保存されます。詳しくは <b>復元保存</b> を確認してください。</div>
+            </div>
+          </div>
+
+          <div class="helpSection" data-help-section="layers">
+            <div class="helpSectionTitle">レイヤー</div>
+            <div class="helpSectionBody">
+              <div class="helpBlock"><div class="helpHead">開き方</div>図面左上の <b>レイヤー</b> を押すと、レイヤー一覧が画面全体に表示されます。</div>
+              <div class="helpBlock"><div class="helpHead">表示・非表示</div>各レイヤー名の左にあるチェックで個別に切り替えます。<b>全部ON</b>・<b>全部OFF</b> でまとめて切り替えられます。</div>
+              <div class="helpBlock"><div class="helpHead">文字</div><b>文字: ON/OFF</b> は、全レイヤーの文字だけをまとめて表示・非表示にします。</div>
+              <div class="helpBlock"><div class="helpHead">個別の色変更</div>各行の右側にある色の四角を押し、そのレイヤーの表示色を選びます。元のSFC色そのものではなく、画面上の表示色を変更します。</div>
+              <div class="helpBlock"><div class="helpHead">色を一括で変更</div><b>色を一括で変更</b> を押して色を選ぶと、全レイヤーを同じ表示色に変更します。</div>
             </div>
           </div>
 
           <div class="helpSection" data-help-section="gps">
             <div class="helpSectionTitle">現在地GPS</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">使い方</div><b>現在地</b> を押すと、自分の位置を図面上に表示します。必要なら <b>現在地詳細</b> で詳しい情報を見ます。図面を開いていない時は使えません。</div>
-              <div class="helpBlock"><div class="helpHead">精度</div>出た位置が少しずれることがあります。屋外で少し待つと精度が良くなる場合があります。</div>
-              <div class="helpBlock"><div class="helpHead">使えない時</div>iPhoneでローカルHTMLを直接開くと、位置情報が使えないことがあります。その時は HTTPS で開いてください。</div>
-              <div class="helpBlock"><div class="helpHead">図面と離れている時</div>測地系や座標帯が違うと、現在地が図面から大きく外れることがあります。</div>
+              <div class="helpBlock"><div class="helpHead">開始・終了</div><b>現在地</b> を押すとGPSを開始し、現在位置を図面上へ表示します。もう一度押すと終了し、図面を全体表示へ戻します。</div>
+              <div class="helpBlock"><div class="helpHead">詳細</div>GPS開始中は左側の <b>詳細</b> から座標・精度などを確認できます。詳細画面は同じボタンで閉じられます。</div>
+              <div class="helpBlock"><div class="helpHead">図面との距離</div>現在地が図面から離れすぎている場合は、図面までのおよその距離を表示します。測地系や座標系が違う場合も大きく離れて表示されます。</div>
+              <div class="helpBlock"><div class="helpHead">精度</div>端末GPSの値は概略です。屋外の開けた場所で少し待つと改善する場合がありますが、測量成果には使用しないでください。</div>
+              <div class="helpBlock"><div class="helpHead">使えない時</div>位置情報を許可し、HTTPSの公開ページで使用してください。iPhoneでローカルHTMLを直接開いた場合はGPSが動かないことがあります。</div>
             </div>
           </div>
 
@@ -996,7 +1008,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">始め方</div><b>計測</b> を押して、2点間または3点垂直を選びます。</div>
               <div class="helpBlock"><div class="helpHead">点の取り方</div>上の青い記号ボタンで、丸の中心・交点・線の端点・フリー・線上を選べます。赤枠のものが有効です。</div>
-              <div class="helpBlock"><div class="helpHead">2点間</div>2点を取ると距離が出ます。</div>
+              <div class="helpBlock"><div class="helpHead">2点間</div>2点を取ると距離が出ます。続けて次の点を取ると、直前の2点目から新しい点までを連続して計測します。</div>
               <div class="helpBlock"><div class="helpHead">3点垂直</div>基準線の2点と、離れた1点を取ると、垂直距離を出します。</div>
               <div class="helpBlock"><div class="helpHead">やめる</div><b>中止</b> を押すと計測を終了します。</div>
             </div>
@@ -1006,19 +1018,23 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">地形断面</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">使い方</div><b>断面</b>を押し、図面上で起点と終点を順にタップすると自動で断面図を表示します。</div>
-              <div class="helpBlock"><div class="helpHead">グラフ操作</div>1本指でなぞると図面上の対応位置を表示します。2本指で拡大縮小・移動できます。</div>
-              <div class="helpBlock"><div class="helpHead">位置情報</div>SFC座標を緯度経度へ変換するため、最初の利用時に端末の現在地を使用します。</div>
-              <div class="helpBlock"><div class="helpHead">注意</div>国土地理院のDEMを使った概略断面です。測量成果には使用できません。</div>
+              <div class="helpBlock"><div class="helpHead">グラフ</div>横軸と縦軸は同じ縮尺（縦横1:1）です。延長と高低差を表示します。1本指でなぞると図面上の対応位置が分かり、2本指で拡大縮小・移動できます。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報</div>SFC座標を緯度経度へ変換できる図面で使用します。位置情報がない、または判定できない図面では断面を作成できません。</div>
+              <div class="helpBlock"><div class="helpHead">通信とキャッシュ</div>初回は国土地理院の標高タイルを取得します。同じ場所付近は端末内キャッシュを再利用します。通信できずキャッシュもない場合は表示できません。</div>
+              <div class="helpBlock"><div class="helpHead">閉じる・消す</div><b>閉じる</b> でグラフを閉じます。図面上の断面線を消す時は <b>中止</b> を押してください。</div>
+              <div class="helpBlock"><div class="helpHead">注意</div>国土地理院DEMによる概略断面です。測量には使用できません。</div>
             </div>
           </div>
 
           <div class="helpSection" data-help-section="memo">
             <div class="helpSectionTitle">手書きメモ</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">使い方</div><b>手書きメモ</b> を押すと、線や丸を図面上に描けます。</div>
-              <div class="helpBlock"><div class="helpHead">線と丸</div><b>線</b> はなぞって描きます。<b>丸</b> はタップ位置に描きます。太さは今の拡大率ではなく図面の基準倍率から決まります。丸の大きさは図面上の寸法で、拡大縮小すると図面と一緒に変わります。</div>
-              <div class="helpBlock"><div class="helpHead">設定</div>色、太さ、大きさ、透過率を調整できます。太さは1〜100で調整できます。線も丸も図面の基準倍率から太さを決めます。今の拡大率では変わりません。消しゴムで削除、メモ全消去で全部消します。</div>
-              <div class="helpBlock"><div class="helpHead">終了</div><b>中止</b> を押すまでメモ状態です。メモを使わない時は中止しておくと1本指パンがしやすいです。</div>
+              <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。</div>
+              <div class="helpBlock"><div class="helpHead">線</div>指でなぞって描きます。中心・交点・端点などが選択中でも、線を描く間はフリー選択へ切り替わり、終了時に元の点選択へ戻ります。</div>
+              <div class="helpBlock"><div class="helpHead">丸</div>図面をタップすると、選んだ大きさの丸を配置します。中心・交点・端点・線上が有効な時は、その点へ丸の中心を合わせます。</div>
+              <div class="helpBlock"><div class="helpHead">図面操作</div>手書き中でも2本指の移動・拡大縮小・回転を使えます。指を2本置いた時点で、描きかけの線を確定して図面操作へ切り替えます。</div>
+              <div class="helpBlock"><div class="helpHead">消去・やり直し</div><b>消しゴム</b> で個別に消します。<b>メモ全消去</b> は確認後に全削除します。図面左上の青い矢印で元に戻す・やり直しができます。</div>
+              <div class="helpBlock"><div class="helpHead">終了</div><b>中止</b> を押すと手書き状態を終了します。</div>
             </div>
           </div>
 
@@ -1046,10 +1062,19 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="move">
             <div class="helpSectionTitle">画面移動</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">1本指</div>手書きメモを選んでいない時は、1本指で図面を動かせます。</div>
-              <div class="helpBlock"><div class="helpHead">2本指</div>2本指で拡大・縮小・回転できます。少し重めにしてあるので、誤回転しにくくしています。</div>
+              <div class="helpBlock"><div class="helpHead">1本指</div>通常時は1本指で図面を移動できます。1本指で2回タップし、2回目の指を離さず下へ動かすと拡大、上へ動かすと縮小します。</div>
+              <div class="helpBlock"><div class="helpHead">2本指</div>2本指で移動・拡大縮小・回転できます。</div>
               <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークは図面の回転に合わせて回ります。押すと北を上に戻します。</div>
-              <div class="helpBlock"><div class="helpHead">全体表示</div>位置がわからなくなった時は <b>全体表示</b> を押してください。</div>
+              <div class="helpBlock"><div class="helpHead">全体表示</div><b>全体表示</b> で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。ダブルタップや方位長押しでは全体表示になりません。</div>
+            </div>
+          </div>
+
+          <div class="helpSection" data-help-section="display">
+            <div class="helpSectionTitle">表示設定</div>
+            <div class="helpSectionBody">
+              <div class="helpBlock"><div class="helpHead">サイズ</div><b>サイズ</b> を押すと、上部アイコンの下に機能名を表示します。もう一度押すと小さいアイコン表示へ戻ります。</div>
+              <div class="helpBlock"><div class="helpHead">背景</div><b>背景</b> で黒背景と白背景を切り替えます。黒・白の図形色は、背景で見えなくならないよう表示時に自動調整します。</div>
+              <div class="helpBlock"><div class="helpHead">縦画面</div>このビューアーはスマートフォンの縦画面専用です。横向きにした場合は縦向きへ戻してください。</div>
             </div>
           </div>
 
@@ -1057,30 +1082,14 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="recovery">
             <div class="helpSectionTitle">復元保存</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">どこに残るか</div>この端末のブラウザ内に一時保存されます。別名保存したHTMLファイルとは別です。</div>
-              <div class="helpBlock"><div class="helpHead">いつ残るか</div>手書きメモや表示状態を変えると、復元用の保存が更新されます。</div>
+              <div class="helpBlock"><div class="helpHead">どこに残るか</div>復元データはこの端末・このブラウザーの中に保存されます。SFCや別保存ファイルとは別のデータです。</div>
+              <div class="helpBlock"><div class="helpHead">いつ残るか</div>手書きメモ、レイヤー表示、表示色などを変更した時に復元データを更新します。</div>
               <div class="helpBlock"><div class="helpHead">何件残るか</div>最新10件だけ残し、11件目からは古いものを自動で削除します。</div>
-              <div class="helpBlock"><div class="helpHead">消したい時</div>今開いている図面の復元メモだけ消せます。元のSFCや別名保存したHTMLは消えません。</div>
+              <div class="helpBlock"><div class="helpHead">注意</div>Safariの履歴・Webサイトデータを消すと復元データも消える場合があります。必要な成果は上書きまたは別保存してください。</div>
+              <div class="helpBlock"><div class="helpHead">消したい時</div>下のボタンで、今開いている図面の復元データだけを消せます。元のSFCや保存済みファイルは削除しません。</div>
               <button id="deleteRecoveryBtn" type="button">この図面の復元メモを消す</button>
             </div>
           </div>
-          <div class="helpSection" data-help-section="version">
-            <div class="helpSectionTitle">バージョン情報</div>
-            <div id="helpVersionList">
-              <div><span class="ver">2026-03-19 v59</span></div>
-              <div><span class="ver">2026-03-18 v21</span>
-              <div><span class="ver">2026-03-18 v44</span>
-              <div><span class="ver">2026-03-18 v99</span></div>
-            </div>
-              <div><span class="ver">2026-03-18 v64</span>
-              <div><span class="ver">2026-03-18v</span>
-              <div><span class="ver">2026-03-18 v62</span>
-              <div><span class="ver">2026-03-18 v62</span></div>
-            </div>
-            </div>
-            </div>
-            </div>
-            </div>
           </div>
         </div>
       </div>
