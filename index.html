@@ -897,10 +897,10 @@ gtag('config', 'G-88B9YPJXWP');
 
   <div id="saveAsChoiceModal" role="dialog" aria-modal="true" aria-labelledby="saveAsChoiceTitle">
     <div id="saveAsChoiceBox">
-      <div id="saveAsChoiceTitle">送信方法を選んでください</div>
+      <div id="saveAsChoiceTitle">Gmailで送信</div>
       <div id="saveAsChoiceActions">
-        <button id="saveAsRawShareBtn" type="button">SFCのまま送信</button>
-        <button id="saveAsZipShareBtn" type="button">ZIP圧縮して送信</button>
+        <button id="saveAsRawShareBtn" type="button">SFCをGmailで送信</button>
+        <button id="saveAsZipShareBtn" type="button">ZIP圧縮してGmailで送信</button>
         <button id="saveAsChoiceCancelBtn" type="button">キャンセル</button>
       </div>
     </div>
@@ -5099,7 +5099,7 @@ async function saveSfcWithAnnotations(){
   if (!exportData.ok) { showToast(exportData.reason); return; }
   const { blob, saveAsName } = exportData;
 
-  document.getElementById("saveAsRawShareBtn").textContent=savingSfc?"SFCのまま送信":"HTMLのまま送信";
+  document.getElementById("saveAsRawShareBtn").textContent=savingSfc?"SFCをGmailで送信":"HTMLをGmailで送信";
   const shareMode=await chooseSaveAsShareMode();
   if(!shareMode)return;
   let shareBlob=blob;
