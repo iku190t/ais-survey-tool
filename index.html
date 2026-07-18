@@ -3119,6 +3119,16 @@ function fitToScreen(){
 
   draw();
 }
+function applyDefaultFullViewAfterLoad(){
+  // Mobile browser chrome and the startup overlay can still be changing the
+  // canvas size when parsing finishes. Wait for layout, then use the exact
+  // same calculation as the 全体表示 button.
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    updateWrapLayout();
+    resize();
+    fitToScreen();
+  }));
+}
 function getLayerLabel(layer){
   const key=String(layer);
   return (data.layerNames && data.layerNames[key]) ? data.layerNames[key] : ("レイヤー " + layer);
@@ -5103,10 +5113,9 @@ function handleLoadedHtmlPayload(payload, fileName, handleOverride){
   ensureLayerVisibility();
   renderLayerList();
   document.getElementById("startupModal").style.display="none";
-  fitToScreen();
   migrateMemoLayerCirclesFromDataToInk();
-  if (payload && payload.view) { view = payload.view; scheduleDraw(); }
   restoreRecoverySnapshotIfAvailable();
+  applyDefaultFullViewAfterLoad();
   gaTrackOpenSfc("html");
   return true;
 }
@@ -5140,10 +5149,10 @@ async function handleLoadedSource(srcText, fileName, handleOverride){
   if(!count){ showToast("このSFCは読めません"); draw(); return; }
   rotationDeg = determineBestRotation(data);
   initialLoadRotationDeg = rotationDeg;
-  fitToScreen();
   migrateMemoLayerCirclesFromDataToInk();
   document.getElementById("startupModal").style.display="none";
   restoreRecoverySnapshotIfAvailable();
+  applyDefaultFullViewAfterLoad();
   gaTrackOpenSfc("sfc");
   showToast(lastSaveHandle ? "読み込みました（上書き保存対応）" : "読み込みました");
 }
@@ -6242,8 +6251,8 @@ if (window.__EMBED_PAYLOAD_B64__) {
       measureMode = null;
       updateModeIcons();
       updateStopBtnUI();
-      fitToScreen();
-      if (payload.view) { view = payload.view; scheduleDraw(); }
+      restoreRecoverySnapshotIfAvailable();
+      applyDefaultFullViewAfterLoad();
     }
   } catch(e) {
     console.error(e);
