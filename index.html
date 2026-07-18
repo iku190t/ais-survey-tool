@@ -483,7 +483,7 @@ body.help-labels button[data-help-label]::after{
   content:attr(data-help-label);
   display:block;
   width:100%;
-  font-size:9px;
+  font-size:10.8px;
   line-height:1;
   text-align:center;
   color:var(--fg);
@@ -515,7 +515,7 @@ body.help-labels #sizeToggleBtn{
     padding:2px 1px !important;
   }
   body.help-labels button[data-help-label]::after{
-    font-size:7.5px;
+    font-size:9px;
     letter-spacing:-0.03em;
   }
 }
@@ -672,14 +672,14 @@ gtag('config', 'G-88B9YPJXWP');
       </svg>
     </button>
     <input type="file" id="fileInput" accept=".sfc,.html,application/octet-stream,text/plain,text/html" />
-    <button id="saveIconBtn" class="toolIconBtn" data-help-label="上書き" title="HTMLを上書き保存" aria-label="HTMLを上書き保存" style="width:32px;height:32px;padding:0;">
+    <button id="saveIconBtn" class="toolIconBtn" data-help-label="上書き" title="SFC/HTMLを上書き保存" aria-label="SFC/HTMLを上書き保存" style="width:32px;height:32px;padding:0;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:21px;height:21px;">
         <path d="M5 5h12l2 2v12H5z"></path>
         <path d="M8 5v5h7V5"></path>
         <rect x="8" y="14" width="8" height="5" rx="1"></rect>
       </svg>
     </button>
-    <button id="saveAsIconBtn" class="toolIconBtn" data-help-label="別保存" title="HTMLを別名で保存" aria-label="HTMLを別名で保存" style="width:32px;height:32px;padding:0;">
+    <button id="saveAsIconBtn" class="toolIconBtn" data-help-label="別保存" title="SFC/HTMLを別名で保存" aria-label="SFC/HTMLを別名で保存" style="width:32px;height:32px;padding:0;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;">
         <path d="M5 5h11.5l2.5 2.5V19H5z"></path>
         <path d="M8 5v5h6.5V5"></path>
@@ -1271,6 +1271,8 @@ let lastTapMeasurePoint = null;
 let touchTapCandidate = null;
 let touchPanCandidate = null;
 let touchPanMoved = false;
+let lastOneFingerTap = null;
+let oneFingerZoomGesture = null;
 let suppressClickUntil = 0;
 let cachedMeasurePoints = [];
 let cachedMeasurePointsDirty = true;
@@ -1698,6 +1700,7 @@ function closeProfileModal(){
   profileHoverWorld=null;
   profileGraphPointers.clear();
   profileGraphGesture=null;
+  updateStopBtnUI();
   scheduleDraw();
 }
 function openProfileModal(loading){
@@ -1827,6 +1830,7 @@ async function completeProfileSelection(){
     closeProfileModal();showToast("標高データを取得できません",2600);return;
   }
   updateProfileSummary();drawProfileChart();scheduleDraw();
+  updateStopBtnUI();
 }
 function selectProfileWorldPoint(world){
   if(!profileMode||!world) return;
@@ -2412,7 +2416,7 @@ function isIOSLike(){
 async function shareBlobForIOS(blob, fileName){
   if (!(window.File && navigator.share && isIOSLike())) return false;
   try{
-    const file = new File([blob], fileName, {type:'text/html;charset=utf-8'});
+    const file = new File([blob], fileName, {type:blob.type || 'application/octet-stream'});
     if (navigator.canShare && !navigator.canShare({files:[file]})) return false;
     await navigator.share({files:[file]});
     return true;
@@ -2426,7 +2430,8 @@ function updateStopBtnUI(){
   const btn = document.getElementById("stopBtn");
   if(!btn) return;
   const panelOpen = !!(measureModePanel && measureModePanel.style.display === "block");
-  const active = !!(measureMode || inkEnabled || panelOpen || textSearchPopupOpen || profileMode);
+  const hasProfileLine = !!(profileStartWorld || profileEndWorld || profileData);
+  const active = !!(measureMode || inkEnabled || panelOpen || textSearchPopupOpen || profileMode || hasProfileLine);
   if(active){
     btn.style.background = "#c40000";
     btn.style.color = "#fff";
@@ -4903,22 +4908,31 @@ function buildHtmlExportBlobAndName(){
   return { ok:true, blob, overwriteName, saveAsName, text:html };
 }
 async function saveSfcOverwrite(){
-  const exportData = buildHtmlExportBlobAndName();
+  const savingSfc = currentLoadedKind === "sfc";
+  const exportData = savingSfc ? buildSfcExportBlobAndName() : buildHtmlExportBlobAndName();
   if (!exportData.ok) { showToast(exportData.reason); return; }
   const { blob, overwriteName } = exportData;
 
-  const silentHandle = (currentLoadedKind === "html" && currentOpenHandle && typeof currentOpenHandle.createWritable === "function")
-    ? currentOpenHandle
-    : (lastHtmlSaveHandle && typeof lastHtmlSaveHandle.createWritable === "function" ? lastHtmlSaveHandle : null);
+  const silentHandle = savingSfc
+    ? ((lastSaveHandle && typeof lastSaveHandle.createWritable === "function") ? lastSaveHandle : null)
+    : ((currentOpenHandle && typeof currentOpenHandle.createWritable === "function")
+      ? currentOpenHandle
+      : (lastHtmlSaveHandle && typeof lastHtmlSaveHandle.createWritable === "function" ? lastHtmlSaveHandle : null));
 
   if (silentHandle) {
     try{
       await writeBlobToHandle(silentHandle, blob);
-      lastHtmlSaveHandle = silentHandle;
+      if (savingSfc) {
+        lastSaveHandle = silentHandle;
+        loadedSfcText = exportData.text;
+      } else {
+        lastHtmlSaveHandle = silentHandle;
+      }
       currentOpenHandle = silentHandle;
       lastPickerHandle = silentHandle;
-      currentLoadedKind = "html";
+      currentLoadedKind = savingSfc ? "sfc" : "html";
       data.source_name = (silentHandle && silentHandle.name) ? silentHandle.name : overwriteName;
+      showToast(savingSfc ? "SFCを上書き保存しました" : "HTMLを上書き保存しました");
       return;
     }catch(e){
       if (!(e && e.name === "AbortError")) console.error(e);
@@ -4930,19 +4944,25 @@ async function saveSfcOverwrite(){
       const saveOpts = {
         id: "sfcviewer-workspace",
         suggestedName: overwriteName,
-        types: [{description:"HTML", accept:{"text/html":[".html"]}}]
+        types: savingSfc
+          ? [{description:"SFC", accept:{"application/octet-stream":[".sfc"]}}]
+          : [{description:"HTML", accept:{"text/html":[".html"]}}]
       };
       const startHandle = getPickerStartHandle();
       if (startHandle) saveOpts.startIn = startHandle;
       const handle = await window.showSaveFilePicker(saveOpts);
-      const wasSfcSource = currentLoadedKind === "sfc";
       await writeBlobToHandle(handle, blob);
-      lastHtmlSaveHandle = handle;
+      if (savingSfc) {
+        lastSaveHandle = handle;
+        loadedSfcText = exportData.text;
+      } else {
+        lastHtmlSaveHandle = handle;
+      }
       currentOpenHandle = handle;
       lastPickerHandle = handle;
-      currentLoadedKind = "html";
+      currentLoadedKind = savingSfc ? "sfc" : "html";
       data.source_name = handle.name || overwriteName;
-      if (wasSfcSource) showToast("HTMLを保存しました");
+      showToast(savingSfc ? "SFCを保存しました" : "HTMLを保存しました");
       return;
     }catch(e){
       if (e && e.name === "AbortError") return;
@@ -4960,10 +4980,11 @@ async function saveSfcOverwrite(){
   a.download = overwriteName;
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  showToast("HTMLをダウンロード保存しました");
+  showToast(savingSfc ? "SFCをダウンロード保存しました" : "HTMLをダウンロード保存しました");
 }
 async function saveSfcWithAnnotations(){
-  const exportData = buildHtmlExportBlobAndName();
+  const savingSfc = currentLoadedKind === "sfc";
+  const exportData = savingSfc ? buildSfcExportBlobAndName() : buildHtmlExportBlobAndName();
   if (!exportData.ok) { showToast(exportData.reason); return; }
   const { blob, saveAsName } = exportData;
 
@@ -4972,18 +4993,25 @@ async function saveSfcWithAnnotations(){
       const saveOpts = {
         id: "sfcviewer-workspace",
         suggestedName: saveAsName,
-        types: [{description:"HTML", accept: {"text/html":[".html"]}}]
+        types: savingSfc
+          ? [{description:"SFC", accept:{"application/octet-stream":[".sfc"]}}]
+          : [{description:"HTML", accept: {"text/html":[".html"]}}]
       };
       const startHandle = getPickerStartHandle();
       if (startHandle) saveOpts.startIn = startHandle;
       const handle = await window.showSaveFilePicker(saveOpts);
       await writeBlobToHandle(handle, blob);
-      lastHtmlSaveHandle = handle;
+      if (savingSfc) {
+        lastSaveHandle = handle;
+        loadedSfcText = exportData.text;
+      } else {
+        lastHtmlSaveHandle = handle;
+      }
       currentOpenHandle = handle;
       lastPickerHandle = handle;
-      currentLoadedKind = "html";
+      currentLoadedKind = savingSfc ? "sfc" : "html";
       data.source_name = handle.name || saveAsName;
-      showToast("HTMLで保存しました");
+      showToast(savingSfc ? "SFCを別名保存しました" : "HTMLで保存しました");
       return;
     }catch(e){
       if (e && e.name === "AbortError") return;
@@ -4998,7 +5026,7 @@ async function saveSfcWithAnnotations(){
   a.download = saveAsName;
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  showToast("HTMLで保存しました");
+  showToast(savingSfc ? "SFCを別名保存しました" : "HTMLで保存しました");
 }
 
 async function readFileAsLatin1Text(file){
@@ -5600,7 +5628,7 @@ document.getElementById("stopBtn").addEventListener("click", (e)=>{
     closeTextSearchPopup();
   }
   const panelOpen = !!(measureModePanel && measureModePanel.style.display === "block");
-  const hasWorkToStop = !!(measureMode || inkEnabled || panelOpen || profileMode);
+  const hasWorkToStop = !!(measureMode || inkEnabled || panelOpen || profileMode || profileStartWorld || profileEndWorld || profileData);
   if (!hasWorkToStop) {
     updateStopBtnUI();
     scheduleDraw();
@@ -5914,6 +5942,7 @@ canvas.addEventListener("wheel", e=>{
   scheduleDraw();
 }, {passive:false});
 canvas.addEventListener("dblclick", e=>{
+  if(Date.now() < suppressClickUntil) return;
   const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
   const mx=local.x, my=local.y, factor=1.9;
   setScaleAroundScreenPoint(mx, my, view.scale * factor);
@@ -6006,6 +6035,23 @@ canvas.addEventListener("touchstart", e=>{
   }
 
   if(!measureMode){
+    const previousTap = lastOneFingerTap;
+    if(previousTap && now - previousTap.time <= 360 && Math.hypot(e.touches[0].clientX-previousTap.clientX,e.touches[0].clientY-previousTap.clientY) <= 36){
+      oneFingerZoomGesture = {
+        startClientY:e.touches[0].clientY,
+        lastClientY:e.touches[0].clientY,
+        anchorX:x,
+        anchorY:y,
+        startScale:view.scale,
+        moved:false
+      };
+      lastOneFingerTap = null;
+      touchPanCandidate = null;
+      touchPanMoved = false;
+      touchMode = "onefingerzoom";
+      e.preventDefault();
+      return;
+    }
     touchPanCandidate = { clientX:e.touches[0].clientX, clientY:e.touches[0].clientY };
     touchPanMoved = false;
     lastX = e.touches[0].clientX;
@@ -6038,6 +6084,19 @@ canvas.addEventListener("touchmove", e=>{
   if(e.touches.length!==1) return;
   const ptLocal = getCanvasLocalPointFromClient(e.touches[0].clientX, e.touches[0].clientY);
   const x=ptLocal.x, y=ptLocal.y;
+
+  if(touchMode==="onefingerzoom"&&oneFingerZoomGesture){
+    const clientY=e.touches[0].clientY;
+    const dy=clientY-oneFingerZoomGesture.startClientY;
+    oneFingerZoomGesture.lastClientY=clientY;
+    if(Math.abs(dy)>3) oneFingerZoomGesture.moved=true;
+    // Google Maps convention: drag down to zoom in, drag up to zoom out.
+    const factor=Math.exp(dy*0.012);
+    setScaleAroundScreenPoint(oneFingerZoomGesture.anchorX,oneFingerZoomGesture.anchorY,oneFingerZoomGesture.startScale*factor);
+    e.preventDefault();
+    scheduleDraw();
+    return;
+  }
 
   if(profileMode&&profileTouchCandidate){
     const move=Math.hypot(e.touches[0].clientX-profileTouchCandidate.clientX,e.touches[0].clientY-profileTouchCandidate.clientY);
@@ -6120,6 +6179,18 @@ canvas.addEventListener("touchend", e=>{
     suppressTouchInkUntil = Date.now() + 420;
     scheduleDraw();
   }
+  if(touchMode==="onefingerzoom"&&oneFingerZoomGesture&&e.touches.length===0){
+    if(!oneFingerZoomGesture.moved){
+      setScaleAroundScreenPoint(oneFingerZoomGesture.anchorX,oneFingerZoomGesture.anchorY,oneFingerZoomGesture.startScale*1.7);
+    }
+    oneFingerZoomGesture=null;
+    touchMode="";
+    touchPanCandidate=null;
+    touchPanMoved=false;
+    suppressClickUntil=Date.now()+700;
+    scheduleDraw();
+    return;
+  }
   if(profileMode&&profileTouchCandidate&&e.touches.length===0){
     const changed=e.changedTouches&&e.changedTouches[0];
     const move=changed?Math.hypot(changed.clientX-profileTouchCandidate.clientX,changed.clientY-profileTouchCandidate.clientY):999;
@@ -6151,6 +6222,12 @@ canvas.addEventListener("touchend", e=>{
     return;
   }
   if(touchPanCandidate){
+    const changed=e.changedTouches&&e.changedTouches[0]?e.changedTouches[0]:null;
+    if(!touchPanMoved&&changed){
+      lastOneFingerTap={time:Date.now(),clientX:changed.clientX,clientY:changed.clientY};
+    }else{
+      lastOneFingerTap=null;
+    }
     touchPanCandidate = null;
     touchPanMoved = false;
     scheduleDraw();
@@ -6188,6 +6265,8 @@ canvas.addEventListener("touchcancel", ()=>{
   
   twoFingerStartTouches = null;
   twoFingerGestureState = null;
+  oneFingerZoomGesture = null;
+  lastOneFingerTap = null;
   pendingTouchInk = null;
   suppressTouchInkUntil = Date.now() + 420;
   touchMode = "";
