@@ -2723,10 +2723,17 @@ function parseSfcText(srcText, fileName){
     else if(rec.name==='ellipse_arc_feature' && rec.args.length>=12) ellipseArcs.push({layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),width:resolveWidth(rec.args[3]),ltype:resolveLineType(rec.args[2]),dash:resolveLineDash(rec.args[2]),cx:num(rec.args[4]),cy:num(rec.args[5]),rx:num(rec.args[6]),ry:num(rec.args[7]),direction:+unquoteSxfValue(rec.args[8])||0,rot:num(rec.args[9]),start:num(rec.args[10]),end:num(rec.args[11])});
     else if(rec.name==='point_marker_feature' && rec.args.length>=7) markers.push({layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),x:num(rec.args[2]),y:num(rec.args[3]),code:Math.trunc(num(rec.args[4])),angle:num(rec.args[5]),scale:num(rec.args[6])||1});
   }
-  const scaledFigures=records.filter(r=>r.name==='sfig_locate_feature'&&r.args.length>=7).map(r=>({name:decodeShiftJisFromLatin1(unquoteSxfValue(r.args[1])),sx:num(r.args[5]),sy:num(r.args[6])})).filter(v=>v.sx>0&&v.sy>0&&(Math.abs(v.sx-1)>1e-9||Math.abs(v.sy-1)>1e-9));
+  const partialFigures=records.filter(r=>r.name==='sfig_locate_feature'&&r.args.length>=7).map(r=>({
+    name:decodeShiftJisFromLatin1(unquoteSxfValue(r.args[1])),
+    originX:num(r.args[2]),originY:num(r.args[3]),angle:num(r.args[4]),sx:num(r.args[5]),sy:num(r.args[6])
+  })).filter(v=>Number.isFinite(v.sx)&&Number.isFinite(v.sy)&&Math.abs(v.sx)>1e-12&&Math.abs(v.sy)>1e-12);
+  const mainDrawingPlacement=partialFigures.filter(v=>!v.name.startsWith('~')&&!v.name.startsWith('$$ATRU$$')).sort((a,b)=>Math.min(Math.abs(a.sx),Math.abs(a.sy))-Math.min(Math.abs(b.sx),Math.abs(b.sy)))[0]||null;
+  const scaledFigures=partialFigures.filter(v=>v.sx>0&&v.sy>0&&(Math.abs(v.sx-1)>1e-9||Math.abs(v.sy-1)>1e-9));
   const mainFigures=scaledFigures.filter(v=>!v.name.startsWith('~'));
   const scaleSource=(mainFigures.length?mainFigures:scaledFigures).sort((a,b)=>Math.min(a.sx,a.sy)-Math.min(b.sx,b.sy))[0];
   const drawingToPaperScale=scaleSource?Math.max(1e-9,Math.sqrt(scaleSource.sx*scaleSource.sy)):1;
+  const sheetRecord=records.find(r=>r.name==='drawing_sheet_feature'&&r.args.length>=5);
+  const drawingSheet=sheetRecord?{width:num(sheetRecord.args[3]),height:num(sheetRecord.args[4])}:null;
   const totalCount = lines.length + polys.length + splines.length + texts.length + circles.length + arcs.length + ellipses.length + ellipseArcs.length + markers.length;
   if(!totalCount){
     try{
@@ -2736,7 +2743,7 @@ function parseSfcText(srcText, fileName){
       }
     }catch(err){ console.error(err); }
   }
-  return {lines,polys,splines,texts,circles,arcs,ellipses,ellipseArcs,markers,layerNames,source_name:fileName||'loaded.sfc',_layerMap:layerMap,_layerRefToIdx:layerRefToIdx,_layerVisibleByDefault:layerVisibleByDefault,_fontCodeMap:fontCodeMap,_colorFeatureMap:colorFeatureMap,_colorCodeMap:colorCodeMap,_linetypeFeatureMap:linetypeFeatureMap,_linetypeCodeMap:linetypeCodeMap,_drawingToPaperScale:drawingToPaperScale};
+  return {lines,polys,splines,texts,circles,arcs,ellipses,ellipseArcs,markers,layerNames,source_name:fileName||'loaded.sfc',_layerMap:layerMap,_layerRefToIdx:layerRefToIdx,_layerVisibleByDefault:layerVisibleByDefault,_fontCodeMap:fontCodeMap,_colorFeatureMap:colorFeatureMap,_colorCodeMap:colorCodeMap,_linetypeFeatureMap:linetypeFeatureMap,_linetypeCodeMap:linetypeCodeMap,_drawingToPaperScale:drawingToPaperScale,_partialFigures:partialFigures,_mainDrawingPlacement:mainDrawingPlacement,_drawingSheet:drawingSheet};
 }
 
 function setRenderBounds(item,minx,miny,maxx,maxy){
@@ -2857,14 +2864,18 @@ function autoDetectRotationFor(d){
 }
 function determineBestRotation(d){
   try{
-    const base = autoDetectRotationFor(d);
-    const candidates = [base, base + 90, base - 90, base + 180].map(normalize180);
-    let bestRot = candidates[0], bestScore = -Infinity;
-    for (const rot of candidates){
-      const score = lineAlignmentScore(d, rot) + textHorizontalScore(d, rot) * 2.5;
-      if (score > bestScore){ bestScore = score; bestRot = rot; }
-    }
-    return bestRot;
+    // Same priority as the stakeout app: the main sfig placement is SXF's
+    // authoritative drawing-to-paper direction. JS rotates world coordinates
+    // before its Y inversion, so the placement angle is used with this sign.
+    const placement=d&&d._mainDrawingPlacement;
+    if(placement&&Number.isFinite(+placement.angle)) return normalize180(+placement.angle);
+    // Files without a usable placement fall back to the largest drawing text.
+    // The JS text renderer uses -(text angle + drawing rotation).
+    const largest=(d&&Array.isArray(d.texts)?d.texts:[]).filter(t=>t&&String(t.text||'').trim()&&+t.h>0).sort((a,b)=>{
+      const areaA=(+a.h||0)*Math.max(1,+a.w||0),areaB=(+b.h||0)*Math.max(1,+b.w||0);
+      return areaB-areaA||(+b.w||0)-(+a.w||0)||String(b.text||'').length-String(a.text||'').length;
+    })[0];
+    return largest?normalize180(-(+largest.angle||0)):0;
   }catch(e){
     console.error(e);
     return 0;
@@ -4072,7 +4083,15 @@ function splitSxfArgs(body){
   const out=[]; let cur=''; let depth=0; let quote='';
   for(let i=0;i<body.length;i++){
     const ch=body[i];
+    if(quote==='escaped-single'){
+      cur+=ch;
+      if(ch==='\\' && body[i+1]==="'"){cur+=body[++i];quote='';}
+      continue;
+    }
     if(quote){ cur+=ch; if(ch===quote) quote=''; continue; }
+    // SFC uses \'...\' strings. A bare apostrophe inside such a value
+    // (for example NO.2') is data, not the end of the quoted value.
+    if(ch==='\\' && body[i+1]==="'"){cur+=ch+body[++i];quote='escaped-single';continue;}
     if(ch==='\''||ch==='"'){ quote=ch; cur+=ch; continue; }
     if(ch==='('){ depth++; cur+=ch; continue; }
     if(ch===')'){ if(depth>0) depth--; cur+=ch; continue; }
@@ -4109,12 +4128,18 @@ function parseSxfFeatureRecords(flat){
     let depth=0, quote=''; const bodyStart=j+1; let k=j;
     for(;k<flat.length;k++){
       const ch=flat[k];
+      if(quote==='escaped-single'){
+        if(ch==='\\' && flat[k+1]==="'"){k++;quote='';}
+        continue;
+      }
       if(quote){ if(ch===quote) quote=''; continue; }
+      if(ch==='\\' && flat[k+1]==="'"){k++;quote='escaped-single';continue;}
       if(ch==='\''||ch==='"'){ quote=ch; continue; }
       if(ch==='(') depth++;
       else if(ch===')'){ depth--; if(depth===0) break; }
     }
-    if(k>=flat.length) break;
+    // A malformed record must not discard every valid feature after it.
+    if(k>=flat.length){i=h+1;continue;}
     const body=flat.slice(bodyStart,k);
     // body/rawName は解析後に使わない。大容量SFCで原文を二重保持しない。
     records.push({id,name:name.toLowerCase(),args:splitSxfArgs(body)});
