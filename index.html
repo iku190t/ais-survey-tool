@@ -360,6 +360,13 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #gmailRecipientInput{display:block;width:100%;height:42px;margin-top:6px;padding:8px 10px;box-sizing:border-box;border:1px solid var(--border);border-radius:9px;background:var(--panel);color:var(--fg);font-size:16px;}
 #gmailDirectHint{margin:-3px 0 12px;font-size:11px;line-height:1.55;color:var(--muted);}
 #saveAsChoiceActions{display:grid;gap:9px;}
+#saveMenuModal{display:none;position:fixed;inset:0;z-index:225;background:rgba(0,0,0,.48);align-items:center;justify-content:center;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-sizing:border-box;}
+#saveMenuBox{width:min(320px,90vw);background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;padding:16px;box-shadow:0 14px 34px rgba(0,0,0,.42);}
+#saveMenuTitle{font-size:18px;font-weight:800;margin-bottom:12px;}
+#saveMenuActions{display:grid;gap:9px;}
+#saveMenuActions button{min-height:44px;font-size:14px;font-weight:700;}
+#saveMenuOverwriteBtn,#saveMenuSaveAsBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;}
+#saveAsIconBtn{display:none!important;}
 #saveAsChoiceActions button{min-height:44px;font-size:14px;font-weight:700;}
 #miniHint{display:none !important;}
 input[type=range]{width:110px;}
@@ -745,14 +752,14 @@ gtag('config', 'G-88B9YPJXWP');
       </svg>
     </button>
     <input type="file" id="fileInput" accept=".sfc,.html,application/octet-stream,text/plain,text/html" />
-    <button id="saveIconBtn" class="toolIconBtn" data-help-label="上書き" title="SFC/HTMLを上書き保存" aria-label="SFC/HTMLを上書き保存" style="width:32px;height:32px;padding:0;">
+    <button id="saveIconBtn" class="toolIconBtn" data-help-label="保存" title="保存方法を選ぶ" aria-label="保存方法を選ぶ" style="width:32px;height:32px;padding:0;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:21px;height:21px;">
         <path d="M5 5h12l2 2v12H5z"></path>
         <path d="M8 5v5h7V5"></path>
         <rect x="8" y="14" width="8" height="5" rx="1"></rect>
       </svg>
     </button>
-    <button id="saveAsIconBtn" class="toolIconBtn" data-help-label="別保存" title="SFC/HTMLを別名で保存" aria-label="SFC/HTMLを別名で保存" style="width:32px;height:32px;padding:0;">
+    <button id="saveAsIconBtn" class="toolIconBtn" data-help-label="別保存" title="SFC/HTMLを別名で保存" aria-label="SFC/HTMLを別名で保存" style="width:32px;height:32px;padding:0;" hidden>
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;">
         <path d="M5 5h11.5l2.5 2.5V19H5z"></path>
         <path d="M8 5v5h6.5V5"></path>
@@ -1067,8 +1074,9 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">開く・保存</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開く</div><b>開く</b> でSFCまたは保存済みHTMLを選びます。読み込み後は図面全体が画面に収まり、図面に適した向きで表示されます。</div>
-              <div class="helpBlock"><div class="helpHead">上書き</div><b>上書き</b> は、手書きメモを含む現在の内容をSFCまたはHTMLへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
-              <div class="helpBlock"><div class="helpHead">別保存・Gmail送信</div><b>別保存</b> を押し、送信先を入力して <b>SFCを直接送信</b> または <b>ZIP圧縮して直接送信</b> を選びます。送信先は端末に保存され、次回から入力不要です。初回だけGoogleアカウントの許可画面が表示されます。直接送信できない端末では従来の共有画面へ切り替わります。</div>
+              <div class="helpBlock"><div class="helpHead">保存</div><b>保存</b> を押し、<b>上書き保存</b> または <b>別名保存・メール送信</b> を選びます。</div>
+              <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容をSFCまたはHTMLへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
+              <div class="helpBlock"><div class="helpHead">別名保存・メール送信</div>送信先を入力して <b>SFCを直接送信</b> または <b>ZIP圧縮して直接送信</b> を選びます。送信先は端末に保存され、次回から入力不要です。初回だけGoogleアカウントの許可画面が表示されます。直接送信できない端末では従来の共有画面へ切り替わります。</div>
               <div class="helpBlock"><div class="helpHead">SFCへの書き込み</div>SFCを開いて保存すると、手書きの線は <b>「線」レイヤー</b>、丸は <b>「丸」レイヤー</b>のSFC要素として書き込みます。重要な原本は念のため別に保管してください。</div>
               <div class="helpBlock"><div class="helpHead">ブラウザー内の自動保存</div>メモ、レイヤー表示、表示色などは復元用として端末内にも保存されます。詳しくは <b>復元保存</b> を確認してください。</div>
             </div>
@@ -1200,6 +1208,17 @@ gtag('config', 'G-88B9YPJXWP');
           </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="saveMenuModal" role="dialog" aria-modal="true" aria-labelledby="saveMenuTitle">
+    <div id="saveMenuBox">
+      <div id="saveMenuTitle">保存</div>
+      <div id="saveMenuActions">
+        <button id="saveMenuOverwriteBtn" type="button">上書き保存</button>
+        <button id="saveMenuSaveAsBtn" type="button">別名保存・メール送信</button>
+        <button id="saveMenuCancelBtn" type="button">閉じる</button>
       </div>
     </div>
   </div>
@@ -3142,10 +3161,7 @@ function updateStopBtnUI(){
 }
 function applyMobileUiTweaks(){
   const saveBtn = document.getElementById("saveIconBtn");
-  if(saveBtn){
-    if (isIOSLike()) saveBtn.classList.add("mobile-hide");
-    else saveBtn.classList.remove("mobile-hide");
-  }
+  if(saveBtn) saveBtn.classList.remove("mobile-hide");
 }
 
 let __lastTouchEndTs = 0;
@@ -6455,11 +6471,26 @@ document.addEventListener("click", (e)=>{
   if (btn && btn.id === "supportBtn") return;
   supportPanel.style.display = "none";
 }, true);
+function setSaveMenuOpen(open){
+  const modal=document.getElementById("saveMenuModal");
+  if(modal) modal.style.display=open?"flex":"none";
+}
 document.getElementById("saveIconBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
+  setSaveMenuOpen(true);
+});
+document.getElementById("saveMenuOverwriteBtn").addEventListener("click", ()=>{
+  setSaveMenuOpen(false);
   saveRecoverySnapshot();
   saveSfcOverwrite().catch((e)=>{ console.error(e); showToast("上書きほぞんしっぱい"); });
 });
+document.getElementById("saveMenuSaveAsBtn").addEventListener("click", ()=>{
+  setSaveMenuOpen(false);
+  saveRecoverySnapshot();
+  saveSfcWithAnnotations().catch((e)=>{ console.error(e); showToast("別名保存を開始できませんでした"); });
+});
+document.getElementById("saveMenuCancelBtn").addEventListener("click",()=>setSaveMenuOpen(false));
+document.getElementById("saveMenuModal").addEventListener("click",e=>{if(e.target.id==="saveMenuModal")setSaveMenuOpen(false);});
 function resolveGmailSaveChoice(mode){
   if(!getGmailOAuthClientId()){
     resolveSaveAsChoice(mode);
