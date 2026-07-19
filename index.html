@@ -1724,6 +1724,16 @@ function defaultSfcWorldToPlane(xWorldMm, yWorldMm){
 function planeToSfcWorld(xNorth, yEast){
   const tr=activeCoordinateMeshTransform;
   if(!tr) return defaultPlaneToSfcWorld(xNorth,yEast);
+  if(tr.kind==="affine"){
+    const a=tr.xNorth.a,b=tr.xNorth.b,d=tr.yEast.a,e=tr.yEast.b;
+    const det=a*e-b*d;
+    if(Number.isFinite(det)&&Math.abs(det)>1e-10){
+      const nx=xNorth-tr.xNorth.offset,ey=yEast-tr.yEast.offset;
+      const x=(e*nx-b*ey)/det,y=(-d*nx+a*ey)/det;
+      if(Number.isFinite(x)&&Number.isFinite(y)) return {x:x*1000,y:y*1000};
+    }
+    return defaultPlaneToSfcWorld(xNorth,yEast);
+  }
   const world=[0,0];
   world[tr.xNorth.worldAxis]=(xNorth-tr.xNorth.offset)/tr.xNorth.slope;
   world[tr.yEast.worldAxis]=(yEast-tr.yEast.offset)/tr.yEast.slope;
@@ -1734,6 +1744,12 @@ function sfcWorldToPlane(xWorldMm, yWorldMm){
   const tr=activeCoordinateMeshTransform;
   if(!tr) return defaultSfcWorldToPlane(xWorldMm,yWorldMm);
   const world=[xWorldMm/1000,yWorldMm/1000];
+  if(tr.kind==="affine"){
+    return {
+      xNorth:tr.xNorth.a*world[0]+tr.xNorth.b*world[1]+tr.xNorth.offset,
+      yEast:tr.yEast.a*world[0]+tr.yEast.b*world[1]+tr.yEast.offset
+    };
+  }
   return {
     xNorth:tr.xNorth.slope*world[tr.xNorth.worldAxis]+tr.xNorth.offset,
     yEast:tr.yEast.slope*world[tr.yEast.worldAxis]+tr.yEast.offset
@@ -1776,6 +1792,46 @@ function fitCoordinateMeshAxis(samples,worldAxis){
   if(valueSpan<1) return null;
   return {worldAxis,slope,offset,residual:medianNumber(residuals),valueSpan,count:rows.length};
 }
+function solveCoordinateMesh3x3(matrix,vector){
+  const a=matrix.map(row=>row.slice()),b=vector.slice();
+  for(let col=0;col<3;col++){
+    let pivot=col;
+    for(let row=col+1;row<3;row++) if(Math.abs(a[row][col])>Math.abs(a[pivot][col])) pivot=row;
+    if(Math.abs(a[pivot][col])<1e-10) return null;
+    [a[col],a[pivot]]=[a[pivot],a[col]];[b[col],b[pivot]]=[b[pivot],b[col]];
+    const divisor=a[col][col];
+    for(let j=col;j<3;j++) a[col][j]/=divisor;
+    b[col]/=divisor;
+    for(let row=0;row<3;row++){
+      if(row===col) continue;
+      const factor=a[row][col];
+      for(let j=col;j<3;j++) a[row][j]-=factor*a[col][j];
+      b[row]-=factor*b[col];
+    }
+  }
+  return b.every(Number.isFinite)?b:null;
+}
+function fitCoordinateMeshPlane(samples){
+  const rows=(samples||[]).map(sample=>({
+    x:sample.text.x/1000,y:sample.text.y/1000,value:sample.value
+  })).filter(row=>Number.isFinite(row.x)&&Number.isFinite(row.y)&&Number.isFinite(row.value));
+  if(rows.length<3||new Set(rows.map(row=>Math.round(row.value*1000))).size<2) return null;
+  const matrix=[[0,0,0],[0,0,0],[0,0,0]],vector=[0,0,0];
+  for(const row of rows){
+    const terms=[row.x,row.y,1];
+    for(let i=0;i<3;i++){
+      vector[i]+=terms[i]*row.value;
+      for(let j=0;j<3;j++) matrix[i][j]+=terms[i]*terms[j];
+    }
+  }
+  const solved=solveCoordinateMesh3x3(matrix,vector);
+  if(!solved) return null;
+  const [a,b,offset]=solved;
+  const residuals=rows.map(row=>Math.abs(row.value-(a*row.x+b*row.y+offset)));
+  const valueSpan=Math.max(...rows.map(row=>row.value))-Math.min(...rows.map(row=>row.value));
+  if(valueSpan<1) return null;
+  return {a,b,offset,residual:medianNumber(residuals),valueSpan,count:rows.length};
+}
 function analyzeCoordinateMeshTransform(target){
   const groups=new Map();
   for(const text of target&&target.texts||[]){
@@ -1788,31 +1844,29 @@ function analyzeCoordinateMeshTransform(target){
   let best=null;
   for(const [layer,group] of groups){
     if(group.X.length<2||group.Y.length<2) continue;
-    for(const xWorldAxis of [0,1]){
-      const yWorldAxis=1-xWorldAxis;
-      const xFit=fitCoordinateMeshAxis(group.X,xWorldAxis);
-      const yFit=fitCoordinateMeshAxis(group.Y,yWorldAxis);
-      if(!xFit||!yFit) continue;
-      const fittedResidual=xFit.residual+yFit.residual;
-      const span=Math.min(xFit.valueSpan,yFit.valueSpan);
-      if(!Number.isFinite(fittedResidual)||fittedResidual>Math.max(5,span*0.025)) continue;
-      const currentErrors=[];
-      for(const sample of group.X){
-        const plane=defaultSfcWorldToPlane(sample.text.x,sample.text.y);
-        currentErrors.push(Math.abs(plane.xNorth-sample.value));
-      }
-      for(const sample of group.Y){
-        const plane=defaultSfcWorldToPlane(sample.text.x,sample.text.y);
-        currentErrors.push(Math.abs(plane.yEast-sample.value));
-      }
-      const currentResidual=medianNumber(currentErrors);
-      const labelCount=xFit.count+yFit.count;
-      // If any mesh already agrees with the normal survey-coordinate mapping,
-      // prefer it over a separate inset/detail mesh that would trigger a correction.
-      const score=fittedResidual+(currentResidual<=20?-1000:0)-Math.min(100,labelCount)*0.001;
-      const candidate={xNorth:xFit,yEast:yFit,layer,labelCount,fittedResidual,currentResidual,score};
-      if(!best||candidate.score<best.score) best=candidate;
+    const xFit=fitCoordinateMeshPlane(group.X),yFit=fitCoordinateMeshPlane(group.Y);
+    if(!xFit||!yFit) continue;
+    const determinant=xFit.a*yFit.b-xFit.b*yFit.a;
+    if(!Number.isFinite(determinant)||Math.abs(determinant)<1e-5||Math.abs(determinant)>10000) continue;
+    const fittedResidual=xFit.residual+yFit.residual;
+    const span=Math.min(xFit.valueSpan,yFit.valueSpan);
+    if(!Number.isFinite(fittedResidual)||fittedResidual>Math.max(2,span*0.01)) continue;
+    const currentErrors=[];
+    for(const sample of group.X){
+      const plane=defaultSfcWorldToPlane(sample.text.x,sample.text.y);
+      currentErrors.push(Math.abs(plane.xNorth-sample.value));
     }
+    for(const sample of group.Y){
+      const plane=defaultSfcWorldToPlane(sample.text.x,sample.text.y);
+      currentErrors.push(Math.abs(plane.yEast-sample.value));
+    }
+    const currentResidual=medianNumber(currentErrors);
+    const labelCount=xFit.count+yFit.count;
+    // If any mesh already agrees with the normal survey-coordinate mapping,
+    // prefer it over a separate inset/detail mesh that would trigger a correction.
+    const score=fittedResidual+(currentResidual<=20?-1000:0)-Math.min(100,labelCount)*0.001;
+    const candidate={kind:"affine",xNorth:xFit,yEast:yFit,layer,labelCount,fittedResidual,currentResidual,score};
+    if(!best||candidate.score<best.score) best=candidate;
   }
   return best;
 }
