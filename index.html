@@ -759,7 +759,7 @@ gtag('config', 'G-88B9YPJXWP');
 <body>
 <div id="topbar">
   <div id="topbarMain" class="topbar-row">
-    <button id="openIconBtn" class="fileBtn toolIconBtn" data-help-label="開く" title="開く" aria-label="開く" style="width:32px;height:32px;padding:0;">
+    <button id="openIconBtn" class="fileBtn toolIconBtn" data-help-label="ファイル" title="ファイルを開く・保存" aria-label="ファイルを開く・保存" style="width:32px;height:32px;padding:0;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;">
         <path d="M3.5 8.5h5.3l1.8 2H20.5v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path>
         <path d="M3.5 8.5V7a2 2 0 0 1 2-2h3.2l1.8 2h7.9a2 2 0 0 1 2 2v1.5"></path>
@@ -794,22 +794,6 @@ gtag('config', 'G-88B9YPJXWP');
       });
     })();
     </script>
-    <button id="saveIconBtn" class="toolIconBtn" data-help-label="上書き" title="SFC/HTMLを上書き保存" aria-label="SFC/HTMLを上書き保存" style="width:32px;height:32px;padding:0;">
-      <svg viewBox="0 0 24 24" aria-hidden="true" style="width:21px;height:21px;">
-        <path d="M5 5h12l2 2v12H5z"></path>
-        <path d="M8 5v5h7V5"></path>
-        <rect x="8" y="14" width="8" height="5" rx="1"></rect>
-      </svg>
-    </button>
-    <button id="saveAsIconBtn" class="toolIconBtn" data-help-label="別保存" title="SFC/HTMLを別名で保存" aria-label="SFC/HTMLを別名で保存" style="width:32px;height:32px;padding:0;">
-      <svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;">
-        <path d="M5 5h11.5l2.5 2.5V19H5z"></path>
-        <path d="M8 5v5h6.5V5"></path>
-        <rect x="8" y="14" width="8" height="4.5" rx="1"></rect>
-        <path d="M15.5 11.2h7.6" style="stroke-width:2.6"></path>
-        <path d="M19.3 7.4v7.6" style="stroke-width:2.6"></path>
-      </svg>
-    </button>
     <button id="fitBtn" class="toolIconBtn" data-help-label="全体表示" title="全体表示" aria-label="全体表示">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 9V4h5"></path><path d="M20 9V4h-5"></path><path d="M4 15v5h5"></path><path d="M20 15v5h-5"></path>
@@ -1258,7 +1242,7 @@ gtag('config', 'G-88B9YPJXWP');
 
   <div id="saveMenuModal" role="dialog" aria-modal="true" aria-labelledby="saveMenuTitle">
     <div id="saveMenuBox">
-      <div id="saveMenuTitle">開く・保存</div>
+      <div id="saveMenuTitle">ファイル</div>
       <div id="saveMenuActions">
         <button id="saveMenuOpenBtn" class="saveMenuNativeOpen" type="button">開く</button>
         <button id="saveMenuOverwriteBtn" type="button">上書き保存</button>
@@ -1510,6 +1494,11 @@ let currentStroke = null;
 let pendingTouchInk = null;
 let suppressTouchInkUntil = 0;
 let needsDraw = false;
+const LARGE_FILE_SOURCE_BYTES = 12 * 1024 * 1024;
+const LARGE_DRAWING_FEATURE_LIMIT = 60000;
+const LARGE_DRAWING_VERTEX_LIMIT = 250000;
+let largeDrawingMode = false;
+let largeDrawingStats = {sourceBytes:0,features:0,vertices:0};
 let textSearchState = { raw:"", tokens:[], results:[], index:-1, exactMode:false };
 let textSearchExactMode = false;
 let searchHighlight = null;
@@ -3323,8 +3312,7 @@ function updateStopBtnUI(){
   updateModeStatus();
 }
 function applyMobileUiTweaks(){
-  const saveBtn = document.getElementById("saveIconBtn");
-  if(saveBtn) saveBtn.classList.remove("mobile-hide");
+  // File operations are exposed from the single File button on every device.
 }
 
 let __lastTouchEndTs = 0;
@@ -3663,13 +3651,46 @@ function makeAdjacentRenderRuns(items,styleKey,dashIndex){
   }
   return runs;
 }
-function prepareRenderMetadata(target){
+function addRenderRunBounds(runs){
+  for(const run of runs||[]){
+    let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+    for(const item of run.items||[]){
+      const b=item&&item._renderBounds;
+      if(!b) continue;
+      if(b.minx<minx) minx=b.minx; if(b.miny<miny) miny=b.miny;
+      if(b.maxx>maxx) maxx=b.maxx; if(b.maxy>maxy) maxy=b.maxy;
+    }
+    if(Number.isFinite(minx)) run._renderBounds={minx,miny,maxx,maxy};
+  }
+  return runs;
+}
+function configureLargeDrawingMode(target,sourceBytes=0){
+  const stats=target&&target._renderStats||{};
+  largeDrawingStats={
+    sourceBytes:Math.max(0,+sourceBytes||0),
+    features:Math.max(0,+stats.features||0),
+    vertices:Math.max(0,+stats.vertices||0)
+  };
+  largeDrawingMode=largeDrawingStats.sourceBytes>=LARGE_FILE_SOURCE_BYTES ||
+    largeDrawingStats.features>=LARGE_DRAWING_FEATURE_LIMIT ||
+    largeDrawingStats.vertices>=LARGE_DRAWING_VERTEX_LIMIT;
+  if(target){
+    target._largeDrawingMode=largeDrawingMode;
+    target._sourceByteLength=largeDrawingStats.sourceBytes;
+  }
+  return largeDrawingMode;
+}
+function prepareRenderMetadata(target,sourceBytes=0){
   if(!target) return target;
+  let vertexCount=(target.lines||[]).length*2+(target.texts||[]).length+
+    (target.circles||[]).length+(target.arcs||[]).length+
+    (target.ellipses||[]).length+(target.ellipseArcs||[]).length+
+    (target.markers||[]).length;
   for(const v of target.lines||[]){
     setRenderBounds(v,Math.min(v[0],v[2]),Math.min(v[1],v[3]),Math.max(v[0],v[2]),Math.max(v[1],v[3]));
   }
-  for(const v of target.polys||[]){ const b=boundsForPoints(v[0]); if(b) setRenderBounds(v,b.minx,b.miny,b.maxx,b.maxy); }
-  for(const v of target.splines||[]){ const b=boundsForPoints(v[0]); if(b) setRenderBounds(v,b.minx,b.miny,b.maxx,b.maxy); }
+  for(const v of target.polys||[]){ vertexCount+=(v[0]||[]).length; const b=boundsForPoints(v[0]); if(b) setRenderBounds(v,b.minx,b.miny,b.maxx,b.maxy); }
+  for(const v of target.splines||[]){ vertexCount+=(v[0]||[]).length; const b=boundsForPoints(v[0]); if(b) setRenderBounds(v,b.minx,b.miny,b.maxx,b.maxy); }
   for(const v of target.circles||[]){ const r=Math.abs(+v[2]||0); setRenderBounds(v,v[0]-r,v[1]-r,v[0]+r,v[1]+r); }
   for(const a of target.arcs||[]){ const r=Math.abs(+a.r||0); setRenderBounds(a,a.cx-r,a.cy-r,a.cx+r,a.cy+r); }
   for(const e of target.ellipses||[]){ const r=Math.max(Math.abs(+e.rx||0),Math.abs(+e.ry||0)); setRenderBounds(e,e.cx-r,e.cy-r,e.cx+r,e.cy+r); }
@@ -3679,9 +3700,16 @@ function prepareRenderMetadata(target){
     const r=Math.max(Math.abs(+t.h||0)*glyphCount,Math.abs(+t.w||0)*glyphCount,1)*1.5;
     setRenderBounds(t,t.x-r,t.y-r,t.x+r,t.y+r);
   }
-  target._polyRenderRuns=makeAdjacentRenderRuns(target.polys,v=>`${v[1]}|${v[2]}|${v[3]}|${v[4]}`,5);
-  target._lineRenderRuns=makeAdjacentRenderRuns(target.lines,v=>`${v[4]}|${v[5]}|${v[6]}|${v[7]}`,8);
-  target._splineRenderRuns=makeAdjacentRenderRuns(target.splines,v=>`${v[1]}|${v[2]}|${v[3]}|${v[4]}`,5);
+  target._polyRenderRuns=addRenderRunBounds(makeAdjacentRenderRuns(target.polys,v=>`${v[1]}|${v[2]}|${v[3]}|${v[4]}`,5));
+  target._lineRenderRuns=addRenderRunBounds(makeAdjacentRenderRuns(target.lines,v=>`${v[4]}|${v[5]}|${v[6]}|${v[7]}`,8));
+  target._splineRenderRuns=addRenderRunBounds(makeAdjacentRenderRuns(target.splines,v=>`${v[1]}|${v[2]}|${v[3]}|${v[4]}`,5));
+  target._renderStats={
+    features:(target.lines||[]).length+(target.polys||[]).length+(target.splines||[]).length+
+      (target.texts||[]).length+(target.circles||[]).length+(target.arcs||[]).length+
+      (target.ellipses||[]).length+(target.ellipseArcs||[]).length+(target.markers||[]).length,
+    vertices:vertexCount
+  };
+  configureLargeDrawingMode(target,sourceBytes);
   return target;
 }
 
@@ -4628,13 +4656,15 @@ function appendPolylineToCurrentPath(points,fastMotion){
   let lastX=p[0],lastY=p[1];
   for(let i=1;i<points.length;i++){
     p=worldToScreen(points[i][0],points[i][1]);
-    if(fastMotion&&i<points.length-1&&Math.abs(p[0]-lastX)<0.55&&Math.abs(p[1]-lastY)<0.55) continue;
+    const simplifyPx=largeDrawingMode?1.15:0.55;
+    if(fastMotion&&i<points.length-1&&Math.abs(p[0]-lastX)<simplifyPx&&Math.abs(p[1]-lastY)<simplifyPx) continue;
     ctx.lineTo(p[0],p[1]);lastX=p[0];lastY=p[1];
   }
   return true;
 }
 function drawPolylineRenderRuns(runs,visibleBounds,fastMotion,isSpline){
   for(const run of runs||[]){
+    if(!isRenderItemVisible(run,visibleBounds)) continue;
     let styleItem=null,hasPath=false;
     ctx.beginPath();
     for(const item of run.items){
@@ -4652,12 +4682,14 @@ function drawPolylineRenderRuns(runs,visibleBounds,fastMotion,isSpline){
 }
 function drawLineRenderRuns(runs,visibleBounds,fastMotion){
   for(const run of runs||[]){
+    if(!isRenderItemVisible(run,visibleBounds)) continue;
     let styleItem=null,hasPath=false;
     ctx.beginPath();
     for(const item of run.items){
       if(!isLayerVisible(item[4])||!isRenderItemVisible(item,visibleBounds)) continue;
       const a=worldToScreen(item[0],item[1]),b=worldToScreen(item[2],item[3]);
-      if(fastMotion&&Math.abs(a[0]-b[0])<0.25&&Math.abs(a[1]-b[1])<0.25) continue;
+      const simplifyPx=largeDrawingMode?0.55:0.25;
+      if(fastMotion&&Math.abs(a[0]-b[0])<simplifyPx&&Math.abs(a[1]-b[1])<simplifyPx) continue;
       ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);hasPath=true;if(!styleItem)styleItem=item;
     }
     if(!hasPath||!styleItem) continue;
@@ -4678,14 +4710,15 @@ function draw(){
   const totalCount=data.lines.length+data.polys.length+data.texts.length+data.circles.length+(data.arcs?.length||0)+(data.ellipses?.length||0)+(data.ellipseArcs?.length||0);
   if(totalCount){
     const visibleBounds=getVisibleWorldBounds(18);
-    const fastMotion=dragging||touchMode==="twofinger"||touchPanMoved;
+    const fastMotion=dragging||touchMode==="twofinger"||touchMode==="onefingerzoom"||!!oneFingerZoomGesture||touchPanMoved;
+    const tinyShapePx=largeDrawingMode?0.70:0.35;
     drawPolylineRenderRuns(data._polyRenderRuns||makeAdjacentRenderRuns(data.polys,v=>`${v[1]}|${v[2]}|${v[3]}|${v[4]}`,5),visibleBounds,fastMotion,false);
     drawLineRenderRuns(data._lineRenderRuns||makeAdjacentRenderRuns(data.lines,v=>`${v[4]}|${v[5]}|${v[6]}|${v[7]}`,8),visibleBounds,fastMotion);
     drawPolylineRenderRuns(data._splineRenderRuns||makeAdjacentRenderRuns(data.splines,v=>`${v[1]}|${v[2]}|${v[3]}|${v[4]}`,5),visibleBounds,fastMotion,true);
   for(const item of data.circles){
     const [x,y,r,layer,color,width,ltype,dash]=item;
     if(!isLayerVisible(layer)||!isRenderItemVisible(item,visibleBounds)) continue;
-    if(fastMotion&&Math.abs(r*view.scale)<0.35) continue;
+    if(fastMotion&&Math.abs(r*view.scale)<tinyShapePx) continue;
     const c=worldToScreen(x,y);
     ctx.beginPath(); ctx.arc(c[0],c[1],Math.max(1,Math.abs(r*view.scale)),0,Math.PI*2);
     ctx.strokeStyle=colorFromIndex(color,layer);
@@ -4697,7 +4730,7 @@ function draw(){
   }
   for(const a of data.arcs||[]){
     if(!isLayerVisible(a.layer)||!isRenderItemVisible(a,visibleBounds)) continue;
-    if(fastMotion&&Math.abs(a.r*view.scale)<0.35) continue;
+    if(fastMotion&&Math.abs(a.r*view.scale)<tinyShapePx) continue;
     const c=worldToScreen(a.cx,a.cy);
     const sa=(-a.start-rotationDeg)*Math.PI/180;
     const sweep=sxfArcSweepDegrees(!!a.direction,a.start,a.end)*Math.PI/180;
@@ -4711,7 +4744,7 @@ function draw(){
   }
   for(const e of data.ellipses||[]){
     if(!isLayerVisible(e.layer)||!isRenderItemVisible(e,visibleBounds)) continue;
-    if(fastMotion&&Math.max(Math.abs(e.rx*view.scale),Math.abs(e.ry*view.scale))<0.35) continue;
+    if(fastMotion&&Math.max(Math.abs(e.rx*view.scale),Math.abs(e.ry*view.scale))<tinyShapePx) continue;
     const c=worldToScreen(e.cx,e.cy);
     ctx.beginPath();
     ctx.ellipse(c[0],c[1],Math.max(1,Math.abs(e.rx*view.scale)),Math.max(1,Math.abs(e.ry*view.scale)),(-(e.rot+rotationDeg))*Math.PI/180,0,Math.PI*2,false);
@@ -4723,7 +4756,7 @@ function draw(){
   }
   for(const e of data.ellipseArcs||[]){
     if(!isLayerVisible(e.layer)||!isRenderItemVisible(e,visibleBounds)) continue;
-    if(fastMotion&&Math.max(Math.abs(e.rx*view.scale),Math.abs(e.ry*view.scale))<0.35) continue;
+    if(fastMotion&&Math.max(Math.abs(e.rx*view.scale),Math.abs(e.ry*view.scale))<tinyShapePx) continue;
     const c=worldToScreen(e.cx,e.cy);
     const start=(-e.start)*Math.PI/180;
     const sweep=sxfArcSweepDegrees(!!e.direction,e.start,e.end)*Math.PI/180;
@@ -4907,7 +4940,7 @@ function applyPortraitPreference(){
 }
 function updateDrawingDependentUi(){
   const available = hasLoadedDrawing();
-  const ids = ["saveIconBtn","saveAsIconBtn","fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn","textSearchOpenBtn","layerFab","gpsDetailFab"];
+  const ids = ["fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn","textSearchOpenBtn","layerFab","gpsDetailFab"];
   ids.forEach(id=>{
     const el = document.getElementById(id);
     if (!el) return;
@@ -4963,6 +4996,8 @@ function resetSessionFromLoad(){
 }
 function clearLoadedState(){
   exitGpsOnlyBlankMode(false);
+  largeDrawingMode=false;
+  largeDrawingStats={sourceBytes:0,features:0,vertices:0};
   data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [], ellipseArcs: [], markers: [], layerNames: {}, source_name: "" };
   loadedSfcText = "";
   inkStrokes = [];
@@ -6220,6 +6255,22 @@ function bytesToLatin1String(bytes){
   return parts.join("");
 }
 async function readFileAsLatin1Text(file){
+  const size=Math.max(0,Number(file&&file.size)||0);
+  if(size>=LARGE_FILE_SOURCE_BYTES && file && typeof file.slice==="function"){
+    // 大容量時はファイル全体のArrayBufferを一度に確保しない。
+    // 2MBずつ読んで、低メモリ端末のピーク使用量を抑える。
+    const sliceSize=2*1024*1024;
+    const partCount=Math.ceil(size/sliceSize);
+    const parts=new Array(partCount);
+    for(let index=0,offset=0;offset<size;index++,offset+=sliceSize){
+      const end=Math.min(size,offset+sliceSize);
+      const buf=await file.slice(offset,end).arrayBuffer();
+      parts[index]=bytesToLatin1String(new Uint8Array(buf));
+      updateBusy(`ファイルを読み込み中… ${Math.round(end/size*100)}%`);
+      if((index&1)===1) await waitForUiPaint();
+    }
+    return parts.join("");
+  }
   const buf = await file.arrayBuffer();
   return bytesToLatin1String(new Uint8Array(buf));
 }
@@ -6311,7 +6362,7 @@ function handleLoadedHtmlPayload(payload, fileName, handleOverride){
   if (handleOverride) lastPickerHandle = handleOverride;
   lastHtmlSaveHandle = handleOverride || null;
   loadedSfcText = payload && payload.sfcText ? payload.sfcText : "";
-  data = prepareRenderMetadata(parseSfcText(loadedSfcText, fileName || (payload && payload.sourceName) || "embedded.html"));
+  data = prepareRenderMetadata(parseSfcText(loadedSfcText, fileName || (payload && payload.sourceName) || "embedded.html"),loadedSfcText.length);
   if (fileName) data.source_name = fileName;
   const count = data.lines.length + data.polys.length + data.texts.length + data.circles.length + (data.arcs?.length||0) + (data.ellipses?.length||0) + (data.ellipseArcs?.length||0);
   resetSessionFromLoad();
@@ -6350,7 +6401,7 @@ async function handleLoadedSource(srcText, fileName, handleOverride){
   lastHtmlSaveHandle = null;
   const parseStarted=performance.now();
   try{
-    data = prepareRenderMetadata(parseSfcText(srcText, fileName || "loaded.sfc"));
+    data = prepareRenderMetadata(parseSfcText(srcText, fileName || "loaded.sfc"),srcText.length);
   }catch(err){
     console.error(err);
     showToast("SFC解析に失敗しました",2600);
@@ -6373,7 +6424,10 @@ async function handleLoadedSource(srcText, fileName, handleOverride){
   restoreRecoverySnapshotIfAvailable();
   applyDefaultFullViewAfterLoad();
   gaTrackOpenSfc("sfc");
-  showToast(lastSaveHandle ? "読み込みました（上書き保存対応）" : "読み込みました");
+  const loadModeLabel=largeDrawingMode ? "大容量モード" : "通常モード";
+  showToast(lastSaveHandle
+    ? `読み込みました（${loadModeLabel}・上書き保存対応）`
+    : `読み込みました（${loadModeLabel}）`);
   }finally{
     hideBusy();
   }
@@ -6457,7 +6511,7 @@ async function handleSelectedDrawingFile(file){
 const earlyFileState=window.__sfcFileOpenState;
 if(earlyFileState){
   earlyFileState.consumeFile=file=>handleSelectedDrawingFile(file);
-  earlyFileState.openFilePicker=()=>openSfcViaPickerOrInput();
+  earlyFileState.openFilePicker=()=>setSaveMenuOpen(true);
   const pendingFile=earlyFileState.pendingFile;
   earlyFileState.pendingFile=null;
   if(pendingFile){
@@ -6749,11 +6803,6 @@ function setSaveMenuOpen(open){
   if(saveAsBtn) saveAsBtn.disabled=!hasDrawing;
   if(modal) modal.style.display=open?"flex":"none";
 }
-document.getElementById("saveIconBtn").addEventListener("click", ()=>{
-  if (!hasLoadedDrawing()) return;
-  saveRecoverySnapshot();
-  saveSfcOverwrite().catch((e)=>{ console.error(e); showToast("上書き保存に失敗しました"); });
-});
 document.getElementById("saveMenuOverwriteBtn").addEventListener("click", ()=>{
   setSaveMenuOpen(false);
   saveRecoverySnapshot();
@@ -6792,11 +6841,6 @@ document.getElementById("saveAsRawShareBtn").addEventListener("click",()=>resolv
 document.getElementById("saveAsZipShareBtn").addEventListener("click",()=>resolveGmailSaveChoice("zip"));
 document.getElementById("saveAsChoiceCancelBtn").addEventListener("click",()=>resolveSaveAsChoice(null));
 document.getElementById("saveAsChoiceModal").addEventListener("click",e=>{if(e.target.id==="saveAsChoiceModal")resolveSaveAsChoice(null);});
-document.getElementById("saveAsIconBtn").addEventListener("click", ()=>{
-  if (!hasLoadedDrawing()) return;
-  saveRecoverySnapshot();
-  saveSfcWithAnnotations().catch((e)=>{ console.error(e); showToast("別名保存を開始できませんでした"); });
-});
 document.getElementById("undoFab").addEventListener("click", ()=>{ if (inkStrokes.length){ redoStrokes.push(inkStrokes.pop()); updateUndoRedoUI(); scheduleDraw(); markMemoChanged(); } });
 document.getElementById("redoFab").addEventListener("click", ()=>{ if (redoStrokes.length){ inkStrokes.push(redoStrokes.pop()); updateUndoRedoUI(); scheduleDraw(); markMemoChanged(); } });
 
@@ -7305,6 +7349,7 @@ canvas.addEventListener("mousedown", e=>{
   dragging=true; lastX=e.clientX; lastY=e.clientY;
 });
 window.addEventListener("mouseup", ()=>{
+  const wasDragging=dragging;
   if(profileLineDrag&&profileLineDrag.pointerType==="mouse") finishProfileLineDrag();
   dragging=false;
   if(inkDrawing && currentStroke){
@@ -7314,6 +7359,7 @@ window.addEventListener("mouseup", ()=>{
     }
     currentStroke=null; inkDrawing=false; scheduleDraw();
   }
+  if(wasDragging) scheduleDraw();
 });
 window.addEventListener("mousemove", e=>{
   const ptLocal = getCanvasLocalPointFromClient(e.clientX, e.clientY);
@@ -7762,7 +7808,7 @@ if (window.__EMBED_PAYLOAD_B64__) {
       currentLoadedKind = "html";
       currentOpenHandle = null;
       loadedSfcText = payload.sfcText || "";
-      data = prepareRenderMetadata(parseSfcText(loadedSfcText, payload.sourceName || "embedded.html"));
+      data = prepareRenderMetadata(parseSfcText(loadedSfcText, payload.sourceName || "embedded.html"),loadedSfcText.length);
       data.source_name = payload.sourceName || "embedded.html";
       darkTheme = !!payload.darkTheme;
       showText = payload.showText !== false;
