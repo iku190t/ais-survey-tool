@@ -3867,6 +3867,22 @@ function getTouchByIdentifier(touchList, identifier){
   }
   return null;
 }
+function createTwoFingerGestureState(){
+  const mobile=isTouchMobileLike();
+  return {
+    rotationEngaged:false,
+    rotationAnchorRawDeg:0,
+    // Ignore the small angle change caused by placing or pinching two fingers.
+    // Rotation starts only after a deliberate twist, then ramps up gradually.
+    rotateUnlockDeg:mobile ? 20.0 : 14.0,
+    rotateContinueDeg:mobile ? 2.6 : 1.6,
+    rotateGain:mobile ? 0.46 : 0.58,
+    rotateEasePower:mobile ? 1.18 : 1.14,
+    rotateRampDeg:mobile ? 15.0 : 10.0,
+    zoomDeadzoneRatio:mobile ? 0.018 : 0.012,
+    zoomWeight:mobile ? 0.92 : 0.96
+  };
+}
 function rememberTwoFingerBaseline(t1, t2){
   const p1 = getCanvasLocalPointFromClient(t1.clientX, t1.clientY);
   const p2 = getCanvasLocalPointFromClient(t2.clientX, t2.clientY);
@@ -3890,31 +3906,11 @@ function rememberTwoFingerBaseline(t1, t2){
   pinchStartScale = view.scale;
   pinchStartAngleDeg = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
   pinchStartRotationDeg = rotationDeg;
-  twoFingerGestureState = {
-    rotationEngaged: false,
-    rotationAnchorRawDeg: 0,
-    rotateUnlockDeg: isTouchMobileLike() ? 14.2 : 10.2,
-    rotateContinueDeg: isTouchMobileLike() ? 1.8 : 1.1,
-    rotateGain: isTouchMobileLike() ? 0.58 : 0.70,
-    rotateEasePower: isTouchMobileLike() ? 1.14 : 1.10,
-    rotateRampDeg: isTouchMobileLike() ? 10.0 : 7.0,
-    zoomDeadzoneRatio: isTouchMobileLike() ? 0.018 : 0.012,
-    zoomWeight: isTouchMobileLike() ? 0.92 : 0.96
-  };
+  twoFingerGestureState = createTwoFingerGestureState();
 }
 function applyTwoFingerTransformFromTouches(t1, t2){
   if (!twoFingerStartTouches) return;
-  const state = twoFingerGestureState || {
-    rotationEngaged: false,
-    rotationAnchorRawDeg: 0,
-    rotateUnlockDeg: isTouchMobileLike() ? 14.2 : 10.2,
-    rotateContinueDeg: isTouchMobileLike() ? 1.8 : 1.1,
-    rotateGain: isTouchMobileLike() ? 0.58 : 0.70,
-    rotateEasePower: isTouchMobileLike() ? 1.14 : 1.10,
-    rotateRampDeg: isTouchMobileLike() ? 10.0 : 7.0,
-    zoomDeadzoneRatio: isTouchMobileLike() ? 0.018 : 0.012,
-    zoomWeight: isTouchMobileLike() ? 0.92 : 0.96
-  };
+  const state = twoFingerGestureState || createTwoFingerGestureState();
   const s1 = getCanvasLocalPointFromClient(t1.clientX, t1.clientY);
   const s2 = getCanvasLocalPointFromClient(t2.clientX, t2.clientY);
   const centerX = (s1.x + s2.x) / 2;
