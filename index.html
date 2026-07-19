@@ -952,7 +952,7 @@ gtag('config', 'G-88B9YPJXWP');
       <span class="photoSettingLabel">航空写真</span>
       <label class="photoSwitch"><input id="photoToggleSwitch" type="checkbox" aria-label="航空写真を表示"><span class="photoSwitchTrack"></span></label>
     </div>
-    <div id="photoTimeLabel">航空写真をONにしてください</div>
+    <div id="photoTimeLabel"></div>
     <div id="photoTimeSlider" class="disabled" role="slider" tabindex="0" aria-label="航空写真の年代" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-disabled="true">
       <div id="photoTimeTrack"><div id="photoTimeFill"></div><div id="photoTimeThumb"></div></div>
     </div>
@@ -1858,7 +1858,7 @@ function updateAerialPhotoUi(){
     photoTimeSlider.setAttribute("aria-valuetext",source?source.label:"");
     renderAerialPhotoSlider();
   }
-  if(photoTimeLabel) photoTimeLabel.textContent=source?source.label:(aerialPhotoResolveBusy?"利用できる年代を確認中…":"航空写真をONにしてください");
+  if(photoTimeLabel) photoTimeLabel.textContent=source?source.label:(aerialPhotoResolveBusy?"利用できる年代を確認中…":"");
   if(photoToggleSwitch) photoToggleSwitch.checked=aerialPhotoEnabled;
   if(photoCredit) photoCredit.classList.toggle("show",aerialPhotoEnabled);
   document.getElementById("backgroundBlackBtn")?.classList.toggle("selected",darkTheme);
