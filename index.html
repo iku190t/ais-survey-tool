@@ -381,7 +381,6 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #saveMenuActions button{min-height:44px;font-size:14px;font-weight:700;}
 #saveMenuActions .saveMenuNativeOpen{display:flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:44px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--button);color:var(--buttonText);font-size:14px;font-weight:700;cursor:pointer;}
 #saveMenuOverwriteBtn,#saveMenuSaveAsBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;}
-#saveAsIconBtn{display:none!important;}
 #saveAsChoiceActions button{min-height:44px;font-size:14px;font-weight:700;}
 #miniHint{display:none !important;}
 input[type=range]{width:110px;}
@@ -760,23 +759,21 @@ gtag('config', 'G-88B9YPJXWP');
 <body>
 <div id="topbar">
   <div id="topbarMain" class="topbar-row">
-    <button id="openIconBtn" class="fileBtn toolIconBtn" data-help-label="ファイル" title="開く・保存" aria-label="開く・保存" style="width:32px;height:32px;padding:0;">
+    <button id="openIconBtn" class="fileBtn toolIconBtn" data-help-label="開く" title="開く" aria-label="開く" style="width:32px;height:32px;padding:0;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;">
         <path d="M3.5 8.5h5.3l1.8 2H20.5v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path>
         <path d="M3.5 8.5V7a2 2 0 0 1 2-2h3.2l1.8 2h7.9a2 2 0 0 1 2 2v1.5"></path>
       </svg>
     </button>
-    <!-- iOSでは独自拡張子をacceptに指定するとSFCが灰色になり選べない場合があるため、
-         ファイル選択時は絞り込まず、選択後にアプリ側で拡張子を確認する。 -->
-    <input type="file" id="fileInput" />
-    <button id="saveIconBtn" class="toolIconBtn" data-help-label="保存" title="保存方法を選ぶ" aria-label="保存方法を選ぶ" style="width:32px;height:32px;padding:0;" hidden>
+    <input type="file" id="fileInput" accept=".sfc,.html,application/octet-stream,text/plain,text/html" />
+    <button id="saveIconBtn" class="toolIconBtn" data-help-label="上書き" title="SFC/HTMLを上書き保存" aria-label="SFC/HTMLを上書き保存" style="width:32px;height:32px;padding:0;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:21px;height:21px;">
         <path d="M5 5h12l2 2v12H5z"></path>
         <path d="M8 5v5h7V5"></path>
         <rect x="8" y="14" width="8" height="5" rx="1"></rect>
       </svg>
     </button>
-    <button id="saveAsIconBtn" class="toolIconBtn" data-help-label="別保存" title="SFC/HTMLを別名で保存" aria-label="SFC/HTMLを別名で保存" style="width:32px;height:32px;padding:0;" hidden>
+    <button id="saveAsIconBtn" class="toolIconBtn" data-help-label="別保存" title="SFC/HTMLを別名で保存" aria-label="SFC/HTMLを別名で保存" style="width:32px;height:32px;padding:0;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;">
         <path d="M5 5h11.5l2.5 2.5V19H5z"></path>
         <path d="M8 5v5h6.5V5"></path>
@@ -6378,7 +6375,6 @@ async function handleSelectedDrawingFile(file){
 document.getElementById("fileInput").addEventListener("change",async e=>{
   const file=e.target.files&&e.target.files[0];
   e.target.value="";
-  setSaveMenuOpen(false);
   await handleSelectedDrawingFile(file);
 });
 
@@ -6668,7 +6664,8 @@ function setSaveMenuOpen(open){
 }
 document.getElementById("saveIconBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
-  setSaveMenuOpen(true);
+  saveRecoverySnapshot();
+  saveSfcOverwrite().catch((e)=>{ console.error(e); showToast("上書き保存に失敗しました"); });
 });
 document.getElementById("saveMenuOverwriteBtn").addEventListener("click", ()=>{
   setSaveMenuOpen(false);
@@ -6713,7 +6710,7 @@ document.getElementById("saveAsIconBtn").addEventListener("click", ()=>{
   saveRecoverySnapshot();
   saveSfcWithAnnotations().catch((e)=>{ console.error(e); showToast("別名保存を開始できませんでした"); });
 });
-document.getElementById("openIconBtn").addEventListener("click",()=>setSaveMenuOpen(true));
+document.getElementById("openIconBtn").addEventListener("click",openSfcViaPickerOrInput);
 document.getElementById("undoFab").addEventListener("click", ()=>{ if (inkStrokes.length){ redoStrokes.push(inkStrokes.pop()); updateUndoRedoUI(); scheduleDraw(); markMemoChanged(); } });
 document.getElementById("redoFab").addEventListener("click", ()=>{ if (redoStrokes.length){ inkStrokes.push(redoStrokes.pop()); updateUndoRedoUI(); scheduleDraw(); markMemoChanged(); } });
 
