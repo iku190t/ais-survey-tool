@@ -230,6 +230,7 @@ body.context-tools-open #topbarSub{display:flex;}
 }
 
 .mobile-hide{display:none !important;}
+[hidden]{display:none !important;}
 #topbar, #topbarMain, #topbarSub, #envNotice{
   -webkit-user-select:none;
   user-select:none;
@@ -974,7 +975,7 @@ gtag('config', 'G-88B9YPJXWP');
         <div style="width:18px;height:18px;border-radius:50%;margin:0 auto 8px;background:#2f7dff;box-shadow:0 0 8px rgba(47,125,255,.35);"></div>
         <div style="font-size:13px;line-height:1.6;color:#666;font-weight:700;">青い点＝あなたの現在地</div>
       </div>
-      <label id="startupOpenBtn" for="fileInput" role="button">ファイルを開く</label>
+      <button id="startupOpenBtn" type="button">ファイルを開く</button>
     </div>
   </div>
 
@@ -3778,18 +3779,43 @@ function applyTwoFingerTransformFromTouches(t1, t2){
   twoFingerGestureState = state;
   updateCompassUi();
 }
-function getBounds(){
+function getBounds(visibleOnly=false){
   let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
   const add=(x,y)=>{ const [rx,ry]=rotatePoint(x,y,rotationDeg); minx=Math.min(minx,rx); miny=Math.min(miny,ry); maxx=Math.max(maxx,rx); maxy=Math.max(maxy,ry); };
-  for(const [x1,y1,x2,y2] of data.lines || []){ add(x1,y1); add(x2,y2); }
-  for(const [pts] of data.polys || []) for(const [x,y] of pts) add(x,y);
-  for(const [pts] of data.splines || []) for(const [x,y] of pts) add(x,y);
-  for(const [x,y,r] of data.circles || []){ add(x-r,y-r); add(x+r,y+r); }
-  for(const a of data.arcs || []){ add(a.cx-a.r,a.cy-a.r); add(a.cx+a.r,a.cy+a.r); }
-  for(const e of data.ellipses || []){ add(e.cx-e.rx,e.cy-e.ry); add(e.cx+e.rx,e.cy+e.ry); }
-  for(const e of data.ellipseArcs || []){ add(e.cx-e.rx,e.cy-e.ry); add(e.cx+e.rx,e.cy+e.ry); }
-  for(const t of data.texts || []) add(t.x, t.y);
-  for(const m of data.markers || []) add(m.x, m.y);
+  const shown=layer=>!visibleOnly||isLayerVisible(layer);
+  const sampleCircle=(cx,cy,r,startDeg=0,sweepDeg=360,steps=48)=>{
+    const count=Math.max(2,steps);
+    for(let i=0;i<=count;i++){
+      const t=(startDeg+sweepDeg*i/count)*Math.PI/180;
+      add(cx+r*Math.cos(t),cy+r*Math.sin(t));
+    }
+  };
+  const sampleEllipse=(e,startDeg=0,sweepDeg=360,steps=64)=>{
+    const rot=(+e.rot||0)*Math.PI/180,c=Math.cos(rot),s=Math.sin(rot);
+    const count=Math.max(2,steps);
+    for(let i=0;i<=count;i++){
+      const t=(startDeg+sweepDeg*i/count)*Math.PI/180;
+      const ex=(+e.rx||0)*Math.cos(t),ey=(+e.ry||0)*Math.sin(t);
+      add((+e.cx||0)+ex*c-ey*s,(+e.cy||0)+ex*s+ey*c);
+    }
+  };
+  for(const v of data.lines || []){ if(!shown(v[4]))continue; add(v[0],v[1]); add(v[2],v[3]); }
+  for(const v of data.polys || []){ if(!shown(v[1]))continue; for(const [x,y] of v[0]) add(x,y); }
+  for(const v of data.splines || []){ if(!shown(v[1]))continue; for(const [x,y] of v[0]) add(x,y); }
+  for(const v of data.circles || []){ if(!shown(v[3]))continue; sampleCircle(v[0],v[1],Math.abs(v[2])); }
+  for(const a of data.arcs || []){
+    if(!shown(a.layer))continue;
+    const sweep=sxfArcSweepDegrees(!!a.direction,a.start,a.end);
+    sampleCircle(a.cx,a.cy,Math.abs(a.r),a.start,-sweep,Math.max(8,Math.ceil(Math.abs(sweep)/7.5)));
+  }
+  for(const e of data.ellipses || []){ if(shown(e.layer))sampleEllipse(e); }
+  for(const e of data.ellipseArcs || []){
+    if(!shown(e.layer))continue;
+    const sweep=sxfArcSweepDegrees(!!e.direction,e.start,e.end);
+    sampleEllipse(e,e.start,-sweep,Math.max(8,Math.ceil(Math.abs(sweep)/7.5)));
+  }
+  for(const t of data.texts || []) if(shown(t.layer)) add(t.x, t.y);
+  for(const m of data.markers || []) if(shown(m.layer)) add(m.x, m.y);
   if(!isFinite(minx)) return {minx:0,miny:0,maxx:1,maxy:1};
   return {minx,miny,maxx,maxy};
 }
@@ -3823,16 +3849,19 @@ function getDrawingReferenceSize(){
 function fitToScreen(){
   rotationDeg = Number.isFinite(+initialLoadRotationDeg) ? +initialLoadRotationDeg : rotationDeg;
 
-  // 全体の実境界を使う（上下左右を均等にするため、trimしない）
-  const b = getBounds();
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
+  // 非表示レイヤーや円弧の存在しない部分を外し、実際に見えている図形を
+  // CAD表示領域の中央へ収める。固定px余白なのでスマホでも横幅を無駄にしない。
+  let b = getBounds(true);
+  if(!(b.maxx>b.minx)||!(b.maxy>b.miny)) b=getBounds(false);
+  const w = Math.max(1,canvas.clientWidth);
+  const h = Math.max(1,canvas.clientHeight);
 
   const bw = Math.max(1, b.maxx - b.minx);
   const bh = Math.max(1, b.maxy - b.miny);
 
-  // 90%表示（中心基準）
-  view.scale = Math.min((w * 0.9) / bw, (h * 0.9) / bh);
+  const padX=Math.min(10,Math.max(4,w*0.015));
+  const padY=Math.min(12,Math.max(5,h*0.012));
+  view.scale = Math.min(Math.max(1,w-padX*2) / bw, Math.max(1,h-padY*2) / bh);
   baseFitScale = Math.max(view.scale, 0.0001);
 
   const cx = (b.minx + b.maxx) / 2;
@@ -6200,6 +6229,7 @@ document.getElementById("fileInput").addEventListener("change", async (e)=>{
     }catch(err2){ hideBusy();showToast("読み込み失敗"); }
   }
 });
+document.getElementById("startupOpenBtn").addEventListener("click",openSfcViaPickerOrInput);
 
 document.getElementById("fitBtn").addEventListener("click", ()=>{
   if (!isDrawingActionAvailable()) return;
