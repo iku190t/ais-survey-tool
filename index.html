@@ -1003,7 +1003,7 @@ gtag('config', 'G-88B9YPJXWP');
       <button id="terrainSectionToggleBtn" type="button" aria-expanded="false"><span>地形解析</span><span class="terrainToggleMark">▼</span></button>
       <div id="terrainSectionBody">
         <div id="terrainActions">
-          <button id="terrainSlopeBtn" type="button">傾斜角</button>
+          <button id="terrainElevationBtn" type="button">標高</button>
           <button id="terrainFlowBtn" type="button">水の流れ</button>
           <button id="terrainVolumeBtn" type="button">概算土量</button>
           <button id="terrainRefreshBtn" type="button">範囲を更新</button>
@@ -1241,8 +1241,8 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">写真がない場合</div>その場所で利用できる航空写真が一枚もない場合は、メッセージを表示してスイッチをOFFへ戻します。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>SFCと航空写真を合わせるため、初回は現在地から図面の座標系を確認します。位置情報の利用を許可してください。</div>
               <div class="helpBlock"><div class="helpHead">出典</div>国土地理院の地理院タイルを通信で表示します。航空写真表示中は画面右下に出典を表示します。</div>
-              <div class="helpBlock"><div class="helpHead">地形解析</div>背景画面の<b>地形解析</b>を押すと操作欄が開き、<b>傾斜角</b>、<b>水の流れ</b>、<b>概算土量</b>を選べます。もう一度押せば小さく折りたためます。</div>
-              <div class="helpBlock"><div class="helpHead">傾斜角</div>DEMから求めた概略傾斜を、0～4度、5～14度、15～29度、30度以上の4色で表示します。</div>
+              <div class="helpBlock"><div class="helpHead">地形解析</div>背景画面の<b>地形解析</b>を押すと操作欄が開き、<b>標高</b>、<b>水の流れ</b>、<b>概算土量</b>を選べます。もう一度押せば小さく折りたためます。</div>
+              <div class="helpBlock"><div class="helpHead">標高</div>現在見えている範囲の最低標高から最高標高までを5段階に分け、低い場所を青、高い場所を赤で表示します。凡例には実際の標高値を表示します。</div>
               <div class="helpBlock"><div class="helpHead">水の流れ</div>各地点から周囲で最も低い方向を矢印表示します。排水施設を考慮した流域解析ではありません。</div>
               <div class="helpBlock"><div class="helpHead">概算土量</div>表示範囲の平均標高を基準面として切土・盛土を概算します。正式な施工数量には使用できません。</div>
               <div class="helpBlock"><div class="helpHead">精細表示と軽量化</div>表示中の範囲だけを、倍率とDEM解像度に合わせて画面で識別できる最細密度まで自動解析します。移動・拡大後は新しい表示範囲へ自動更新し、取得済みDEMキャッシュを再利用します。</div>
@@ -1571,6 +1571,7 @@ let terrainMode = "";
 let terrainLoading = false;
 let terrainRequestVersion = 0;
 let terrainReferenceElevation = null;
+let terrainElevationRange = null;
 let terrainRefreshTimer = 0;
 
 const PROFILE_TILE_CACHE = "sfc-dem-tiles-v1";
@@ -2486,21 +2487,18 @@ async function buildTerrainGrid(){
   if(valid.length<Math.ceil(points.length*.45)) throw new Error("標高データを取得できません");
   return {cols,rows,zone,points,createdAt:Date.now(),width:w,height:h,viewport};
 }
-function terrainSlopeAt(grid,row,col){
-  const left=getTerrainPoint(grid,row,Math.max(0,col-1)),right=getTerrainPoint(grid,row,Math.min(grid.cols-1,col+1));
-  const top=getTerrainPoint(grid,Math.max(0,row-1),col),bottom=getTerrainPoint(grid,Math.min(grid.rows-1,row+1),col);
-  if(!left||!right||!top||!bottom||[left,right,top,bottom].some(p=>p.elevation==null)) return null;
-  const dx=Math.hypot(right.plane.xNorth-left.plane.xNorth,right.plane.yEast-left.plane.yEast);
-  const dy=Math.hypot(bottom.plane.xNorth-top.plane.xNorth,bottom.plane.yEast-top.plane.yEast);
-  if(!(dx>0&&dy>0)) return null;
-  const gx=(right.elevation-left.elevation)/dx,gy=(bottom.elevation-top.elevation)/dy;
-  return Math.atan(Math.hypot(gx,gy))*180/Math.PI;
+const TERRAIN_ELEVATION_COLORS=[[38,103,255],[38,166,91],[241,207,54],[238,138,45],[216,68,63]];
+function calculateTerrainElevationRange(grid){
+  const values=grid.points.filter(p=>Number.isFinite(p.elevation)).map(p=>p.elevation);
+  if(!values.length)return null;
+  const min=Math.min(...values),max=Math.max(...values),span=Math.max(.01,max-min);
+  return {min,max,span,steps:Array.from({length:6},(_,i)=>min+span*i/5)};
 }
-function terrainSlopeColor(deg,alpha=.48){
-  if(deg<5)return `rgba(58,181,74,${alpha})`;
-  if(deg<15)return `rgba(247,210,55,${alpha})`;
-  if(deg<30)return `rgba(245,137,31,${alpha})`;
-  return `rgba(222,52,52,${alpha})`;
+function terrainElevationColor(value,range,alpha=.50){
+  if(!range||!Number.isFinite(value))return null;
+  const t=Math.max(0,Math.min(.999999,(value-range.min)/range.span));
+  const color=TERRAIN_ELEVATION_COLORS[Math.min(TERRAIN_ELEVATION_COLORS.length-1,Math.floor(t*TERRAIN_ELEVATION_COLORS.length))];
+  return `rgba(${color[0]},${color[1]},${color[2]},${alpha})`;
 }
 function calculateTerrainVolume(grid){
   const valid=grid.points.filter(p=>p.elevation!=null);
@@ -2515,16 +2513,18 @@ function calculateTerrainVolume(grid){
   return {reference,cut,fill,area};
 }
 function updateTerrainUi(){
-  ["slope","flow","volume"].forEach(mode=>document.getElementById(`terrain${mode[0].toUpperCase()+mode.slice(1)}Btn`)?.classList.toggle("active",terrainMode===mode));
+  ["elevation","flow","volume"].forEach(mode=>document.getElementById(`terrain${mode[0].toUpperCase()+mode.slice(1)}Btn`)?.classList.toggle("active",terrainMode===mode));
   const label=document.querySelector("#terrainSectionToggleBtn > span:first-child");
-  if(label)label.textContent=terrainLoading?"地形解析：読込中":terrainMode?`地形解析：${terrainMode==="slope"?"傾斜角":terrainMode==="flow"?"水の流れ":"概算土量"}`:"地形解析";
+  if(label)label.textContent=terrainLoading?"地形解析：読込中":terrainMode?`地形解析：${terrainMode==="elevation"?"標高":terrainMode==="flow"?"水の流れ":"概算土量"}`:"地形解析";
   updateBackgroundIconState();
 }
 function setTerrainStatus(text){const el=document.getElementById("terrainStatus");if(el)el.textContent=text||"";}
 function setTerrainLegend(mode){
   const el=document.getElementById("terrainLegend");if(!el)return;
-  if(mode==="slope"){
-    el.style.display="flex";el.innerHTML='<span class="terrainSwatch" style="background:#3ab54a"></span>0～4° <span class="terrainSwatch" style="background:#f7d237"></span>5～14° <span class="terrainSwatch" style="background:#f5891f"></span>15～29° <span class="terrainSwatch" style="background:#de3434"></span>30°以上';
+  if(mode==="elevation"&&terrainElevationRange){
+    const steps=terrainElevationRange.steps;
+    el.style.display="flex";
+    el.innerHTML=TERRAIN_ELEVATION_COLORS.map((c,i)=>`<span class="terrainSwatch" style="background:rgb(${c.join(",")})"></span>${Math.round(steps[i])}～${Math.round(steps[i+1])}m`).join(" ");
   }else if(mode==="flow"){
     el.style.display="flex";el.innerHTML='<span style="color:#00a8ff;font-weight:800">→</span> 低い方向（概略）';
   }else if(mode==="volume"){
@@ -2545,19 +2545,21 @@ async function activateTerrainMode(mode,force=false){
   if(!hasLoadedDrawing()){showToast("先に図面を開いてください");return;}
   try{
     const grid=await ensureTerrainGrid(force);if(!grid)return;
-    terrainMode=mode;setTerrainLegend(mode);
+    terrainMode=mode;
+    terrainElevationRange=mode==="elevation"?calculateTerrainElevationRange(grid):null;
+    setTerrainLegend(mode);
     const detail=`${Math.max(1,grid.cols-1)}×${Math.max(1,grid.rows-1)}区画・表示範囲を自動更新`;
     if(mode==="volume"){
       terrainReferenceElevation=calculateTerrainVolume(grid);
       const v=terrainReferenceElevation;
       setTerrainStatus(`平均標高 ${formatTerrainElevation(v.reference)} 基準・切土 約${Math.round(v.cut).toLocaleString()}m³・盛土 約${Math.round(v.fill).toLocaleString()}m³（${detail}）`);
-    }else if(mode==="slope") setTerrainStatus(`傾斜角を4段階で色分け（${detail}）`);
+    }else if(mode==="elevation") setTerrainStatus(`標高 ${formatTerrainElevation(terrainElevationRange?.min)}～${formatTerrainElevation(terrainElevationRange?.max)}を5段階で色分け（${detail}）`);
     else if(mode==="flow") setTerrainStatus(`低い方向の概略表示（${detail}）`);
     updateTerrainUi();scheduleDraw();
   }catch(e){console.error(e);setTerrainStatus(e&&e.message?e.message:"標高データを取得できません");showToast(e&&e.message?e.message:"標高データを取得できません",2400);}
 }
 function clearTerrainAnalysis(){
-  terrainRequestVersion++;terrainLoading=false;terrainGrid=null;terrainMode="";terrainReferenceElevation=null;setTerrainLegend("");
+  terrainRequestVersion++;terrainLoading=false;terrainGrid=null;terrainMode="";terrainReferenceElevation=null;terrainElevationRange=null;setTerrainLegend("");
   clearTimeout(terrainRefreshTimer);terrainRefreshTimer=0;
   setTerrainStatus("表示範囲を倍率に合わせて最も細かく解析します。");updateTerrainUi();scheduleDraw();
 }
@@ -5127,13 +5129,14 @@ function drawTerrainOverlay(){
   const staleViewport=terrainViewportNeedsRefresh(grid);
   if(staleViewport)queueTerrainViewportRefresh();
   ctx.save();
-  if(mode==="slope"||mode==="volume"){
+  if(mode==="elevation"||mode==="volume"){
     for(let r=0;r<grid.rows-1;r++)for(let c=0;c<grid.cols-1;c++){
       const ps=[getTerrainPoint(grid,r,c),getTerrainPoint(grid,r,c+1),getTerrainPoint(grid,r+1,c+1),getTerrainPoint(grid,r+1,c)];
       if(ps.some(p=>!p||p.elevation==null))continue;
       let fill;
-      if(mode==="slope"){
-        const slope=terrainSlopeAt(grid,r,c);if(slope==null)continue;fill=terrainSlopeColor(slope);
+      if(mode==="elevation"){
+        const mean=ps.reduce((s,p)=>s+p.elevation,0)/4;
+        fill=terrainElevationColor(mean,terrainElevationRange);if(!fill)continue;
       }else{
         const mean=ps.reduce((s,p)=>s+p.elevation,0)/4,ref=terrainReferenceElevation?.reference;
         if(!Number.isFinite(ref))continue;fill=mean>=ref?"rgba(225,65,55,.34)":"rgba(45,130,230,.34)";
@@ -5441,7 +5444,7 @@ function resetSessionFromLoad(){
   measureMode=false; measureType="2point";
   clearTimeout(profileRefreshTimer);profileRefreshTimer=0;profileRefreshVersion++;profileRefreshPending=false;
   profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;profileZone=null;profileTouchCandidate=null;profileLineDrag=null;
-  terrainRequestVersion++;clearTimeout(terrainRefreshTimer);terrainRefreshTimer=0;terrainGrid=null;terrainMode="";terrainLoading=false;terrainReferenceElevation=null;updateTerrainUi();
+  terrainRequestVersion++;clearTimeout(terrainRefreshTimer);terrainRefreshTimer=0;terrainGrid=null;terrainMode="";terrainLoading=false;terrainReferenceElevation=null;terrainElevationRange=null;updateTerrainUi();
   document.getElementById("terrainSection")?.classList.remove("expanded");
   document.getElementById("terrainSectionToggleBtn")?.setAttribute("aria-expanded","false");
   if(profileModal) profileModal.classList.remove("open","expanded");
@@ -7431,10 +7434,10 @@ if(profileBtn) profileBtn.addEventListener("click",()=>{
     setProfilePrompt("");updateProfileUi();updateStopBtnUI();scheduleDraw();
   }else beginProfileMode();
 });
-document.getElementById("terrainSlopeBtn")?.addEventListener("click",()=>activateTerrainMode("slope"));
+document.getElementById("terrainElevationBtn")?.addEventListener("click",()=>activateTerrainMode("elevation"));
 document.getElementById("terrainFlowBtn")?.addEventListener("click",()=>activateTerrainMode("flow"));
 document.getElementById("terrainVolumeBtn")?.addEventListener("click",()=>activateTerrainMode("volume"));
-document.getElementById("terrainRefreshBtn")?.addEventListener("click",()=>activateTerrainMode(terrainMode||"slope",true));
+document.getElementById("terrainRefreshBtn")?.addEventListener("click",()=>activateTerrainMode(terrainMode||"elevation",true));
 document.getElementById("terrainClearBtn")?.addEventListener("click",clearTerrainAnalysis);
 document.getElementById("terrainSectionToggleBtn")?.addEventListener("click",e=>{
   const section=document.getElementById("terrainSection"),expanded=section?.classList.toggle("expanded");
