@@ -748,14 +748,14 @@ gtag('config', 'G-88B9YPJXWP');
 <body>
 <div id="topbar">
   <div id="topbarMain" class="topbar-row">
-    <button id="openIconBtn" class="fileBtn toolIconBtn" data-help-label="開く" title="開く" aria-label="開く" style="width:32px;height:32px;padding:0;">
+    <button id="openIconBtn" class="fileBtn toolIconBtn" data-help-label="ファイル" title="開く・保存" aria-label="開く・保存" style="width:32px;height:32px;padding:0;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:22px;height:22px;">
         <path d="M3.5 8.5h5.3l1.8 2H20.5v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path>
         <path d="M3.5 8.5V7a2 2 0 0 1 2-2h3.2l1.8 2h7.9a2 2 0 0 1 2 2v1.5"></path>
       </svg>
     </button>
     <input type="file" id="fileInput" accept=".sfc,.html,application/octet-stream,text/plain,text/html" />
-    <button id="saveIconBtn" class="toolIconBtn" data-help-label="保存" title="保存方法を選ぶ" aria-label="保存方法を選ぶ" style="width:32px;height:32px;padding:0;">
+    <button id="saveIconBtn" class="toolIconBtn" data-help-label="保存" title="保存方法を選ぶ" aria-label="保存方法を選ぶ" style="width:32px;height:32px;padding:0;" hidden>
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:21px;height:21px;">
         <path d="M5 5h12l2 2v12H5z"></path>
         <path d="M8 5v5h7V5"></path>
@@ -1076,8 +1076,7 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="opensave">
             <div class="helpSectionTitle">開く・保存</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">開く</div><b>開く</b> でSFCまたは保存済みHTMLを選びます。読み込み後は図面全体が画面に収まり、図面に適した向きで表示されます。</div>
-              <div class="helpBlock"><div class="helpHead">保存</div><b>保存</b> を押し、<b>上書き保存</b> または <b>別名保存・メール送信</b> を選びます。</div>
+              <div class="helpBlock"><div class="helpHead">開く・保存</div><b>ファイル</b> を押し、<b>開く</b>、<b>上書き保存</b>、<b>別名保存・メール送信</b>から選びます。開くと保存は1つのボタンにまとまっています。</div>
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容をSFCまたはHTMLへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">別名保存・メール送信</div>送信先を入力して <b>SFCを直接送信</b> または <b>ZIP圧縮して直接送信</b> を選びます。送信先は端末に保存され、次回から入力不要です。初回だけGoogleアカウントの許可画面が表示されます。直接送信できない端末では従来の共有画面へ切り替わります。</div>
               <div class="helpBlock"><div class="helpHead">SFCへの書き込み</div>SFCを開いて保存すると、手書きの線は <b>「線」レイヤー</b>、丸は <b>「丸」レイヤー</b>のSFC要素として書き込みます。重要な原本は念のため別に保管してください。</div>
@@ -1110,7 +1109,7 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="measure">
             <div class="helpSectionTitle">計測</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">始め方</div><b>計測</b> を押して、2点間または3点垂直を選びます。</div>
+              <div class="helpBlock"><div class="helpHead">始め方</div><b>計測</b> を押すと、すぐに2点間測定が始まります。計測中にもう一度押すと、2点間と3点垂直を切り替えられます。</div>
               <div class="helpBlock"><div class="helpHead">点の取り方</div>計測中だけ上段に補助ボタンが現れます。丸の中心・交点・線の端点・フリー・線上を選べ、青枠のものが有効です。</div>
               <div class="helpBlock"><div class="helpHead">2点間</div>2点を取ると距離が出ます。続けて次の点を取ると、直前の2点目から新しい点までを連続して計測します。</div>
               <div class="helpBlock"><div class="helpHead">3点垂直</div>基準線の2点と、離れた1点を取ると、垂直距離を出します。</div>
@@ -1217,8 +1216,9 @@ gtag('config', 'G-88B9YPJXWP');
 
   <div id="saveMenuModal" role="dialog" aria-modal="true" aria-labelledby="saveMenuTitle">
     <div id="saveMenuBox">
-      <div id="saveMenuTitle">保存</div>
+      <div id="saveMenuTitle">開く・保存</div>
       <div id="saveMenuActions">
+        <button id="saveMenuOpenBtn" type="button">開く</button>
         <button id="saveMenuOverwriteBtn" type="button">上書き保存</button>
         <button id="saveMenuSaveAsBtn" type="button">別名保存・メール送信</button>
         <button id="saveMenuCancelBtn" type="button">閉じる</button>
@@ -2303,7 +2303,9 @@ function selectProfileWorldPoint(world){
 async function beginProfileMode(){
   if(!hasLoadedDrawing()) return;
   if(profileZoneResolving) return;
-  cancelTransientOperations("profile");
+  // A section is an exclusive operation. Clear measurement/drawing/search and
+  // their snap buttons before the asynchronous coordinate-system lookup starts.
+  cancelTransientOperations();
   closePanelsExcept();
   const requestId=++profileZoneResolveRequestId;
   profileZoneResolving=true;
@@ -6476,8 +6478,17 @@ document.addEventListener("click", (e)=>{
 }, true);
 function setSaveMenuOpen(open){
   const modal=document.getElementById("saveMenuModal");
+  const hasDrawing=hasLoadedDrawing();
+  const overwriteBtn=document.getElementById("saveMenuOverwriteBtn");
+  const saveAsBtn=document.getElementById("saveMenuSaveAsBtn");
+  if(overwriteBtn) overwriteBtn.disabled=!hasDrawing;
+  if(saveAsBtn) saveAsBtn.disabled=!hasDrawing;
   if(modal) modal.style.display=open?"flex":"none";
 }
+document.getElementById("saveMenuOpenBtn").addEventListener("click",()=>{
+  setSaveMenuOpen(false);
+  openSfcViaPickerOrInput();
+});
 document.getElementById("saveIconBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
   setSaveMenuOpen(true);
@@ -6517,7 +6528,7 @@ document.getElementById("saveAsIconBtn").addEventListener("click", ()=>{
   saveRecoverySnapshot();
   saveSfcWithAnnotations().catch((e)=>{ console.error(e); showToast("別名保存を開始できませんでした"); });
 });
-document.getElementById("openIconBtn").addEventListener("click", openSfcViaPickerOrInput);
+document.getElementById("openIconBtn").addEventListener("click",()=>setSaveMenuOpen(true));
 document.getElementById("undoFab").addEventListener("click", ()=>{ if (inkStrokes.length){ redoStrokes.push(inkStrokes.pop()); updateUndoRedoUI(); scheduleDraw(); markMemoChanged(); } });
 document.getElementById("redoFab").addEventListener("click", ()=>{ if (redoStrokes.length){ inkStrokes.push(redoStrokes.pop()); updateUndoRedoUI(); scheduleDraw(); markMemoChanged(); } });
 
@@ -6688,16 +6699,25 @@ if(profileChart){
 
 document.getElementById("measureBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
+  const wasMeasuring = measureMode;
   cancelTransientOperations("measure");
+  if (wasMeasuring) {
+    closePanelsExcept('measureMode');
+    positionMeasurePanel();
+    measureModePanel.style.display = measureModePanel.style.display==='block' ? 'none' : 'block';
+    updateStopBtnUI();
+    return;
+  }
   resetMeasureUI();
+  measureMode = true;
   measureType = "2point";
   updateModeIcons();
   updateMeasureBox();
-  closePanelsExcept('measureMode');
-  if (!measureModePanel) return;
-  positionMeasurePanel();
-  measureModePanel.style.display = measureModePanel.style.display==='block' ? 'none' : 'block';
+  closePanelsExcept();
+  if (measureModePanel) measureModePanel.style.display = 'none';
+  measureBox.style.display = "block";
   updateStopBtnUI();
+  scheduleDraw();
 });
 
 document.getElementById("measure2Btn").addEventListener("click", ()=>{
