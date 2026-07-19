@@ -766,7 +766,9 @@ gtag('config', 'G-88B9YPJXWP');
         <path d="M3.5 8.5V7a2 2 0 0 1 2-2h3.2l1.8 2h7.9a2 2 0 0 1 2 2v1.5"></path>
       </svg>
     </button>
-    <input type="file" id="fileInput" accept=".sfc,.html,application/octet-stream,text/plain,text/html" />
+    <!-- iOSでは独自拡張子をacceptに指定するとSFCが灰色になり選べない場合があるため、
+         ファイル選択時は絞り込まず、選択後にアプリ側で拡張子を確認する。 -->
+    <input type="file" id="fileInput" />
     <button id="saveIconBtn" class="toolIconBtn" data-help-label="保存" title="保存方法を選ぶ" aria-label="保存方法を選ぶ" style="width:32px;height:32px;padding:0;" hidden>
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:21px;height:21px;">
         <path d="M5 5h12l2 2v12H5z"></path>
@@ -6341,6 +6343,10 @@ async function openSfcViaPickerOrInput(){
 }
 async function handleSelectedDrawingFile(file){
   if(!file) return;
+  if(!/\.(?:sfc|html?)$/i.test(String(file.name||""))){
+    showToast("SFCまたはHTML図面を選んでください",2600);
+    return;
+  }
   showBusy("ファイルを読み込み中…");
   try{
     const srcText = await readFileAsLatin1Text(file);
