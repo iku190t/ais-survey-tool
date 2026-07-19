@@ -362,6 +362,8 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #startupBox p{margin:0 0 12px 0;font-size:14px;line-height:1.5;}
 #startupOpenBtn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:34px;padding:7px 12px;border:1px solid #333;border-radius:8px;background:#333;color:#fff;font-size:12px;font-weight:700;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #startupOpenBtn:active{transform:translateY(1px) scale(.98);filter:brightness(.92);}
+#startupOpenBtn{position:relative;overflow:hidden;}
+#startupFileInput{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:100px;}
 #saveAsChoiceModal{display:none;position:fixed;inset:0;z-index:230;background:rgba(0,0,0,.58);align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
 #saveAsChoiceBox{width:min(340px,92vw);background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;padding:16px;box-shadow:0 14px 34px rgba(0,0,0,.44);}
 #saveAsChoiceTitle{font-size:17px;font-weight:800;margin-bottom:12px;}
@@ -980,7 +982,7 @@ gtag('config', 'G-88B9YPJXWP');
         <div style="width:18px;height:18px;border-radius:50%;margin:0 auto 8px;background:#2f7dff;box-shadow:0 0 8px rgba(47,125,255,.35);"></div>
         <div style="font-size:13px;line-height:1.6;color:#666;font-weight:700;">青い点＝あなたの現在地</div>
       </div>
-      <button id="startupOpenBtn" type="button">ファイルを開く</button>
+      <label id="startupOpenBtn">ファイルを開く<input type="file" id="startupFileInput" accept=".sfc,.html,application/octet-stream,text/plain,text/html"></label>
     </div>
   </div>
 
@@ -3824,7 +3826,7 @@ function getBounds(visibleOnly=false){
   }
   for(const t of data.texts || []) if(shown(t.layer)) add(t.x, t.y);
   for(const m of data.markers || []) if(shown(m.layer)) add(m.x, m.y);
-  if(!isFinite(minx)) return {minx:0,miny:0,maxx:1,maxy:1};
+  if(!isFinite(minx)) return {minx:0,miny:0,maxx:1,maxy:1,_empty:true};
   return {minx,miny,maxx,maxy};
 }
 function getRobustBounds(){
@@ -3860,7 +3862,7 @@ function fitToScreen(){
   // 非表示レイヤーや円弧の存在しない部分を外し、実際に見えている図形を
   // CAD表示領域の中央へ収める。固定px余白なのでスマホでも横幅を無駄にしない。
   let b = getBounds(true);
-  if(!(b.maxx>b.minx)||!(b.maxy>b.miny)) b=getBounds(false);
+  if(b._empty||!(b.maxx>b.minx)||!(b.maxy>b.miny)) b=getBounds(false);
   const w = Math.max(1,canvas.clientWidth);
   const h = Math.max(1,canvas.clientHeight);
 
@@ -6147,7 +6149,9 @@ async function handleLoadedSource(srcText, fileName, handleOverride){
     return;
   }
   data._parseElapsedMs=Math.round(performance.now()-parseStarted);
-  const count = data.lines.length + data.polys.length + data.texts.length + data.circles.length;
+  const count = data.lines.length + data.polys.length + data.texts.length + data.circles.length +
+    (data.splines?.length||0) + (data.arcs?.length||0) + (data.ellipses?.length||0) +
+    (data.ellipseArcs?.length||0) + (data.markers?.length||0);
   resetSessionFromLoad();
   inkStrokes = restoreInkStrokesFromSourceText(srcText);
   redoStrokes = [];
@@ -6156,6 +6160,8 @@ async function handleLoadedSource(srcText, fileName, handleOverride){
   if(!count){ showToast("このSFCは読めません"); draw(); return; }
   rotationDeg = determineBestRotation(data);
   initialLoadRotationDeg = rotationDeg;
+  ensureLayerVisibility();
+  renderLayerList();
   migrateMemoLayerCirclesFromDataToInk();
   document.getElementById("startupModal").style.display="none";
   restoreRecoverySnapshotIfAvailable();
@@ -6204,9 +6210,7 @@ async function openSfcViaPickerOrInput(){
   }
   document.getElementById("fileInput").click();
 }
-document.getElementById("fileInput").addEventListener("change", async (e)=>{
-  const file=e.target.files[0];
-  e.target.value = "";
+async function handleSelectedDrawingFile(file){
   if(!file) return;
   showBusy("ファイルを読み込み中…");
   try{
@@ -6236,8 +6240,17 @@ document.getElementById("fileInput").addEventListener("change", async (e)=>{
       reader.readAsArrayBuffer(file);
     }catch(err2){ hideBusy();showToast("読み込み失敗"); }
   }
-});
-document.getElementById("startupOpenBtn").addEventListener("click",openSfcViaPickerOrInput);
+}
+function bindDrawingFileInput(input){
+  if(!input) return;
+  input.addEventListener("change",async e=>{
+    const file=e.target.files&&e.target.files[0];
+    e.target.value="";
+    await handleSelectedDrawingFile(file);
+  });
+}
+bindDrawingFileInput(document.getElementById("fileInput"));
+bindDrawingFileInput(document.getElementById("startupFileInput"));
 
 document.getElementById("fitBtn").addEventListener("click", ()=>{
   if (!isDrawingActionAvailable()) return;
