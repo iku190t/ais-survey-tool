@@ -1197,6 +1197,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">表示設定</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">サイズ</div><b>サイズ</b> を押すと、上部アイコンの下に機能名を表示します。もう一度押すと小さいアイコン表示へ戻ります。</div>
+              <div class="helpBlock"><div class="helpHead">コマンドの切替</div>計測・断面・手書き・検索などの作業中に別のコマンドを押すと、現在の作業を中止してから新しいコマンドへ切り替わります。</div>
               <div class="helpBlock"><div class="helpHead">背景</div>図面左上のレイヤー横にある <b>背景</b> で黒背景と白背景を切り替えます。黒・白の図形色は、背景で見えなくならないよう表示時に自動調整します。</div>
               <div class="helpBlock"><div class="helpHead">縦画面</div>このビューアーはスマートフォンの縦画面専用です。横向きにした場合は縦向きへ戻してください。</div>
             </div>
@@ -6650,6 +6651,25 @@ function cancelTransientOperations(except=""){
   updateStopBtnUI();
   scheduleDraw();
 }
+function getActiveToolbarCommandId(){
+  const hasProfileWork=!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||(profileModal&&profileModal.classList.contains("open")));
+  if(hasProfileWork) return "profileBtn";
+  if(measureMode||(measureModePanel&&measureModePanel.style.display==="block")) return "measureBtn";
+  if(inkEnabled) return "drawBtn";
+  if(textSearchPopupOpen) return "textSearchOpenBtn";
+  return "";
+}
+const toolbarCommandIds=new Set([
+  "openIconBtn","fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn",
+  "textSearchOpenBtn","sizeToggleBtn","helpBtn","layerFab","bgBtn",
+  "gpsDetailFab","supportBtn"
+]);
+document.addEventListener("click",e=>{
+  const command=e.target&&e.target.closest?e.target.closest("button,label.fileBtn"):null;
+  if(!command||!toolbarCommandIds.has(command.id)) return;
+  const activeCommandId=getActiveToolbarCommandId();
+  if(activeCommandId&&command.id!==activeCommandId) cancelTransientOperations();
+},true);
 document.getElementById("pickCenterBtn").addEventListener("click", ()=>{
   togglePickMode("center");
 });
