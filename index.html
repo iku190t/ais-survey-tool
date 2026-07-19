@@ -93,12 +93,14 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #viewerLabel{font-size:13px; font-weight:700; opacity:.9; color:var(--fg); line-height:1; white-space:nowrap; cursor:pointer; margin-top:auto; padding:0 0 1px 0;}
 #textSearchModal{display:none;position:fixed;inset:0;z-index:96;background:rgba(0,0,0,.10);align-items:flex-start;justify-content:flex-end;padding:calc(var(--topbar-height,90px) + 8px) 12px calc(10px + env(safe-area-inset-bottom)) 12px;box-sizing:border-box;pointer-events:none;}
 #textSearchModalBox{width:min(260px,68vw);max-width:260px;max-height:calc(100vh - var(--topbar-height,90px) - 24px);overflow:auto;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.28);padding:10px 10px 9px 10px;pointer-events:auto;touch-action:manipulation;}
-#profileModal{display:none;position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.58);align-items:flex-end;justify-content:center;padding:10px 10px calc(10px + env(safe-area-inset-bottom));box-sizing:border-box;}
+#profileModal{display:none;position:fixed;inset:0;z-index:120;background:transparent;align-items:flex-end;justify-content:center;padding:10px 10px calc(10px + env(safe-area-inset-bottom));box-sizing:border-box;pointer-events:none;}
 #profileModal.open{display:flex;}
-#profileBox{width:min(760px,100%);height:min(62vh,520px);min-height:330px;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;box-shadow:0 14px 34px rgba(0,0,0,.42);display:flex;flex-direction:column;overflow:hidden;}
+#profileBox{width:min(620px,94%);height:min(30vh,250px);min-height:190px;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;box-shadow:0 14px 34px rgba(0,0,0,.42);display:flex;flex-direction:column;overflow:hidden;pointer-events:auto;transition:width .16s ease,height .16s ease;}
+#profileModal.expanded #profileBox{width:min(760px,100%);height:min(62vh,520px);min-height:330px;}
 #profileHeader{display:flex;align-items:center;gap:10px;padding:10px 12px 8px;border-bottom:1px solid var(--border);}
 #profileTitle{font-size:16px;font-weight:800;white-space:nowrap;}
 #profileSummary{font-size:13px;line-height:1.45;flex:1;min-width:0;}
+#profileSizeToggleBtn{min-width:54px;height:34px;border-radius:17px;}
 #profileCloseBtn{min-width:62px;height:34px;border-radius:17px;}
 #profileChartWrap{position:relative;flex:1;min-height:0;padding:6px 8px 0;}
 #profileChart{display:block;width:100%;height:100%;touch-action:none;border-radius:9px;background:rgba(127,127,127,.06);}
@@ -124,9 +126,12 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
   text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;
 }
 @media(max-width:560px){
-  #profileBox{height:min(58vh,470px);min-height:320px;}
+  #profileBox{width:94%;height:min(29vh,235px);min-height:185px;}
+  #profileModal.expanded #profileBox{width:100%;height:min(58vh,470px);min-height:320px;}
   #profileHeader{padding:8px 9px 7px;gap:7px;}
   #profileSummary{font-size:12px;}
+  #profileTitle{font-size:14px;}
+  #profileSizeToggleBtn,#profileCloseBtn{min-width:50px;height:32px;padding:4px 8px;}
   #profileNotice{font-size:11px;padding:6px 8px 8px;}
 }
 #textSearchModalTitle{font-size:14px;font-weight:700;margin:0 0 5px 0;}
@@ -922,6 +927,7 @@ gtag('config', 'G-88B9YPJXWP');
       <div id="profileHeader">
         <div id="profileTitle">地形断面</div>
         <div id="profileSummary">断面データを取得しています</div>
+        <button id="profileSizeToggleBtn" type="button">拡大</button>
         <button id="profileCloseBtn" type="button">閉じる</button>
       </div>
       <div id="profileChartWrap">
@@ -1127,7 +1133,8 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="profile">
             <div class="helpSectionTitle">地形断面</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">使い方</div><b>断面</b>を押し、図面上で起点と終点を順にタップすると自動で断面図を表示します。</div>
+              <div class="helpBlock"><div class="helpHead">使い方</div><b>断面</b>を押し、図面上で起点と終点を順にタップすると自動で断面図を表示します。起点・終点はそれぞれドラッグでき、線の途中をドラッグすると断面線全体を移動できます。</div>
+              <div class="helpBlock"><div class="helpHead">断面図の大きさ</div>最初は図面上の断面線が見える小表示です。<b>拡大／縮小</b>で断面図の大きさを切り替えられます。</div>
               <div class="helpBlock"><div class="helpHead">グラフ</div>横軸と縦軸は同じ縮尺（縦横1:1）です。延長と高低差を表示します。1本指でなぞると図面上の対応位置が分かり、2本指で拡大縮小・移動できます。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>断面を押すと現在地から図面の座標系を自動判定します。iPhoneから確認が出た場合は位置情報を許可してください。判定中・起点・終点の案内は図面上部に表示されます。</div>
               <div class="helpBlock"><div class="helpHead">通信とキャッシュ</div>初回は国土地理院の標高タイルを取得します。同じ場所付近は端末内キャッシュを再利用します。通信できずキャッシュもない場合は表示できません。</div>
@@ -1226,7 +1233,7 @@ gtag('config', 'G-88B9YPJXWP');
     <div id="saveMenuBox">
       <div id="saveMenuTitle">開く・保存</div>
       <div id="saveMenuActions">
-        <label id="saveMenuOpenBtn" class="saveMenuNativeOpen" for="fileInput">開く</label>
+        <button id="saveMenuOpenBtn" class="saveMenuNativeOpen" type="button">開く</button>
         <button id="saveMenuOverwriteBtn" type="button">上書き保存</button>
         <button id="saveMenuSaveAsBtn" type="button">別名保存・メール送信</button>
         <button id="saveMenuCancelBtn" type="button">閉じる</button>
@@ -1499,6 +1506,12 @@ let profileGraphOffsetY = 0;
 const profileTileMemoryCache = new Map();
 const profileGraphPointers = new Map();
 let profileGraphGesture = null;
+let profileLineDrag = null;
+let profileRefreshTimer = 0;
+let profileRefreshBusy = false;
+let profileRefreshPending = false;
+let profileRefreshVersion = 0;
+let profileRefreshLastRun = 0;
 
 const PROFILE_TILE_CACHE = "sfc-dem-tiles-v1";
 const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v1";
@@ -1558,6 +1571,7 @@ const photoStatus = document.getElementById("photoStatus");
 const photoToggleSwitch = document.getElementById("photoToggleSwitch");
 const photoCredit = document.getElementById("photoCredit");
 const profileCloseBtn = document.getElementById("profileCloseBtn");
+const profileSizeToggleBtn = document.getElementById("profileSizeToggleBtn");
 const profileSummary = document.getElementById("profileSummary");
 const profileChart = document.getElementById("profileChart");
 const profileLoading = document.getElementById("profileLoading");
@@ -2147,7 +2161,8 @@ function formatProfileDistance(m){
   return m>=1000?`${(m/1000).toFixed(2)}km`:`${m.toFixed(m<100?1:0)}m`;
 }
 function updateProfileUi(){
-  if(profileBtn) profileBtn.classList.toggle("profileActive",profileMode);
+  const active=!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||(profileModal&&profileModal.classList.contains("open")));
+  if(profileBtn) profileBtn.classList.toggle("profileActive",active);
 }
 function setProfilePrompt(text, isError=false, autoHideMs=0){
   if(!profilePrompt) return;
@@ -2163,6 +2178,7 @@ function closeProfileModal(){
   if(profileModal) profileModal.classList.remove("open");
   setProfilePrompt("");
   profileHoverWorld=null;
+  profileLineDrag=null;
   profileGraphPointers.clear();
   profileGraphGesture=null;
   updateStopBtnUI();
@@ -2170,8 +2186,16 @@ function closeProfileModal(){
 }
 function openProfileModal(loading){
   if(!profileModal) return;
+  profileModal.classList.remove("expanded");
   profileModal.classList.add("open");
+  if(profileSizeToggleBtn) profileSizeToggleBtn.textContent="拡大";
   profileLoading?.classList.toggle("show",!!loading);
+  requestAnimationFrame(()=>{resizeProfileChart();drawProfileChart();});
+}
+function toggleProfileModalSize(){
+  if(!profileModal) return;
+  const expanded=profileModal.classList.toggle("expanded");
+  if(profileSizeToggleBtn) profileSizeToggleBtn.textContent=expanded?"縮小":"拡大";
   requestAnimationFrame(()=>{resizeProfileChart();drawProfileChart();});
 }
 function resetProfileGraphView(){
@@ -2282,19 +2306,115 @@ function updateProfileSummary(){
   const diff=first&&last?last.elevation-first.elevation:0;
   profileSummary.textContent=`延長 ${formatProfileDistance(profileData.length)}　高低差 ${diff>=0?"+":""}${diff.toFixed(2)}m　縦横1:1`;
 }
+function sameProfilePoint(a,b){
+  return !!(a&&b&&Math.abs(a.x-b.x)<1e-7&&Math.abs(a.y-b.y)<1e-7);
+}
+async function runQueuedProfileRefresh(){
+  profileRefreshTimer=0;
+  if(profileRefreshBusy||!profileStartWorld||!profileEndWorld||!profileZone) return;
+  profileRefreshBusy=true;
+  profileRefreshPending=false;
+  profileRefreshLastRun=Date.now();
+  const version=profileRefreshVersion;
+  const start={...profileStartWorld},end={...profileEndWorld};
+  if(profileSummary&&profileData) profileSummary.textContent="断面を更新しています…";
+  let next=null;
+  try{ next=await buildProfileData(start,end,profileZone); }
+  catch(e){ console.error(e); }
+  const isLatest=version===profileRefreshVersion&&sameProfilePoint(start,profileStartWorld)&&sameProfilePoint(end,profileEndWorld);
+  if(next&&isLatest){
+    profileData=next;
+    resetProfileGraphView();
+    updateProfileSummary();
+    drawProfileChart();
+    scheduleDraw();
+  }else if(!next&&isLatest){
+    updateProfileSummary();
+    showToast("標高データを更新できませんでした",1800);
+  }
+  profileRefreshBusy=false;
+  if(profileRefreshPending||version!==profileRefreshVersion) queueProfileRefresh(true);
+}
+function queueProfileRefresh(immediate=false){
+  if(!profileStartWorld||!profileEndWorld||!profileZone) return;
+  profileRefreshPending=true;
+  profileRefreshVersion++;
+  if(profileRefreshBusy||profileRefreshTimer) return;
+  const delay=immediate?0:Math.max(0,160-(Date.now()-profileRefreshLastRun));
+  profileRefreshTimer=setTimeout(runQueuedProfileRefresh,delay);
+}
+function profileDistanceToSegment(px,py,ax,ay,bx,by){
+  const dx=bx-ax,dy=by-ay;
+  if(Math.abs(dx)+Math.abs(dy)<1e-7) return Math.hypot(px-ax,py-ay);
+  const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy)));
+  return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));
+}
+function profileLineHitAtScreen(screenX,screenY){
+  if(profileMode||!profileStartWorld||!profileEndWorld) return "";
+  const a=worldToScreen(profileStartWorld.x,profileStartWorld.y);
+  const b=worldToScreen(profileEndWorld.x,profileEndWorld.y);
+  if(Math.hypot(screenX-a[0],screenY-a[1])<=22) return "start";
+  if(Math.hypot(screenX-b[0],screenY-b[1])<=22) return "end";
+  if(profileDistanceToSegment(screenX,screenY,a[0],a[1],b[0],b[1])<=16) return "line";
+  return "";
+}
+function beginProfileLineDrag(screenX,screenY,pointerType){
+  const kind=profileLineHitAtScreen(screenX,screenY);
+  if(!kind) return false;
+  const anchor=screenToWorld(screenX,screenY);
+  profileLineDrag={
+    kind,pointerType,
+    anchorWorld:{x:anchor[0],y:anchor[1]},
+    originalStart:{...profileStartWorld},
+    originalEnd:{...profileEndWorld}
+  };
+  profileHoverWorld=null;
+  return true;
+}
+function moveProfileLineDrag(screenX,screenY){
+  if(!profileLineDrag) return false;
+  const world=screenToWorld(screenX,screenY);
+  if(profileLineDrag.kind==="start") profileStartWorld={x:world[0],y:world[1]};
+  else if(profileLineDrag.kind==="end") profileEndWorld={x:world[0],y:world[1]};
+  else{
+    const dx=world[0]-profileLineDrag.anchorWorld.x,dy=world[1]-profileLineDrag.anchorWorld.y;
+    profileStartWorld={x:profileLineDrag.originalStart.x+dx,y:profileLineDrag.originalStart.y+dy};
+    profileEndWorld={x:profileLineDrag.originalEnd.x+dx,y:profileLineDrag.originalEnd.y+dy};
+  }
+  queueProfileRefresh(false);
+  scheduleDraw();
+  return true;
+}
+function finishProfileLineDrag(){
+  if(!profileLineDrag) return false;
+  profileLineDrag=null;
+  suppressClickUntil=Date.now()+500;
+  queueProfileRefresh(true);
+  scheduleDraw();
+  return true;
+}
 async function completeProfileSelection(){
   if(!profileStartWorld||!profileEndWorld||!profileZone) return;
   profileMode=false;updateProfileUi();resetProfileGraphView();
   setProfilePrompt("");
   if(profileSummary) profileSummary.textContent="断面データを取得しています";
   openProfileModal(true);
+  clearTimeout(profileRefreshTimer);profileRefreshTimer=0;
+  profileRefreshPending=false;profileRefreshBusy=true;
+  const version=++profileRefreshVersion;
+  const start={...profileStartWorld},end={...profileEndWorld};
+  let next=null;
   try{
-    profileData=await buildProfileData(profileStartWorld,profileEndWorld,profileZone);
-  }catch(e){console.error(e);profileData=null;}
+    next=await buildProfileData(start,end,profileZone);
+  }catch(e){console.error(e);}
   profileLoading?.classList.remove("show");
-  if(!profileData){
+  const isLatest=version===profileRefreshVersion&&sameProfilePoint(start,profileStartWorld)&&sameProfilePoint(end,profileEndWorld);
+  profileRefreshBusy=false;
+  if(next&&isLatest) profileData=next;
+  if(!next&&isLatest){
     closeProfileModal();showToast("標高データを取得できません",2600);return;
   }
+  if(!isLatest){ queueProfileRefresh(true);return; }
   updateProfileSummary();drawProfileChart();scheduleDraw();
   updateStopBtnUI();
 }
@@ -3142,7 +3262,8 @@ function updateStopBtnUI(){
   const panelOpen = !!(measureModePanel && measureModePanel.style.display === "block");
   const hasProfileLine = !!(profileStartWorld || profileEndWorld || profileData);
   const profileToolsActive = !!(profileZoneResolving || profileMode || hasProfileLine || (profileModal && profileModal.classList.contains("open")));
-  const active = !!(measureMode || inkEnabled || panelOpen || profileZoneResolving || profileMode || hasProfileLine);
+  // 断面は図面上の線と小型ウインドウで操作できるため、上段の「閉じる」は出さない。
+  const active = !!(measureMode || inkEnabled || panelOpen);
   const showSnapTools = !profileToolsActive && !!(measureMode || inkEnabled);
   const subbar = document.getElementById("topbarSub");
   const wasOpen = document.body.classList.contains("context-tools-open");
@@ -4741,7 +4862,9 @@ function resetSessionFromLoad(){
   if (textSearchInput) textSearchInput.value = "";
   resetMeasureUI();
   measureMode=false; measureType="2point";
-  profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;profileZone=null;profileTouchCandidate=null;
+  clearTimeout(profileRefreshTimer);profileRefreshTimer=0;profileRefreshVersion++;profileRefreshPending=false;
+  profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;profileZone=null;profileTouchCandidate=null;profileLineDrag=null;
+  if(profileModal) profileModal.classList.remove("open","expanded");
   aerialPhotoEnableRequestId++;aerialPhotoEnabled=false;aerialPhotoZone=null;aerialPhotoResolveBusy=false;
   aerialAvailableSources=[];aerialPhotoSourceIndex=0;aerialPhotoAvailabilityKey="";
   inkEnabled=false; inkDrawing=false; currentStroke=null; pendingTouchInk=null; suppressTouchInkUntil=0;
@@ -6553,6 +6676,14 @@ document.getElementById("saveMenuSaveAsBtn").addEventListener("click", ()=>{
 });
 document.getElementById("saveMenuCancelBtn").addEventListener("click",()=>setSaveMenuOpen(false));
 document.getElementById("saveMenuModal").addEventListener("click",e=>{if(e.target.id==="saveMenuModal")setSaveMenuOpen(false);});
+document.getElementById("saveMenuOpenBtn").addEventListener("click",e=>{
+  e.preventDefault();
+  const input=document.getElementById("fileInput");
+  if(input) input.value="";
+  setSaveMenuOpen(false);
+  // iPhoneのユーザー操作中に直接起動し、初期画面と同じ入力欄を使う。
+  openSfcViaPickerOrInput();
+});
 function resolveGmailSaveChoice(mode){
   if(!getGmailOAuthClientId()){
     resolveSaveAsChoice(mode);
@@ -6634,6 +6765,10 @@ function cancelTransientOperations(except=""){
     if(measureModePanel) measureModePanel.style.display="none";
   }
   if(except!=="profile"){
+    clearTimeout(profileRefreshTimer);
+    profileRefreshTimer=0;
+    profileRefreshVersion++;
+    profileRefreshPending=false;
     profileZoneResolveRequestId++;
     profileZoneResolving=false;
     profileMode=false;
@@ -6642,6 +6777,7 @@ function cancelTransientOperations(except=""){
     profileHoverWorld=null;
     profileData=null;
     profileTouchCandidate=null;
+    profileLineDrag=null;
     if(profileModal) profileModal.classList.remove("open");
     setProfilePrompt("");
   }
@@ -6695,6 +6831,7 @@ if(profileBtn) profileBtn.addEventListener("click",()=>{
   }else beginProfileMode();
 });
 if(profileCloseBtn) profileCloseBtn.addEventListener("click",()=>cancelTransientOperations());
+if(profileSizeToggleBtn) profileSizeToggleBtn.addEventListener("click",toggleProfileModalSize);
 if(profileModal) profileModal.addEventListener("click",e=>{if(e.target===profileModal)cancelTransientOperations();});
 if(profileChart){
   const traceProfileAtClientX=clientX=>{
@@ -7038,6 +7175,14 @@ canvas.addEventListener("mousedown", e=>{
     lastY = e.clientY;
     return;
   }
+  if(e.button===0){
+    const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
+    if(beginProfileLineDrag(local.x,local.y,"mouse")){
+      e.preventDefault();
+      dragging=false;
+      return;
+    }
+  }
   if(profileMode&&e.button===0) return;
   if(inkEnabled && !measureMode && e.button === 0){
     const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
@@ -7071,6 +7216,7 @@ canvas.addEventListener("mousedown", e=>{
   dragging=true; lastX=e.clientX; lastY=e.clientY;
 });
 window.addEventListener("mouseup", ()=>{
+  if(profileLineDrag&&profileLineDrag.pointerType==="mouse") finishProfileLineDrag();
   dragging=false;
   if(inkDrawing && currentStroke){
     if (currentStroke.points && currentStroke.points.length>=2) {
@@ -7083,6 +7229,11 @@ window.addEventListener("mouseup", ()=>{
 window.addEventListener("mousemove", e=>{
   const ptLocal = getCanvasLocalPointFromClient(e.clientX, e.clientY);
   const ox = ptLocal.x, oy = ptLocal.y;
+
+  if(profileLineDrag&&profileLineDrag.pointerType==="mouse"){
+    moveProfileLineDrag(ox,oy);
+    return;
+  }
 
   if(profileMode&&!dragging){
     const p=screenToWorld(ox,oy);profileHoverWorld={x:p[0],y:p[1]};scheduleDraw();return;
@@ -7168,6 +7319,7 @@ canvas.addEventListener("click", e=>{
 canvas.addEventListener("touchstart", e=>{
   const now = Date.now();
   if(e.touches.length===2){
+    if(profileLineDrag&&profileLineDrag.pointerType==="touch") finishProfileLineDrag();
     pendingTouchInk = null;
     suppressTouchInkUntil = now + 420;
     if(inkDrawing && currentStroke){
@@ -7187,6 +7339,14 @@ canvas.addEventListener("touchstart", e=>{
   if(now < suppressTouchInkUntil) { touchTapCandidate=null; touchPanCandidate=null; return; }
   const ptLocal = getCanvasLocalPointFromClient(e.touches[0].clientX, e.touches[0].clientY);
   const x=ptLocal.x, y=ptLocal.y;
+
+  if(beginProfileLineDrag(x,y,"touch")){
+    profileTouchCandidate=null;
+    touchPanCandidate=null;
+    touchPanMoved=false;
+    e.preventDefault();
+    return;
+  }
 
   if(profileMode){
     profileTouchCandidate={clientX:e.touches[0].clientX,clientY:e.touches[0].clientY,screenX:x,screenY:y};
@@ -7271,6 +7431,12 @@ canvas.addEventListener("touchmove", e=>{
   if(e.touches.length!==1) return;
   const ptLocal = getCanvasLocalPointFromClient(e.touches[0].clientX, e.touches[0].clientY);
   const x=ptLocal.x, y=ptLocal.y;
+
+  if(profileLineDrag&&profileLineDrag.pointerType==="touch"){
+    moveProfileLineDrag(x,y);
+    e.preventDefault();
+    return;
+  }
 
   if(touchMode==="onefingerzoom"&&oneFingerZoomGesture){
     const clientY=e.touches[0].clientY;
@@ -7366,6 +7532,10 @@ canvas.addEventListener("touchend", e=>{
     suppressTouchInkUntil = Date.now() + 420;
     scheduleDraw();
   }
+  if(profileLineDrag&&profileLineDrag.pointerType==="touch"&&e.touches.length===0){
+    finishProfileLineDrag();
+    return;
+  }
   if(touchMode==="onefingerzoom"&&oneFingerZoomGesture&&e.touches.length===0){
     if(!oneFingerZoomGesture.moved){
       setScaleAroundScreenPoint(oneFingerZoomGesture.anchorX,oneFingerZoomGesture.anchorY,oneFingerZoomGesture.startScale*1.7);
@@ -7457,6 +7627,7 @@ canvas.addEventListener("touchcancel", ()=>{
   pendingTouchInk = null;
   suppressTouchInkUntil = Date.now() + 420;
   touchMode = "";
+  if(profileLineDrag&&profileLineDrag.pointerType==="touch") finishProfileLineDrag();
   if(inkDrawing && currentStroke){
     if (currentStroke.points && currentStroke.points.length>=2) {
       inkStrokes.push(currentStroke); redoStrokes=[]; updateUndoRedoUI();
