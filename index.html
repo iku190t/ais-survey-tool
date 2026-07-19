@@ -766,6 +766,34 @@ gtag('config', 'G-88B9YPJXWP');
       </svg>
     </button>
     <input type="file" id="fileInput" accept=".sfc,.html,application/octet-stream,text/plain,text/html" />
+    <script>
+    (()=>{
+      const input=document.getElementById("fileInput");
+      const openBtn=document.getElementById("openIconBtn");
+      const state=window.__sfcFileOpenState={pendingFile:null,consumeFile:null,openFilePicker:null};
+      input.value="";
+      input.addEventListener("click",()=>{ input.value=""; });
+      input.addEventListener("change",e=>{
+        const file=e.target.files&&e.target.files[0];
+        e.target.value="";
+        if(!file) return;
+        if(typeof state.consumeFile==="function"){
+          Promise.resolve(state.consumeFile(file)).catch(console.error);
+        }else{
+          state.pendingFile=file;
+        }
+      });
+      openBtn.addEventListener("click",e=>{
+        e.preventDefault();
+        if(typeof state.openFilePicker==="function"){
+          Promise.resolve(state.openFilePicker()).catch(console.error);
+        }else{
+          input.value="";
+          input.click();
+        }
+      });
+    })();
+    </script>
     <button id="saveIconBtn" class="toolIconBtn" data-help-label="上書き" title="SFC/HTMLを上書き保存" aria-label="SFC/HTMLを上書き保存" style="width:32px;height:32px;padding:0;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:21px;height:21px;">
         <path d="M5 5h12l2 2v12H5z"></path>
@@ -3910,42 +3938,96 @@ function applyTwoFingerTransformFromTouches(t1, t2){
 }
 function getBounds(visibleOnly=false){
   let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
-  const add=(x,y)=>{ const [rx,ry]=rotatePoint(x,y,rotationDeg); minx=Math.min(minx,rx); miny=Math.min(miny,ry); maxx=Math.max(maxx,rx); maxy=Math.max(maxy,ry); };
+  const DEG=Math.PI/180;
+  const ANGLE_EPS=1e-10;
+  const globalRotation=+rotationDeg||0;
+  const globalRad=globalRotation*DEG;
+  const globalCos=Math.cos(globalRad),globalSin=Math.sin(globalRad);
+  const addRotated=(x,y)=>{
+    if(!Number.isFinite(x)||!Number.isFinite(y)) return;
+    minx=Math.min(minx,x); miny=Math.min(miny,y);
+    maxx=Math.max(maxx,x); maxy=Math.max(maxy,y);
+  };
+  const add=(x,y)=>{
+    x=+x; y=+y;
+    if(!Number.isFinite(x)||!Number.isFinite(y)) return;
+    addRotated(x*globalCos-y*globalSin,x*globalSin+y*globalCos);
+  };
+  const rotatedCenter=(cx,cy)=>{
+    cx=+cx||0; cy=+cy||0;
+    return [cx*globalCos-cy*globalSin,cx*globalSin+cy*globalCos];
+  };
+  const normalizeDegrees=value=>((value%360)+360)%360;
+  const positiveDelta=(from,to)=>{
+    const delta=normalizeDegrees(to-from);
+    return 360-delta<=ANGLE_EPS?0:delta;
+  };
+  const angleOnSweep=(angle,start,signedSweep)=>{
+    if(Math.abs(signedSweep)>=360-ANGLE_EPS) return true;
+    return signedSweep>=0
+      ? positiveDelta(start,angle)<=signedSweep+ANGLE_EPS
+      : positiveDelta(angle,start)<=-signedSweep+ANGLE_EPS;
+  };
+  const addFullCircle=(cx,cy,r)=>{
+    const [x,y]=rotatedCenter(cx,cy),radius=Math.abs(+r||0);
+    addRotated(x-radius,y-radius); addRotated(x+radius,y+radius);
+  };
+  const addCircleArc=(arc,signedSweep)=>{
+    const [cx,cy]=rotatedCenter(arc.cx,arc.cy);
+    const radius=Math.abs(+arc.r||0),start=+arc.start||0;
+    const addAt=angle=>{
+      const theta=(angle+globalRotation)*DEG;
+      addRotated(cx+radius*Math.cos(theta),cy+radius*Math.sin(theta));
+    };
+    addAt(start); addAt(start+signedSweep);
+    for(const cardinal of [0,90,180,270]){
+      const candidate=cardinal-globalRotation;
+      if(angleOnSweep(candidate,start,signedSweep)) addAt(candidate);
+    }
+  };
+  const ellipseTerms=e=>{
+    const [cx,cy]=rotatedCenter(e.cx,e.cy);
+    const rx=Math.abs(+e.rx||0),ry=Math.abs(+e.ry||0);
+    const phi=((+e.rot||0)+globalRotation)*DEG;
+    const cp=Math.cos(phi),sp=Math.sin(phi);
+    return {cx,cy,A:rx*cp,B:-ry*sp,C:rx*sp,D:ry*cp};
+  };
+  const addFullEllipse=e=>{
+    const q=ellipseTerms(e);
+    const extentX=Math.hypot(q.A,q.B),extentY=Math.hypot(q.C,q.D);
+    addRotated(q.cx-extentX,q.cy-extentY);
+    addRotated(q.cx+extentX,q.cy+extentY);
+  };
+  const addEllipseArc=(e,signedSweep)=>{
+    const q=ellipseTerms(e),start=+e.start||0;
+    const addAt=angle=>{
+      const theta=angle*DEG,c=Math.cos(theta),s=Math.sin(theta);
+      addRotated(q.cx+q.A*c+q.B*s,q.cy+q.C*c+q.D*s);
+    };
+    addAt(start); addAt(start+signedSweep);
+    const xExtreme=Math.atan2(q.B,q.A)/DEG;
+    const yExtreme=Math.atan2(q.D,q.C)/DEG;
+    for(const candidate of [xExtreme,xExtreme+180,yExtreme,yExtreme+180]){
+      if(angleOnSweep(candidate,start,signedSweep)) addAt(candidate);
+    }
+  };
   const shown=layer=>!visibleOnly||isLayerVisible(layer);
-  const sampleCircle=(cx,cy,r,startDeg=0,sweepDeg=360,steps=48)=>{
-    const count=Math.max(2,steps);
-    for(let i=0;i<=count;i++){
-      const t=(startDeg+sweepDeg*i/count)*Math.PI/180;
-      add(cx+r*Math.cos(t),cy+r*Math.sin(t));
-    }
-  };
-  const sampleEllipse=(e,startDeg=0,sweepDeg=360,steps=64)=>{
-    const rot=(+e.rot||0)*Math.PI/180,c=Math.cos(rot),s=Math.sin(rot);
-    const count=Math.max(2,steps);
-    for(let i=0;i<=count;i++){
-      const t=(startDeg+sweepDeg*i/count)*Math.PI/180;
-      const ex=(+e.rx||0)*Math.cos(t),ey=(+e.ry||0)*Math.sin(t);
-      add((+e.cx||0)+ex*c-ey*s,(+e.cy||0)+ex*s+ey*c);
-    }
-  };
   for(const v of data.lines || []){ if(!shown(v[4]))continue; add(v[0],v[1]); add(v[2],v[3]); }
   for(const v of data.polys || []){ if(!shown(v[1]))continue; for(const [x,y] of v[0]) add(x,y); }
   for(const v of data.splines || []){ if(!shown(v[1]))continue; for(const [x,y] of v[0]) add(x,y); }
-  for(const v of data.circles || []){ if(!shown(v[3]))continue; sampleCircle(v[0],v[1],Math.abs(v[2])); }
+  for(const v of data.circles || []){ if(shown(v[3])) addFullCircle(v[0],v[1],v[2]); }
   for(const a of data.arcs || []){
     if(!shown(a.layer))continue;
-    const sweep=sxfArcSweepDegrees(!!a.direction,a.start,a.end);
-    sampleCircle(a.cx,a.cy,Math.abs(a.r),a.start,-sweep,Math.max(8,Math.ceil(Math.abs(sweep)/7.5)));
+    addCircleArc(a,-sxfArcSweepDegrees(!!a.direction,a.start,a.end));
   }
-  for(const e of data.ellipses || []){ if(shown(e.layer))sampleEllipse(e); }
+  for(const e of data.ellipses || []){ if(shown(e.layer)) addFullEllipse(e); }
   for(const e of data.ellipseArcs || []){
     if(!shown(e.layer))continue;
-    const sweep=sxfArcSweepDegrees(!!e.direction,e.start,e.end);
-    sampleEllipse(e,e.start,-sweep,Math.max(8,Math.ceil(Math.abs(sweep)/7.5)));
+    addEllipseArc(e,-sxfArcSweepDegrees(!!e.direction,e.start,e.end));
   }
   for(const t of data.texts || []) if(shown(t.layer)) add(t.x, t.y);
   for(const m of data.markers || []) if(shown(m.layer)) add(m.x, m.y);
-  if(!isFinite(minx)) return {minx:0,miny:0,maxx:1,maxy:1,_empty:true};
+  if(!Number.isFinite(minx)) return {minx:0,miny:0,maxx:1,maxy:1,_empty:true};
   return {minx,miny,maxx,maxy};
 }
 function getRobustBounds(){
@@ -4007,7 +4089,7 @@ function applyDefaultFullViewAfterLoad(){
   // same calculation as the 全体表示 button.
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     updateWrapLayout();
-    resize();
+    resize(false);
     fitToScreen();
   }));
 }
@@ -4778,7 +4860,7 @@ function draw(){
     ctx.lineWidth=1.5; ctx.stroke();
   }
 }
-function resize(){
+function resize(redraw=true){
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
   const cssW = Math.max(1, Math.round(rect.width || canvas.clientWidth || 1));
@@ -4790,7 +4872,7 @@ function resize(){
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  draw();
+  if(redraw) draw();
 }
 
 function hasLoadedDrawing(){
@@ -4874,7 +4956,6 @@ function resetSessionFromLoad(){
   updatePickStatus();
   if (supportPanel) supportPanel.style.display = "none";
   updateStopBtnUI();
-  ensureLayerVisibility();
   renderLayerList();
   updateMeasureBox();
   updateGpsUi();
@@ -6246,7 +6327,6 @@ function handleLoadedHtmlPayload(payload, fileName, handleOverride){
   rotationDeg = Number.isFinite(+(payload && payload.rotationDeg)) ? +(payload && payload.rotationDeg) : determineBestRotation(data);
   initialLoadRotationDeg = rotationDeg;
   updateThemeUI();
-  ensureLayerVisibility();
   renderLayerList();
   document.getElementById("startupModal").style.display="none";
   migrateMemoLayerCirclesFromDataToInk();
@@ -6288,8 +6368,6 @@ async function handleLoadedSource(srcText, fileName, handleOverride){
   if(!count){ showToast("このSFCは読めません"); draw(); return; }
   rotationDeg = determineBestRotation(data);
   initialLoadRotationDeg = rotationDeg;
-  ensureLayerVisibility();
-  renderLayerList();
   migrateMemoLayerCirclesFromDataToInk();
   document.getElementById("startupModal").style.display="none";
   restoreRecoverySnapshotIfAvailable();
@@ -6336,7 +6414,11 @@ async function openSfcViaPickerOrInput(){
       console.error(e);
     }
   }
-  document.getElementById("fileInput").click();
+  const input=document.getElementById("fileInput");
+  if(input){
+    input.value="";
+    input.click();
+  }
 }
 async function handleSelectedDrawingFile(file){
   if(!file) return;
@@ -6372,11 +6454,16 @@ async function handleSelectedDrawingFile(file){
     }catch(err2){ hideBusy();showToast("読み込み失敗"); }
   }
 }
-document.getElementById("fileInput").addEventListener("change",async e=>{
-  const file=e.target.files&&e.target.files[0];
-  e.target.value="";
-  await handleSelectedDrawingFile(file);
-});
+const earlyFileState=window.__sfcFileOpenState;
+if(earlyFileState){
+  earlyFileState.consumeFile=file=>handleSelectedDrawingFile(file);
+  earlyFileState.openFilePicker=()=>openSfcViaPickerOrInput();
+  const pendingFile=earlyFileState.pendingFile;
+  earlyFileState.pendingFile=null;
+  if(pendingFile){
+    Promise.resolve(earlyFileState.consumeFile(pendingFile)).catch(console.error);
+  }
+}
 
 document.getElementById("fitBtn").addEventListener("click", ()=>{
   if (!isDrawingActionAvailable()) return;
@@ -6710,7 +6797,6 @@ document.getElementById("saveAsIconBtn").addEventListener("click", ()=>{
   saveRecoverySnapshot();
   saveSfcWithAnnotations().catch((e)=>{ console.error(e); showToast("別名保存を開始できませんでした"); });
 });
-document.getElementById("openIconBtn").addEventListener("click",openSfcViaPickerOrInput);
 document.getElementById("undoFab").addEventListener("click", ()=>{ if (inkStrokes.length){ redoStrokes.push(inkStrokes.pop()); updateUndoRedoUI(); scheduleDraw(); markMemoChanged(); } });
 document.getElementById("redoFab").addEventListener("click", ()=>{ if (redoStrokes.length){ inkStrokes.push(redoStrokes.pop()); updateUndoRedoUI(); scheduleDraw(); markMemoChanged(); } });
 
