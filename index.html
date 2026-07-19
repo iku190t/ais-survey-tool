@@ -362,8 +362,6 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #startupBox p{margin:0 0 12px 0;font-size:14px;line-height:1.5;}
 #startupOpenBtn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:34px;padding:7px 12px;border:1px solid #333;border-radius:8px;background:#333;color:#fff;font-size:12px;font-weight:700;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #startupOpenBtn:active{transform:translateY(1px) scale(.98);filter:brightness(.92);}
-#startupOpenBtn{position:relative;overflow:hidden;}
-#startupFileInput{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:100px;}
 #saveAsChoiceModal{display:none;position:fixed;inset:0;z-index:230;background:rgba(0,0,0,.58);align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
 #saveAsChoiceBox{width:min(340px,92vw);background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;padding:16px;box-shadow:0 14px 34px rgba(0,0,0,.44);}
 #saveAsChoiceTitle{font-size:17px;font-weight:800;margin-bottom:12px;}
@@ -763,7 +761,7 @@ gtag('config', 'G-88B9YPJXWP');
         <path d="M3.5 8.5V7a2 2 0 0 1 2-2h3.2l1.8 2h7.9a2 2 0 0 1 2 2v1.5"></path>
       </svg>
     </button>
-    <input type="file" id="fileInput" />
+    <input type="file" id="fileInput" accept=".sfc,.html,application/octet-stream,text/plain,text/html" />
     <button id="saveIconBtn" class="toolIconBtn" data-help-label="保存" title="保存方法を選ぶ" aria-label="保存方法を選ぶ" style="width:32px;height:32px;padding:0;" hidden>
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:21px;height:21px;">
         <path d="M5 5h12l2 2v12H5z"></path>
@@ -983,7 +981,7 @@ gtag('config', 'G-88B9YPJXWP');
         <div style="width:18px;height:18px;border-radius:50%;margin:0 auto 8px;background:#2f7dff;box-shadow:0 0 8px rgba(47,125,255,.35);"></div>
         <div style="font-size:13px;line-height:1.6;color:#666;font-weight:700;">青い点＝あなたの現在地</div>
       </div>
-      <label id="startupOpenBtn">ファイルを開く<input type="file" id="startupFileInput"></label>
+      <label id="startupOpenBtn" for="fileInput" role="button">ファイルを開く</label>
     </div>
   </div>
 
@@ -6248,17 +6246,12 @@ async function handleSelectedDrawingFile(file){
     }catch(err2){ hideBusy();showToast("読み込み失敗"); }
   }
 }
-function bindDrawingFileInput(input){
-  if(!input) return;
-  input.addEventListener("change",async e=>{
-    const file=e.target.files&&e.target.files[0];
-    e.target.value="";
-    setSaveMenuOpen(false);
-    await handleSelectedDrawingFile(file);
-  });
-}
-bindDrawingFileInput(document.getElementById("fileInput"));
-bindDrawingFileInput(document.getElementById("startupFileInput"));
+document.getElementById("fileInput").addEventListener("change",async e=>{
+  const file=e.target.files&&e.target.files[0];
+  e.target.value="";
+  setSaveMenuOpen(false);
+  await handleSelectedDrawingFile(file);
+});
 
 document.getElementById("fitBtn").addEventListener("click", ()=>{
   if (!isDrawingActionAvailable()) return;
