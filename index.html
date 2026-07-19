@@ -107,6 +107,25 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #profileLoading{display:none;position:absolute;inset:6px 8px 0;align-items:center;justify-content:center;background:rgba(20,20,20,.36);border-radius:9px;color:#fff;font-weight:800;z-index:2;}
 #profileLoading.show{display:flex;}
 #profileNotice{font-size:12px;line-height:1.45;text-align:center;padding:7px 10px 9px;color:var(--muted);}
+#terrainPanel{display:none;position:absolute;right:12px;top:12px;z-index:76;width:min(310px,calc(100% - 24px));padding:11px;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:13px;box-shadow:0 10px 26px rgba(0,0,0,.34);box-sizing:border-box;}
+#terrainPanel.open{display:block;}
+#terrainPanelHeader{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+#terrainPanelTitle{font-size:15px;font-weight:800;flex:1;}
+#terrainPanelCloseBtn{height:32px;border-radius:16px;padding:4px 12px;}
+#terrainActions{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+#terrainActions button{min-height:42px;font-weight:750;}
+#terrainActions button.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
+#terrainStatus{font-size:12px;line-height:1.55;margin-top:9px;color:var(--muted);min-height:19px;}
+#terrainLegend{display:none;align-items:center;gap:5px;margin-top:7px;font-size:11px;flex-wrap:wrap;}
+.terrainSwatch{width:18px;height:8px;border-radius:2px;display:inline-block;}
+#terrain3dModal{display:none;position:fixed;inset:0;z-index:126;background:rgba(0,0,0,.48);align-items:center;justify-content:center;padding:12px;box-sizing:border-box;}
+#terrain3dModal.open{display:flex;}
+#terrain3dBox{width:min(720px,96vw);height:min(560px,72vh);background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;box-shadow:0 14px 36px rgba(0,0,0,.5);display:flex;flex-direction:column;overflow:hidden;}
+#terrain3dHeader{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);font-weight:800;}
+#terrain3dHeader span{flex:1;}
+#terrain3dCloseBtn{height:32px;border-radius:16px;padding:4px 13px;}
+#terrain3dCanvas{display:block;flex:1;min-height:0;width:100%;background:#10151b;touch-action:none;}
+#terrain3dNote{font-size:11px;color:var(--muted);padding:7px 10px;text-align:center;}
 @media (min-width:821px) and (hover:hover) and (pointer:fine){
   #profileModal{justify-content:flex-end;padding-right:18px;padding-bottom:18px;}
 }
@@ -835,6 +854,11 @@ gtag('config', 'G-88B9YPJXWP');
         <rect x="11.4" y="5.2" width="8.4" height="8.4" rx="1.2"></rect>
       </svg>
     </button>
+    <button id="terrainBtn" class="toolIconBtn" data-help-label="地形" title="地理院DEM地形解析" aria-label="地形">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 19h18"></path><path d="M4 17 9 10l3.2 4 2.8-6 5 9"></path><path d="M7 17h10"></path>
+      </svg>
+    </button>
     <button id="helpBtn" class="toolIconBtn" data-help-label="ヘルプ" title="ヘルプ" aria-label="ヘルプ">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="8"></circle>
@@ -961,6 +985,28 @@ gtag('config', 'G-88B9YPJXWP');
     </div>
   </div>
 
+  <div id="terrainPanel" role="dialog" aria-labelledby="terrainPanelTitle">
+    <div id="terrainPanelHeader"><div id="terrainPanelTitle">簡易地形解析</div><button id="terrainPanelCloseBtn" type="button">閉じる</button></div>
+    <div id="terrainActions">
+      <button id="terrainSlopeBtn" type="button">傾斜角の色分け</button>
+      <button id="terrainFlowBtn" type="button">水の流れ</button>
+      <button id="terrainVolumeBtn" type="button">概算土量</button>
+      <button id="terrain3dBtn" type="button">3D表示</button>
+      <button id="terrainRefreshBtn" type="button">表示範囲を更新</button>
+      <button id="terrainClearBtn" type="button">解析表示を消す</button>
+    </div>
+    <div id="terrainStatus">機能を選ぶと、現在見えている範囲だけを簡易計算します。</div>
+    <div id="terrainLegend"></div>
+  </div>
+
+  <div id="terrain3dModal" role="dialog" aria-modal="true" aria-labelledby="terrain3dTitle">
+    <div id="terrain3dBox">
+      <div id="terrain3dHeader"><span id="terrain3dTitle">簡易3D地形</span><button id="terrain3dCloseBtn" type="button">閉じる</button></div>
+      <canvas id="terrain3dCanvas"></canvas>
+      <div id="terrain3dNote">概略表示です。測量には使用できません。</div>
+    </div>
+  </div>
+
   <div id="aerialPhotoPanel" class="panel">
     <div class="photoHeader"><div class="photoTitle">背景</div><button id="photoPanelCloseBtn" type="button">閉じる</button></div>
     <div class="photoSettingRow">
@@ -1078,6 +1124,7 @@ gtag('config', 'G-88B9YPJXWP');
             <button type="button" class="helpMenuBtn" data-help-section="aerial">航空写真</button>
             <button type="button" class="helpMenuBtn" data-help-section="measure">計測</button>
             <button type="button" class="helpMenuBtn" data-help-section="profile">断面</button>
+            <button type="button" class="helpMenuBtn" data-help-section="terrain">地形解析</button>
             <button type="button" class="helpMenuBtn" data-help-section="memo">手書きメモ</button>
             <button type="button" class="helpMenuBtn" data-help-section="search">文字検索</button>
             <button type="button" class="helpMenuBtn" data-help-section="pick">点の取り方</button>
@@ -1191,6 +1238,19 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">2本指</div>2本指で移動・拡大縮小・回転できます。</div>
               <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークは図面の回転に合わせて回ります。押すと北を上に戻します。</div>
               <div class="helpBlock"><div class="helpHead">全体表示</div><b>全体表示</b> で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。ダブルタップや方位長押しでは全体表示になりません。</div>
+            </div>
+          </div>
+
+          <div class="helpSection" data-help-section="terrain">
+            <div class="helpSectionTitle">簡易地形解析</div>
+            <div class="helpSectionBody">
+              <div class="helpBlock"><div class="helpHead">使い方</div><b>地形</b>を押し、傾斜角、水の流れ、概算土量、3D表示から選びます。現在見えている範囲だけを解析します。</div>
+              <div class="helpBlock"><div class="helpHead">傾斜角</div>DEMから求めた概略傾斜を、0～4度、5～14度、15～29度、30度以上の4色で表示します。</div>
+              <div class="helpBlock"><div class="helpHead">水の流れ</div>各地点から周囲で最も低い方向を矢印表示します。排水施設などを考慮した流域解析ではありません。</div>
+              <div class="helpBlock"><div class="helpHead">概算土量</div>表示範囲の平均標高を基準面として、切土・盛土を概算します。境界線や計画面を指定する正式な土量計算ではありません。</div>
+              <div class="helpBlock"><div class="helpHead">3D表示</div>現在範囲を低密度のワイヤーフレームで表示します。処理を軽くするため、細密な3Dモデルは作成しません。</div>
+              <div class="helpBlock"><div class="helpHead">軽量化</div>通常のSFC表示中は解析しません。機能を押した時だけ最大25×25点を取得し、断面と同じDEMキャッシュを再利用します。</div>
+              <div class="helpBlock"><div class="helpHead">注意</div>すべて国土地理院DEMによる概略です。測量や施工数量には使用できません。</div>
             </div>
           </div>
 
@@ -1524,6 +1584,11 @@ let profileRefreshBusy = false;
 let profileRefreshPending = false;
 let profileRefreshVersion = 0;
 let profileRefreshLastRun = 0;
+let terrainGrid = null;
+let terrainMode = "";
+let terrainLoading = false;
+let terrainRequestVersion = 0;
+let terrainReferenceElevation = null;
 
 const PROFILE_TILE_CACHE = "sfc-dem-tiles-v1";
 const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v1";
@@ -2330,6 +2395,144 @@ async function buildProfileData(start,end,zone){
   rememberProfileData(result);
   return result;
 }
+function formatTerrainElevation(value){
+  if(!Number.isFinite(value)) return "－";
+  const abs=Math.abs(value);
+  return abs>=1000?`${Math.round(value/1000)}キロ`:`${Math.round(value)}m`;
+}
+function terrainCellArea(a,b,c,d){
+  const pts=[a,b,c,d].map(p=>p&&p.plane).filter(Boolean);
+  if(pts.length!==4) return 0;
+  let twice=0;
+  for(let i=0;i<4;i++) twice+=pts[i].yEast*pts[(i+1)%4].xNorth-pts[(i+1)%4].yEast*pts[i].xNorth;
+  return Math.abs(twice)*.5;
+}
+function getTerrainPoint(grid,row,col){
+  return grid&&grid.points&&grid.points[row*grid.cols+col];
+}
+async function buildTerrainGrid(){
+  if(!hasLoadedDrawing()) return null;
+  const zone=await resolveProfileZone();
+  if(!zone) throw new Error("このSFC図面の座標系を確認できません");
+  const cols=25,rows=25;
+  const w=Math.max(1,canvas.clientWidth),h=Math.max(1,canvas.clientHeight);
+  const inset=8;
+  const points=[];
+  for(let row=0;row<rows;row++){
+    const sy=inset+(h-inset*2)*row/(rows-1);
+    for(let col=0;col<cols;col++){
+      const sx=inset+(w-inset*2)*col/(cols-1);
+      const world=screenToWorld(sx,sy);
+      const plane=sfcWorldToPlane(world[0],world[1]);
+      const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
+      points.push({row,col,worldX:world[0],worldY:world[1],plane,lat:ll.lat,lon:ll.lon,elevation:null,source:null});
+    }
+  }
+  let skippedWideSource=false;
+  for(const source of PROFILE_DEM_SOURCES){
+    const refs=new Map();
+    for(const point of points){
+      if(point.elevation!=null) continue;
+      const ref=profileTileRef(point.lat,point.lon,source.z),url=profileDemUrl(source,ref);
+      point._terrainRef={ref,url};
+      if(!refs.has(url)) refs.set(url,null);
+    }
+    // A wide fit view can span hundreds of high-resolution tiles. Skip that
+    // source and fall back to a coarser DEM rather than freezing the viewer.
+    if(refs.size>120){
+      skippedWideSource=true;
+      for(const point of points)delete point._terrainRef;
+      continue;
+    }
+    await profileMapLimit([...refs.keys()],5,async url=>refs.set(url,await decodeProfileDemTile(url)));
+    for(const point of points){
+      if(point.elevation!=null||!point._terrainRef) continue;
+      const {ref,url}=point._terrainRef;
+      const value=decodeProfileElevation(refs.get(url),ref.px,ref.py);
+      if(value!=null&&Number.isFinite(value)){point.elevation=value;point.source=source.id;}
+      delete point._terrainRef;
+    }
+    if(points.every(p=>p.elevation!=null)) break;
+  }
+  const valid=points.filter(p=>p.elevation!=null);
+  if(!valid.length&&skippedWideSource)throw new Error("範囲が広すぎます。少し拡大してから実行してください");
+  if(valid.length<Math.ceil(points.length*.45)) throw new Error("標高データを取得できません");
+  return {cols,rows,zone,points,createdAt:Date.now(),width:w,height:h};
+}
+function terrainSlopeAt(grid,row,col){
+  const left=getTerrainPoint(grid,row,Math.max(0,col-1)),right=getTerrainPoint(grid,row,Math.min(grid.cols-1,col+1));
+  const top=getTerrainPoint(grid,Math.max(0,row-1),col),bottom=getTerrainPoint(grid,Math.min(grid.rows-1,row+1),col);
+  if(!left||!right||!top||!bottom||[left,right,top,bottom].some(p=>p.elevation==null)) return null;
+  const dx=Math.hypot(right.plane.xNorth-left.plane.xNorth,right.plane.yEast-left.plane.yEast);
+  const dy=Math.hypot(bottom.plane.xNorth-top.plane.xNorth,bottom.plane.yEast-top.plane.yEast);
+  if(!(dx>0&&dy>0)) return null;
+  const gx=(right.elevation-left.elevation)/dx,gy=(bottom.elevation-top.elevation)/dy;
+  return Math.atan(Math.hypot(gx,gy))*180/Math.PI;
+}
+function terrainSlopeColor(deg,alpha=.48){
+  if(deg<5)return `rgba(58,181,74,${alpha})`;
+  if(deg<15)return `rgba(247,210,55,${alpha})`;
+  if(deg<30)return `rgba(245,137,31,${alpha})`;
+  return `rgba(222,52,52,${alpha})`;
+}
+function calculateTerrainVolume(grid){
+  const valid=grid.points.filter(p=>p.elevation!=null);
+  const reference=valid.reduce((sum,p)=>sum+p.elevation,0)/Math.max(1,valid.length);
+  let cut=0,fill=0,area=0;
+  for(let r=0;r<grid.rows-1;r++)for(let c=0;c<grid.cols-1;c++){
+    const ps=[getTerrainPoint(grid,r,c),getTerrainPoint(grid,r,c+1),getTerrainPoint(grid,r+1,c+1),getTerrainPoint(grid,r+1,c)];
+    if(ps.some(p=>!p||p.elevation==null))continue;
+    const cellArea=terrainCellArea(...ps),mean=ps.reduce((s,p)=>s+p.elevation,0)/4,dv=(mean-reference)*cellArea;
+    area+=cellArea;if(dv>=0)cut+=dv;else fill-=dv;
+  }
+  return {reference,cut,fill,area};
+}
+function updateTerrainUi(){
+  const panel=document.getElementById("terrainPanel"),btn=document.getElementById("terrainBtn");
+  btn?.classList.toggle("modeActive",panel?.classList.contains("open")||!!terrainMode);
+  ["slope","flow","volume","3d"].forEach(mode=>document.getElementById(`terrain${mode[0].toUpperCase()+mode.slice(1)}Btn`)?.classList.toggle("active",terrainMode===mode));
+  if(typeof updateModeStatus==="function")updateModeStatus();
+}
+function setTerrainStatus(text){const el=document.getElementById("terrainStatus");if(el)el.textContent=text||"";}
+function setTerrainLegend(mode){
+  const el=document.getElementById("terrainLegend");if(!el)return;
+  if(mode==="slope"){
+    el.style.display="flex";el.innerHTML='<span class="terrainSwatch" style="background:#3ab54a"></span>0～4° <span class="terrainSwatch" style="background:#f7d237"></span>5～14° <span class="terrainSwatch" style="background:#f5891f"></span>15～29° <span class="terrainSwatch" style="background:#de3434"></span>30°以上';
+  }else if(mode==="flow"){
+    el.style.display="flex";el.innerHTML='<span style="color:#00a8ff;font-weight:800">→</span> 低い方向（概略）';
+  }else if(mode==="volume"){
+    el.style.display="flex";el.innerHTML='<span class="terrainSwatch" style="background:#de4137"></span>切土側 <span class="terrainSwatch" style="background:#2d82e6"></span>盛土側';
+  }else{el.style.display="none";el.textContent="";}
+}
+async function ensureTerrainGrid(force=false){
+  if(terrainLoading)return terrainGrid;
+  if(terrainGrid&&!force)return terrainGrid;
+  terrainLoading=true;const request=++terrainRequestVersion;setTerrainStatus("現在の表示範囲の標高を取得しています…");
+  try{
+    const grid=await buildTerrainGrid();
+    if(request!==terrainRequestVersion)return null;
+    terrainGrid=grid;return grid;
+  }finally{terrainLoading=false;}
+}
+async function activateTerrainMode(mode,force=false){
+  if(!hasLoadedDrawing()){showToast("先に図面を開いてください");return;}
+  try{
+    const grid=await ensureTerrainGrid(force);if(!grid)return;
+    terrainMode=mode;setTerrainLegend(mode);
+    if(mode==="volume"){
+      terrainReferenceElevation=calculateTerrainVolume(grid);
+      const v=terrainReferenceElevation;
+      setTerrainStatus(`平均標高 ${formatTerrainElevation(v.reference)} 基準・切土 約${Math.round(v.cut).toLocaleString()}m³・盛土 約${Math.round(v.fill).toLocaleString()}m³`);
+    }else if(mode==="slope") setTerrainStatus("傾斜角を4段階で色分けしています。表示中の範囲だけの概略です。");
+    else if(mode==="flow") setTerrainStatus("隣接標高から低い方向を表示しています。流域解析ではなく概略です。");
+    else if(mode==="3d"){setTerrainStatus("表示中の範囲を簡易3D表示しています。");openTerrain3d();}
+    updateTerrainUi();scheduleDraw();
+  }catch(e){console.error(e);setTerrainStatus(e&&e.message?e.message:"標高データを取得できません");showToast(e&&e.message?e.message:"標高データを取得できません",2400);}
+}
+function clearTerrainAnalysis(){
+  terrainRequestVersion++;terrainGrid=null;terrainMode="";terrainReferenceElevation=null;setTerrainLegend("");
+  setTerrainStatus("機能を選ぶと、現在見えている範囲だけを簡易計算します。");updateTerrainUi();scheduleDraw();
+}
 function formatProfileDistance(m){
   return m>=1000?`${(m/1000).toFixed(2)}km`:`${m.toFixed(m<100?1:0)}m`;
 }
@@ -2435,7 +2638,7 @@ function drawProfileChart(){
     ctxp.save();ctxp.beginPath();ctxp.rect(g.margin.left,g.margin.top,g.plotW,g.plotH);ctxp.clip();
     ctxp.beginPath();ctxp.moveTo(x0,y);ctxp.lineTo(x1,y);ctxp.stroke();ctxp.restore();
     const e=g.maxE-(g.maxE-g.minE)*i/4;
-    if(y>=g.margin.top&&y<=g.margin.top+g.plotH){ctxp.textAlign="right";ctxp.fillText(e.toFixed(1),g.margin.left-5,y);}
+    if(y>=g.margin.top&&y<=g.margin.top+g.plotH){ctxp.textAlign="right";ctxp.fillText(formatTerrainElevation(e),g.margin.left-5,y);}
   }
   for(let i=0;i<=4;i++){
     const x=x0+(x1-x0)*i/4;
@@ -2467,7 +2670,7 @@ function drawProfileChart(){
       ctxp.strokeStyle="#ffb000";ctxp.lineWidth=1.5;ctxp.beginPath();ctxp.moveTo(p.x,g.margin.top);ctxp.lineTo(p.x,g.margin.top+g.plotH);ctxp.stroke();
       ctxp.fillStyle="#ffb000";ctxp.beginPath();ctxp.arc(p.x,p.y,4,0,Math.PI*2);ctxp.fill();
       ctxp.fillStyle=dark?"#fff":"#111";ctxp.font="bold 11px system-ui,sans-serif";ctxp.textAlign="left";ctxp.textBaseline="bottom";
-      ctxp.fillText(`${formatProfileDistance(nearest.distance)}  ${nearest.elevation.toFixed(2)}m`,Math.min(p.x+6,g.margin.left+g.plotW-112),Math.max(g.margin.top+14,p.y-5));
+      ctxp.fillText(`${formatProfileDistance(nearest.distance)}  ${formatTerrainElevation(nearest.elevation)}`,Math.min(p.x+6,g.margin.left+g.plotW-112),Math.max(g.margin.top+14,p.y-5));
     }
   }
   ctxp.restore();
@@ -2477,7 +2680,7 @@ function updateProfileSummary(){
   const valid=profileData.samples.filter(s=>s.elevation!=null);
   const first=valid[0],last=valid[valid.length-1];
   const diff=first&&last?last.elevation-first.elevation:0;
-  profileSummary.textContent=`延長 ${formatProfileDistance(profileData.length)}　高低差 ${diff>=0?"+":""}${diff.toFixed(2)}m　縦横1:1`;
+  profileSummary.textContent=`延長 ${formatProfileDistance(profileData.length)}　高低差 ${diff>=0?"+":""}${formatTerrainElevation(diff)}　縦横1:1`;
 }
 function sameProfilePoint(a,b){
   return !!(a&&b&&Math.abs(a.x-b.x)<1e-7&&Math.abs(a.y-b.y)<1e-7);
@@ -3403,6 +3606,8 @@ async function sendBlobByGmailOrShare(blob,fileName,recipient){
   return false;
 }
 function getCurrentModeLabel(){
+  if(terrainLoading) return "地形：標高取得中";
+  if(terrainMode) return `地形：${terrainMode==="slope"?"傾斜角":terrainMode==="flow"?"水の流れ":terrainMode==="volume"?"概算土量":"3D表示"}`;
   if(profileZoneResolving) return "断面：座標系を確認中";
   if(profileMode){
     if(!profileStartWorld) return "断面：起点を選択";
@@ -4859,6 +5064,62 @@ function drawLineRenderRuns(runs,visibleBounds,fastMotion){
     ctx.stroke();ctx.setLineDash([]);ctx.lineCap="butt";
   }
 }
+function drawTerrainArrow(from,to){
+  const a=worldToScreen(from.worldX,from.worldY),b=worldToScreen(to.worldX,to.worldY);
+  const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<5)return;
+  const ux=dx/len,uy=dy/len,ex=a[0]+dx*.72,ey=a[1]+dy*.72,head=4.5;
+  ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(ex,ey);ctx.moveTo(ex,ey);ctx.lineTo(ex-ux*head-uy*head*.65,ey-uy*head+ux*head*.65);ctx.moveTo(ex,ey);ctx.lineTo(ex-ux*head+uy*head*.65,ey-uy*head-ux*head*.65);ctx.stroke();
+}
+function drawTerrainOverlay(){
+  const grid=terrainGrid,mode=terrainMode;if(!grid||!mode||mode==="3d")return;
+  if(dragging||touchMode==="twofinger"||touchMode==="onefingerzoom"||oneFingerZoomGesture||touchPanMoved)return;
+  ctx.save();
+  if(mode==="slope"||mode==="volume"){
+    for(let r=0;r<grid.rows-1;r++)for(let c=0;c<grid.cols-1;c++){
+      const ps=[getTerrainPoint(grid,r,c),getTerrainPoint(grid,r,c+1),getTerrainPoint(grid,r+1,c+1),getTerrainPoint(grid,r+1,c)];
+      if(ps.some(p=>!p||p.elevation==null))continue;
+      let fill;
+      if(mode==="slope"){
+        const slope=terrainSlopeAt(grid,r,c);if(slope==null)continue;fill=terrainSlopeColor(slope);
+      }else{
+        const mean=ps.reduce((s,p)=>s+p.elevation,0)/4,ref=terrainReferenceElevation?.reference;
+        if(!Number.isFinite(ref))continue;fill=mean>=ref?"rgba(225,65,55,.34)":"rgba(45,130,230,.34)";
+      }
+      const screen=ps.map(p=>worldToScreen(p.worldX,p.worldY));ctx.beginPath();ctx.moveTo(screen[0][0],screen[0][1]);
+      for(let i=1;i<screen.length;i++)ctx.lineTo(screen[i][0],screen[i][1]);ctx.closePath();ctx.fillStyle=fill;ctx.fill();
+    }
+  }else if(mode==="flow"){
+    ctx.strokeStyle="rgba(0,168,255,.88)";ctx.lineWidth=1.4;ctx.lineCap="round";ctx.lineJoin="round";
+    for(let r=1;r<grid.rows-1;r+=2)for(let c=1;c<grid.cols-1;c+=2){
+      const p=getTerrainPoint(grid,r,c);if(!p||p.elevation==null)continue;let target=null;
+      for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+        if(!dr&&!dc)continue;const q=getTerrainPoint(grid,r+dr,c+dc);
+        if(q&&q.elevation!=null&&q.elevation<p.elevation&&(!target||q.elevation<target.elevation))target=q;
+      }
+      if(target)drawTerrainArrow(p,target);
+    }
+  }
+  ctx.restore();
+}
+function drawTerrain3d(){
+  const canvas3d=document.getElementById("terrain3dCanvas"),grid=terrainGrid;if(!canvas3d||!grid)return;
+  const rect=canvas3d.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),w=Math.max(1,rect.width),h=Math.max(1,rect.height);
+  const pw=Math.round(w*dpr),ph=Math.round(h*dpr);if(canvas3d.width!==pw)canvas3d.width=pw;if(canvas3d.height!==ph)canvas3d.height=ph;
+  const c=canvas3d.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);c.fillStyle="#10151b";c.fillRect(0,0,w,h);
+  const valid=grid.points.filter(p=>p.elevation!=null);if(valid.length<2)return;
+  const minE=Math.min(...valid.map(p=>p.elevation)),maxE=Math.max(...valid.map(p=>p.elevation)),range=Math.max(1,maxE-minE);
+  const project=p=>{
+    const nx=p.col/(grid.cols-1)-.5,ny=p.row/(grid.rows-1)-.5,nz=(p.elevation-minE)/range-.5;
+    return {x:w*.5+(nx-ny)*w*.54,y:h*.64+(nx+ny)*h*.20-nz*h*.34};
+  };
+  c.lineWidth=1;c.strokeStyle="rgba(93,205,255,.78)";c.lineJoin="round";
+  const drawSeries=points=>{c.beginPath();let started=false;for(const p of points){if(!p||p.elevation==null){started=false;continue;}const q=project(p);if(!started){c.moveTo(q.x,q.y);started=true;}else c.lineTo(q.x,q.y);}c.stroke();};
+  for(let r=0;r<grid.rows;r+=2)drawSeries(Array.from({length:grid.cols},(_,col)=>getTerrainPoint(grid,r,col)));
+  c.strokeStyle="rgba(80,154,230,.46)";for(let col=0;col<grid.cols;col+=2)drawSeries(Array.from({length:grid.rows},(_,r)=>getTerrainPoint(grid,r,col)));
+  c.fillStyle="#fff";c.font="12px system-ui,sans-serif";c.textAlign="left";c.fillText(`最低 ${formatTerrainElevation(minE)}　最高 ${formatTerrainElevation(maxE)}`,12,18);
+}
+function openTerrain3d(){document.getElementById("terrain3dModal")?.classList.add("open");requestAnimationFrame(drawTerrain3d);}
+function closeTerrain3d(){document.getElementById("terrain3dModal")?.classList.remove("open");}
 function draw(){
   updateCompassUi();
   const w=canvas.clientWidth,h=canvas.clientHeight;
@@ -4956,6 +5217,8 @@ function draw(){
     ctx.save();ctx.fillStyle="#ffd000";ctx.strokeStyle="#111";ctx.lineWidth=1.4;
     ctx.beginPath();ctx.arc(h[0],h[1],6,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();
   }
+
+  drawTerrainOverlay();
 
   for(const stroke of inkStrokes) drawInkStroke(stroke);
   if(currentStroke) drawInkStroke(currentStroke);
@@ -5100,7 +5363,7 @@ function applyPortraitPreference(){
 }
 function updateDrawingDependentUi(){
   const available = hasLoadedDrawing();
-  const ids = ["fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn","textSearchOpenBtn","layerFab","gpsDetailFab"];
+  const ids = ["fitBtn","gpsBtn","measureBtn","profileBtn","terrainBtn","drawBtn","textSearchOpenBtn","layerFab","gpsDetailFab"];
   ids.forEach(id=>{
     const el = document.getElementById(id);
     if (!el) return;
@@ -5116,6 +5379,7 @@ function closePanelsExcept(except){
   if(except!=='draw') drawPanel.style.display='none';
   if(except!=='support' && supportPanel) supportPanel.style.display='none';
   if(except!=='aerialPhoto' && aerialPhotoPanel) aerialPhotoPanel.style.display='none';
+  if(except!=='terrain') document.getElementById("terrainPanel")?.classList.remove("open");
   if(except!=='textSearch') closeTextSearchPopup();
   updateStopBtnUI();
 }
@@ -5138,6 +5402,8 @@ function resetSessionFromLoad(){
   measureMode=false; measureType="2point";
   clearTimeout(profileRefreshTimer);profileRefreshTimer=0;profileRefreshVersion++;profileRefreshPending=false;
   profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;profileZone=null;profileTouchCandidate=null;profileLineDrag=null;
+  terrainRequestVersion++;terrainGrid=null;terrainMode="";terrainLoading=false;terrainReferenceElevation=null;
+  document.getElementById("terrainPanel")?.classList.remove("open");closeTerrain3d();
   if(profileModal) profileModal.classList.remove("open","expanded");
   aerialPhotoEnableRequestId++;aerialPhotoEnabled=false;aerialPhotoZone=null;aerialPhotoResolveBusy=false;
   aerialAvailableSources=[];aerialPhotoSourceIndex=0;aerialPhotoAvailabilityKey="";
@@ -7085,6 +7351,10 @@ function cancelTransientOperations(except=""){
     inkEraser=false;
     if(drawPanel) drawPanel.style.display="none";
   }
+  if(except!=="terrain"){
+    terrainRequestVersion++;terrainLoading=false;terrainMode="";terrainGrid=null;terrainReferenceElevation=null;
+    document.getElementById("terrainPanel")?.classList.remove("open");closeTerrain3d();setTerrainLegend("");updateTerrainUi();
+  }
   updateProfileUi();
   updateInkUI();
   updateModeIcons();
@@ -7093,6 +7363,7 @@ function cancelTransientOperations(except=""){
   scheduleDraw();
 }
 function getActiveToolbarCommandId(){
+  if(terrainLoading||terrainMode||document.getElementById("terrainPanel")?.classList.contains("open")) return "terrainBtn";
   const hasProfileWork=!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||(profileModal&&profileModal.classList.contains("open")));
   if(hasProfileWork) return "profileBtn";
   if(measureMode||(measureModePanel&&measureModePanel.style.display==="block")) return "measureBtn";
@@ -7101,7 +7372,7 @@ function getActiveToolbarCommandId(){
   return "";
 }
 const toolbarCommandIds=new Set([
-  "openIconBtn","fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn",
+  "openIconBtn","fitBtn","gpsBtn","measureBtn","profileBtn","terrainBtn","drawBtn",
   "textSearchOpenBtn","sizeToggleBtn","helpBtn","layerFab","bgBtn",
   "gpsDetailFab","supportBtn"
 ]);
@@ -7125,6 +7396,21 @@ if(profileBtn) profileBtn.addEventListener("click",()=>{
     setProfilePrompt("");updateProfileUi();updateStopBtnUI();scheduleDraw();
   }else beginProfileMode();
 });
+document.getElementById("terrainBtn")?.addEventListener("click",()=>{
+  if(!hasLoadedDrawing()){showToast("先に図面を開いてください");return;}
+  const panel=document.getElementById("terrainPanel"),wasOpen=panel?.classList.contains("open");
+  cancelTransientOperations("terrain");
+  panel?.classList.toggle("open",!wasOpen);updateTerrainUi();updateModeStatus();
+});
+document.getElementById("terrainPanelCloseBtn")?.addEventListener("click",()=>{document.getElementById("terrainPanel")?.classList.remove("open");updateTerrainUi();updateModeStatus();});
+document.getElementById("terrainSlopeBtn")?.addEventListener("click",()=>activateTerrainMode("slope"));
+document.getElementById("terrainFlowBtn")?.addEventListener("click",()=>activateTerrainMode("flow"));
+document.getElementById("terrainVolumeBtn")?.addEventListener("click",()=>activateTerrainMode("volume"));
+document.getElementById("terrain3dBtn")?.addEventListener("click",()=>activateTerrainMode("3d"));
+document.getElementById("terrainRefreshBtn")?.addEventListener("click",()=>activateTerrainMode(terrainMode||"slope",true));
+document.getElementById("terrainClearBtn")?.addEventListener("click",clearTerrainAnalysis);
+document.getElementById("terrain3dCloseBtn")?.addEventListener("click",closeTerrain3d);
+document.getElementById("terrain3dModal")?.addEventListener("click",e=>{if(e.target.id==="terrain3dModal")closeTerrain3d();});
 if(profileCloseBtn) profileCloseBtn.addEventListener("click",()=>cancelTransientOperations());
 if(profileSizeToggleBtn) profileSizeToggleBtn.addEventListener("click",toggleProfileModalSize);
 if(profileModal) profileModal.addEventListener("click",e=>{if(e.target===profileModal)cancelTransientOperations();});
