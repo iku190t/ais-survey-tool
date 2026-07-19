@@ -6007,12 +6007,19 @@ async function saveSfcWithAnnotations(){
   showToast(savingSfc ? "SFCを別名保存しました" : "HTMLで保存しました");
 }
 
+function bytesToLatin1String(bytes){
+  // 1 byteずつ文字列へ足すと大容量SFCでO(n^2)に近い負荷となり、
+  // Mobile Safariが停止する。小分けに変換して最後に一度だけ結合する。
+  const chunkSize=32768;
+  const parts=new Array(Math.ceil(bytes.length/chunkSize));
+  for(let offset=0,index=0;offset<bytes.length;offset+=chunkSize,index++){
+    parts[index]=String.fromCharCode.apply(null,bytes.subarray(offset,Math.min(bytes.length,offset+chunkSize)));
+  }
+  return parts.join("");
+}
 async function readFileAsLatin1Text(file){
   const buf = await file.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  let srcText = "";
-  for(let i=0;i<bytes.length;i++) srcText += String.fromCharCode(bytes[i]);
-  return srcText;
+  return bytesToLatin1String(new Uint8Array(buf));
 }
 function restoreInkStrokesFromSourceText(srcText){
   const memoMeta = parseMemoMetaPayload(srcText);
@@ -6232,8 +6239,7 @@ async function handleSelectedDrawingFile(file){
       const reader=new FileReader();
       reader.onload=async()=>{
         const bytes=new Uint8Array(reader.result);
-        let srcText="";
-        for(let i=0;i<bytes.length;i++) srcText += String.fromCharCode(bytes[i]);
+        const srcText=bytesToLatin1String(bytes);
         await handleLoadedSource(srcText, file.name, null);
       };
       reader.onerror=()=>{hideBusy();showToast("読み込み失敗");};
