@@ -253,8 +253,11 @@ label.fileBtn{
   position:absolute; z-index:60; background:var(--panel2); color:var(--fg);
   border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.28);
 }
-#topLeftToolbarMask{position:absolute;left:8px;top:8px;width:172px;height:42px;z-index:69;background:var(--bg);border-radius:12px;pointer-events:none;opacity:0.96;}
+#topLeftToolbarMask{position:absolute;left:8px;top:8px;width:218px;height:42px;z-index:69;background:var(--bg);border-radius:12px;pointer-events:none;opacity:0.96;}
 #layerFab{position:absolute;left:12px;top:12px;z-index:70;}
+#bgBtn.mapBgFab{position:absolute;left:88px;top:12px;z-index:70;width:40px!important;height:34px!important;}
+#gpsBtn.mapGpsFab{position:absolute;right:60px;top:12px;z-index:70;width:40px!important;height:40px!important;border-radius:999px;box-shadow:0 5px 14px rgba(0,0,0,.22);}
+#gpsBtn.mapGpsFab svg{width:22px;height:22px;}
 #layerPanel{inset:0;width:auto;max-height:none;overflow:hidden;display:none;padding:0;border-radius:0;z-index:85;flex-direction:column;}
 #layerHeader{flex:0 0 auto;background:var(--panel2);z-index:2;border-bottom:1px solid var(--border);padding:12px;}
 #layerHeaderTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
@@ -773,12 +776,6 @@ gtag('config', 'G-88B9YPJXWP');
         <path d="M4 9V4h5"></path><path d="M20 9V4h-5"></path><path d="M4 15v5h5"></path><path d="M20 15v5h-5"></path>
       </svg>
     </button>
-    <button id="gpsBtn" class="toolIconBtn" data-help-label="現在地" title="現在地" aria-label="現在地">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 12 20 4 12 20 10.2 13.8 4 12z"></path>
-        <path d="M10.2 13.8 20 4"></path>
-      </svg>
-    </button>
     <button id="measureBtn" class="toolIconBtn" data-help-label="計測" title="計測" aria-label="計測">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <rect x="2.8" y="7.2" width="18.4" height="9.6" rx="1.8"></rect>
@@ -809,13 +806,6 @@ gtag('config', 'G-88B9YPJXWP');
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <rect x="4.2" y="11.2" width="6.2" height="6.2" rx="1.1"></rect>
         <rect x="11.4" y="5.2" width="8.4" height="8.4" rx="1.2"></rect>
-      </svg>
-    </button>
-    <button id="bgBtn" class="toolIconBtn bgIconBtn" data-help-label="背景" title="背景切替" aria-label="背景切替">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="4" y="5.5" width="16" height="13" rx="2"></rect>
-        <path d="M12 5.5v13"></path>
-        <path d="M5 7h7v10H5z" fill="currentColor" stroke="none"></path>
       </svg>
     </button>
     <button id="helpBtn" class="toolIconBtn" data-help-label="ヘルプ" title="ヘルプ" aria-label="ヘルプ">
@@ -858,8 +848,21 @@ gtag('config', 'G-88B9YPJXWP');
 <div id="wrap">
   <div id="topLeftToolbarMask" aria-hidden="true"></div>
   <button id="layerFab">レイヤー</button>
-  <button id="undoFab" title="もどす" style="position:absolute;left:88px;top:12px;z-index:70;width:40px;height:34px;padding:0;font-weight:900;font-size:24px;color:#1f6fff;">↶</button>
-  <button id="redoFab" title="やりなおし" style="position:absolute;left:134px;top:12px;z-index:70;width:40px;height:34px;padding:0;font-weight:900;font-size:24px;color:#1f6fff;">↷</button>
+  <button id="bgBtn" class="toolIconBtn bgIconBtn mapBgFab" title="背景" aria-label="背景">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4" y="5.5" width="16" height="13" rx="2"></rect>
+      <path d="M12 5.5v13"></path>
+      <path d="M5 7h7v10H5z" fill="currentColor" stroke="none"></path>
+    </svg>
+  </button>
+  <button id="undoFab" title="もどす" style="position:absolute;left:134px;top:12px;z-index:70;width:40px;height:34px;padding:0;font-weight:900;font-size:24px;color:#1f6fff;">↶</button>
+  <button id="redoFab" title="やりなおし" style="position:absolute;left:180px;top:12px;z-index:70;width:40px;height:34px;padding:0;font-weight:900;font-size:24px;color:#1f6fff;">↷</button>
+  <button id="gpsBtn" class="toolIconBtn mapGpsFab" title="現在地" aria-label="現在地">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 12 20 4 12 20 10.2 13.8 4 12z"></path>
+      <path d="M10.2 13.8 20 4"></path>
+    </svg>
+  </button>
   <button id="compassFab" title="北を上に戻す"><span class="compassFace"><span class="compassN">N</span><span class="compassNeedle"></span><span class="compassDot"></span></span></button>
   <button id="gpsDetailFab" style="position:absolute;left:12px;top:58px;bottom:auto;z-index:70;display:inline-flex;align-items:center;gap:6px;">
       <svg viewBox="0 0 24 24" aria-hidden="true" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.95;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;">
@@ -1096,7 +1099,7 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="gps">
             <div class="helpSectionTitle">現在地GPS</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">開始・終了</div><b>現在地</b> を押すとGPSを開始し、現在位置を図面上へ表示します。もう一度押すと終了し、図面を全体表示へ戻します。</div>
+              <div class="helpBlock"><div class="helpHead">開始・終了</div>図面右上の方位マーク横にある <b>現在地</b> を押すとGPSを開始し、現在位置を図面上へ表示します。もう一度押すと終了し、図面を全体表示へ戻します。</div>
               <div class="helpBlock"><div class="helpHead">詳細</div>GPS開始中は左側の <b>詳細</b> から座標・誤差などを確認できます。詳細画面は同じボタンで閉じられます。</div>
               <div class="helpBlock"><div class="helpHead">図面との距離</div>現在地が図面から離れすぎている場合は、図面までのおよその距離を表示します。測地系や座標系が違う場合も大きく離れて表示されます。</div>
               <div class="helpBlock"><div class="helpHead">誤差</div>表示される誤差は端末GPSの推定値です。屋外の開けた場所で少し待つと小さくなる場合がありますが、測量成果には使用しないでください。</div>
@@ -1189,7 +1192,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">表示設定</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">サイズ</div><b>サイズ</b> を押すと、上部アイコンの下に機能名を表示します。もう一度押すと小さいアイコン表示へ戻ります。</div>
-              <div class="helpBlock"><div class="helpHead">背景</div><b>背景</b> で黒背景と白背景を切り替えます。黒・白の図形色は、背景で見えなくならないよう表示時に自動調整します。</div>
+              <div class="helpBlock"><div class="helpHead">背景</div>図面左上のレイヤー横にある <b>背景</b> で黒背景と白背景を切り替えます。黒・白の図形色は、背景で見えなくならないよう表示時に自動調整します。</div>
               <div class="helpBlock"><div class="helpHead">縦画面</div>このビューアーはスマートフォンの縦画面専用です。横向きにした場合は縦向きへ戻してください。</div>
             </div>
           </div>
