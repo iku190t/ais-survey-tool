@@ -139,14 +139,14 @@ body{display:flex;flex-direction:column;}
 #textSearchPrevBtn:disabled,#textSearchNextBtn:disabled{opacity:.45;cursor:default;}
 #sizeToggleBtn{padding:6px 10px;font-size:12px;white-space:nowrap;}
 #helpModal{display:none;position:absolute;inset:0;z-index:97;background:rgba(0,0,0,.14);align-items:center;justify-content:center;padding:12px;box-sizing:border-box;}
-#helpModalBox{width:min(420px,92vw);max-height:min(78vh,680px);overflow:auto;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 30px rgba(0,0,0,.28);padding:14px 14px 12px 14px;}
-#helpModalTitle{font-size:16px;font-weight:800;margin:0 0 10px 0;}
-#helpModalBody{font-size:13px;line-height:1.75;}
+#helpModalBox{width:min(420px,92vw);max-height:min(78vh,680px);overflow:hidden;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 30px rgba(0,0,0,.28);padding:14px 14px 12px 14px;display:flex;flex-direction:column;box-sizing:border-box;}
+#helpModalHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:0 0 auto;margin-bottom:10px;}
+#helpModalTitle{font-size:16px;font-weight:800;margin:0;}
+#helpModalBody{font-size:13px;line-height:1.75;min-height:0;overflow:auto;overscroll-behavior:contain;}
 #helpModalBody .helpBlock{margin-bottom:10px;}
 #helpModalBody .helpHead{font-weight:800;margin-bottom:2px;}
 #helpModalBody .helpNote{color:var(--muted);}
-#helpModalActions{display:flex;justify-content:flex-end;margin-top:12px;}
-#helpCloseBtn{min-width:74px;}
+#helpCloseBtn{min-width:74px;flex:0 0 auto;}
 
 #viewerLabel{cursor:pointer;}
 #helpMenuGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px;}
@@ -215,7 +215,7 @@ body{display:flex;flex-direction:column;}
   #textSearchNavButtons button{min-height:26px;font-size:11px;}
   #textSearchPrevBtn,#textSearchNextBtn{padding:4px 6px;}
   #helpModalBox{width:min(360px,94vw);padding:12px 12px 10px 12px;border-radius:12px;}
-  #helpModalTitle{font-size:15px;margin-bottom:8px;}
+  #helpModalTitle{font-size:15px;margin:0;}
   #helpModalBody{font-size:12px;line-height:1.7;}
 }
 
@@ -1019,7 +1019,10 @@ gtag('config', 'G-88B9YPJXWP');
 
   <div id="helpModal">
     <div id="helpModalBox">
-      <div id="helpModalTitle">ヘルプ</div>
+      <div id="helpModalHeader">
+        <div id="helpModalTitle">ヘルプ</div>
+        <button id="helpCloseBtn" type="button">閉じる</button>
+      </div>
       <div id="helpModalBody">
         <div id="helpMenuView">
           <div id="helpMenuGrid">
@@ -1179,9 +1182,6 @@ gtag('config', 'G-88B9YPJXWP');
           </div>
           </div>
         </div>
-      </div>
-      <div id="helpModalActions">
-        <button id="helpCloseBtn" type="button">閉じる</button>
       </div>
     </div>
   </div>
