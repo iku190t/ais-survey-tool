@@ -1730,7 +1730,7 @@ function planeToSfcWorld(xNorth, yEast){
     if(Number.isFinite(det)&&Math.abs(det)>1e-10){
       const nx=xNorth-tr.xNorth.offset,ey=yEast-tr.yEast.offset;
       const x=(e*nx-b*ey)/det,y=(-d*nx+a*ey)/det;
-      if(Number.isFinite(x)&&Number.isFinite(y)) return {x:x*1000,y:y*1000};
+      if(Number.isFinite(x)&&Number.isFinite(y)) return {x,y};
     }
     return defaultPlaneToSfcWorld(xNorth,yEast);
   }
