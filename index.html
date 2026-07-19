@@ -108,6 +108,13 @@ body{display:flex;flex-direction:column;}
   text-align:center;white-space:normal;pointer-events:none;
 }
 #profilePrompt.error{background:rgba(145,24,24,.95);border-color:rgba(255,170,170,.7);}
+#modeStatus{
+  display:none;position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:81;
+  max-width:min(72vw,320px);padding:6px 12px;border-radius:999px;
+  background:rgba(16,78,135,.94);color:#fff;border:1px solid rgba(145,205,255,.7);
+  box-shadow:0 5px 14px rgba(0,0,0,.28);font-size:12px;font-weight:800;line-height:1.3;
+  text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;
+}
 @media(max-width:560px){
   #profileBox{height:min(58vh,470px);min-height:320px;}
   #profileHeader{padding:8px 9px 7px;gap:7px;}
@@ -330,6 +337,11 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
   display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,.45);
 }
+#busyOverlay{display:none;position:fixed;inset:0;z-index:240;background:rgba(0,0,0,.28);align-items:center;justify-content:center;pointer-events:auto;}
+#busyOverlay.show{display:flex;}
+#busyBox{display:flex;align-items:center;gap:11px;max-width:min(82vw,360px);padding:12px 16px;border-radius:14px;background:rgba(25,25,25,.96);color:#fff;border:1px solid rgba(255,255,255,.32);box-shadow:0 12px 30px rgba(0,0,0,.4);font-size:14px;font-weight:800;}
+#busySpinner{width:21px;height:21px;flex:0 0 21px;border-radius:50%;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;animation:busySpin .75s linear infinite;}
+@keyframes busySpin{to{transform:rotate(360deg);}}
 #startupBox{
   position:relative;z-index:1;
   width:min(320px,86vw);background:#fff;color:#000;border-radius:14px;
@@ -846,6 +858,7 @@ gtag('config', 'G-88B9YPJXWP');
       <span>詳細</span>
     </button>
   <div id="profilePrompt" role="status" aria-live="polite"></div>
+  <div id="modeStatus" role="status" aria-live="polite"></div>
 
   <div id="layerPanel" class="panel">
     <div id="layerHeader">
@@ -1225,6 +1238,9 @@ gtag('config', 'G-88B9YPJXWP');
 
   <canvas id="canvas"></canvas>
   <div id="toast"></div>
+  <div id="busyOverlay" role="status" aria-live="assertive" aria-busy="true">
+    <div id="busyBox"><span id="busySpinner" aria-hidden="true"></span><span id="busyMessage">処理中…</span></div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.js"></script>
@@ -1324,6 +1340,9 @@ function getCanvasLocalPointFromClient(clientX, clientY){
   return { x: clientX - rect.left, y: clientY - rect.top };
 }
 const toastEl = document.getElementById("toast");
+const busyOverlay = document.getElementById("busyOverlay");
+const busyMessage = document.getElementById("busyMessage");
+const modeStatus = document.getElementById("modeStatus");
 const layerPanel = document.getElementById("layerPanel");
 const layerFab = document.getElementById("layerFab");
 const layerList = document.getElementById("layerList");
@@ -2246,6 +2265,7 @@ function selectProfileWorldPoint(world){
   if(!profileStartWorld){
     profileStartWorld={x:world.x,y:world.y};profileEndWorld=null;profileData=null;profileHoverWorld=null;
     setProfilePrompt("断面の終点をタップしてください");
+    updateModeStatus();
     showToast("断面の終点をタップしてください",2400);scheduleDraw();return;
   }
   profileEndWorld={x:world.x,y:world.y};profileHoverWorld=null;scheduleDraw();completeProfileSelection();
@@ -2253,15 +2273,15 @@ function selectProfileWorldPoint(world){
 async function beginProfileMode(){
   if(!hasLoadedDrawing()) return;
   if(profileZoneResolving) return;
-  measureMode=false;measureFreeMode=false;measureOffsetMode=false;resetMeasureUI();
-  inkEnabled=false;inkDrawing=false;currentStroke=null;pendingTouchInk=null;
-  closeTextSearchPopup();closePanelsExcept();
+  cancelTransientOperations("profile");
+  closePanelsExcept();
   profileZoneResolving=true;
   if(profileBtn) profileBtn.classList.add("profileActive");
+  updateStopBtnUI();
   setProfilePrompt("現在地と図面の座標系を確認しています…");
   showToast("現在地と図面の座標系を確認しています…",9000);
   try{ profileZone=await resolveProfileZone(); }
-  finally{ profileZoneResolving=false; }
+  finally{ profileZoneResolving=false;updateStopBtnUI(); }
   if(!profileZone){
     const msg="座標系を確認できません。iPhoneの位置情報を許可して、もう一度断面を押してください";
     updateProfileUi();setProfilePrompt(msg,true,6000);showToast(msg,6000);return;
@@ -2487,6 +2507,19 @@ function showToast(msg, durationMs=1400){
   clearTimeout(showToast.t);
   showToast.t = setTimeout(()=>toastEl.style.display="none", Math.max(400, durationMs || 1400));
 }
+function showBusy(message="処理中…"){
+  if(busyMessage) busyMessage.textContent=String(message||"処理中…");
+  if(busyOverlay) busyOverlay.classList.add("show");
+}
+function updateBusy(message){
+  if(busyMessage) busyMessage.textContent=String(message||"処理中…");
+}
+function hideBusy(){
+  if(busyOverlay) busyOverlay.classList.remove("show");
+}
+function waitForUiPaint(){
+  return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+}
 function updateTextSearchModeUI(){
   if (textSearchExactToggle){
     textSearchExactToggle.classList.toggle("active", !!textSearchExactMode);
@@ -2591,6 +2624,7 @@ function closeTextSearchPopup(){
   keyboardResizeLock = false;
   updateTextSearchPopupUI();
   updateCompassUi();
+  updateStopBtnUI();
 }
 function openTextSearchPopup(){
   closePanelsExcept('textSearch');
@@ -2822,6 +2856,7 @@ function updateInkUI(){
   circleBtn.style.outline = (!inkEraser && inkTool === "circle") ? "2px solid #ff3030" : "";
   eraserBtn.style.outline = inkEraser ? "2px solid #ff3030" : "";
   updateColorSelectionUI();
+  updateModeStatus();
 }
 
 function isTouchMobileLike(){
@@ -2850,7 +2885,7 @@ async function shareBlobFile(blob, fileName){
     });
     return true;
   }catch(e){
-    if (e && e.name === 'AbortError') return true;
+    if (e && e.name === 'AbortError') return "cancelled";
     console.error(e);
     return false;
   }
@@ -2988,11 +3023,43 @@ async function sendBlobByGmailOrShare(blob,fileName,recipient){
       showToast("直接送信できないため共有画面を開きます",2400);
     }
   }
-  if(await shareBlobFile(blob,fileName)){
-    showToast("共有画面を開きました。Gmailを選んで送信してください");
+  const shareResult=await shareBlobFile(blob,fileName);
+  if(shareResult==="cancelled"){
+    showToast("送信をキャンセルしました");
+    return true;
+  }
+  if(shareResult){
+    showToast("ファイルの共有が完了しました");
     return true;
   }
   return false;
+}
+function getCurrentModeLabel(){
+  if(profileZoneResolving) return "断面：座標系を確認中";
+  if(profileMode){
+    if(!profileStartWorld) return "断面：起点を選択";
+    if(!profileEndWorld) return "断面：終点を選択";
+    return "断面表示中";
+  }
+  if(textSearchPopupOpen) return "文字検索中";
+  if(measureMode){
+    const count=Array.isArray(selectedMeasurePoints)?selectedMeasurePoints.length:0;
+    return measureType==="3vertical"
+      ? `計測：3点垂線（${Math.min(count+1,3)}/3点目）`
+      : `計測：点間距離（${Math.min(count+1,2)}/2点目）`;
+  }
+  if(measureModePanel && measureModePanel.style.display==="block") return "計測方法を選択";
+  if(inkEnabled){
+    const tool=inkEraser?"消しゴム":(inkTool==="circle"?"丸":"線");
+    return `手書き：${tool}`;
+  }
+  return "";
+}
+function updateModeStatus(){
+  if(!modeStatus) return;
+  const label=getCurrentModeLabel();
+  modeStatus.textContent=label;
+  modeStatus.style.display=label?"block":"none";
 }
 function updateStopBtnUI(){
   const btn = document.getElementById("stopBtn");
@@ -4132,6 +4199,7 @@ function chooseMeasurePointByMode(screenX,screenY){
   return null;
 }
 function updateMeasureBox(){
+  updateModeStatus();
   const txt=document.getElementById("measureText");
   if(!measureMode){ measureBox.style.display="none"; return; }
   measureBox.style.display="block";
@@ -5649,6 +5717,7 @@ async function saveSfcOverwrite(){
       : (lastHtmlSaveHandle && typeof lastHtmlSaveHandle.createWritable === "function" ? lastHtmlSaveHandle : null));
 
   if (silentHandle) {
+    showBusy(savingSfc ? "SFCを上書き保存中…" : "HTMLを上書き保存中…");
     try{
       await writeBlobToHandle(silentHandle, blob);
       if (savingSfc) {
@@ -5661,9 +5730,11 @@ async function saveSfcOverwrite(){
       lastPickerHandle = silentHandle;
       currentLoadedKind = savingSfc ? "sfc" : "html";
       data.source_name = (silentHandle && silentHandle.name) ? silentHandle.name : overwriteName;
+      hideBusy();
       showToast(savingSfc ? "SFCを上書き保存しました" : "HTMLを上書き保存しました");
       return;
     }catch(e){
+      hideBusy();
       if (!(e && e.name === "AbortError")) console.error(e);
     }
   }
@@ -5680,6 +5751,7 @@ async function saveSfcOverwrite(){
       const startHandle = getPickerStartHandle();
       if (startHandle) saveOpts.startIn = startHandle;
       const handle = await window.showSaveFilePicker(saveOpts);
+      showBusy(savingSfc ? "SFCを保存中…" : "HTMLを保存中…");
       await writeBlobToHandle(handle, blob);
       if (savingSfc) {
         lastSaveHandle = handle;
@@ -5691,16 +5763,23 @@ async function saveSfcOverwrite(){
       lastPickerHandle = handle;
       currentLoadedKind = savingSfc ? "sfc" : "html";
       data.source_name = handle.name || overwriteName;
+      hideBusy();
       showToast(savingSfc ? "SFCを保存しました" : "HTMLを保存しました");
       return;
     }catch(e){
+      hideBusy();
       if (e && e.name === "AbortError") return;
       console.error(e);
     }
   }
 
-  if (await shareBlobFile(blob, overwriteName)) {
-    showToast('保存シートを開きました。ファイルへ保存してください');
+  const overwriteShareResult=await shareBlobFile(blob, overwriteName);
+  if (overwriteShareResult==="cancelled") {
+    showToast("保存をキャンセルしました");
+    return;
+  }
+  if (overwriteShareResult) {
+    showToast('ファイルの保存・共有が完了しました');
     return;
   }
 
@@ -5713,20 +5792,26 @@ async function saveSfcOverwrite(){
 }
 async function saveSfcWithAnnotations(){
   const savingSfc = currentLoadedKind === "sfc";
-  showToast("別名保存データを準備中…",60000);
-  const exportData = savingSfc ? buildSfcExportBlobAndName() : buildHtmlExportBlobAndName();
-  if (!exportData.ok) { showToast(exportData.reason); return; }
-  const { blob, saveAsName } = exportData;
-
-  // Prepare ZIP before showing the choice dialog. Web Share on iOS requires
-  // the share call to follow the user's button press immediately; doing the
-  // compression after that press can consume the transient user activation.
+  showBusy("別名保存データを準備中…");
+  await waitForUiPaint();
+  let exportData;
   let preparedZip=null;
   try{
+    exportData = savingSfc ? buildSfcExportBlobAndName() : buildHtmlExportBlobAndName();
+    if (!exportData.ok) { showToast(exportData.reason); return; }
+    updateBusy("ZIP送信用データを準備中…");
+    // Prepare ZIP before showing the choice dialog. Web Share on iOS requires
+    // the share call to follow the user's button press immediately.
+    const {blob,saveAsName}=exportData;
     preparedZip=await createSingleFileZip(blob,saveAsName);
   }catch(e){
     console.error(e);
+    showToast("別名保存データを作成できませんでした");
+  }finally{
+    hideBusy();
   }
+  if(!exportData || !exportData.ok) return;
+  const { blob, saveAsName } = exportData;
 
   document.getElementById("saveAsRawShareBtn").textContent=savingSfc?"SFCを直接送信":"HTMLを直接送信";
   showToast("送信方法を選んでください",1200);
@@ -5771,6 +5856,7 @@ async function saveSfcWithAnnotations(){
       const startHandle = getPickerStartHandle();
       if (startHandle) saveOpts.startIn = startHandle;
       const handle = await window.showSaveFilePicker(saveOpts);
+      showBusy(savingSfc ? "SFCを別名保存中…" : "HTMLを保存中…");
       await writeBlobToHandle(handle, blob);
       if (savingSfc) {
         lastSaveHandle = handle;
@@ -5782,9 +5868,11 @@ async function saveSfcWithAnnotations(){
       lastPickerHandle = handle;
       currentLoadedKind = savingSfc ? "sfc" : "html";
       data.source_name = handle.name || saveAsName;
+      hideBusy();
       showToast(savingSfc ? "SFCを別名保存しました" : "HTMLで保存しました");
       return;
     }catch(e){
+      hideBusy();
       if (e && e.name === "AbortError") return;
     }
   }
@@ -5918,8 +6006,9 @@ function handleLoadedHtmlPayload(payload, fileName, handleOverride){
 }
 
 async function handleLoadedSource(srcText, fileName, handleOverride){
-  showToast("SFCを解析中…",60000);
-  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  showBusy("SFCを解析中…");
+  await waitForUiPaint();
+  try{
   window.__EMBED_PAYLOAD_B64__ = "";
   clearLoadedState();
   currentLoadedKind = "sfc";
@@ -5952,6 +6041,9 @@ async function handleLoadedSource(srcText, fileName, handleOverride){
   applyDefaultFullViewAfterLoad();
   gaTrackOpenSfc("sfc");
   showToast(lastSaveHandle ? "読み込みました（上書き保存対応）" : "読み込みました");
+  }finally{
+    hideBusy();
+  }
 }
 async function openSfcViaPickerOrInput(){
   if (window.showOpenFilePicker) {
@@ -5967,17 +6059,24 @@ async function openSfcViaPickerOrInput(){
       if (startHandle) openOpts.startIn = startHandle;
       const [handle] = await window.showOpenFilePicker(openOpts);
       if (handle) {
-        showToast("読み込み中...");
+        showBusy("ファイルを読み込み中…");
         const file = await handle.getFile();
         const srcText = await readFileAsLatin1Text(file);
         if (/\.html?$/i.test(file.name)) {
           const payload = extractEmbedPayloadFromHtmlText(srcText);
-          if (payload) { handleLoadedHtmlPayload(payload, file.name, handle); return; }
+          if (payload) {
+            updateBusy("HTML図面を解析中…");
+            await waitForUiPaint();
+            try{ handleLoadedHtmlPayload(payload, file.name, handle); }
+            finally{ hideBusy(); }
+            return;
+          }
         }
-        handleLoadedSource(srcText, file.name, handle);
+        await handleLoadedSource(srcText, file.name, handle);
         return;
       }
     }catch(e){
+      hideBusy();
       if (e && e.name === "AbortError") return;
       console.error(e);
     }
@@ -5988,26 +6087,33 @@ document.getElementById("fileInput").addEventListener("change", async (e)=>{
   const file=e.target.files[0];
   e.target.value = "";
   if(!file) return;
-  showToast("読み込み中...");
+  showBusy("ファイルを読み込み中…");
   try{
     const srcText = await readFileAsLatin1Text(file);
     if (/\.html?$/i.test(file.name)) {
       const payload = extractEmbedPayloadFromHtmlText(srcText);
-      if (payload) { handleLoadedHtmlPayload(payload, file.name, null); return; }
+      if (payload) {
+        updateBusy("HTML図面を解析中…");
+        await waitForUiPaint();
+        try{ handleLoadedHtmlPayload(payload, file.name, null); }
+        finally{ hideBusy(); }
+        return;
+      }
     }
-    handleLoadedSource(srcText, file.name, null);
+    await handleLoadedSource(srcText, file.name, null);
   }catch(err){
+    hideBusy();
     try{
       const reader=new FileReader();
-      reader.onload=()=>{
+      reader.onload=async()=>{
         const bytes=new Uint8Array(reader.result);
         let srcText="";
         for(let i=0;i<bytes.length;i++) srcText += String.fromCharCode(bytes[i]);
-        handleLoadedSource(srcText, file.name, null);
+        await handleLoadedSource(srcText, file.name, null);
       };
-      reader.onerror=()=>showToast("読み込み失敗");
+      reader.onerror=()=>{hideBusy();showToast("読み込み失敗");};
       reader.readAsArrayBuffer(file);
-    }catch(err2){ showToast("読み込み失敗"); }
+    }catch(err2){ hideBusy();showToast("読み込み失敗"); }
   }
 });
 
@@ -6067,6 +6173,7 @@ function activateAerialPhotoFromSlider(){
   }else if(!aerialPhotoResolveBusy){
     enableAerialPhoto();
   }
+  updateModeStatus();
 }
 function setAerialPhotoSliderFromClientX(clientX){
   if(!photoTimeSlider||aerialAvailableSources.length<=1)return;
@@ -6149,8 +6256,9 @@ document.querySelectorAll('.supportLinkBtn').forEach(link=>link.addEventListener
 if (textSearchOpenBtn) textSearchOpenBtn.addEventListener("click", (e)=>{
   e.stopPropagation();
   if (!isDrawingActionAvailable()) return;
-  if(profileMode){profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();}
+  cancelTransientOperations("search");
   openTextSearchPopup();
+  updateStopBtnUI();
 });
 if (sizeToggleBtn) sizeToggleBtn.addEventListener("click", (e)=>{
   e.stopPropagation();
@@ -6359,6 +6467,41 @@ function togglePickMode(mode){
   updateMeasureBox();
   scheduleDraw();
 }
+function cancelTransientOperations(except=""){
+  if(except!=="search" && textSearchPopupOpen) closeTextSearchPopup();
+  if(except!=="measure"){
+    measureMode=false;
+    measureFreeMode=false;
+    measureOffsetMode=false;
+    resetMeasureUI();
+    if(measureModePanel) measureModePanel.style.display="none";
+  }
+  if(except!=="profile"){
+    profileMode=false;
+    profileStartWorld=null;
+    profileEndWorld=null;
+    profileHoverWorld=null;
+    profileData=null;
+    profileTouchCandidate=null;
+    if(profileModal) profileModal.classList.remove("open");
+    setProfilePrompt("");
+  }
+  if(except!=="draw"){
+    inkEnabled=false;
+    inkDrawing=false;
+    currentStroke=null;
+    pendingTouchInk=null;
+    suppressTouchInkUntil=0;
+    inkEraser=false;
+    if(drawPanel) drawPanel.style.display="none";
+  }
+  updateProfileUi();
+  updateInkUI();
+  updateModeIcons();
+  updateMeasureBox();
+  updateStopBtnUI();
+  scheduleDraw();
+}
 document.getElementById("pickCenterBtn").addEventListener("click", ()=>{
   togglePickMode("center");
 });
@@ -6445,14 +6588,11 @@ if(profileChart){
 
 document.getElementById("measureBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
-  if(profileMode){profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();}
-  if (measureMode) {
-    resetMeasureUI();
-    measureType = "2point";
-    // activePickModesはリセットしない（ユーザーの選択を維持）
-    updateModeIcons();
-    updateMeasureBox();
-  }
+  cancelTransientOperations("measure");
+  resetMeasureUI();
+  measureType = "2point";
+  updateModeIcons();
+  updateMeasureBox();
   closePanelsExcept('measureMode');
   if (!measureModePanel) return;
   positionMeasurePanel();
@@ -6473,18 +6613,7 @@ document.getElementById("measure3vBtn").addEventListener("click", ()=>{
 
 document.getElementById("drawBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
-  if(profileMode){profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();}
-  // 計測中なら必ず中止
-  if (measureMode || selectedMeasurePoints.length) {
-    measureMode = false;
-    measureType = "2point";
-    // activePickModesはリセットしない
-    resetMeasureUI();
-    updateModeIcons();
-    updatePickStatus();
-    updateMeasureBox();
-    if (measureModePanel) measureModePanel.style.display = "none";
-  }
+  cancelTransientOperations("draw");
   inkEnabled = true;
   closePanelsExcept('draw');
   drawPanel.style.display = "block";
@@ -6496,37 +6625,16 @@ document.getElementById("stopBtn").addEventListener("click", (e)=>{
   const btn = e.currentTarget;
   btn.classList.add("pressed");
   setTimeout(()=>btn.classList.remove("pressed"), 140);
-  const hadSearchPopup = !!textSearchPopupOpen;
-  if (hadSearchPopup) {
-    closeTextSearchPopup();
-  }
   const panelOpen = !!(measureModePanel && measureModePanel.style.display === "block");
-  const hasWorkToStop = !!(measureMode || inkEnabled || panelOpen || profileMode || profileStartWorld || profileEndWorld || profileData);
+  const hasWorkToStop = !!(measureMode || inkEnabled || panelOpen || textSearchPopupOpen || profileMode || profileStartWorld || profileEndWorld || profileData);
   if (!hasWorkToStop) {
     updateStopBtnUI();
     scheduleDraw();
     return;
   }
-  measureMode = false;
-  profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;updateProfileUi();
-  setProfilePrompt("");
-  measureFreeMode = false;
-  measureOffsetMode = false;
-  resetMeasureUI();
-  inkEnabled = false;
-  pendingTouchInk = null;
-  suppressTouchInkUntil = 0;
-  inkEraser = false;
-  inkTool = "line";
-  inkDrawing = false;
-  currentStroke = null;
-  updateInkUI();
-  updateModeIcons();
-  drawPanel.style.display = "none";
-  if (measureModePanel) measureModePanel.style.display = "none";
-  updateStopBtnUI();
-  updateMeasureBox();
-  scheduleDraw(); updateUndoRedoUI();
+  cancelTransientOperations();
+  updateUndoRedoUI();
+  showToast("操作を中止しました");
 });
 document.getElementById("lineToolBtn").addEventListener("click", ()=>{
   if (measureMode || selectedMeasurePoints.length) {
