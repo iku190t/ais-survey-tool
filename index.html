@@ -1144,7 +1144,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">背景色</div>上部の <b>背景</b> を押し、黒・白のうち表示したい背景色を選びます。青色になっている方が現在の設定です。</div>
               <div class="helpBlock"><div class="helpHead">航空写真</div><b>航空写真</b> のスイッチをONにすると、現在の場所で実際に利用できる写真年代を自動確認します。</div>
-              <div class="helpBlock"><div class="helpHead">年代の変更</div>取得できた年代だけがスライダーの停止位置になります。左端が最新で、右へ動かすほど古くなり、動かしている途中から写真が切り替わります。</div>
+              <div class="helpBlock"><div class="helpHead">年代の変更</div>つまみは指に合わせて滑らかに動き、移動中は最も近い利用可能な年代の写真へ切り替わります。指を離すと、その年代の位置へ吸着します。左端が最新で、右へ動かすほど古くなります。</div>
               <div class="helpBlock"><div class="helpHead">閉じる・キャンセル</div><b>閉じる</b> は選んだ航空写真を残して設定画面だけ閉じます。<b>キャンセル</b> は航空写真を消して設定画面を閉じます。</div>
               <div class="helpBlock"><div class="helpHead">写真がない場合</div>その場所で利用できる航空写真が一枚もない場合は、メッセージを表示してスイッチをOFFへ戻します。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>SFCと航空写真を合わせるため、初回は現在地から図面の座標系を確認します。位置情報の利用を許可してください。</div>
@@ -1474,6 +1474,8 @@ let aerialPhotoEnableRequestId = 0;
 let aerialPhotoAvailabilityKey = "";
 let aerialPhotoRescanTimer = 0;
 const aerialPhotoProbeCache = new Map();
+const AERIAL_PHOTO_SLIDER_STEPS = 1000;
+let aerialPhotoSliderDragging = false;
 
 const helpModal = document.getElementById("helpModal");
 const helpModalBox = document.getElementById("helpModalBox");
@@ -1756,6 +1758,7 @@ async function refreshAerialPhotoSources(requestId){
   const center=getAerialPhotoCenter(aerialPhotoZone);
   const previousId=aerialAvailableSources[aerialPhotoSourceIndex]?.id||"latest";
   setAerialPhotoStatus("この場所で利用できる航空写真を確認中…");
+  aerialPhotoSliderDragging=false;
   aerialAvailableSources=[];aerialPhotoSourceIndex=0;updateAerialPhotoUi();
   const found=[];
   await profileMapLimit(AERIAL_PHOTO_SOURCES,5,async(source,index)=>{
@@ -1780,9 +1783,15 @@ async function refreshAerialPhotoSources(requestId){
 function updateAerialPhotoUi(){
   const source=aerialAvailableSources[aerialPhotoSourceIndex]||null;
   if(photoTimeSlider){
-    photoTimeSlider.max=String(Math.max(0,aerialAvailableSources.length-1));
-    photoTimeSlider.value=String(aerialPhotoSourceIndex);
-    photoTimeSlider.disabled=!aerialAvailableSources.length;
+    const count=aerialAvailableSources.length;
+    photoTimeSlider.min="0";
+    photoTimeSlider.max=String(AERIAL_PHOTO_SLIDER_STEPS);
+    photoTimeSlider.step="1";
+    if(!aerialPhotoSliderDragging){
+      const position=count>1?(aerialPhotoSourceIndex/(count-1))*AERIAL_PHOTO_SLIDER_STEPS:0;
+      photoTimeSlider.value=String(Math.round(position));
+    }
+    photoTimeSlider.disabled=count<=1;
   }
   if(photoTimeLabel) photoTimeLabel.textContent=source?source.label:(aerialPhotoResolveBusy?"利用できる年代を確認中…":"航空写真をONにしてください");
   if(photoToggleSwitch) photoToggleSwitch.checked=aerialPhotoEnabled;
@@ -6005,14 +6014,22 @@ photoToggleSwitch?.addEventListener("change",async()=>{
   }
 });
 photoTimeSlider?.addEventListener("input",()=>{
-  aerialPhotoSourceIndex=Math.max(0,Math.min(Math.max(0,aerialAvailableSources.length-1),parseInt(photoTimeSlider.value,10)||0));
+  aerialPhotoSliderDragging=true;
+  const lastIndex=aerialPhotoSourceIndex;
+  const count=aerialAvailableSources.length;
+  const position=Math.max(0,Math.min(AERIAL_PHOTO_SLIDER_STEPS,Number(photoTimeSlider.value)||0));
+  aerialPhotoSourceIndex=count>1?Math.round((position/AERIAL_PHOTO_SLIDER_STEPS)*(count-1)):0;
   updateAerialPhotoUi();
-  if(aerialPhotoEnabled){
+  if(aerialPhotoEnabled&&aerialPhotoSourceIndex!==lastIndex){
     setAerialPhotoStatus("航空写真を読み込んでいます…");
     scheduleDraw();
   }
 });
-photoTimeSlider?.addEventListener("change",scheduleDraw);
+photoTimeSlider?.addEventListener("change",()=>{
+  aerialPhotoSliderDragging=false;
+  updateAerialPhotoUi();
+  scheduleDraw();
+});
 document.getElementById("photoCancelBtn")?.addEventListener("click",()=>{
   aerialPhotoEnableRequestId++;
   aerialPhotoResolveBusy=false;
