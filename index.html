@@ -1514,6 +1514,7 @@ let profileEndWorld = null;
 let profileHoverWorld = null;
 let profileData = null;
 let profileZone = null;
+let activeCoordinateMeshTransform = null;
 let profileTouchCandidate = null;
 let profileGraphScaleX = 1;
 let profileGraphScaleY = 1;
@@ -1702,12 +1703,12 @@ function latLonToJgd2024XY(lat, lon, zone){
   const result = proj4("EPSG:4326", key, [lon, lat]);
   return { x: result[1], y: result[0] }; // X=northing, Y=easting
 }
-function planeToSfcWorld(xNorth, yEast){
+function defaultPlaneToSfcWorld(xNorth, yEast){
   const sfcX = (GPS_TO_SFC.xFrom === "X" ? xNorth : yEast) * GPS_TO_SFC.xSign + GPS_TO_SFC.offsetX;
   const sfcY = (GPS_TO_SFC.yFrom === "X" ? xNorth : yEast) * GPS_TO_SFC.ySign + GPS_TO_SFC.offsetY;
   return {x:sfcX, y:sfcY};
 }
-function sfcWorldToPlane(xWorldMm, yWorldMm){
+function defaultSfcWorldToPlane(xWorldMm, yWorldMm){
   const sfcX = xWorldMm / 1000;
   const sfcY = yWorldMm / 1000;
   const first = (sfcX - GPS_TO_SFC.offsetX) / GPS_TO_SFC.xSign;
@@ -1716,6 +1717,113 @@ function sfcWorldToPlane(xWorldMm, yWorldMm){
   if (GPS_TO_SFC.xFrom === "X") xNorth = first; else yEast = first;
   if (GPS_TO_SFC.yFrom === "X") xNorth = second; else yEast = second;
   return {xNorth, yEast};
+}
+function planeToSfcWorld(xNorth, yEast){
+  const tr=activeCoordinateMeshTransform;
+  if(!tr) return defaultPlaneToSfcWorld(xNorth,yEast);
+  const world=[0,0];
+  world[tr.xNorth.worldAxis]=(xNorth-tr.xNorth.offset)/tr.xNorth.slope;
+  world[tr.yEast.worldAxis]=(yEast-tr.yEast.offset)/tr.yEast.slope;
+  if(!Number.isFinite(world[0])||!Number.isFinite(world[1])) return defaultPlaneToSfcWorld(xNorth,yEast);
+  return {x:world[0],y:world[1]};
+}
+function sfcWorldToPlane(xWorldMm, yWorldMm){
+  const tr=activeCoordinateMeshTransform;
+  if(!tr) return defaultSfcWorldToPlane(xWorldMm,yWorldMm);
+  const world=[xWorldMm/1000,yWorldMm/1000];
+  return {
+    xNorth:tr.xNorth.slope*world[tr.xNorth.worldAxis]+tr.xNorth.offset,
+    yEast:tr.yEast.slope*world[tr.yEast.worldAxis]+tr.yEast.offset
+  };
+}
+function medianNumber(values){
+  const sorted=(values||[]).filter(Number.isFinite).sort((a,b)=>a-b);
+  if(!sorted.length) return NaN;
+  const mid=Math.floor(sorted.length/2);
+  return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;
+}
+function parseCoordinateMeshLabel(text){
+  const normalized=String(text||"").normalize("NFKC").toUpperCase().replace(/[\s,，]/g,"");
+  const match=normalized.match(/(?:^|[^A-Z])([XY])[:=]([+\-]?\d+(?:\.\d+)?)/);
+  if(!match) return null;
+  const value=Number(match[2]);
+  return Number.isFinite(value)?{axis:match[1],value}:null;
+}
+function fitCoordinateMeshAxis(samples,worldAxis){
+  const rows=(samples||[]).map(sample=>({
+    coordinate:(worldAxis===0?sample.text.x:sample.text.y)/1000,
+    value:sample.value
+  })).filter(row=>Number.isFinite(row.coordinate)&&Number.isFinite(row.value));
+  if(rows.length<2) return null;
+  if(new Set(rows.map(row=>Math.round(row.value*1000))).size<2) return null;
+  const meanCoordinate=rows.reduce((sum,row)=>sum+row.coordinate,0)/rows.length;
+  const meanValue=rows.reduce((sum,row)=>sum+row.value,0)/rows.length;
+  let covariance=0,variance=0;
+  for(const row of rows){
+    const dc=row.coordinate-meanCoordinate;
+    covariance+=dc*(row.value-meanValue);
+    variance+=dc*dc;
+  }
+  if(variance<1e-8) return null;
+  const slope=covariance/variance;
+  if(!Number.isFinite(slope)||Math.abs(slope)<0.01||Math.abs(slope)>100) return null;
+  const offset=meanValue-slope*meanCoordinate;
+  const residuals=rows.map(row=>Math.abs(row.value-(slope*row.coordinate+offset)));
+  const valueSpan=Math.max(...rows.map(row=>row.value))-Math.min(...rows.map(row=>row.value));
+  if(valueSpan<1) return null;
+  return {worldAxis,slope,offset,residual:medianNumber(residuals),valueSpan,count:rows.length};
+}
+function analyzeCoordinateMeshTransform(target){
+  const groups=new Map();
+  for(const text of target&&target.texts||[]){
+    const label=parseCoordinateMeshLabel(text.text);
+    if(!label||!Number.isFinite(+text.x)||!Number.isFinite(+text.y)) continue;
+    const key=String(text.layer==null?"":text.layer);
+    if(!groups.has(key)) groups.set(key,{X:[],Y:[]});
+    groups.get(key)[label.axis].push({text,value:label.value});
+  }
+  let best=null;
+  for(const [layer,group] of groups){
+    if(group.X.length<2||group.Y.length<2) continue;
+    for(const xWorldAxis of [0,1]){
+      const yWorldAxis=1-xWorldAxis;
+      const xFit=fitCoordinateMeshAxis(group.X,xWorldAxis);
+      const yFit=fitCoordinateMeshAxis(group.Y,yWorldAxis);
+      if(!xFit||!yFit) continue;
+      const fittedResidual=xFit.residual+yFit.residual;
+      const span=Math.min(xFit.valueSpan,yFit.valueSpan);
+      if(!Number.isFinite(fittedResidual)||fittedResidual>Math.max(5,span*0.025)) continue;
+      const currentErrors=[];
+      for(const sample of group.X){
+        const plane=defaultSfcWorldToPlane(sample.text.x,sample.text.y);
+        currentErrors.push(Math.abs(plane.xNorth-sample.value));
+      }
+      for(const sample of group.Y){
+        const plane=defaultSfcWorldToPlane(sample.text.x,sample.text.y);
+        currentErrors.push(Math.abs(plane.yEast-sample.value));
+      }
+      const currentResidual=medianNumber(currentErrors);
+      const labelCount=xFit.count+yFit.count;
+      // If any mesh already agrees with the normal survey-coordinate mapping,
+      // prefer it over a separate inset/detail mesh that would trigger a correction.
+      const score=fittedResidual+(currentResidual<=20?-1000:0)-Math.min(100,labelCount)*0.001;
+      const candidate={xNorth:xFit,yEast:yFit,layer,labelCount,fittedResidual,currentResidual,score};
+      if(!best||candidate.score<best.score) best=candidate;
+    }
+  }
+  return best;
+}
+function configureCoordinateMeshFallback(target){
+  activeCoordinateMeshTransform=null;
+  if(target) target._meshCoordinateTransform=null;
+  const candidate=analyzeCoordinateMeshTransform(target);
+  if(!candidate) return null;
+  // Keep the standard conversion when it already agrees with the coordinate labels.
+  const mismatchThreshold=Math.max(20,candidate.fittedResidual*6);
+  if(!(candidate.currentResidual>mismatchThreshold)) return null;
+  activeCoordinateMeshTransform=candidate;
+  if(target) target._meshCoordinateTransform=candidate;
+  return candidate;
 }
 function jgd2024XYToLatLon(xNorth, yEast, zone){
   if (!ensureProj4Defs()) throw new Error("proj4未読込");
@@ -3710,6 +3818,7 @@ function prepareRenderMetadata(target,sourceBytes=0){
     vertices:vertexCount
   };
   configureLargeDrawingMode(target,sourceBytes);
+  configureCoordinateMeshFallback(target);
   return target;
 }
 
@@ -4992,6 +5101,7 @@ function resetSessionFromLoad(){
 }
 function clearLoadedState(){
   exitGpsOnlyBlankMode(false);
+  activeCoordinateMeshTransform=null;
   largeDrawingMode=false;
   largeDrawingStats={sourceBytes:0,features:0,vertices:0};
   data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [], ellipseArcs: [], markers: [], layerNames: {}, source_name: "" };
@@ -6420,7 +6530,8 @@ async function handleLoadedSource(srcText, fileName, handleOverride){
   restoreRecoverySnapshotIfAvailable();
   applyDefaultFullViewAfterLoad();
   gaTrackOpenSfc("sfc");
-  const loadModeLabel=largeDrawingMode ? "大容量モード" : "通常モード";
+  const loadModeLabel=(largeDrawingMode ? "大容量モード" : "通常モード")+
+    (activeCoordinateMeshTransform ? "・座標メッシュ補正" : "");
   showToast(lastSaveHandle
     ? `読み込みました（${loadModeLabel}・上書き保存対応）`
     : `読み込みました（${loadModeLabel}）`);
