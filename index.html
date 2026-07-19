@@ -81,13 +81,14 @@ body{display:flex;flex-direction:column;}
 .topbar-row>*{flex:0 0 auto;}
 .topbar-row::-webkit-scrollbar{height:4px;}
 #topbarMain{min-height:34px;}
-#topbarSub{min-height:34px;}
+#topbarSub{display:none;min-height:34px;}
+body.context-tools-open #topbarSub{display:flex;}
 #title{display:none;}
 #creditWrap{margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-end; gap:0; min-height:30px; padding-right:10px; padding-left:8px;}
 #viewerLabel{font-size:13px; font-weight:700; opacity:.9; color:var(--fg); line-height:1; white-space:nowrap; cursor:pointer; margin-top:auto; padding:0 0 1px 0;}
 #textSearchModal{display:none;position:fixed;inset:0;z-index:96;background:rgba(0,0,0,.10);align-items:flex-start;justify-content:flex-end;padding:calc(var(--topbar-height,90px) + 8px) 12px calc(10px + env(safe-area-inset-bottom)) 12px;box-sizing:border-box;pointer-events:none;}
 #textSearchModalBox{width:min(260px,68vw);max-width:260px;max-height:calc(100vh - var(--topbar-height,90px) - 24px);overflow:auto;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.28);padding:10px 10px 9px 10px;pointer-events:auto;touch-action:manipulation;}
-#profileModal{display:none;position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.58);align-items:flex-end;justify-content:center;padding:10px;box-sizing:border-box;}
+#profileModal{display:none;position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.58);align-items:flex-end;justify-content:center;padding:10px 10px calc(10px + env(safe-area-inset-bottom));box-sizing:border-box;}
 #profileModal.open{display:flex;}
 #profileBox{width:min(760px,100%);height:min(62vh,520px);min-height:330px;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;box-shadow:0 14px 34px rgba(0,0,0,.42);display:flex;flex-direction:column;overflow:hidden;}
 #profileHeader{display:flex;align-items:center;gap:10px;padding:10px 12px 8px;border-bottom:1px solid var(--border);}
@@ -99,7 +100,9 @@ body{display:flex;flex-direction:column;}
 #profileLoading{display:none;position:absolute;inset:6px 8px 0;align-items:center;justify-content:center;background:rgba(20,20,20,.36);border-radius:9px;color:#fff;font-weight:800;z-index:2;}
 #profileLoading.show{display:flex;}
 #profileNotice{font-size:12px;line-height:1.45;text-align:center;padding:7px 10px 9px;color:var(--muted);}
-#profileBtn.profileActive{background:#f2a400;color:#111;border-color:#ffd35a;}
+#profileBtn.profileActive,
+.toolIconBtn.modeActive,
+.toolIconBtn.activeMeasureBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #profilePrompt{
   display:none;position:absolute;left:50%;top:58px;transform:translateX(-50%);z-index:82;
   max-width:min(82vw,360px);padding:8px 13px;border-radius:999px;
@@ -127,7 +130,7 @@ body{display:flex;flex-direction:column;}
 #textSearchInput::placeholder{color:var(--muted);}
 #textSearchModeRow{display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:nowrap;}
 #textSearchExactToggle{display:inline-flex;align-items:center;gap:6px;flex:1 1 auto;min-width:0;padding:6px 8px;border-radius:9px;border:1px solid var(--border);background:var(--button);color:var(--buttonText);font-size:12px;cursor:pointer;user-select:none;white-space:nowrap;}
-#textSearchExactToggle.active{background:#0f6d2f;color:#fff;border-color:#0b5223;}
+#textSearchExactToggle.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #textSearchExactIcon{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 16px;border-radius:999px;border:1px solid currentColor;font-size:11px;font-weight:700;line-height:1;box-sizing:border-box;}
 #textSearchExactToggle.active #textSearchExactIcon::before{content:"✓";}
 #textSearchExactToggle:not(.active) #textSearchExactIcon::before{content:"";}
@@ -142,7 +145,7 @@ body{display:flex;flex-direction:column;}
 #textSearchNavButtons{flex:1;display:flex;flex-direction:column;gap:6px;}
 #textSearchNavButtons button{min-height:30px;font-size:12px;}
 #textSearchPrevBtn,#textSearchNextBtn{padding:5px 8px;text-align:center;}
-#textSearchDoneBtn{display:none;}
+#textSearchDoneBtn{display:flex;width:100%;min-height:32px;margin-top:8px;align-items:center;justify-content:center;background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #textSearchPrevBtn:disabled,#textSearchNextBtn:disabled{opacity:.45;cursor:default;}
 #sizeToggleBtn{padding:6px 10px;font-size:12px;white-space:nowrap;}
 #helpModal{display:none;position:absolute;inset:0;z-index:97;background:rgba(0,0,0,.14);align-items:center;justify-content:center;padding:12px;box-sizing:border-box;}
@@ -226,7 +229,6 @@ body{display:flex;flex-direction:column;}
   #helpModalBody{font-size:12px;line-height:1.7;}
 }
 
-button.cancel-active{background:#c40000 !important;color:#fff !important;border-color:#880000 !important;}
 .mobile-hide{display:none !important;}
 #topbar, #topbarMain, #topbarSub, #envNotice{
   -webkit-user-select:none;
@@ -378,7 +380,9 @@ button.dimmed{
 }
 button.pick-active{
   outline:none !important;
-  box-shadow: inset 0 0 0 2px #ff3030, inset 0 0 0 999px rgba(255,255,255,0.12);
+  color:#1677ff !important;
+  border-color:#1677ff !important;
+  box-shadow: inset 0 0 0 2px #1677ff, inset 0 0 0 999px rgba(22,119,255,0.10);
 }
 
 #pickCenterBtn,
@@ -516,7 +520,7 @@ body.light #compassFab .compassN{
   pointer-events:none;
 }
 .toolIconBtn svg *{pointer-events:none;}
-.toolIconBtn.stopIconBtn{color:#c40000;}
+.toolIconBtn.stopIconBtn{color:#1677ff;}
 .toolIconBtn.bgIconBtn svg{stroke-width:1.8;}
 
 
@@ -800,25 +804,6 @@ gtag('config', 'G-88B9YPJXWP');
         <rect x="11.4" y="5.2" width="8.4" height="8.4" rx="1.2"></rect>
       </svg>
     </button>
-    <button id="helpBtn" class="toolIconBtn" data-help-label="ヘルプ" title="ヘルプ" aria-label="ヘルプ">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="8"></circle>
-        <path d="M9.8 9.2a2.5 2.5 0 1 1 4.1 2c-.9.7-1.9 1.2-1.9 2.6"></path>
-        <circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"></circle>
-      </svg>
-    </button>
-    </div>
-  <div id="topbarSub" class="topbar-row">
-    <button id="pickCenterBtn" data-help-label="中心" title="丸の中心" style="width:32px;height:32px;padding:0;font-size:15px;"><span class="pick-center-icon"></span></button>
-    <button id="pickCrossBtn" data-help-label="交点" title="交点" style="width:32px;height:32px;padding:0;font-size:22px;font-weight:700;line-height:1;">＋</button>
-    <button id="pickEndBtn" data-help-label="端点" title="線の端点" style="width:32px;height:32px;padding:0;">—○</button>
-    <button id="pickFreeBtn" data-help-label="フリー" title="フリー" style="width:32px;height:32px;padding:0;font-size:13px;"><span class="pick-free-icon"></span></button>
-    <button id="pickLineBtn" data-help-label="線上" title="線上" style="width:32px;height:32px;padding:0;">／</button>
-    <button id="stopBtn" class="toolIconBtn stopIconBtn" data-help-label="中止" title="中止" aria-label="中止">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="8"></circle><path d="M8.5 8.5 15.5 15.5"></path><path d="M15.5 8.5 8.5 15.5"></path>
-      </svg>
-    </button>
     <button id="bgBtn" class="toolIconBtn bgIconBtn" data-help-label="背景" title="背景切替" aria-label="背景切替">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <rect x="4" y="5.5" width="16" height="13" rx="2"></rect>
@@ -826,9 +811,28 @@ gtag('config', 'G-88B9YPJXWP');
         <path d="M5 7h7v10H5z" fill="currentColor" stroke="none"></path>
       </svg>
     </button>
+    <button id="helpBtn" class="toolIconBtn" data-help-label="ヘルプ" title="ヘルプ" aria-label="ヘルプ">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8"></circle>
+        <path d="M9.8 9.2a2.5 2.5 0 1 1 4.1 2c-.9.7-1.9 1.2-1.9 2.6"></path>
+        <circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"></circle>
+      </svg>
+    </button>
     <div id="creditWrap">
       <div id="viewerLabel">SFCスマホビューアー</div>
     </div>
+    </div>
+  <div id="topbarSub" class="topbar-row">
+    <button id="pickCenterBtn" data-help-label="中心" title="丸の中心" style="width:32px;height:32px;padding:0;font-size:15px;"><span class="pick-center-icon"></span></button>
+    <button id="pickCrossBtn" data-help-label="交点" title="交点" style="width:32px;height:32px;padding:0;font-size:22px;font-weight:700;line-height:1;">＋</button>
+    <button id="pickEndBtn" data-help-label="端点" title="線の端点" style="width:32px;height:32px;padding:0;">—○</button>
+    <button id="pickFreeBtn" data-help-label="フリー" title="フリー" style="width:32px;height:32px;padding:0;font-size:13px;"><span class="pick-free-icon"></span></button>
+    <button id="pickLineBtn" data-help-label="線上" title="線上" style="width:32px;height:32px;padding:0;">／</button>
+    <button id="stopBtn" class="toolIconBtn stopIconBtn" data-help-label="閉じる" title="現在の作業を閉じる" aria-label="現在の作業を閉じる">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8"></circle><path d="M8.5 8.5 15.5 15.5"></path><path d="M15.5 8.5 8.5 15.5"></path>
+      </svg>
+    </button>
   </div>
 </div>
 
@@ -1015,6 +1019,7 @@ gtag('config', 'G-88B9YPJXWP');
       </div>
       <div id="textSearchModeText"></div>
       <div id="textSearchModalActions"></div>
+      <button id="textSearchDoneBtn" type="button" title="文字検索を閉じる">閉じる</button>
       <div id="textSearchResultPanel" aria-live="polite">
         <div id="textSearchResultBox">
           <div id="textSearchResultLabel">発見数</div>
@@ -1023,7 +1028,6 @@ gtag('config', 'G-88B9YPJXWP');
         <div id="textSearchNavButtons">
           <button id="textSearchPrevBtn" type="button" title="前の候補へ移動">前候補</button>
           <button id="textSearchNextBtn" type="button" title="次の候補へ移動">次候補</button>
-          <button id="textSearchDoneBtn" type="button" title="検索を終了" hidden>終了</button>
         </div>
       </div>
     </div>
@@ -1096,10 +1100,10 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">計測</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">始め方</div><b>計測</b> を押して、2点間または3点垂直を選びます。</div>
-              <div class="helpBlock"><div class="helpHead">点の取り方</div>上の青い記号ボタンで、丸の中心・交点・線の端点・フリー・線上を選べます。赤枠のものが有効です。</div>
+              <div class="helpBlock"><div class="helpHead">点の取り方</div>計測中だけ上段に補助ボタンが現れます。丸の中心・交点・線の端点・フリー・線上を選べ、青枠のものが有効です。</div>
               <div class="helpBlock"><div class="helpHead">2点間</div>2点を取ると距離が出ます。続けて次の点を取ると、直前の2点目から新しい点までを連続して計測します。</div>
               <div class="helpBlock"><div class="helpHead">3点垂直</div>基準線の2点と、離れた1点を取ると、垂直距離を出します。</div>
-              <div class="helpBlock"><div class="helpHead">やめる</div><b>中止</b> を押すと計測を終了します。</div>
+              <div class="helpBlock"><div class="helpHead">閉じる</div>作業中に表示される <b>閉じる</b> を押すと、選択途中の点を消して通常表示へ戻ります。</div>
             </div>
           </div>
 
@@ -1110,7 +1114,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">グラフ</div>横軸と縦軸は同じ縮尺（縦横1:1）です。延長と高低差を表示します。1本指でなぞると図面上の対応位置が分かり、2本指で拡大縮小・移動できます。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>断面を押すと現在地から図面の座標系を自動判定します。iPhoneから確認が出た場合は位置情報を許可してください。判定中・起点・終点の案内は図面上部に表示されます。</div>
               <div class="helpBlock"><div class="helpHead">通信とキャッシュ</div>初回は国土地理院の標高タイルを取得します。同じ場所付近は端末内キャッシュを再利用します。通信できずキャッシュもない場合は表示できません。</div>
-              <div class="helpBlock"><div class="helpHead">閉じる・消す</div><b>閉じる</b> でグラフを閉じます。図面上の断面線を消す時は <b>中止</b> を押してください。</div>
+              <div class="helpBlock"><div class="helpHead">閉じる・消す</div><b>閉じる</b> でグラフと図面上の断面線を消し、通常表示へ戻ります。</div>
               <div class="helpBlock"><div class="helpHead">注意</div>国土地理院DEMによる概略断面です。測量には使用できません。</div>
             </div>
           </div>
@@ -1124,7 +1128,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">保存レイヤー</div>SFC保存時は、手書きの線を <b>「線」</b>、丸を <b>「丸」</b>の別レイヤーへ保存します。</div>
               <div class="helpBlock"><div class="helpHead">図面操作</div>手書き中でも2本指の移動・拡大縮小・回転を使えます。指を2本置いた時点で、描きかけの線を確定して図面操作へ切り替えます。</div>
               <div class="helpBlock"><div class="helpHead">消去・やり直し</div><b>消しゴム</b> で個別に消します。<b>メモ全消去</b> は確認後に全削除します。図面左上の青い矢印で元に戻す・やり直しができます。</div>
-              <div class="helpBlock"><div class="helpHead">終了</div><b>中止</b> を押すと手書き状態を終了します。</div>
+              <div class="helpBlock"><div class="helpHead">閉じる</div>作業中に表示される <b>閉じる</b> を押すと、手書き状態を終了して通常表示へ戻ります。色・太さ・丸の大きさ・透過率・点の取り方は次回も保持されます。</div>
             </div>
           </div>
 
@@ -1134,6 +1138,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">普通の検索</div>入力した文字を含む文字列を探して、その場所へ移動します。</div>
               <div class="helpBlock"><div class="helpHead">完全一致</div><b>完全一致</b> をONにすると、入力した文字とまったく同じものだけ探します。OFFの時は、含まれる文字も探します。</div>
               <div class="helpBlock"><div class="helpHead">候補が複数ある時</div><b>前候補</b> と <b>次候補</b> で順番に移動できます。</div>
+              <div class="helpBlock"><div class="helpHead">閉じる</div>検索画面の <b>閉じる</b> を押すと検索を終了します。</div>
               <div class="helpBlock"><div class="helpHead">見つからない時</div>全角半角、スペース、ハイフン違いを見直してください。文字が非表示でも、検索時に自動で文字表示に切り替わります。</div>
             </div>
           </div>
@@ -1448,6 +1453,8 @@ let searchHighlightUntil = 0;
 let textSearchPopupOpen = false;
 let helpModalOpen = false;
 let toolbarHelpLabelsOpen = false;
+let uiPreferencesLoaded = false;
+const UI_PREFERENCES_KEY = "sfcviewer-ui-preferences-v1";
 let profileMode = false;
 let profileStartWorld = null;
 let profileEndWorld = null;
@@ -1526,6 +1533,7 @@ const profileChart = document.getElementById("profileChart");
 const profileLoading = document.getElementById("profileLoading");
 const profilePrompt = document.getElementById("profilePrompt");
 let profileZoneResolving = false;
+let profileZoneResolveRequestId = 0;
 let profilePromptTimer = 0;
 const helpMenuView = document.getElementById("helpMenuView");
 const helpSectionWrap = document.getElementById("helpSectionWrap");
@@ -2275,13 +2283,18 @@ async function beginProfileMode(){
   if(profileZoneResolving) return;
   cancelTransientOperations("profile");
   closePanelsExcept();
+  const requestId=++profileZoneResolveRequestId;
   profileZoneResolving=true;
   if(profileBtn) profileBtn.classList.add("profileActive");
   updateStopBtnUI();
   setProfilePrompt("現在地と図面の座標系を確認しています…");
   showToast("現在地と図面の座標系を確認しています…",9000);
   try{ profileZone=await resolveProfileZone(); }
-  finally{ profileZoneResolving=false;updateStopBtnUI(); }
+  finally{
+    if(requestId===profileZoneResolveRequestId) profileZoneResolving=false;
+    updateStopBtnUI();
+  }
+  if(requestId!==profileZoneResolveRequestId) return;
   if(!profileZone){
     const msg="座標系を確認できません。iPhoneの位置情報を許可して、もう一度断面を押してください";
     updateProfileUi();setProfilePrompt(msg,true,6000);showToast(msg,6000);return;
@@ -2372,7 +2385,7 @@ function enterGpsOnlyBlankMode(){
   const h = canvas.clientHeight || window.innerHeight || 700;
   view = { scale:1, tx:w/2, ty:h/2 };
   baseFitScale = 1;
-updateThemeUI();
+  updateThemeUI();
   const startupModal = document.getElementById("startupModal");
   if (startupModal) startupModal.style.display = "none";
 }
@@ -2550,6 +2563,8 @@ function updateTextSearchResultUI(){
 }
 function updateTextSearchPopupUI(){
   if (textSearchModal) textSearchModal.style.display = textSearchPopupOpen ? "flex" : "none";
+  const searchOpenBtn=document.getElementById("textSearchOpenBtn");
+  if(searchOpenBtn) searchOpenBtn.classList.toggle("modeActive",!!textSearchPopupOpen);
   if (pickCenterBtn) {
     pickCenterBtn.classList.remove("cancel-active");
     pickCenterBtn.innerHTML = PICK_CENTER_DEFAULT_HTML;
@@ -2559,11 +2574,6 @@ function updateTextSearchPopupUI(){
     pickCenterBtn.style.lineHeight = "";
     pickCenterBtn.style.letterSpacing = "";
     updateModeIcons();
-  }
-  const stopBtn = document.getElementById("stopBtn");
-  if (stopBtn) {
-    stopBtn.classList.toggle("cancel-active", !!textSearchPopupOpen);
-    stopBtn.setAttribute("title", textSearchPopupOpen ? "文字検索を中止" : "中止");
   }
   updateStopBtnUI();
 }
@@ -2606,12 +2616,45 @@ function closeViewerSupportModal(){
 function setToolbarHelpLabels(open){
   toolbarHelpLabelsOpen = !!open;
   document.body.classList.toggle("help-labels", toolbarHelpLabelsOpen);
+  saveUiPreferences();
 }
 
 function syncInitialToolbarHelpLabels(){
-  const initialOpen = isTouchMobileLike();
+  const initialOpen = uiPreferencesLoaded ? toolbarHelpLabelsOpen : isTouchMobileLike();
   toolbarHelpLabelsOpen = initialOpen;
   document.body.classList.toggle("help-labels", initialOpen);
+}
+
+function loadUiPreferences(){
+  try{
+    const raw = localStorage.getItem(UI_PREFERENCES_KEY);
+    if(!raw) return false;
+    const prefs = JSON.parse(raw);
+    const allowedColors = ["#ff3030","#007aff","#00a86b","#ffd400","#ffffff","#000000"];
+    if(allowedColors.includes(prefs.inkColor)) inkColor = prefs.inkColor;
+    if(Number.isFinite(+prefs.inkWidth)) inkWidth = Math.max(1,Math.min(100,Math.round(+prefs.inkWidth)));
+    if(Number.isFinite(+prefs.inkCircleSize)) inkCircleSize = Math.max(8,Math.min(80,+prefs.inkCircleSize));
+    if(Number.isFinite(+prefs.inkOpacity)) inkOpacity = Math.max(.1,Math.min(1,+prefs.inkOpacity));
+    if(prefs.inkTool === "line" || prefs.inkTool === "circle") inkTool = prefs.inkTool;
+    if(Array.isArray(prefs.activePickModes)){
+      const allowed = ["center","cross","end","free","line"];
+      const next = prefs.activePickModes.filter((v,i,a)=>allowed.includes(v) && a.indexOf(v)===i);
+      if(next.length) activePickModes = next;
+    }
+    toolbarHelpLabelsOpen = !!prefs.toolbarHelpLabelsOpen;
+    uiPreferencesLoaded = true;
+    return true;
+  }catch(_e){
+    return false;
+  }
+}
+function saveUiPreferences(){
+  try{
+    localStorage.setItem(UI_PREFERENCES_KEY,JSON.stringify({
+      inkColor, inkWidth, inkCircleSize, inkOpacity, inkTool,
+      activePickModes:[...activePickModes], toolbarHelpLabelsOpen
+    }));
+  }catch(_e){}
 }
 
 function toggleToolbarHelpLabels(){
@@ -2852,8 +2895,8 @@ function updateInkUI(){
   lineBtn.textContent = "線";
   circleBtn.textContent = "丸";
   eraserBtn.textContent = "消しゴム";
-  lineBtn.style.outline = (!inkEraser && inkTool === "line") ? "2px solid #ff3030" : "";
-  circleBtn.style.outline = (!inkEraser && inkTool === "circle") ? "2px solid #ff3030" : "";
+  lineBtn.style.outline = (!inkEraser && inkTool === "line") ? "2px solid #1677ff" : "";
+  circleBtn.style.outline = (!inkEraser && inkTool === "circle") ? "2px solid #1677ff" : "";
   eraserBtn.style.outline = inkEraser ? "2px solid #ff3030" : "";
   updateColorSelectionUI();
   updateModeStatus();
@@ -3066,16 +3109,36 @@ function updateStopBtnUI(){
   if(!btn) return;
   const panelOpen = !!(measureModePanel && measureModePanel.style.display === "block");
   const hasProfileLine = !!(profileStartWorld || profileEndWorld || profileData);
-  const active = !!(measureMode || inkEnabled || panelOpen || textSearchPopupOpen || profileMode || hasProfileLine);
+  const active = !!(measureMode || inkEnabled || panelOpen || profileZoneResolving || profileMode || hasProfileLine);
+  const showSnapTools = !!(measureMode || inkEnabled);
+  const subbar = document.getElementById("topbarSub");
+  const wasOpen = document.body.classList.contains("context-tools-open");
+  document.body.classList.toggle("context-tools-open", active);
+  const measureMainBtn=document.getElementById("measureBtn");
+  const drawMainBtn=document.getElementById("drawBtn");
+  if(measureMainBtn) measureMainBtn.classList.toggle("modeActive",!!(measureMode||panelOpen));
+  if(drawMainBtn) drawMainBtn.classList.toggle("modeActive",!!inkEnabled);
+  ["pickCenterBtn","pickCrossBtn","pickEndBtn","pickFreeBtn","pickLineBtn"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.hidden=!showSnapTools;
+  });
+  btn.hidden=!active;
   if(active){
-    btn.style.background = "#c40000";
+    btn.style.background = "#1677ff";
     btn.style.color = "#fff";
-    btn.style.borderColor = "#880000";
+    btn.style.borderColor = "#0f5ec8";
   }else{
     btn.style.background = "";
     btn.style.color = "";
     btn.style.borderColor = "";
   }
+  if(wasOpen!==active && subbar){
+    requestAnimationFrame(()=>{
+      updateWrapLayout();
+      resize();
+    });
+  }
+  updateModeStatus();
 }
 function applyMobileUiTweaks(){
   const saveBtn = document.getElementById("saveIconBtn");
@@ -4618,7 +4681,7 @@ function resetSessionFromLoad(){
   searchHighlightUntil = 0;
   if (textSearchInput) textSearchInput.value = "";
   resetMeasureUI();
-  measureMode=false; measureType="2point"; activePickModes=["center","cross","end"];
+  measureMode=false; measureType="2point";
   profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;profileZone=null;profileTouchCandidate=null;
   aerialPhotoEnableRequestId++;aerialPhotoEnabled=false;aerialPhotoZone=null;aerialPhotoResolveBusy=false;
   aerialAvailableSources=[];aerialPhotoSourceIndex=0;aerialPhotoAvailabilityKey="";
@@ -6289,7 +6352,7 @@ if (textSearchBtn) textSearchBtn.addEventListener("click", runTextSearch);
 if (textSearchCancelBtn) textSearchCancelBtn.addEventListener("click", ()=>{ closeTextSearchPopup(); });
 if (textSearchPrevBtn) textSearchPrevBtn.addEventListener("click", ()=>{ moveTextSearchResult(-1); });
 if (textSearchNextBtn) textSearchNextBtn.addEventListener("click", ()=>{ moveTextSearchResult(1); });
-if (textSearchDoneBtn) textSearchDoneBtn.addEventListener("click", ()=>{ closeTextSearchPopup(); });
+if (textSearchDoneBtn) textSearchDoneBtn.addEventListener("click", ()=>{ cancelTransientOperations(); });
 if (textSearchExactToggle) textSearchExactToggle.addEventListener("click", ()=>{
   textSearchExactMode = !textSearchExactMode;
   textSearchState = { raw:"", tokens:[], results:[], index:-1, exactMode:!!textSearchExactMode };
@@ -6465,6 +6528,7 @@ function togglePickMode(mode){
   updateModeIcons();
   updatePickStatus();
   updateMeasureBox();
+  saveUiPreferences();
   scheduleDraw();
 }
 function cancelTransientOperations(except=""){
@@ -6477,6 +6541,8 @@ function cancelTransientOperations(except=""){
     if(measureModePanel) measureModePanel.style.display="none";
   }
   if(except!=="profile"){
+    profileZoneResolveRequestId++;
+    profileZoneResolving=false;
     profileMode=false;
     profileStartWorld=null;
     profileEndWorld=null;
@@ -6516,8 +6582,8 @@ if(profileBtn) profileBtn.addEventListener("click",()=>{
     setProfilePrompt("");updateProfileUi();updateStopBtnUI();scheduleDraw();
   }else beginProfileMode();
 });
-if(profileCloseBtn) profileCloseBtn.addEventListener("click",closeProfileModal);
-if(profileModal) profileModal.addEventListener("click",e=>{if(e.target===profileModal)closeProfileModal();});
+if(profileCloseBtn) profileCloseBtn.addEventListener("click",()=>cancelTransientOperations());
+if(profileModal) profileModal.addEventListener("click",e=>{if(e.target===profileModal)cancelTransientOperations();});
 if(profileChart){
   const traceProfileAtClientX=clientX=>{
     if(!profileData) return;
@@ -6634,7 +6700,7 @@ document.getElementById("stopBtn").addEventListener("click", (e)=>{
   }
   cancelTransientOperations();
   updateUndoRedoUI();
-  showToast("操作を中止しました");
+  showToast("作業を閉じました");
 });
 document.getElementById("lineToolBtn").addEventListener("click", ()=>{
   if (measureMode || selectedMeasurePoints.length) {
@@ -6645,6 +6711,7 @@ document.getElementById("lineToolBtn").addEventListener("click", ()=>{
   inkEnabled = true;
   inkEraser = false;
   inkTool = "line";
+  saveUiPreferences();
   drawPanel.style.display = "block";
   updateInkUI();
   updateStopBtnUI();
@@ -6659,6 +6726,7 @@ document.getElementById("circleToolBtn").addEventListener("click", ()=>{
   inkEnabled = true;
   inkEraser = false;
   inkTool = "circle";
+  saveUiPreferences();
   drawPanel.style.display = "block";
   updateInkUI();
   updateStopBtnUI();
@@ -6681,6 +6749,7 @@ document.getElementById("clearInkBtn").addEventListener("click", ()=>{ document.
 const penWidthRange = document.getElementById("penWidth");
 const penWidthNumber = document.getElementById("penWidthNumber");
 if (penWidthRange) penWidthRange.addEventListener("input", e=>{ inkWidth = normalizePenWidthLevel(e.target.value); syncInkControlNumbers(); });
+if (penWidthRange) penWidthRange.addEventListener("change", saveUiPreferences);
 const circleSizeRange = document.getElementById("circleSize");
 const circleSizeNumber = document.getElementById("circleSizeNumber");
 const opacityRangeEl = document.getElementById("opacityRange");
@@ -6755,6 +6824,7 @@ if (penWidthNumber) penWidthNumber.addEventListener("input", e=>{
   if (raw === "") return;
   inkWidth = normalizePenWidthLevel(raw);
   syncInkControlNumbers();
+  saveUiPreferences();
 });
 function commitPenWidthNumberValue(){
   if (!penWidthNumber) return;
@@ -6774,15 +6844,17 @@ if (penWidthNumber){
   });
 }
 if (circleSizeRange) circleSizeRange.addEventListener("input", e=>{ inkCircleSize = circleSizePxFromLevel(e.target.value); syncInkControlNumbers(); });
+if (circleSizeRange) circleSizeRange.addEventListener("change", saveUiPreferences);
 if (circleSizeNumber) circleSizeNumber.addEventListener("input", e=>{
   const raw = String(e.target.value == null ? "" : e.target.value).trim();
   if (raw === "") return;
   inkCircleSize = circleSizePxFromLevel(raw);
   syncInkControlNumbers();
 });
-if (circleSizeNumber) circleSizeNumber.addEventListener("change", ()=>{ inkCircleSize = circleSizePxFromLevel(circleSizeNumber.value); syncInkControlNumbers(); });
-if (circleSizeNumber) circleSizeNumber.addEventListener("blur", ()=>{ inkCircleSize = circleSizePxFromLevel(circleSizeNumber.value); syncInkControlNumbers(); });
+if (circleSizeNumber) circleSizeNumber.addEventListener("change", ()=>{ inkCircleSize = circleSizePxFromLevel(circleSizeNumber.value); syncInkControlNumbers(); saveUiPreferences(); });
+if (circleSizeNumber) circleSizeNumber.addEventListener("blur", ()=>{ inkCircleSize = circleSizePxFromLevel(circleSizeNumber.value); syncInkControlNumbers(); saveUiPreferences(); });
 if (opacityRangeEl) opacityRangeEl.addEventListener("input", e=>{ inkOpacity=(+e.target.value)/100; syncInkControlNumbers(); });
+if (opacityRangeEl) opacityRangeEl.addEventListener("change", saveUiPreferences);
 function commitOpacityNumberValue(){
   if (!opacityNumber) return;
   let raw = String(opacityNumber.value == null ? "" : opacityNumber.value).trim();
@@ -6793,6 +6865,7 @@ function commitOpacityNumberValue(){
   inkOpacity = v / 100;
   if (opacityRangeEl) opacityRangeEl.value = String(v);
   opacityNumber.value = String(v);
+  saveUiPreferences();
 }
 if (opacityNumber) {
   opacityNumber.addEventListener("input", e=>{
@@ -6818,6 +6891,7 @@ document.querySelectorAll(".colorBtn").forEach(btn=>btn.addEventListener("click"
   inkColor = btn.dataset.color;
   inkEraser = false;
   updateInkUI();
+  saveUiPreferences();
 }));
 
 document.getElementById("confirmNoBtn").addEventListener("click", ()=>{ document.getElementById("confirmModal").style.display = "none"; });
@@ -7285,7 +7359,9 @@ if (compassFab) {
   });
 }
 
+loadUiPreferences();
 updateThemeUI();
+syncInkControlNumbers();
 updateInkUI();
 updateModeIcons();
 updatePickStatus();
