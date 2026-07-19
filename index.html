@@ -300,9 +300,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 
 #measureModePanel{width:190px; max-width:min(190px, calc(100vw - 16px)); position:absolute; z-index:60;}
 #measureBox{width:260px; right:12px; top:54px; position:absolute; z-index:60;}
-#measureTypeTabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0 8px;}
-#measureTypeTabs button{min-width:0;min-height:34px;padding:5px 6px;font-size:13px;font-weight:800;}
-#measureTypeTabs button.activeMeasureType{background:#1677ff;color:#fff;border-color:#0f5ec8;}
+#measureTypeToggleBtn{display:block;width:100%;min-height:36px;margin:0 0 8px;padding:5px 8px;font-size:14px;font-weight:800;}
 #drawPanel{width:246px; right:12px; top:54px; position:absolute; z-index:60;}
 #drawPanel .stack{gap:7px;}
 #drawPanel .controlRow{display:flex;align-items:center;gap:8px;}
@@ -920,11 +918,7 @@ gtag('config', 'G-88B9YPJXWP');
 
 
   <div id="measureBox" class="panel">
-    <div id="measureBoxTitle" class="panelTitle">点間距離</div>
-    <div id="measureTypeTabs">
-      <button id="measure2Btn" type="button" title="2点間距離">↔ 2点間</button>
-      <button id="measure3vBtn" type="button" title="3点垂直">⊥ 3点垂直</button>
-    </div>
+    <button id="measureTypeToggleBtn" type="button" title="押すと3点垂直へ切り替えます">↔ 2点間</button>
     <div id="measureText" style="font-size:13px; line-height:1.6;">測定OFFです。</div>
     
   </div>
@@ -4716,10 +4710,11 @@ function updateMeasureBox(){
   if(!measureMode){ measureBox.style.display="none"; return; }
   measureBox.style.display="block";
   const vertical=measureType==="3vertical";
-  const title=document.getElementById("measureBoxTitle");
-  if(title) title.textContent=vertical?"3点垂直":"点間距離";
-  document.getElementById("measure2Btn")?.classList.toggle("activeMeasureType",!vertical);
-  document.getElementById("measure3vBtn")?.classList.toggle("activeMeasureType",vertical);
+  const toggle=document.getElementById("measureTypeToggleBtn");
+  if(toggle){
+    toggle.textContent=vertical?"⊥ 3点垂直":"↔ 2点間";
+    toggle.title=vertical?"押すと2点間へ切り替えます":"押すと3点垂直へ切り替えます";
+  }
   function fmtX(p){ return (p.y/1000).toFixed(3); }
   function fmtY(p){ return (p.x/1000).toFixed(3); }
   function pickName(m){
@@ -7223,13 +7218,10 @@ document.getElementById("measureBtn").addEventListener("click", ()=>{
   scheduleDraw();
 });
 
-document.getElementById("measure2Btn").addEventListener("click", ()=>{
-  measureMode = true; measureType = "2point"; resetMeasureUI();
-  if (measureModePanel) measureModePanel.style.display='none';
-  updateModeIcons(); updateMeasureBox(); measureBox.style.display = "block"; updateStopBtnUI(); scheduleDraw();
-});
-document.getElementById("measure3vBtn").addEventListener("click", ()=>{
-  measureMode = true; measureType = "3vertical"; resetMeasureUI();
+document.getElementById("measureTypeToggleBtn").addEventListener("click", ()=>{
+  measureMode = true;
+  measureType = measureType === "3vertical" ? "2point" : "3vertical";
+  resetMeasureUI();
   if (measureModePanel) measureModePanel.style.display='none';
   updateModeIcons(); updateMeasureBox(); measureBox.style.display = "block"; updateStopBtnUI(); scheduleDraw();
 });
