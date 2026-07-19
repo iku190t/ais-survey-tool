@@ -122,7 +122,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 }
 #profilePrompt.error{background:rgba(145,24,24,.95);border-color:rgba(255,170,170,.7);}
 #modeStatus{
-  display:none;position:absolute;left:50%;top:58px;transform:translateX(-50%);z-index:69;
+  display:none;position:fixed;left:50%;top:auto;bottom:calc(10px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:84;
   max-width:min(72vw,320px);padding:6px 12px;border-radius:999px;
   background:rgba(16,78,135,.94);color:#fff;border:1px solid rgba(145,205,255,.7);
   box-shadow:0 5px 14px rgba(0,0,0,.28);font-size:12px;font-weight:800;line-height:1.3;
@@ -899,7 +899,6 @@ gtag('config', 'G-88B9YPJXWP');
     </button>
   <div id="profilePrompt" role="status" aria-live="polite"></div>
   <div id="modeStatus" role="status" aria-live="polite"></div>
-
   <div id="layerPanel" class="panel">
     <div id="layerHeader">
       <div id="layerHeaderTop"><h3>レイヤー表示・色変更</h3><button id="layerCloseBtn">閉じる</button></div>
