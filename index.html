@@ -52,7 +52,7 @@ body.light{
   --button:#fff;
   --buttonText:#000;
 }
-html,body{margin:0;height:100%;min-height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:Segoe UI,"Yu Gothic UI",Meiryo,sans-serif;}
+html,body{margin:0;height:100%;min-height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:Segoe UI,"Yu Gothic UI",Meiryo,sans-serif;touch-action:manipulation;}
 body{display:flex;flex-direction:column;}
 #topbar{
   box-sizing:border-box;
@@ -6786,12 +6786,17 @@ canvas.addEventListener("wheel", e=>{
   scheduleDraw();
 }, {passive:false});
 canvas.addEventListener("dblclick", e=>{
+  e.preventDefault();
   if(Date.now() < suppressClickUntil) return;
   const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
   const mx=local.x, my=local.y, factor=1.9;
   setScaleAroundScreenPoint(mx, my, view.scale * factor);
   scheduleDraw();
 });
+
+// iOS Safariのページ全体ダブルタップ拡大だけを止める。
+// キャンバス側の独自ダブルタップ拡大は上のハンドラーでそのまま実行する。
+document.addEventListener("dblclick", e=>{ e.preventDefault(); }, {capture:true, passive:false});
 
 canvas.addEventListener("click", e=>{
   if(Date.now() < suppressClickUntil) return;
