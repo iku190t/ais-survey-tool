@@ -83,6 +83,11 @@ body{display:flex;flex-direction:column;}
 #topbarMain{min-height:34px;}
 #topbarSub{display:none;min-height:34px;}
 body.context-tools-open #topbarSub{display:flex;}
+body.profile-tools-active #pickCenterBtn,
+body.profile-tools-active #pickCrossBtn,
+body.profile-tools-active #pickEndBtn,
+body.profile-tools-active #pickFreeBtn,
+body.profile-tools-active #pickLineBtn{display:none !important;}
 #title{display:none;}
 #creditWrap{margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-end; gap:0; min-height:30px; padding-right:10px; padding-left:8px;}
 #viewerLabel{font-size:13px; font-weight:700; opacity:.9; color:var(--fg); line-height:1; white-space:nowrap; cursor:pointer; margin-top:auto; padding:0 0 1px 0;}
@@ -3134,11 +3139,13 @@ function updateStopBtnUI(){
   if(!btn) return;
   const panelOpen = !!(measureModePanel && measureModePanel.style.display === "block");
   const hasProfileLine = !!(profileStartWorld || profileEndWorld || profileData);
+  const profileToolsActive = !!(profileZoneResolving || profileMode || hasProfileLine || (profileModal && profileModal.classList.contains("open")));
   const active = !!(measureMode || inkEnabled || panelOpen || profileZoneResolving || profileMode || hasProfileLine);
-  const showSnapTools = !!(measureMode || inkEnabled);
+  const showSnapTools = !profileToolsActive && !!(measureMode || inkEnabled);
   const subbar = document.getElementById("topbarSub");
   const wasOpen = document.body.classList.contains("context-tools-open");
   document.body.classList.toggle("context-tools-open", active);
+  document.body.classList.toggle("profile-tools-active", profileToolsActive);
   const measureMainBtn=document.getElementById("measureBtn");
   const drawMainBtn=document.getElementById("drawBtn");
   if(measureMainBtn) measureMainBtn.classList.toggle("modeActive",!!(measureMode||panelOpen));
