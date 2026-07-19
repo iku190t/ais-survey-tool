@@ -376,6 +376,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #saveMenuTitle{font-size:18px;font-weight:800;margin-bottom:12px;}
 #saveMenuActions{display:grid;gap:9px;}
 #saveMenuActions button{min-height:44px;font-size:14px;font-weight:700;}
+#saveMenuActions .saveMenuNativeOpen{display:flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:44px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--button);color:var(--buttonText);font-size:14px;font-weight:700;cursor:pointer;}
 #saveMenuOverwriteBtn,#saveMenuSaveAsBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #saveAsIconBtn{display:none!important;}
 #saveAsChoiceActions button{min-height:44px;font-size:14px;font-weight:700;}
@@ -1227,7 +1228,7 @@ gtag('config', 'G-88B9YPJXWP');
     <div id="saveMenuBox">
       <div id="saveMenuTitle">開く・保存</div>
       <div id="saveMenuActions">
-        <button id="saveMenuOpenBtn" type="button">開く</button>
+        <label id="saveMenuOpenBtn" class="saveMenuNativeOpen" for="fileInput">開く</label>
         <button id="saveMenuOverwriteBtn" type="button">上書き保存</button>
         <button id="saveMenuSaveAsBtn" type="button">別名保存・メール送信</button>
         <button id="saveMenuCancelBtn" type="button">閉じる</button>
@@ -6252,6 +6253,7 @@ function bindDrawingFileInput(input){
   input.addEventListener("change",async e=>{
     const file=e.target.files&&e.target.files[0];
     e.target.value="";
+    setSaveMenuOpen(false);
     await handleSelectedDrawingFile(file);
   });
 }
@@ -6542,10 +6544,6 @@ function setSaveMenuOpen(open){
   if(saveAsBtn) saveAsBtn.disabled=!hasDrawing;
   if(modal) modal.style.display=open?"flex":"none";
 }
-document.getElementById("saveMenuOpenBtn").addEventListener("click",()=>{
-  setSaveMenuOpen(false);
-  openSfcViaPickerOrInput();
-});
 document.getElementById("saveIconBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
   setSaveMenuOpen(true);
