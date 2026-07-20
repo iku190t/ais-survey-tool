@@ -2998,11 +2998,13 @@ async function exportProfileSfc(){
     const rawBtn=document.getElementById("saveAsRawShareBtn");
     const zipBtn=document.getElementById("saveAsZipShareBtn");
     const title=document.getElementById("saveAsChoiceTitle");
+    const rawDisplay=rawBtn?rawBtn.style.display:"";
     const choicePromise=chooseSaveAsShareMode();
     if(title)title.textContent="断面SFCを送信";
-    if(rawBtn){rawBtn.style.display="";rawBtn.textContent="SFC送信";}
-    if(zipBtn)zipBtn.textContent="ZIP圧縮して送信";
+    if(rawBtn)rawBtn.style.display="none";
+    if(zipBtn)zipBtn.textContent="送信する";
     const shareMode=await choicePromise;
+    if(rawBtn)rawBtn.style.display=rawDisplay;
     if(!shareMode){showToast("送信をキャンセルしました");return;}
 
     let sendBlob=out.blob;
@@ -7247,9 +7249,20 @@ async function saveSfcWithAnnotations(){
   if(!exportData || !exportData.ok) return;
   const { blob, saveAsName } = exportData;
 
-  document.getElementById("saveAsRawShareBtn").textContent=savingSfc?"SFCを直接送信":"HTMLを直接送信";
-  showToast("送信方法を選んでください",1200);
-  const shareMode=await chooseSaveAsShareMode();
+  const rawShareBtn=document.getElementById("saveAsRawShareBtn");
+  const zipShareBtn=document.getElementById("saveAsZipShareBtn");
+  const shareTitle=document.getElementById("saveAsChoiceTitle");
+  const rawShareDisplay=rawShareBtn?rawShareBtn.style.display:"";
+  if(rawShareBtn)rawShareBtn.textContent=savingSfc?"SFCを直接送信":"HTMLを直接送信";
+  if(!savingSfc)showToast("送信方法を選んでください",1200);
+  const shareChoicePromise=chooseSaveAsShareMode();
+  if(savingSfc){
+    if(shareTitle)shareTitle.textContent="SFCを送信";
+    if(rawShareBtn)rawShareBtn.style.display="none";
+    if(zipShareBtn)zipShareBtn.textContent="送信する";
+  }
+  const shareMode=await shareChoicePromise;
+  if(rawShareBtn)rawShareBtn.style.display=rawShareDisplay;
   if(!shareMode)return;
   const directEnabled=!!getGmailOAuthClientId();
   const recipient=directEnabled?saveGmailRecipient(document.getElementById("gmailRecipientInput")?.value||""):"";
@@ -8245,6 +8258,8 @@ document.getElementById("measureBtn").addEventListener("click", ()=>{
   if (wasMeasuring) {
     measureMode=false;
     resetMeasureUI();
+    if(measureModePanel) measureModePanel.style.display="none";
+    if(measureBox) measureBox.style.display="none";
     updateMeasureBox();
     updateStopBtnUI();
     scheduleDraw();
