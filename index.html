@@ -56,17 +56,19 @@ html,body{margin:0;height:100%;min-height:100%;overflow:hidden;background:var(--
 body{display:flex;flex-direction:column;}
 #topbar{
   box-sizing:border-box;
-  padding:6px 6px;
+  padding:4px 6px;
   background:var(--panel);
   border-bottom:1px solid var(--border);
   display:flex;
   flex-direction:column;
-  gap:6px;
+  gap:4px;
   overflow:visible;
   position:relative;
   z-index:200;
   flex:0 0 auto;
 }
+#topbar::after{content:"";display:none;position:absolute;left:0;right:0;top:100%;height:var(--cad-toolbar-offset,40px);background:var(--panel);border-bottom:1px solid var(--border);pointer-events:none;z-index:199;}
+body.context-tools-open #topbar::after{display:block;}
 body.file-menu-open #topbar{z-index:240;}
 body.file-menu-open #topbarMain>*:not(#openIconBtn){pointer-events:none;}
 body.file-menu-open #topbarSub{pointer-events:none;}
@@ -193,7 +195,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #textSearchNavButtons{flex:1;display:flex;flex-direction:column;gap:6px;}
 #textSearchNavButtons button{min-height:30px;font-size:12px;}
 #textSearchPrevBtn,#textSearchNextBtn{padding:5px 8px;text-align:center;}
-#textSearchDoneBtn{display:flex;width:100%;min-height:32px;margin-top:8px;align-items:center;justify-content:center;background:#1677ff;color:#fff;border-color:#0f5ec8;}
+#textSearchDoneBtn{display:flex;width:100%;min-height:32px;margin-top:8px;align-items:center;justify-content:center;}
 #textSearchPrevBtn:disabled,#textSearchNextBtn:disabled{opacity:.45;cursor:default;}
 #helpModal{display:none;position:absolute;inset:0;z-index:97;background:rgba(0,0,0,.14);align-items:center;justify-content:center;padding:12px;box-sizing:border-box;}
 #helpModalBox{width:min(420px,92vw);max-height:min(78vh,680px);overflow:hidden;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 30px rgba(0,0,0,.28);padding:14px 14px 12px 14px;display:flex;flex-direction:column;box-sizing:border-box;}
@@ -345,6 +347,9 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #measureBox{width:260px; right:12px; top:calc(54px + var(--cad-toolbar-offset,40px)); position:absolute; z-index:60;}
 #measureTypeToggleBtn{display:block;width:100%;min-height:36px;margin:0 0 8px;padding:5px 8px;font-size:14px;font-weight:800;}
 #drawPanel{width:246px; right:12px; top:calc(54px + var(--cad-toolbar-offset,40px)); position:absolute; z-index:60;}
+.panelHeaderCompact{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.panelHeaderCompact .panelTitle{margin:0;font-size:15px;font-weight:800;}
+.panelCloseBtn{min-width:62px!important;min-height:32px!important;padding:4px 9px!important;background:var(--button)!important;color:var(--buttonText)!important;border-color:var(--border)!important;font-size:12px!important;}
 #drawPanel .stack{gap:7px;}
 #drawPanel .controlRow{display:flex;align-items:center;gap:8px;}
 #drawPanel .controlLabel{display:inline-block;flex:0 0 48px;width:48px;}
@@ -960,6 +965,7 @@ gtag('config', 'G-88B9YPJXWP');
 
 
   <div id="measureBox" class="panel">
+    <div class="panelHeaderCompact"><div class="panelTitle">計測</div><button id="measureCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <button id="measureTypeToggleBtn" type="button" title="押すと3点垂直へ切り替えます">↔ 2点間</button>
     <div id="measureText" style="font-size:13px; line-height:1.6;">測定OFFです。</div>
     
@@ -990,7 +996,7 @@ gtag('config', 'G-88B9YPJXWP');
   </div>
 
   <div id="drawPanel" class="panel">
-    <div class="panelTitle">手書きメモ</div>
+    <div class="panelHeaderCompact"><div class="panelTitle">手書きメモ</div><button id="drawCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <div class="stack">
       <div class="row">
         <button class="colorBtn" data-color="#ff3030" style="width:26px;height:26px;padding:0;background:#ff3030;"></button>
@@ -2897,6 +2903,9 @@ function buildProfileSfcFile(){
   entities.push(sfcProfileRecord(id+=10,"pre_defined_font_feature('continuous')"));
   entities.push(sfcProfileRecord(id+=10,"width_feature('0.130000')"));
   entities.push(sfcProfileRecord(id+=10,"text_font_feature('MS Gothic')"));
+  // SXF部分図の子要素は、sfig_org_feature と sfig_locate_feature の間に置く。
+  // 後ろに開始定義を置くと、他CADでは1/100縮尺が断面図形へ適用されない。
+  entities.push(sfcProfileRecord(id+=10,"sfig_org_feature('PROFILE_1-100','2')"));
 
   const gridLayer="1",profileLayer="2",infoLayer="3";
   entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,0,lengthMm,0));
@@ -2913,11 +2922,14 @@ function buildProfileSfcFile(){
   }
   const xs=graphPts.map(p=>p.x.toFixed(3)).join(",");
   const ys=graphPts.map(p=>p.y.toFixed(3)).join(",");
-  entities.push(sfcProfileRecord(id+=10,`polyline_feature('${profileLayer}','2','1','1','${graphPts.length}','(${xs})','(${ys})')`));
+  // Black-background CAD applications made colour index 2 (dark gray) practically
+  // invisible. Use the same blue index as the axes so the actual terrain line is
+  // always visible in the exported cross-section.
+  entities.push(sfcProfileRecord(id+=10,`polyline_feature('${profileLayer}','1','1','1','${graphPts.length}','(${xs})','(${ys})')`));
   const marker=500;
   for(const p of [graphPts[0],graphPts[graphPts.length-1]]){
-    entities.push(profileSfcLineFeature(id+=10,profileLayer,"2",p.x-marker,p.y,p.x+marker,p.y));
-    entities.push(profileSfcLineFeature(id+=10,profileLayer,"2",p.x,p.y-marker,p.x,p.y+marker));
+    entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",p.x-marker,p.y,p.x+marker,p.y));
+    entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",p.x,p.y-marker,p.x,p.y+marker));
   }
   let labelY=maxY+1300;
   const labels=[
@@ -2928,7 +2940,6 @@ function buildProfileSfcFile(){
     "GSI DEM / APPROXIMATE PROFILE - NOT FOR SURVEY"
   ];
   for(const label of labels){entities.push(profileSfcTextFeature(id+=10,infoLayer,"1",label,0,labelY,300));labelY+=520;}
-  entities.push(sfcProfileRecord(id+=10,"sfig_org_feature('PROFILE_1-100','2')"));
   entities.push(sfcProfileRecord(id+=10,"sfig_locate_feature('0','PROFILE_1-100','0.000000','0.000000','0.00000000000000','0.01000000000000','0.01000000000000')"));
   const sheetW=Math.max(297,Math.ceil((lengthMm+5000)*.01));
   const sheetH=Math.max(210,Math.ceil((labelY+2500)*.01));
@@ -4000,16 +4011,12 @@ function updateStopBtnUI(){
     const el=document.getElementById(id);
     if(el) el.hidden=!showSnapTools;
   });
-  btn.hidden=!active;
-  if(active){
-    btn.style.background = "#1677ff";
-    btn.style.color = "#fff";
-    btn.style.borderColor = "#0f5ec8";
-  }else{
-    btn.style.background = "";
-    btn.style.color = "";
-    btn.style.borderColor = "";
-  }
+  // 計測・手書きの終了操作は、それぞれのパネル内へ統一した。
+  // 上段ツールバーにはスナップ選択だけを表示する。
+  btn.hidden=true;
+  btn.style.background = "";
+  btn.style.color = "";
+  btn.style.borderColor = "";
   if(wasOpen!==active && subbar){
     requestAnimationFrame(()=>{
       updateWrapLayout();
@@ -8174,6 +8181,10 @@ document.getElementById("measureTypeToggleBtn").addEventListener("click", ()=>{
   if (measureModePanel) measureModePanel.style.display='none';
   updateModeIcons(); updateMeasureBox(); measureBox.style.display = "block"; updateStopBtnUI(); scheduleDraw();
 });
+document.getElementById("measureCloseBtn")?.addEventListener("click", ()=>{
+  cancelTransientOperations();
+  updateUndoRedoUI();
+});
 
 document.getElementById("drawBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
@@ -8206,6 +8217,10 @@ document.getElementById("stopBtn").addEventListener("click", (e)=>{
   cancelTransientOperations();
   updateUndoRedoUI();
   showToast("作業を閉じました");
+});
+document.getElementById("drawCloseBtn")?.addEventListener("click", ()=>{
+  cancelTransientOperations();
+  updateUndoRedoUI();
 });
 document.getElementById("lineToolBtn").addEventListener("click", ()=>{
   if (measureMode || selectedMeasurePoints.length) {
