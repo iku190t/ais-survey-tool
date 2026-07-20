@@ -3836,24 +3836,40 @@ function isIOSLike(){
 }
 async function shareBlobFile(blob, fileName){
   if (!(window.File && navigator.share)) return false;
+  // Some Android browsers incorrectly return false from canShare() for ZIP
+  // even though the native share sheet can accept the file.  Test the common
+  // ZIP MIME types, but do not use canShare() alone as the final decision.
+  const name=String(fileName||"file");
+  const shareTypes=/\.sfc$/i.test(name)
+    ? ["text/plain","application/octet-stream"]
+    : (/\.zip$/i.test(name)
+      ? ["application/zip","application/x-zip-compressed","application/octet-stream"]
+      : [blob.type||"application/octet-stream","application/octet-stream"]);
+  const candidates=[];
+  for(const type of shareTypes){
+    if(candidates.some(v=>v.type===type))continue;
+    const file=new File([blob],name,{type});
+    let supported=null;
+    if(navigator.canShare){
+      try{supported=!!navigator.canShare({files:[file]});}catch(e){supported=null;}
+    }
+    candidates.push({file,type,supported});
+  }
+  // Prefer a MIME type explicitly accepted by the browser. If every
+  // canShare() check says false, still make one real share attempt because
+  // that check is unreliable on several Android WebView/Chrome combinations.
+  const selected=candidates.find(v=>v.supported===true)||candidates[0];
+  if(!selected)return false;
   try{
-    // iOS may reject an unknown application/octet-stream file before opening
-    // the share sheet.  SFC is text-based, so expose it as text/plain while
-    // keeping the original bytes, extension and file name unchanged.
-    const shareType = /\.sfc$/i.test(String(fileName||""))
-      ? "text/plain"
-      : (blob.type || "application/octet-stream");
-    const file = new File([blob], fileName, {type:shareType});
-    if (navigator.canShare && !navigator.canShare({files:[file]})) return false;
     await navigator.share({
-      title:fileName,
+      title:name,
       text:"SFC図面を送信します。",
-      files:[file]
+      files:[selected.file]
     });
     return true;
   }catch(e){
-    if (e && e.name === 'AbortError') return "cancelled";
-    console.error(e);
+    if(e&&e.name==='AbortError')return "cancelled";
+    console.error("File share failed",{name,type:selected.type,canShare:selected.supported,error:e});
     return false;
   }
 }
