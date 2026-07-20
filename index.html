@@ -346,9 +346,9 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #measureModePanel{width:190px; max-width:min(190px, calc(100vw - 16px)); position:absolute; z-index:60;}
 #measureBox{width:min(300px,calc(100vw - 24px)); right:12px; top:calc(54px + var(--cad-toolbar-offset,0px)); position:absolute; z-index:60;}
 #measureTypeToggleBtn{display:block;width:100%;min-height:36px;margin:0 0 8px;padding:5px 8px;font-size:14px;font-weight:800;}
-#measurePickRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:0 0 8px;}
-#measurePickRow button{min-width:0!important;min-height:30px!important;padding:3px 1px!important;font-size:10px!important;line-height:1.15;white-space:nowrap;color:#2f7dff;}
-#measurePickRow button.pick-active{color:#1677ff!important;}
+#measurePickRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:0 0 8px;}
+#measurePickRow button,#drawPanel .toolRow button{min-width:0!important;min-height:38px!important;padding:5px 2px!important;font-size:13px!important;line-height:1.15;white-space:nowrap;color:#fff!important;background:#2a2a2a!important;border-color:#555!important;border-radius:8px!important;font-weight:700;}
+#measurePickRow button.pick-active,#drawPanel .toolRow button.inkToolActive{color:#fff!important;background:#1677ff!important;border-color:#1677ff!important;box-shadow:none!important;}
 #drawPanel{width:246px; right:12px; top:calc(54px + var(--cad-toolbar-offset,40px)); position:absolute; z-index:60;}
 .panelHeaderCompact{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
 .panelHeaderCompact .panelTitle{margin:0;font-size:15px;font-weight:800;}
@@ -646,10 +646,7 @@ body.help-labels button[data-help-label]::after{
   white-space:nowrap;
   letter-spacing:-0.02em;
 }
-body.help-labels #pickCrossBtn{font-size:18px !important;}
-body.help-labels #pickEndBtn{font-size:13px !important;}
-body.help-labels #pickLineBtn{font-size:18px !important;}
-body.help-labels #pickFreeBtn{font-size:12px !important;}
+body.help-labels #measurePickRow button{font-size:13px !important;}
 @media (max-width:820px){
     body.help-labels #topbar{gap:6px;}
   body.help-labels #topbarMain,
@@ -961,11 +958,11 @@ gtag('config', 'G-88B9YPJXWP');
     <div class="panelHeaderCompact"><div class="panelTitle">計測</div><button id="measureCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <button id="measureTypeToggleBtn" type="button" title="押すと3点垂直へ切り替えます">↔ 2点間</button>
     <div id="measurePickRow" aria-label="点の選択方法">
-      <button id="pickCenterBtn" type="button" title="丸の中心">◎中心</button>
-      <button id="pickCrossBtn" type="button" title="交点">＋交点</button>
-      <button id="pickEndBtn" type="button" title="線の端点">—○端点</button>
-      <button id="pickLineBtn" type="button" title="線上">／線上</button>
-      <button id="pickFreeBtn" type="button" title="フリー">・フリー</button>
+      <button id="pickCenterBtn" type="button" title="丸の中心">中心</button>
+      <button id="pickCrossBtn" type="button" title="交点">交点</button>
+      <button id="pickEndBtn" type="button" title="線の端点">端点</button>
+      <button id="pickLineBtn" type="button" title="線上">線上</button>
+      <button id="pickFreeBtn" type="button" title="フリー">フリー</button>
     </div>
     <div id="measureText" style="font-size:13px; line-height:1.6;">測定OFFです。</div>
     
@@ -1008,7 +1005,7 @@ gtag('config', 'G-88B9YPJXWP');
       <div class="row controlRow"><span class="controlLabel">太さ</span><input class="controlRange" id="penWidth" type="range" min="1" max="100" step="1" value="10"><input class="controlNumber" id="penWidthNumber" type="number" min="1" max="100" step="1" value="10"></div>
       <div class="row controlRow"><span class="controlLabel">大きさ</span><input class="controlRange" id="circleSize" type="range" min="1" max="100" step="1" value="10"><input class="controlNumber" id="circleSizeNumber" type="number" min="1" max="100" step="1" value="10"></div>
       <div class="row controlRow"><span class="controlLabel">透過率</span><input class="controlRange" id="opacityRange" type="range" min="10" max="100" step="5" value="100"><input class="controlNumber" id="opacityNumber" type="number" min="10" max="100" step="5" value="100"></div>
-      <div class="row toolRow"><button id="lineToolBtn">線</button><button id="circleToolBtn">丸</button><button id="eraserBtn">消しゴム</button><button id="clearInkBtn">メモ全消去</button></div>
+      <div class="row toolRow"><button id="lineToolBtn">線</button><button id="circleToolBtn">丸</button><button id="eraserBtn">消しゴム</button><button id="clearInkBtn">全消去</button></div>
     </div>
   </div>
 
@@ -1197,7 +1194,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">計測</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">始め方</div><b>計測</b> を押すと、すぐに2点間測定が始まり、ボタンが青くなります。計測ボタンをもう一度押すと処理を終了し、青色も解除されます。2点間と3点垂直は、計測ポップアップ内の切替ボタンで変更します。</div>
-              <div class="helpBlock"><div class="helpHead">点の取り方</div>計測ポップアップ内の、中心・交点・端点・線上・フリーを選びます。青枠のものが有効で、中心→交点→端点→線上→フリーの順に判定します。</div>
+              <div class="helpBlock"><div class="helpHead">点の取り方</div>計測ポップアップ内の、中心・交点・端点・線上・フリーを選びます。選択中のボタンは青くなり、中心→交点→端点→線上→フリーの順に判定します。</div>
               <div class="helpBlock"><div class="helpHead">2点間</div>2点を取ると距離が出ます。続けて次の点を取ると、直前の2点目から新しい点までを連続して計測します。</div>
               <div class="helpBlock"><div class="helpHead">3点垂直</div>基準線の2点と、離れた1点を取ると、垂直距離を出します。</div>
               <div class="helpBlock"><div class="helpHead">閉じる</div>作業中に表示される <b>閉じる</b> を押すと、選択途中の点を消して通常表示へ戻ります。</div>
@@ -1225,10 +1222,10 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。線・丸・消しゴムはどれか1つだけが選択され、選択したボタンが青くなった後、設定画面が自動で閉じます。</div>
               <div class="helpBlock"><div class="helpHead">線</div>指でなぞった位置へ自由に描きます。手書きは常にフリー入力で、計測の点選択設定には影響しません。</div>
-              <div class="helpBlock"><div class="helpHead">丸</div>図面をタップすると、選んだ大きさの丸を配置します。中心・交点・端点・線上が有効な時は、その点へ丸の中心を合わせます。</div>
+              <div class="helpBlock"><div class="helpHead">丸</div>図面をタップすると、その位置へ選んだ大きさの丸を配置します。手書きは常にフリー入力です。</div>
               <div class="helpBlock"><div class="helpHead">保存レイヤー</div>SFC保存時は、線を <b>「線（赤）」「線（青）」「線（緑）」「線（黄）」「線（黒）」</b>、丸を同じ5色の <b>「丸（色名）」</b>へ分けて保存します。同じ名前の既存レイヤーがある場合は重複作成しません。</div>
               <div class="helpBlock"><div class="helpHead">図面操作</div>手書き中でも2本指の移動・拡大縮小・回転を使えます。指を2本置いた時点で、描きかけの線を確定して図面操作へ切り替えます。</div>
-              <div class="helpBlock"><div class="helpHead">消去・やり直し</div><b>消しゴム</b>を選ぶと青くなり、線・丸の選択は解除されます。図面上のメモをなぞると個別に消せます。<b>メモ全消去</b> は確認後に全削除します。図面左上の青い矢印で元に戻す・やり直しができます。</div>
+              <div class="helpBlock"><div class="helpHead">消去・やり直し</div><b>消しゴム</b>を選ぶと青くなり、線・丸の選択は解除されます。図面上のメモをなぞると個別に消せます。<b>全消去</b> は確認後に全削除します。図面左上の青い矢印で元に戻す・やり直しができます。</div>
               <div class="helpBlock"><div class="helpHead">閉じる</div>手書きポップアップの <b>閉じる</b> を押すと、手書き状態を終了して通常表示へ戻ります。色・太さ・丸の大きさ・透過率は次回も保持されます。</div>
             </div>
           </div>
@@ -5712,31 +5709,12 @@ function draw(){
     searchHighlight = null;
   }
 
-  if(hoverMeasurePoint){
-    const [sx,sy]=worldToScreen(hoverMeasurePoint.x,hoverMeasurePoint.y);
-    ctx.save();
-    ctx.beginPath(); ctx.arc(sx,sy,12,0,Math.PI*2);
-    ctx.fillStyle="rgba(255,48,48,0.14)"; ctx.fill();
-    ctx.lineWidth=4; ctx.strokeStyle="#ff0000"; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(sx-18,sy); ctx.lineTo(sx+18,sy); ctx.moveTo(sx,sy-18); ctx.lineTo(sx,sy+18);
-    ctx.strokeStyle="#ff0000"; ctx.lineWidth=3; ctx.stroke();
-    ctx.fillStyle="#ffff00"; ctx.beginPath(); ctx.arc(sx,sy,4,0,Math.PI*2); ctx.fill();
-    ctx.restore();
-  }
-  if(lastTapMeasurePoint){
-    const [sx,sy]=worldToScreen(lastTapMeasurePoint.x,lastTapMeasurePoint.y);
-    ctx.beginPath(); ctx.arc(sx,sy,10,0,Math.PI*2);
-    ctx.fillStyle="rgba(255,140,0,0.9)";
-    ctx.fill();
-    ctx.lineWidth=2;
-    ctx.strokeStyle=darkTheme ? "#ffffff" : "#000000";
-    ctx.stroke();
-  }
+  // 計測点は候補・直近タップ・確定点を重ねず、確定した印だけを表示する。
   if(selectedMeasurePoints.length>=1){
     for(const p of selectedMeasurePoints){
       const [sx,sy]=worldToScreen(p.x,p.y);
       ctx.beginPath(); ctx.arc(sx,sy,5,0,Math.PI*2);
-      ctx.fillStyle=darkTheme ? "#00ffff" : "#007a7a";
+      ctx.fillStyle="rgba(80,210,255,0.20)";
       ctx.fill();
     }
   }
