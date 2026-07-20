@@ -5715,7 +5715,7 @@ function draw(){
     for(const p of selectedMeasurePoints){
       const [sx,sy]=worldToScreen(p.x,p.y);
       ctx.beginPath(); ctx.arc(sx,sy,5,0,Math.PI*2);
-      ctx.fillStyle="rgba(80,210,255,0.20)";
+      ctx.fillStyle="#50d2ff";
       ctx.fill();
     }
   }
