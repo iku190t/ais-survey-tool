@@ -310,6 +310,7 @@ label.fileBtn{
 #undoFab,#redoFab{top:calc(12px + var(--cad-toolbar-offset,40px))!important;}
 #gpsBtn.mapGpsFab{position:absolute;right:60px;top:calc(12px + var(--cad-toolbar-offset,40px));z-index:70;width:40px!important;height:40px!important;border-radius:999px;box-shadow:0 5px 14px rgba(0,0,0,.22);}
 #gpsDetailFab{top:calc(58px + var(--cad-toolbar-offset,40px))!important;}
+#gpsBox{top:calc(104px + var(--cad-toolbar-offset,40px))!important;max-height:calc(100% - 116px - var(--cad-toolbar-offset,40px))!important;}
 #gpsBtn.mapGpsFab svg{width:22px;height:22px;}
 #gpsReturnBtn{display:none;position:absolute;left:12px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:72;width:auto;min-width:104px;height:38px;padding:0 14px;border-radius:999px;background:var(--button);color:#1479ff;border:1px solid var(--border);box-shadow:0 6px 16px rgba(0,0,0,.3);align-items:center;justify-content:center;font-size:13px;font-weight:800;white-space:nowrap;}
 #gpsReturnBtn.show{display:inline-flex;}
@@ -2872,6 +2873,9 @@ function profileSfcTextFeature(id, layer, color, text, x, y, height=3){
 function profileSfcLineFeature(id, layer, color, x1, y1, x2, y2){
   return sfcProfileRecord(id,`line_feature('${layer}','${color}','1','1','${x1.toFixed(3)}','${y1.toFixed(3)}','${x2.toFixed(3)}','${y2.toFixed(3)}')`);
 }
+function profileSfcCircleFeature(id, layer, color, cx, cy, radius){
+  return sfcProfileRecord(id,`circle_feature('${layer}','${color}','1','1','${cx.toFixed(3)}','${cy.toFixed(3)}','${radius.toFixed(3)}')`);
+}
 function buildProfileSfcFile(){
   if(!profileData||!profileStartWorld||!profileEndWorld) return null;
   const samples=profileData.samples.filter(s=>Number.isFinite(s.distance)&&Number.isFinite(s.elevation));
@@ -2891,8 +2895,8 @@ function buildProfileSfcFile(){
   // Some CAD applications ignore the partial-figure magnification, so exporting
   // full-size coordinates and relying on a 0.01 locate scale made it 100x too large.
   const paperMmPerMeter=10;
-  const marginRoundingUnit=length>=50?10:1;
-  const leftMarginMeters=Math.max(marginRoundingUnit,Math.round((length/10)/marginRoundingUnit)*marginRoundingUnit);
+  // Keep a constant 5 m space before the profile, regardless of its length.
+  const leftMarginMeters=5;
   const leftMarginMm=leftMarginMeters*paperMmPerMeter;
   const maxY=(topElevation-datum)*paperMmPerMeter;
   const lengthMm=length*paperMmPerMeter;
@@ -2910,8 +2914,9 @@ function buildProfileSfcFile(){
 
   const entities=[];let id=10;
   entities.push(sfcProfileRecord(id+=10,"pre_defined_colour_feature('black')"));
-  entities.push(sfcProfileRecord(id+=10,"pre_defined_colour_feature('blue')"));
-  entities.push(sfcProfileRecord(id+=10,"pre_defined_colour_feature('darkgray')"));
+  // PROFILE_INFO uses colour reference 2.  Magenta is the most portable SXF
+  // predefined colour corresponding to the requested pink display.
+  entities.push(sfcProfileRecord(id+=10,"pre_defined_colour_feature('magenta')"));
   entities.push(sfcProfileRecord(id+=10,"pre_defined_font_feature('continuous')"));
   entities.push(sfcProfileRecord(id+=10,"width_feature('0.130000')"));
   entities.push(sfcProfileRecord(id+=10,"text_font_feature('MS Gothic')"));
@@ -2930,35 +2935,44 @@ function buildProfileSfcFile(){
     const x=(d+leftMarginMeters)*paperMmPerMeter;
     // Scale tick only.  Do not draw a full-height mesh/grid line.
     entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",x,0,x,3));
-    entities.push(profileSfcTextFeature(id+=10,infoLayer,"1",`${Math.round(d)}m`,x,-7,2.6));
+    entities.push(profileSfcTextFeature(id+=10,infoLayer,"2",`${Math.round(d)}m`,x,-7,2.6));
   }
   for(let z=Math.ceil(datum/gridInterval)*gridInterval;z<=topElevation+1e-7;z+=gridInterval){
     const y=(z-datum)*paperMmPerMeter;
     // Scale tick only.  Do not draw a full-width mesh/grid line.
     entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,y,3,y));
-    entities.push(profileSfcTextFeature(id+=10,infoLayer,"1",`${Math.round(z)}m`,-19,y,2.6));
+    entities.push(profileSfcTextFeature(id+=10,infoLayer,"2",`${Math.round(z)}m`,-19,y,2.6));
   }
   const xs=graphPts.map(p=>p.x.toFixed(3)).join(",");
   const ys=graphPts.map(p=>p.y.toFixed(3)).join(",");
   // Use colour code 1 consistently. Some SXF readers reject an ordinal colour code
   // when it does not match the colour table expected by that reader.
   entities.push(sfcProfileRecord(id+=10,`polyline_feature('${profileLayer}','1','1','1','${graphPts.length}','(${xs})','(${ys})')`));
-  const marker=5;
-  for(const p of [graphPts[0],graphPts[graphPts.length-1]]){
-    entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",p.x-marker,p.y,p.x+marker,p.y));
-    entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",p.x,p.y-marker,p.x,p.y+marker));
+  const markerRadius=3.5,markerDiag=2.4;
+  const endpointMarkers=[
+    {p:graphPts[0],text:"\x8B\x4E\x93\x5F",textX:graphPts[0].x+5.5},
+    {p:graphPts[graphPts.length-1],text:"\x8F\x49\x93\x5F",textX:graphPts[graphPts.length-1].x-15}
+  ];
+  for(const marker of endpointMarkers){
+    const p=marker.p;
+    entities.push(profileSfcCircleFeature(id+=10,infoLayer,"2",p.x,p.y,markerRadius));
+    entities.push(profileSfcLineFeature(id+=10,infoLayer,"2",p.x-markerDiag,p.y-markerDiag,p.x+markerDiag,p.y+markerDiag));
+    entities.push(profileSfcLineFeature(id+=10,infoLayer,"2",p.x-markerDiag,p.y+markerDiag,p.x+markerDiag,p.y-markerDiag));
+    entities.push(profileSfcTextFeature(id+=10,infoLayer,"2",marker.text,marker.textX,p.y+5.5,3));
   }
-  let labelY=maxY+13;
   const labels=[
     "\x8F\x6B\x8E\xDA=1/100",
     `\x8B\x4E\x93\x5F   X=${startPlane.xNorth.toFixed(3)} Y=${startPlane.yEast.toFixed(3)} Z=${firstSample.elevation.toFixed(3)}`,
     `\x8F\x49\x93\x5F   X=${endPlane.xNorth.toFixed(3)} Y=${endPlane.yEast.toFixed(3)} Z=${lastSample.elevation.toFixed(3)}`,
     `\x89\x84\x92\xB7   ${length.toFixed(3)}m`
   ];
-  for(const label of labels){entities.push(profileSfcTextFeature(id+=10,infoLayer,"1",label,0,labelY,3));labelY+=5.2;}
+  // Y grows upward in SFC.  Start at the highest row so the visual top-to-bottom
+  // order is: scale, start, end, length.
+  let labelY=maxY+13+(labels.length-1)*5.2;
+  for(const label of labels){entities.push(profileSfcTextFeature(id+=10,infoLayer,"2",label,0,labelY,3));labelY-=5.2;}
   entities.push(sfcProfileRecord(id+=10,"sfig_locate_feature('0','PROFILE_1-100','0.000000','0.000000','0.00000000000000','1.00000000000000','1.00000000000000')"));
   const sheetW=Math.max(297,Math.ceil(totalWidthMm+50));
-  const sheetH=Math.max(210,Math.ceil(labelY+25));
+  const sheetH=Math.max(210,Math.ceil(maxY+13+labels.length*5.2+25));
   entities.push(sfcProfileRecord(id+=10,`drawing_sheet_feature('','0','1','${sheetW}','${sheetH}')`));
   entities.push(sfcProfileRecord(id+=10,"layer_feature('PROFILE_LINE','1')"));
   entities.push(sfcProfileRecord(id+=10,"layer_feature('PROFILE_INFO','1')"));
