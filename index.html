@@ -2572,7 +2572,10 @@ function terrainSlopeColor(deg,alpha=.48){
 }
 function chooseTerrainContourInterval(range){
   if(!range||!(range.span>0))return 1;
-  const raw=Math.max(.2,range.span/10),power=Math.pow(10,Math.floor(Math.log10(raw))),scaled=raw/power;
+  // 縮小表示でも等高線を約50本保つ。以前の約10本基準では、全体表示時に
+  // 間隔が急に広がりすぎて地形の細部が消えていた。標高ラベル側で重なりを
+  // 間引くため、線自体を増やしても画面が文字だらけにはならない。
+  const raw=Math.max(.2,range.span/50),power=Math.pow(10,Math.floor(Math.log10(raw))),scaled=raw/power;
   return Math.max(1,(scaled<=1?1:scaled<=2?2:scaled<=5?5:10)*power);
 }
 function terrainModeLabel(mode){
