@@ -347,8 +347,12 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #measureBox{width:min(300px,calc(100vw - 24px)); right:12px; top:calc(54px + var(--cad-toolbar-offset,0px)); position:absolute; z-index:60;}
 #measureTypeToggleBtn{display:block;width:100%;min-height:36px;margin:0 0 8px;padding:5px 8px;font-size:14px;font-weight:800;}
 #measurePickRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:0 0 8px;}
-#measurePickRow button,#drawPanel .toolRow button{min-width:0!important;min-height:38px!important;padding:5px 2px!important;font-size:13px!important;line-height:1.15;white-space:nowrap;color:#fff!important;background:#2a2a2a!important;border-color:#555!important;border-radius:8px!important;font-weight:700;}
+#measureBackRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:8px;}
+#measureBackBtn{grid-column:5;}
+#measurePickRow button,#measureBackBtn,#drawPanel .toolRow button{min-width:0!important;min-height:38px!important;padding:5px 2px!important;font-size:13px!important;line-height:1.15;white-space:nowrap;color:#fff!important;background:#2a2a2a!important;border-color:#555!important;border-radius:8px!important;font-weight:700;}
 #measurePickRow button.pick-active,#drawPanel .toolRow button.inkToolActive{color:#fff!important;background:#1677ff!important;border-color:#1677ff!important;box-shadow:none!important;}
+#measureBackBtn:disabled{opacity:.34;cursor:default;}
+#measureBackBtn:not(:disabled):active{background:#1677ff!important;border-color:#1677ff!important;transform:scale(.96);}
 #drawPanel{width:246px; right:12px; top:calc(54px + var(--cad-toolbar-offset,40px)); position:absolute; z-index:60;}
 .panelHeaderCompact{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
 .panelHeaderCompact .panelTitle{margin:0;font-size:15px;font-weight:800;}
@@ -966,7 +970,7 @@ gtag('config', 'G-88B9YPJXWP');
       <button id="pickFreeBtn" type="button" title="フリー">フリー</button>
     </div>
     <div id="measureText" style="font-size:13px; line-height:1.6;">測定OFFです。</div>
-    
+    <div id="measureBackRow"><button id="measureBackBtn" type="button" disabled title="直前に選択した点へ戻します">↶ 後退</button></div>
   </div>
 
   <div id="gpsBox" class="panel" style="display:none;left:12px;top:100px;bottom:auto;width:260px;max-height:calc(100% - 112px);overflow:auto;padding:10px;z-index:60;background:rgba(20,20,20,.45);backdrop-filter:blur(4px);">
@@ -1198,6 +1202,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">点の取り方</div>計測ポップアップ内の、中心・交点・端点・線上・フリーを選びます。選択中のボタンは青くなり、中心→交点→端点→線上→フリーの順に判定します。</div>
               <div class="helpBlock"><div class="helpHead">2点間</div>2点を取ると距離が出ます。続けて次の点を取ると、直前の2点目から新しい点までを連続して計測します。</div>
               <div class="helpBlock"><div class="helpHead">3点垂直</div>基準線の2点と、離れた1点を取ると、垂直距離を出します。</div>
+              <div class="helpBlock"><div class="helpHead">後退</div>右下の <b>↶ 後退</b> を押すと、最後の点選択を1つ戻します。連続2点間でも直前の測定結果へ戻れます。戻せる点がない場合は薄い灰色になり、押せません。</div>
               <div class="helpBlock"><div class="helpHead">閉じる</div>作業中に表示される <b>閉じる</b> を押すと、選択途中の点を消して通常表示へ戻ります。</div>
             </div>
           </div>
@@ -1221,7 +1226,7 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="memo">
             <div class="helpSectionTitle">手書きメモ</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。太さは段階1で0.06mm、段階100で1.00mmとなり、その間も連続して変化します。透過率は0％で透けず、100％で完全に透明です。線・丸・消しゴムはどれか1つだけが選択され、選択したボタンが青くなった後、設定画面が自動で閉じます。</div>
+              <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。太さは段階1で0.006mm、段階100で1.00mmとなり、その間も連続して変化します。丸の段階1は従来の最小サイズの20％です。透過率は0％で透けず、100％で完全に透明です。線・丸・消しゴムはどれか1つだけが選択され、選択したボタンが青くなった後、設定画面が自動で閉じます。</div>
               <div class="helpBlock"><div class="helpHead">線</div>指でなぞった位置へ自由に描きます。手書きは常にフリー入力で、計測の点選択設定には影響しません。</div>
               <div class="helpBlock"><div class="helpHead">丸</div>図面をタップすると、その位置へ選んだ大きさの丸を配置します。手書きは常にフリー入力です。</div>
               <div class="helpBlock"><div class="helpHead">保存レイヤー</div>SFC保存時は、線を <b>「線（赤）」「線（青）」「線（緑）」「線（黄）」「線（黒）」</b>、丸を同じ5色の <b>「丸（色名）」</b>へ分けて保存します。同じ名前の既存レイヤーがある場合は重複作成しません。</div>
@@ -1530,6 +1535,7 @@ let measureMode = false;
 let measureType = "2point";
 let activePickModes = ["center","cross","end","free"];
 let selectedMeasurePoints = [];
+let measureSelectionHistory = [];
 let redoStrokes = [];
 let hoverMeasurePoint = null;
 let hoverCursorScreen = null;
@@ -3541,7 +3547,7 @@ function loadUiPreferences(){
     const allowedColors = ["#ff3030","#007aff","#00a86b","#ffd400","#ffffff","#000000"];
     if(allowedColors.includes(prefs.inkColor)) inkColor = prefs.inkColor;
     if(Number.isFinite(+prefs.inkWidth)) inkWidth = Math.max(1,Math.min(100,Math.round(+prefs.inkWidth)));
-    if(Number.isFinite(+prefs.inkCircleSize)) inkCircleSize = Math.max(8,Math.min(80,+prefs.inkCircleSize));
+    if(Number.isFinite(+prefs.inkCircleSize)) inkCircleSize = Math.max(1.6,Math.min(80,+prefs.inkCircleSize));
     if(Number.isFinite(+prefs.inkOpacity)) inkOpacity = Math.max(0,Math.min(1,+prefs.inkOpacity));
     if(prefs.inkTool === "line" || prefs.inkTool === "circle") inkTool = prefs.inkTool;
     if(Array.isArray(prefs.activePickModes)){
@@ -5317,9 +5323,44 @@ function chooseMeasurePointByMode(screenX,screenY){
   }
   return null;
 }
+function updateMeasureBackButton(){
+  const btn=document.getElementById("measureBackBtn");
+  if(!btn)return;
+  btn.disabled=!measureMode||measureSelectionHistory.length===0;
+  btn.setAttribute("aria-disabled",btn.disabled?"true":"false");
+}
+function selectMeasurePoint(pt){
+  if(!pt)return false;
+  measureSelectionHistory.push(selectedMeasurePoints.slice());
+  if(measureSelectionHistory.length>100)measureSelectionHistory.shift();
+  const limit=measureType==="3vertical"?3:2;
+  if(measureType==="2point"&&selectedMeasurePoints.length>=2){
+    selectedMeasurePoints=[selectedMeasurePoints[1],pt];
+  }else if(measureType==="3vertical"&&selectedMeasurePoints.length>=3){
+    selectedMeasurePoints=[selectedMeasurePoints[0],selectedMeasurePoints[1],pt];
+  }else{
+    if(selectedMeasurePoints.length>=limit)selectedMeasurePoints=[];
+    selectedMeasurePoints.push(pt);
+  }
+  lastTapMeasurePoint=pt;
+  return true;
+}
+function undoMeasureSelection(){
+  if(!measureMode||measureSelectionHistory.length===0){
+    updateMeasureBackButton();
+    return;
+  }
+  selectedMeasurePoints=measureSelectionHistory.pop();
+  lastTapMeasurePoint=selectedMeasurePoints.length?selectedMeasurePoints[selectedMeasurePoints.length-1]:null;
+  hoverMeasurePoint=null;
+  gaResetMeasureTracking();
+  updateMeasureBox();
+  scheduleDraw();
+}
 function updateMeasureBox(){
   updateModeStatus();
   const txt=document.getElementById("measureText");
+  updateMeasureBackButton();
   if(!measureMode){ measureBox.style.display="none"; return; }
   measureBox.style.display="block";
   const vertical=measureType==="3vertical";
@@ -5374,15 +5415,15 @@ function drawInkStroke(stroke){
   ctx.fillStyle = strokeColor;
   ctx.globalAlpha = stroke.opacity == null ? 1 : stroke.opacity;
 
-  // 線幅は段階1=0.06mm、100=1.00mm。全体表示を1倍としてズームにも追従する。
+  // 線幅は段階1=0.006mm、100=1.00mm。全体表示を1倍としてズームにも追従する。
   const storedWidthMm = stroke.worldWidthMm == null ? NaN : +stroke.worldWidthMm;
   // 旧版は10～1000という過大な値を保存していたため、段階値から安全に再計算する。
   const widthMm = Number.isFinite(storedWidthMm) && storedWidthMm <= 1.0001
-    ? Math.max(0.06, storedWidthMm)
+    ? Math.max(0.006, storedWidthMm)
     : penWidthMmFromLevel(stroke.width || 15);
   const zoomRatio = Math.max(view.scale || 1, 0.000001) / Math.max(baseFitScale || 1, 0.000001);
   const cssPixelsPerMm = 96 / 25.4;
-  const lineW = Math.max(0.2, widthMm * cssPixelsPerMm * zoomRatio);
+  const lineW = Math.max(0.02, widthMm * cssPixelsPerMm * zoomRatio);
   ctx.lineWidth = lineW;
 
   if(!stroke.points || stroke.points.length<2){ ctx.restore(); return; }
@@ -5815,8 +5856,9 @@ function closePanelsExcept(except){
   updateStopBtnUI();
 }
 function resetMeasureUI(){
-  selectedMeasurePoints=[]; hoverMeasurePoint=null; hoverCursorScreen=null; flashCursorScreen=null; lastTapMeasurePoint=null; touchTapCandidate=null;
+  selectedMeasurePoints=[]; measureSelectionHistory=[]; hoverMeasurePoint=null; hoverCursorScreen=null; flashCursorScreen=null; lastTapMeasurePoint=null; touchTapCandidate=null;
   gaResetMeasureTracking();
+  updateMeasureBackButton();
 }
 function resetSessionFromLoad(){
   layerVisibility={};
@@ -6349,7 +6391,7 @@ function getMemoWidthInfo(srcText){
 function getStrokeWidthMm(stroke){
   const stored=stroke==null||stroke.worldWidthMm==null?NaN:+stroke.worldWidthMm;
   return Number.isFinite(stored)&&stored<=1.0001
-    ? Math.max(0.06,Math.min(1,stored))
+    ? Math.max(0.006,Math.min(1,stored))
     : penWidthMmFromLevel(stroke&&stroke.width||1);
 }
 function buildMemoWidthDefinitions(baseText,startId,strokes){
@@ -7509,7 +7551,7 @@ function restoreInkStrokesFromSourceText(srcText){
       color: s.color || "#ff3030",
       screenWidthPx: s.screenWidthPx == null ? null : +s.screenWidthPx,
       worldWidthMm: Number.isFinite(+s.worldWidthMm) && +s.worldWidthMm <= 1.0001
-        ? Math.max(0.06,+s.worldWidthMm)
+        ? Math.max(0.006,+s.worldWidthMm)
         : penWidthMmFromLevel(s.width || 1),
       width: +(s.width || 1),
       opacity: s.opacity == null ? 1 : +s.opacity,
@@ -8438,6 +8480,7 @@ document.getElementById("measureCloseBtn")?.addEventListener("click", ()=>{
   cancelTransientOperations();
   updateUndoRedoUI();
 });
+document.getElementById("measureBackBtn")?.addEventListener("click", undoMeasureSelection);
 
 document.getElementById("drawBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
@@ -8531,7 +8574,7 @@ const circleSizeRange = document.getElementById("circleSize");
 const circleSizeNumber = document.getElementById("circleSizeNumber");
 const opacityRangeEl = document.getElementById("opacityRange");
 const opacityNumber = document.getElementById("opacityNumber");
-const CIRCLE_SIZE_MIN_PX = 8;
+const CIRCLE_SIZE_MIN_PX = 1.6;
 const CIRCLE_SIZE_MAX_PX = 80;
 const CIRCLE_SIZE_MIN_LEVEL = 1;
 const CIRCLE_SIZE_MAX_LEVEL = 100;
@@ -8540,7 +8583,7 @@ const PEN_WIDTH_MAX_LEVEL = 100;
 
 function penWidthMmFromLevel(v){
   const level = normalizePenWidthLevel(v);
-  return 0.06 + ((level - 1) / 99) * (1.00 - 0.06); // 1->0.06mm, 100->1.00mm
+  return 0.006 + ((level - 1) / 99) * (1.00 - 0.006); // 1->0.006mm, 100->1.00mm
 }
 function circleRadiusMmFromLevel(v){
   const level = normalizeCircleSizeLevel(v);
@@ -8824,16 +8867,7 @@ canvas.addEventListener("click", e=>{
     const pt=chooseMeasurePointByMode(local.x,local.y);
     hoverMeasurePoint=pt||null;
     if(pt){
-      const limit = measureType === "3vertical" ? 3 : 2;
-      if (measureType === "2point" && selectedMeasurePoints.length >= 2) {
-        selectedMeasurePoints = [selectedMeasurePoints[1], pt];
-      } else if (measureType === "3vertical" && selectedMeasurePoints.length >= 3) {
-        selectedMeasurePoints = [selectedMeasurePoints[0], selectedMeasurePoints[1], pt];
-      } else {
-        if(selectedMeasurePoints.length>=limit) selectedMeasurePoints=[];
-        selectedMeasurePoints.push(pt);
-      }
-      lastTapMeasurePoint=pt;
+      selectMeasurePoint(pt);
     } else {
       showToast("そのモードでは選べません");
     }
@@ -9131,17 +9165,8 @@ canvas.addEventListener("touchend", e=>{
   if(move<=12){
     if (touchTapCandidate.pt){
       const pt=touchTapCandidate.pt;
-      const limit = measureType === "3vertical" ? 3 : 2;
-      if (measureType === "2point" && selectedMeasurePoints.length >= 2) {
-        selectedMeasurePoints = [selectedMeasurePoints[1], pt];
-      } else if (measureType === "3vertical" && selectedMeasurePoints.length >= 3) {
-        selectedMeasurePoints = [selectedMeasurePoints[0], selectedMeasurePoints[1], pt];
-      } else {
-        if(selectedMeasurePoints.length>=limit) selectedMeasurePoints=[];
-        selectedMeasurePoints.push(pt);
-      }
+      selectMeasurePoint(pt);
       hoverMeasurePoint=pt;
-      lastTapMeasurePoint=pt;
       suppressClickUntil=Date.now()+700;
       updateMeasureBox(); gaTrackMeasureDistanceIfComplete(); draw();
     } else {
