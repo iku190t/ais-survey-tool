@@ -2927,10 +2927,9 @@ function buildProfileSfcFile(){
   // 後ろに開始定義を置くと、他CADでは1/100縮尺が断面図形へ適用されない。
   entities.push(sfcProfileRecord(id+=10,"sfig_org_feature('PROFILE_1-100','2')"));
 
-  // Layer references are ordinal values, not feature IDs.  Keep them aligned
-  // with the two layer_feature records emitted below.  An out-of-range layer
-  // reference is silently discarded by some SXF readers (including TREND-ONE).
-  const profileLayer="1",infoLayer="2";
+  // SXF layer references are zero-based ordinals.  With the two definitions
+  // emitted below, PROFILE_LINE is 0 and PROFILE_INFO is 1.
+  const profileLayer="0",infoLayer="1";
   entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,0,totalWidthMm,0));
   entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,0,0,maxY));
   const distanceTick=Math.min(gridInterval,leftMarginMeters);
@@ -2938,13 +2937,13 @@ function buildProfileSfcFile(){
     const x=(d+leftMarginMeters)*paperMmPerMeter;
     // Scale tick only.  Do not draw a full-height mesh/grid line.
     entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",x,0,x,3));
-    entities.push(profileSfcTextFeature(id+=10,infoLayer,"2",`${Math.round(d)}m`,x,-7,2.6));
+    entities.push(profileSfcTextFeature(id+=10,infoLayer,"6",`${Math.round(d)}m`,x,-7,2.6));
   }
   for(let z=Math.ceil(datum/gridInterval)*gridInterval;z<=topElevation+1e-7;z+=gridInterval){
     const y=(z-datum)*paperMmPerMeter;
     // Scale tick only.  Do not draw a full-width mesh/grid line.
     entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,y,3,y));
-    entities.push(profileSfcTextFeature(id+=10,infoLayer,"2",`${Math.round(z)}m`,-19,y,2.6));
+    entities.push(profileSfcTextFeature(id+=10,infoLayer,"6",`${Math.round(z)}m`,-19,y,2.6));
   }
   const xs=graphPts.map(p=>p.x.toFixed(3)).join(",");
   const ys=graphPts.map(p=>p.y.toFixed(3)).join(",");
@@ -2958,10 +2957,10 @@ function buildProfileSfcFile(){
   ];
   for(const marker of endpointMarkers){
     const p=marker.p;
-    entities.push(profileSfcCircleFeature(id+=10,infoLayer,"2",p.x,p.y,markerRadius));
-    entities.push(profileSfcLineFeature(id+=10,infoLayer,"2",p.x-markerDiag,p.y-markerDiag,p.x+markerDiag,p.y+markerDiag));
-    entities.push(profileSfcLineFeature(id+=10,infoLayer,"2",p.x-markerDiag,p.y+markerDiag,p.x+markerDiag,p.y-markerDiag));
-    entities.push(profileSfcTextFeature(id+=10,infoLayer,"2",marker.text,marker.textX,p.y+5.5,3));
+    entities.push(profileSfcCircleFeature(id+=10,infoLayer,"6",p.x,p.y,markerRadius));
+    entities.push(profileSfcLineFeature(id+=10,infoLayer,"6",p.x-markerDiag,p.y-markerDiag,p.x+markerDiag,p.y+markerDiag));
+    entities.push(profileSfcLineFeature(id+=10,infoLayer,"6",p.x-markerDiag,p.y+markerDiag,p.x+markerDiag,p.y-markerDiag));
+    entities.push(profileSfcTextFeature(id+=10,infoLayer,"6",marker.text,marker.textX,p.y+5.5,3));
   }
   const labels=[
     "\x8F\x6B\x8E\xDA=1/100",
@@ -2972,7 +2971,7 @@ function buildProfileSfcFile(){
   // Y grows upward in SFC.  Start at the highest row so the visual top-to-bottom
   // order is: scale, start, end, length.
   let labelY=maxY+13+(labels.length-1)*5.2;
-  for(const label of labels){entities.push(profileSfcTextFeature(id+=10,infoLayer,"2",label,0,labelY,3));labelY-=5.2;}
+  for(const label of labels){entities.push(profileSfcTextFeature(id+=10,infoLayer,"6",label,0,labelY,3));labelY-=5.2;}
   entities.push(sfcProfileRecord(id+=10,"sfig_locate_feature('0','PROFILE_1-100','0.000000','0.000000','0.00000000000000','1.00000000000000','1.00000000000000')"));
   const sheetW=Math.max(297,Math.ceil(totalWidthMm+50));
   const sheetH=Math.max(210,Math.ceil(maxY+13+labels.length*5.2+25));
@@ -6060,9 +6059,9 @@ const MEMO_LAYER_SPECS = [
 function getMemoColorKey(color){
   const c=String(color||"").trim().toLowerCase();
   if(c==="#000000"||c==="#ffffff")return "black";
-  if(c==="#007aff"||c==="#44aaff"||c==="#87cefa")return "blue";
-  if(c==="#00a86b"||c==="#00ff66"||c==="#90ee90")return "green";
-  if(c==="#ffd400"||c==="#ffb000"||c==="#ffa500")return "yellow";
+  if(c==="#007aff"||c==="#0000ff"||c==="#44aaff"||c==="#87cefa")return "blue";
+  if(c==="#00a86b"||c==="#008000"||c==="#00ff00"||c==="#00ff66"||c==="#90ee90")return "green";
+  if(c==="#ffd400"||c==="#ffff00"||c==="#ffb000"||c==="#ffa500")return "yellow";
   return "red";
 }
 function getMemoLayerSpecForStroke(stroke){
@@ -6096,7 +6095,12 @@ function getInkStrokeLayerId(stroke){
 function getMemoExportColor(stroke){
   const spec=getMemoLayerSpecForStroke(stroke);
   const layer=getInkStrokeLayerId(stroke);
-  return String((layer!=null&&layerColorOverrides[String(layer)])||spec.color).toLowerCase();
+  // The layer colour picker can return standard CSS colours (#ff0000 etc.)
+  // which are not the UI palette literals.  Always canonicalise them before
+  // looking up an SXF predefined-colour code.
+  const requested=String((layer!=null&&layerColorOverrides[String(layer)])||spec.color).toLowerCase();
+  const key=getMemoColorKey(requested);
+  return (MEMO_LAYER_SPECS.find(v=>v.colorKey===key)||spec).color.toLowerCase();
 }
 const MEMO_COLOR_TO_FILE_CODE = {
   "#000000": "1",
@@ -6265,9 +6269,9 @@ function parsePredefinedColourFeatureDefsFlat(flat){
 }
 function buildMemoColorDefinitionText(baseText, startId, strokes){
   const flat = getFlatSxfText(baseText);
-  // SXF colour references are 1-based ordinals in the colour definition
-  // table.  They are not the fixed JIS colour numbers.  Calculate the actual
-  // ordinal for every source file so exported memo entities remain valid.
+  // Predefined SXF colours use fixed codes (black=1, red=2, blue=4,
+  // magenta=6, white=8, ...).  The definition list declares which fixed
+  // colours are used; its position is not the colour code.
   const defs = parsePredefinedColourFeatureDefsFlat(flat).slice();
   const needed = [];
   const codes = {};
@@ -6275,12 +6279,13 @@ function buildMemoColorDefinitionText(baseText, startId, strokes){
     const key = getMemoExportColor(s);
     const name = MEMO_COLOR_TO_PREDEFINED_NAME[key];
     if (!name) continue;
+    const fixedCode = String(memoStrokeColorToFileCode(key));
     const existingIndex = defs.findIndex(v => v.name === name);
     if (existingIndex >= 0) {
-      codes[key] = String(existingIndex + 1);
+      codes[key] = fixedCode;
       continue;
     }
-    const code = String(defs.length + 1);
+    const code = fixedCode;
     defs.push({featureId:null,name});
     codes[key] = code;
     needed.push({ key, code, name });
@@ -6343,7 +6348,7 @@ function getMemoLayerInfo(srcText){
   const flat = getFlatSxfText(srcText);
   const defs = parseLayerFeatureDefsFlat(flat);
   const idx = defs.findIndex(d => d.name === MEMO_LAYER_NAME || d.rawName === MEMO_LAYER_NAME || d.rawName === MEMO_LAYER_NAME_SJIS_LATIN1);
-  return { flat, defs, index: idx, code: idx >= 0 ? (idx + 1) : (defs.length + 1), featureId: idx >= 0 ? defs[idx].featureId : null };
+  return { flat, defs, index: idx, code: idx >= 0 ? idx : defs.length, featureId: idx >= 0 ? defs[idx].featureId : null };
 }
 function buildMemoLayerDefinitions(baseText, startId, strokes){
   const flat = getFlatSxfText(baseText);
@@ -6360,10 +6365,10 @@ function buildMemoLayerDefinitions(baseText, startId, strokes){
   for (const item of required) {
     const existingIndex = defs.findIndex(d => d.name === item.name || d.rawName === item.name || d.rawName === item.rawName);
     if (existingIndex >= 0) {
-      codes[item.id] = existingIndex + 1;
+      codes[item.id] = existingIndex;
       continue;
     }
-    const code = defs.length + 1;
+    const code = defs.length;
     defs.push({featureId:id, rawName:item.rawName, name:item.name});
     codes[item.id] = code;
     parts.push(`/*SXF
@@ -6591,7 +6596,7 @@ function getNearestSourceSegmentStyleForPoints(points, sourceSegs){
 
 function buildInkPolylineFeatureText(baseText){
   const normalized = inkStrokes.map(strokeToWorldPolyline).filter(s => s && Array.isArray(s.points) && s.points.length >= 2);
-  if (!normalized.length) return { colorText: "", layerText: "", lineText: "" };
+  if (!normalized.length) return { colorText: "", layerText: "", lineText: "", expectedFeatureCount:0 };
 
   let id = getNextSfcFeatureId(baseText);
   const colorBuild = buildMemoColorDefinitionText(baseText, id, normalized);
@@ -6608,7 +6613,7 @@ function buildInkPolylineFeatureText(baseText){
   // LINE/CIRCLE records after the source figure's locate record leaves valid
   // layer names but invisible geometry in strict SXF CAD applications.
   lineParts.push(`/*SXF
-#${id} = sfig_org_feature('SFCVIEWER_MEMO','2')
+#${id} = sfig_org_feature('SFCVIEWER_MEMO','3')
 SXF*/`);
   id += 1;
 
@@ -6620,7 +6625,8 @@ SXF*/`);
 
     const segStyle = getNearestSourceSegmentStyleForPoints(exportPts, sourceSegs);
     const memoSpec = getMemoLayerSpecForStroke(s);
-    const layerCode = String(layerBuild.codes[memoSpec.id] || getAnnotationLayer());
+    const resolvedLayerCode=layerBuild.codes[memoSpec.id];
+    const layerCode = String(resolvedLayerCode == null ? getAnnotationLayer() : resolvedLayerCode);
     const exportColor = getMemoExportColor(s);
     const colorCode = String(colorBuild.codes[exportColor] || "1");
     const typeCode = segStyle?.typeRef || MEMO_FILE_TYPE_CODE;
@@ -6641,12 +6647,16 @@ SXF*/`);
       continue;
     }
 
-    for (let i = 1; i < exportPts.length; i++) {
-      const p0 = exportPts[i - 1];
-      const p1 = exportPts[i];
-      if (Math.abs(p1.x - p0.x) < 1e-9 && Math.abs(p1.y - p0.y) < 1e-9) continue;
+    const compact=[];
+    for(const p of exportPts){
+      const prev=compact[compact.length-1];
+      if(!prev||Math.abs(p.x-prev.x)>=1e-9||Math.abs(p.y-prev.y)>=1e-9)compact.push(p);
+    }
+    if(compact.length>=2){
+      const xs=compact.map(p=>(+p.x).toFixed(6)).join(',');
+      const ys=compact.map(p=>(+p.y).toFixed(6)).join(',');
       lineParts.push(`/*SXF
-#${id} = line_feature('${layerCode}','${colorCode}','${typeCode}','${widthCode}','${(+p0.x).toFixed(6)}','${(+p0.y).toFixed(6)}','${(+p1.x).toFixed(6)}','${(+p1.y).toFixed(6)}')
+#${id} = polyline_feature('${layerCode}','${colorCode}','${typeCode}','${widthCode}','${compact.length}','(${xs})','(${ys})')
 SXF*/`);
       id += 1;
     }
@@ -6654,7 +6664,7 @@ SXF*/`);
   lineParts.push(`/*SXF
 #${id} = sfig_locate_feature('0','SFCVIEWER_MEMO','0.000000','0.000000','0.00000000000000','1.00000000000000','1.00000000000000')
 SXF*/`);
-  return { colorText, layerText, lineText: lineParts.join("\r\n") };
+  return { colorText, layerText, lineText: lineParts.join("\r\n"), expectedFeatureCount:normalized.length };
 }
 function stripEmbeddedAnnotations(srcText){
   let text = String(srcText || "");
@@ -6759,6 +6769,16 @@ function validateSfcExportAgainstSource(baseText, ann){
     const nums = [m[1],m[2],m[3],m[4]].map(Number);
     if (nums.every(Number.isFinite)) pts.push({x:nums[0],y:nums[1]},{x:nums[2],y:nums[3]});
   }
+  const polyRe=/polyline_feature\('[^']*','[^']*','[^']*','[^']*','[^']*','\(([^)]*)\)','\(([^)]*)\)'\)/g;
+  while((m=polyRe.exec(ann.lineText))!==null){
+    const xs=m[1].split(',').map(Number),ys=m[2].split(',').map(Number);
+    for(let i=0;i<Math.min(xs.length,ys.length);i++)if(Number.isFinite(xs[i])&&Number.isFinite(ys[i]))pts.push({x:xs[i],y:ys[i]});
+  }
+  const circleRe=/circle_feature\('[^']*','[^']*','[^']*','[^']*','([^']*)','([^']*)','([^']*)'\)/g;
+  while((m=circleRe.exec(ann.lineText))!==null){
+    const x=Number(m[1]),y=Number(m[2]),r=Math.abs(Number(m[3]));
+    if([x,y,r].every(Number.isFinite))pts.push({x:x-r,y:y-r},{x:x+r,y:y+r});
+  }
   if (!pts.length) return {ok:true};
   let eminx=Infinity, eminy=Infinity, emaxx=-Infinity, emaxy=-Infinity;
   for (const p of pts){ eminx=Math.min(eminx,p.x); eminy=Math.min(eminy,p.y); emaxx=Math.max(emaxx,p.x); emaxy=Math.max(emaxy,p.y); }
@@ -6767,6 +6787,31 @@ function validateSfcExportAgainstSource(baseText, ann){
   if (srcMag >= 10000 && expMag < 1000) return {ok:false, reason:'手書きメモの座標が画面座標のままです。保存を中止しました。'};
   if (srcW >= 10000 && expW > srcW * 1.2) return {ok:false, reason:'手書きメモのX座標範囲が元図面より不自然に大きいです。保存を中止しました。'};
   if (srcH >= 10000 && expH > srcH * 1.2) return {ok:false, reason:'手書きメモのY座標範囲が元図面より不自然に大きいです。保存を中止しました。'};
+  return {ok:true};
+}
+function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
+  const text=String(sfcText||"");
+  const blockMatch=text.match(/\/\*\s*---\s*sfcviewer_generated_begin\s*---\s*\*\/([\s\S]*?)\/\*\s*---\s*sfcviewer_generated_end\s*---\s*\*\//);
+  if(!blockMatch)return expectedFeatureCount?{ok:false,reason:"手書き図形をSFC本文へ追加できませんでした。"}:{ok:true};
+  const records=parseSxfFeatureRecords(getFlatSxfText(blockMatch[1]));
+  const geometries=records.filter(r=>r.name==="polyline_feature"||r.name==="circle_feature");
+  if(geometries.length<expectedFeatureCount){
+    return {ok:false,reason:`手書き図形の書出し件数が不足しています（${geometries.length}/${expectedFeatureCount}）。`};
+  }
+  const layerCount=parseLayerFeatureDefsFlat(getFlatSxfText(text)).length;
+  for(const rec of geometries){
+    const layer=Number(unquoteSxfValue(rec.args[0]));
+    const color=Number(unquoteSxfValue(rec.args[1]));
+    if(!Number.isInteger(layer)||layer<0||layer>=layerCount){
+      return {ok:false,reason:`手書き図形のレイヤー参照が不正です（${layer}）。`};
+    }
+    if(!Number.isInteger(color)||color<1||color>16){
+      return {ok:false,reason:`手書き図形の色コードが不正です（${color}）。`};
+    }
+  }
+  const org=records.find(r=>r.name==="sfig_org_feature"&&unquoteSxfValue(r.args[0])==="SFCVIEWER_MEMO");
+  const locate=records.find(r=>r.name==="sfig_locate_feature"&&unquoteSxfValue(r.args[1])==="SFCVIEWER_MEMO");
+  if(!org||!locate)return {ok:false,reason:"手書き図形の作図グループをSFCへ配置できませんでした。"};
   return {ok:true};
 }
 function buildSfcExportBlobAndName(){
@@ -6781,6 +6826,8 @@ function buildSfcExportBlobAndName(){
   const metaComment = buildMemoMetaComment();
   const exportText = ann.lineText + (metaComment ? "\r\n" + metaComment : "");
   const newSfc = insertMemoGeneralFeatures(base, exportText).replace(/[\s\r\n]*$/, "\r\n");
+  const generatedValidation=validateGeneratedMemoSfc(newSfc,ann.expectedFeatureCount||0);
+  if(!generatedValidation.ok)return {ok:false,reason:generatedValidation.reason||"手書き図形をSFCへ書き込めませんでした。"};
   const overwriteName = data.source_name || "sfc_view.sfc";
   const saveAsName = overwriteName.replace(/\.sfc$/i, "") + "_memo.sfc";
   const blob = new Blob([latin1StringToBytes(newSfc)], {type:"application/octet-stream"});
