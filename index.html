@@ -94,8 +94,8 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #title{display:none;}
 #creditWrap{margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-end; gap:0; min-height:30px; padding-right:10px; padding-left:8px;}
 #viewerLabel{font-size:13px; font-weight:700; opacity:.9; color:var(--fg); line-height:1; white-space:nowrap; cursor:pointer; margin-top:auto; padding:0 0 1px 0;}
-#textSearchModal{display:none;position:fixed;inset:0;z-index:96;background:rgba(0,0,0,.10);align-items:flex-start;justify-content:flex-end;padding:calc(var(--topbar-height,90px) + 8px) 12px calc(10px + env(safe-area-inset-bottom)) 12px;box-sizing:border-box;pointer-events:none;}
-#textSearchModalBox{width:min(260px,68vw);max-width:260px;max-height:calc(100vh - var(--topbar-height,90px) - 24px);overflow:auto;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.28);padding:10px 10px 9px 10px;pointer-events:auto;touch-action:manipulation;}
+#textSearchModal{display:none;position:fixed;inset:0;z-index:96;background:rgba(0,0,0,.10);align-items:flex-start;justify-content:flex-end;padding:calc(var(--topbar-height,90px) + 54px) 12px calc(10px + env(safe-area-inset-bottom)) 12px;box-sizing:border-box;pointer-events:none;}
+#textSearchModalBox{width:min(260px,68vw);max-width:260px;max-height:calc(100vh - var(--topbar-height,90px) - 70px);overflow:auto;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.28);padding:10px 10px 9px 10px;pointer-events:auto;touch-action:manipulation;}
 #profileModal{display:none;position:fixed;inset:0;z-index:120;background:transparent;align-items:flex-end;justify-content:center;padding:10px 10px calc(10px + env(safe-area-inset-bottom));box-sizing:border-box;pointer-events:none;}
 #profileModal.open{display:flex;}
 #profileBox{width:min(620px,94%);height:min(30vh,250px);min-height:190px;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;box-shadow:0 14px 34px rgba(0,0,0,.42);display:flex;flex-direction:column;overflow:hidden;pointer-events:auto;transition:width .16s ease,height .16s ease;}
@@ -121,7 +121,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #terrainPanelOpenBtn{width:100%;min-height:36px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:6px 9px;font-weight:800;}
 #terrainPanelOpenBtn.active{background:#2f9e44;color:#fff;border-color:#237a35;}
 #terrainPanelOpenState{font-size:11px;font-weight:700;opacity:.88;}
-#terrainPanel{display:none;width:min(286px,calc(100vw - 16px));right:8px;bottom:max(12px,env(safe-area-inset-bottom));top:auto;z-index:78;box-sizing:border-box;padding:8px !important;max-height:min(46vh,330px);overflow:auto;}
+#terrainPanel{display:none;width:min(286px,calc(100vw - 16px));right:12px;top:54px;bottom:auto;z-index:78;box-sizing:border-box;padding:8px !important;max-height:calc(100% - 62px);overflow:auto;}
 #terrainPanel .terrainHeader{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:7px;}
 #terrainPanel .terrainTitle{font-size:15px;font-weight:800;}
 @media (min-width:821px) and (hover:hover) and (pointer:fine){
@@ -245,7 +245,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 }
 
 @media (max-width: 640px){
-  #textSearchModal{padding:calc(var(--topbar-height,90px) + 6px) 8px calc(8px + env(safe-area-inset-bottom)) 8px;}
+  #textSearchModal{padding:calc(var(--topbar-height,90px) + 54px) 12px calc(8px + env(safe-area-inset-bottom)) 12px;}
   #supportPanel{width:min(210px, calc(100vw - 14px)); right:7px; bottom:8px;}
   .supportPanelText{font-size:11px; line-height:1.62;}
   #supportBtn{padding:6px 9px;font-size:11px;}
@@ -345,7 +345,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #drawPanel .toolRow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;}
 #drawPanel .toolRow button{min-width:0;padding-left:0;padding-right:0;}
 #supportPanel{width:min(248px, calc(100vw - 16px)); right:10px; bottom:12px; top:auto; position:absolute; z-index:60;}
-#aerialPhotoPanel{width:min(292px,calc(100vw - 16px));right:8px;top:8px;z-index:78;box-sizing:border-box;padding:8px !important;max-height:calc(100% - 16px);overflow:auto;}
+#aerialPhotoPanel{width:min(292px,calc(100vw - 16px));right:12px;top:54px;z-index:78;box-sizing:border-box;padding:8px !important;max-height:calc(100% - 62px);overflow:auto;}
 #aerialPhotoPanel .photoHeader{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:5px;}
 #aerialPhotoPanel .photoTitle{font-size:15px;font-weight:800;}
 #aerialPhotoPanel .photoSettingRow{display:flex;align-items:center;justify-content:space-between;gap:9px;min-height:37px;border-top:1px solid rgba(128,128,128,.22);}
@@ -735,6 +735,7 @@ body.help-labels button[data-help-label].mobile-hide{
 .unavailableTool{
   opacity:.35 !important;
   filter:saturate(.55) grayscale(.2);
+  pointer-events:none !important;
 }
 #startupTips{
   margin:6px 0 12px 0;
@@ -862,15 +863,15 @@ gtag('config', 'G-88B9YPJXWP');
         <path d="M16.8 7.2v9.6"></path>
       </svg>
     </button>
+    <button id="drawBtn" class="toolIconBtn" data-help-label="手書き" title="手書きメモ" aria-label="手書きメモ">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 19h3l11-11-3-3L4 16v3z"></path><path d="M15 5l3 3"></path><path d="M8 20h12"></path>
+      </svg>
+    </button>
     <button id="profileBtn" class="toolIconBtn" data-help-label="断面" title="地理院DEM断面" aria-label="断面">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3 19h18"></path>
         <path d="M4 17 9 11.5l3 3 3.1-6L20 17"></path>
-      </svg>
-    </button>
-    <button id="drawBtn" class="toolIconBtn" data-help-label="手書き" title="手書きメモ" aria-label="手書きメモ">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 19h3l11-11-3-3L4 16v3z"></path><path d="M15 5l3 3"></path><path d="M8 20h12"></path>
       </svg>
     </button>
     <button id="textSearchOpenBtn" class="toolIconBtn" data-help-label="検索" title="文字検索" aria-label="文字検索">
@@ -3046,7 +3047,7 @@ function selectProfileWorldPoint(world){
     profileStartWorld={x:world.x,y:world.y};profileEndWorld=null;profileData=null;profileHoverWorld=null;
     setProfilePrompt("断面の終点をタップしてください");
     updateModeStatus();
-    showToast("断面の終点をタップしてください",2400);scheduleDraw();return;
+    scheduleDraw();return;
   }
   profileEndWorld={x:world.x,y:world.y};profileHoverWorld=null;scheduleDraw();completeProfileSelection();
 }
@@ -3062,7 +3063,6 @@ async function beginProfileMode(){
   if(profileBtn) profileBtn.classList.add("profileActive");
   updateStopBtnUI();
   setProfilePrompt("現在地と図面の座標系を確認しています…");
-  showToast("現在地と図面の座標系を確認しています…",9000);
   try{ profileZone=await resolveProfileZone(); }
   finally{
     if(requestId===profileZoneResolveRequestId) profileZoneResolving=false;
@@ -3074,7 +3074,7 @@ async function beginProfileMode(){
     updateProfileUi();setProfilePrompt(msg,true,6000);showToast(msg,6000);return;
   }
   profileMode=true;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;
-  updateProfileUi();updateStopBtnUI();setProfilePrompt("断面の起点をタップしてください");showToast("断面の起点をタップしてください",2400);scheduleDraw();
+  updateProfileUi();updateStopBtnUI();setProfilePrompt("断面の起点をタップしてください");scheduleDraw();
 }
 function getGpsEnvironmentMessage(){
   const secure = window.isSecureContext || location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
@@ -5689,7 +5689,7 @@ function applyPortraitPreference(){
 }
 function updateDrawingDependentUi(){
   const available = hasLoadedDrawing();
-  const ids = ["fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn","textSearchOpenBtn","layerFab","gpsDetailFab"];
+  const ids = ["fitBtn","bgBtn","gpsBtn","measureBtn","profileBtn","drawBtn","textSearchOpenBtn","helpBtn","layerFab","gpsDetailFab"];
   ids.forEach(id=>{
     const el = document.getElementById(id);
     if (!el) return;
