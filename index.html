@@ -137,6 +137,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #profileBtn.profileActive,
 .toolIconBtn.modeActive,
 .toolIconBtn.activeMeasureBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;}
+.toolRow button.inkToolActive{background:#1677ff;color:#fff;border-color:#0f5ec8;outline:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);}
 #gpsBtn svg{color:#0a84ff;}
 #gpsBtn.activeGpsBtn svg{color:#fff;}
 .gpsDotIcon .gpsHalo{fill:#2f7dff;fill-opacity:.18;stroke:none;}
@@ -3818,9 +3819,11 @@ function updateInkUI(){
   lineBtn.textContent = "線";
   circleBtn.textContent = "丸";
   eraserBtn.textContent = "消しゴム";
-  lineBtn.style.outline = (!inkEraser && inkTool === "line") ? "2px solid #1677ff" : "";
-  circleBtn.style.outline = (!inkEraser && inkTool === "circle") ? "2px solid #1677ff" : "";
-  eraserBtn.style.outline = inkEraser ? "2px solid #ff3030" : "";
+  // Line, circle and eraser are mutually exclusive.  Use the same solid-blue
+  // active state as the upper toolbar instead of mixed outlines/red styling.
+  lineBtn.classList.toggle("inkToolActive", !inkEraser && inkTool === "line");
+  circleBtn.classList.toggle("inkToolActive", !inkEraser && inkTool === "circle");
+  eraserBtn.classList.toggle("inkToolActive", !!inkEraser);
   updateColorSelectionUI();
   updateModeStatus();
 }
@@ -8383,6 +8386,8 @@ document.getElementById("lineToolBtn").addEventListener("click", ()=>{
   updateInkUI();
   updateStopBtnUI();
   scheduleDraw();
+  // Let the blue selection feedback paint before closing the settings panel.
+  setTimeout(()=>{if(inkEnabled&&!inkEraser&&inkTool==="line")drawPanel.style.display="none";},140);
 });
 document.getElementById("circleToolBtn").addEventListener("click", ()=>{
   if (measureMode || selectedMeasurePoints.length) {
@@ -8398,6 +8403,7 @@ document.getElementById("circleToolBtn").addEventListener("click", ()=>{
   updateInkUI();
   updateStopBtnUI();
   scheduleDraw();
+  setTimeout(()=>{if(inkEnabled&&!inkEraser&&inkTool==="circle")drawPanel.style.display="none";},140);
 });
 document.getElementById("eraserBtn").addEventListener("click", ()=>{
   if (measureMode || selectedMeasurePoints.length) {
@@ -8411,6 +8417,7 @@ document.getElementById("eraserBtn").addEventListener("click", ()=>{
   updateInkUI();
   updateStopBtnUI();
   scheduleDraw();
+  setTimeout(()=>{if(inkEnabled&&inkEraser)drawPanel.style.display="none";},140);
 });
 document.getElementById("clearInkBtn").addEventListener("click", ()=>{ document.getElementById("confirmModal").style.display = "flex"; });
 const penWidthRange = document.getElementById("penWidth");
