@@ -581,6 +581,13 @@ body.light #compassFab .compassN{
 .toolIconBtn svg *{pointer-events:none;}
 .toolIconBtn.stopIconBtn{color:#1677ff;}
 .toolIconBtn.bgIconBtn svg{stroke-width:1.8;}
+#fitBtn .homeCloseIcon{display:none;}
+#fitBtn.homeCloseMode{
+  background:rgba(214,54,54,.20);color:#ff5b5b;border-color:rgba(255,91,91,.72);
+}
+#fitBtn.homeCloseMode .homeIcon{display:none;}
+#fitBtn.homeCloseMode .homeCloseIcon{display:block;}
+body.light #fitBtn.homeCloseMode{background:#ffe3e3;color:#cf2020;border-color:#ee7777;}
 
 
 .activeGpsBtn svg,
@@ -828,8 +835,11 @@ gtag('config', 'G-88B9YPJXWP');
     })();
     </script>
     <button id="fitBtn" class="toolIconBtn" data-help-label="ホーム" title="最初の全体表示へ戻る" aria-label="ホーム">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
+      <svg class="homeIcon" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3.5 11.2 12 4l8.5 7.2"></path><path d="M5.8 10.2V20h12.4v-9.8"></path><path d="M9.5 20v-6h5v6"></path>
+      </svg>
+      <svg class="homeCloseIcon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8"></circle><path d="m9 9 6 6"></path><path d="m15 9-6 6"></path>
       </svg>
     </button>
     <button id="bgBtn" class="toolIconBtn bgIconBtn" data-help-label="背景" title="背景" aria-label="背景">
@@ -1242,7 +1252,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">1本指</div>通常時は1本指で図面を移動できます。1本指で2回タップし、2回目の指を離さず下へ動かすと拡大、上へ動かすと縮小します。</div>
               <div class="helpBlock"><div class="helpHead">2本指</div>2本指で移動・拡大縮小・回転できます。</div>
               <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークは図面の回転に合わせて回ります。押すと北を上に戻します。</div>
-              <div class="helpBlock"><div class="helpHead">ホーム</div><b>ホーム</b> で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。ダブルタップや方位長押しでは全体表示になりません。</div>
+              <div class="helpBlock"><div class="helpHead">ホーム／閉じる</div>通常時は<b>ホーム</b>で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。画面や作業を開いている間は薄い赤の<b>閉じる</b>に変わり、図面位置を変えずに現在の画面・作業だけを終了します。ダブルタップや方位長押しでは全体表示になりません。</div>
             </div>
           </div>
 
@@ -3925,6 +3935,7 @@ function updateStopBtnUI(){
     });
   }
   updateModeStatus();
+  updateHomeButtonUI();
 }
 function applyMobileUiTweaks(){
   // File operations are exposed from the single File button on every device.
@@ -7454,6 +7465,7 @@ window.addEventListener("drop",event=>{
 });
 
 document.getElementById("fitBtn").addEventListener("click", ()=>{
+  if (closeActiveUiFromHome()) return;
   if (!isDrawingActionAvailable()) return;
   fitToScreen();
 });
@@ -7871,6 +7883,38 @@ function cancelTransientOperations(except=""){
   updateStopBtnUI();
   scheduleDraw();
 }
+function isHomeCloseModeActive(){
+  const visible=el=>!!(el&&getComputedStyle(el).display!=="none");
+  const hasProfileWork=!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||(profileModal&&profileModal.classList.contains("open")));
+  return !!(
+    measureMode||inkEnabled||textSearchPopupOpen||hasProfileWork||gpsDetailOpen||helpModalOpen||
+    visible(measureModePanel)||visible(drawPanel)||visible(layerPanel)||visible(aerialPhotoPanel)||
+    visible(terrainPanel)||visible(supportPanel)||visible(viewerSupportModal)
+  );
+}
+function updateHomeButtonUI(){
+  const btn=document.getElementById("fitBtn");
+  if(!btn)return;
+  const closeMode=isHomeCloseModeActive();
+  if(btn.classList.contains("homeCloseMode")===closeMode)return;
+  btn.classList.toggle("homeCloseMode",closeMode);
+  const label=closeMode?"閉じる":"ホーム";
+  btn.setAttribute("data-help-label",label);
+  btn.setAttribute("aria-label",label);
+  btn.title=closeMode?"現在の画面・作業を閉じる":"最初の全体表示へ戻る";
+}
+function closeActiveUiFromHome(){
+  if(!isHomeCloseModeActive())return false;
+  cancelTransientOperations();
+  closePanelsExcept("");
+  if(profileModal)profileModal.classList.remove("open","expanded");
+  if(gpsDetailOpen){gpsDetailOpen=false;updateGpsUi();}
+  if(helpModalOpen)closeHelpModal();
+  closeViewerSupportModal();
+  updateHomeButtonUI();
+  scheduleDraw();
+  return true;
+}
 function getActiveToolbarCommandId(){
   const hasProfileWork=!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||(profileModal&&profileModal.classList.contains("open")));
   if(hasProfileWork) return "profileBtn";
@@ -7887,9 +7931,15 @@ const toolbarCommandIds=new Set([
 document.addEventListener("click",e=>{
   const command=e.target&&e.target.closest?e.target.closest("button,label.fileBtn"):null;
   if(!command||!toolbarCommandIds.has(command.id)) return;
+  if(command.id==="fitBtn")return;
   const activeCommandId=getActiveToolbarCommandId();
   if(activeCommandId&&command.id!==activeCommandId) cancelTransientOperations();
 },true);
+const homePanelObserver=new MutationObserver(()=>updateHomeButtonUI());
+[measureModePanel,drawPanel,layerPanel,aerialPhotoPanel,terrainPanel,supportPanel,helpModal,viewerSupportModal,profileModal].forEach(el=>{
+  if(el)homePanelObserver.observe(el,{attributes:true,attributeFilter:["style","class"]});
+});
+updateHomeButtonUI();
 document.getElementById("pickCenterBtn").addEventListener("click", ()=>{
   togglePickMode("center");
 });
