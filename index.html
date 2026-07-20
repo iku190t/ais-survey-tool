@@ -287,6 +287,9 @@ label.fileBtn{
 #fileInput{display:none;}
 #wrap{position:relative;width:100vw;flex:1 1 auto;min-height:0;background:var(--bg);overflow:hidden;}
 #canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;background:var(--bg);}
+#fileDropOverlay{display:none;position:absolute;inset:10px;z-index:190;align-items:center;justify-content:center;pointer-events:none;border:3px dashed #2f7dff;border-radius:16px;background:rgba(18,78,145,.82);color:#fff;font-size:22px;font-weight:850;letter-spacing:.02em;text-align:center;box-sizing:border-box;box-shadow:inset 0 0 0 2px rgba(255,255,255,.16);}
+#fileDropOverlay.show{display:flex;}
+#fileDropOverlay span{padding:16px 22px;border-radius:14px;background:rgba(0,0,0,.24);}
 .panel{
   position:absolute; z-index:60; background:var(--panel2); color:var(--fg);
   border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.28);
@@ -915,6 +918,7 @@ gtag('config', 'G-88B9YPJXWP');
     </button>
   <div id="profilePrompt" role="status" aria-live="polite"></div>
   <div id="modeStatus" role="status" aria-live="polite"></div>
+  <div id="fileDropOverlay" role="status" aria-live="polite"><span>ここにドロップして開く</span></div>
   <div id="layerPanel" class="panel">
     <div id="layerHeader">
       <div id="layerHeaderTop"><h3>レイヤー表示・色変更</h3><button id="layerCloseBtn">閉じる</button></div>
@@ -1129,6 +1133,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">開く・保存</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開く・保存</div><b>ファイル</b> を押し、<b>開く</b>、<b>上書き保存</b>、<b>別名保存・メール送信</b>から選びます。開くと保存は1つのボタンにまとまっています。</div>
+              <div class="helpBlock"><div class="helpHead">PCでドラッグして開く</div>PCではSFCまたは保存済みHTMLを図面画面へドラッグし、「ここにドロップして開く」の表示上で離すと、そのまま図面を開けます。</div>
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容をSFCまたはHTMLへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">別名保存・メール送信</div>送信先を入力して <b>SFCを直接送信</b> または <b>ZIP圧縮して直接送信</b> を選びます。送信先は端末に保存され、次回から入力不要です。初回だけGoogleアカウントの許可画面が表示されます。直接送信できない端末では従来の共有画面へ切り替わります。</div>
               <div class="helpBlock"><div class="helpHead">SFCへの書き込み</div>SFCを開いて保存すると、手書きの線は <b>「線」レイヤー</b>、丸は <b>「丸」レイヤー</b>のSFC要素として書き込みます。重要な原本は念のため別に保管してください。</div>
@@ -7368,6 +7373,54 @@ if(earlyFileState){
     Promise.resolve(earlyFileState.consumeFile(pendingFile)).catch(console.error);
   }
 }
+
+const fileDropOverlay=document.getElementById("fileDropOverlay");
+let fileDragDepth=0;
+function dragContainsFiles(event){
+  const types=event&&event.dataTransfer&&event.dataTransfer.types;
+  return !!(types&&Array.from(types).includes("Files"));
+}
+function setFileDropOverlayVisible(visible){
+  if(fileDropOverlay)fileDropOverlay.classList.toggle("show",!!visible);
+}
+window.addEventListener("dragenter",event=>{
+  if(!dragContainsFiles(event))return;
+  event.preventDefault();
+  fileDragDepth++;
+  setFileDropOverlayVisible(true);
+});
+window.addEventListener("dragover",event=>{
+  if(!dragContainsFiles(event))return;
+  event.preventDefault();
+  if(event.dataTransfer)event.dataTransfer.dropEffect="copy";
+  setFileDropOverlayVisible(true);
+});
+window.addEventListener("dragleave",event=>{
+  if(!fileDragDepth)return;
+  fileDragDepth=Math.max(0,fileDragDepth-1);
+  if(fileDragDepth===0)setFileDropOverlayVisible(false);
+});
+window.addEventListener("dragend",()=>{fileDragDepth=0;setFileDropOverlayVisible(false);});
+window.addEventListener("blur",()=>{fileDragDepth=0;setFileDropOverlayVisible(false);});
+window.addEventListener("drop",event=>{
+  if(!dragContainsFiles(event))return;
+  event.preventDefault();
+  fileDragDepth=0;
+  setFileDropOverlayVisible(false);
+  const files=event.dataTransfer&&event.dataTransfer.files;
+  const file=files&&files.length?files[0]:null;
+  if(!file)return;
+  if(!/\.(?:sfc|html?)$/i.test(String(file.name||""))){
+    showToast("SFCまたはHTMLファイルをドロップしてください",2400);
+    return;
+  }
+  saveRecoverySnapshot({immediate:true});
+  handleSelectedDrawingFile(file).catch(err=>{
+    console.error(err);
+    hideBusy();
+    showToast("ファイルを開けませんでした",2200);
+  });
+});
 
 document.getElementById("fitBtn").addEventListener("click", ()=>{
   if (!isDrawingActionAvailable()) return;
