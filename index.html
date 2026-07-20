@@ -1632,7 +1632,8 @@ let terrainRefreshTimer = 0;
 
 const PROFILE_TILE_CACHE = "sfc-dem-tiles-v1";
 const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v1";
-const PROFILE_ZONE_CACHE_KEY = "sfc-dem-zones-v1";
+// v2 invalidates zone numbers remembered before GPS-first validation was added.
+const PROFILE_ZONE_CACHE_KEY = "sfc-dem-zones-v2";
 const PROFILE_DEM_SOURCES = [
   {id:"DEM1A", url:"https://cyberjapandata.gsi.go.jp/xyz/dem1a_png/{z}/{x}/{y}.png", z:17},
   {id:"DEM5A", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{z}/{x}/{y}.png", z:15},
@@ -1981,6 +1982,28 @@ function configureCoordinateMeshFallback(target){
   if(target) target._meshCoordinateTransform=candidate;
   return candidate;
 }
+function chooseSfcPlacementFromDeviceXY(xNorth,yEast){
+  const standard=defaultPlaneToSfcWorld(xNorth,yEast);
+  if(!activeCoordinateMeshTransform){
+    return {sfc:standard,usedMesh:false,standardDistance:calcDistanceFromSfcBoundsMeters(standard.x,standard.y),meshDistance:null};
+  }
+  const mesh=planeToSfcWorld(xNorth,yEast);
+  const standardDistance=calcDistanceFromSfcBoundsMeters(standard.x,standard.y);
+  const meshDistance=calcDistanceFromSfcBoundsMeters(mesh.x,mesh.y);
+  // Coordinate labels are sometimes merely annotations with leader lines. In
+  // that case an affine fit based on their text insertion points can move the
+  // drawing by an entire plane-coordinate zone. Reject it only when the normal
+  // survey mapping is near the device and is decisively (50 km) better.
+  const meshClearlyWrong=Number.isFinite(standardDistance)&&Number.isFinite(meshDistance)&&
+    standardDistance<=50000&&meshDistance-standardDistance>=50000;
+  if(meshClearlyWrong){
+    console.warn("Coordinate mesh correction rejected by device position",{standardDistance,meshDistance});
+    activeCoordinateMeshTransform=null;
+    if(data){data._meshCoordinateTransform=null;data._meshCoordinateTransformRejectedByGps=true;}
+    return {sfc:standard,usedMesh:false,standardDistance,meshDistance};
+  }
+  return {sfc:mesh,usedMesh:true,standardDistance,meshDistance};
+}
 function jgd2024XYToLatLon(xNorth, yEast, zone){
   if (!ensureProj4Defs()) throw new Error("proj4未読込");
   const result = proj4("JGD2024_ZONE_" + zone, "EPSG:4326", [yEast, xNorth]);
@@ -2014,7 +2037,8 @@ function profileZoneFromDevicePosition(pos){
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   const zone = chooseJapanPlaneZone(lat, lon);
   const xy = latLonToJgd2024XY(lat, lon, zone);
-  const sfc = planeToSfcWorld(xy.x, xy.y);
+  const placement=chooseSfcPlacementFromDeviceXY(xy.x,xy.y);
+  const sfc = placement.sfc;
   const distance = calcDistanceFromSfcBoundsMeters(sfc.x, sfc.y);
   // A zone cannot be determined from local plane coordinates alone.  The
   // device position must be in the same broad work area at least once.
@@ -2024,19 +2048,22 @@ function profileZoneFromDevicePosition(pos){
 }
 async function resolveProfileZone(){
   if (!hasLoadedDrawing() || !ensureProj4Defs()) return null;
-  const remembered = getRememberedProfileZone();
-  if (remembered) return remembered;
+  // A live device position must win over a stale per-drawing cache. Adjacent
+  // Japanese plane-coordinate zones can otherwise displace imagery by 100 km+.
   if (gpsPosition){
     const zone = profileZoneFromDevicePosition({coords:{latitude:gpsPosition.lat, longitude:gpsPosition.lon}});
     if (zone) return zone;
   }
-  if (!navigator.geolocation) return null;
-  const pos = await new Promise(resolve=>{
-    navigator.geolocation.getCurrentPosition(resolve, ()=>resolve(null), {
-      enableHighAccuracy:false, maximumAge:300000, timeout:8000
+  if (navigator.geolocation){
+    const pos = await new Promise(resolve=>{
+      navigator.geolocation.getCurrentPosition(resolve, ()=>resolve(null), {
+        enableHighAccuracy:false, maximumAge:300000, timeout:8000
+      });
     });
-  });
-  return profileZoneFromDevicePosition(pos);
+    const zone=profileZoneFromDevicePosition(pos);
+    if(zone)return zone;
+  }
+  return getRememberedProfileZone();
 }
 function profileTileRef(lat, lon, z){
   const n = Math.pow(2, z);
@@ -2073,6 +2100,9 @@ function getAerialPhotoCenter(zone){
   const world=screenToWorld((canvas.clientWidth||1)/2,(canvas.clientHeight||1)/2);
   const plane=sfcWorldToPlane(world[0],world[1]);
   const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
+  if(!Number.isFinite(ll.lat)||!Number.isFinite(ll.lon)||ll.lat<18||ll.lat>48||ll.lon<120||ll.lon>156){
+    throw new Error("航空写真の座標変換結果が日本域外です");
+  }
   const keyRef=profileTileRef(ll.lat,ll.lon,14);
   return {ll,key:`${zone}|${keyRef.x}|${keyRef.y}`};
 }
@@ -2175,7 +2205,8 @@ function updateBackgroundIconState(){
   btn.classList.toggle("bgBothActive",terrainActive&&photoActive);
 }
 async function enableAerialPhoto(){
-  if(aerialPhotoResolveBusy||aerialPhotoEnabled) return;
+  if(aerialPhotoResolveBusy){setAerialPhotoStatus("図面の位置を確認しています…");return;}
+  if(aerialPhotoEnabled&&aerialAvailableSources.length) return;
   if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
   const requestId=++aerialPhotoEnableRequestId;
   aerialPhotoResolveBusy=true;
@@ -2183,23 +2214,31 @@ async function enableAerialPhoto(){
   updateAerialPhotoUi();
   setAerialPhotoStatus("図面の位置を確認しています…");
   try{
-    aerialPhotoZone=profileZone||getRememberedProfileZone()||await resolveProfileZone();
-  }catch(e){aerialPhotoZone=null;}
-  if(requestId!==aerialPhotoEnableRequestId){aerialPhotoResolveBusy=false;return;}
-  if(!aerialPhotoZone){
-    aerialPhotoResolveBusy=false;
-    aerialPhotoEnabled=false;updateAerialPhotoUi();
-    setAerialPhotoStatus("図面の位置を確認できません。現在地の利用を許可して、現場付近で再度お試しください。");
-    showToast("航空写真を重ねる図面位置を確認できません",2600);
-    return;
+    aerialPhotoZone=await resolveProfileZone();
+    if(requestId!==aerialPhotoEnableRequestId)return;
+    if(!aerialPhotoZone){
+      aerialPhotoEnabled=false;
+      setAerialPhotoStatus("図面の位置を確認できません。現在地の利用を許可して、現場付近で再度お試しください。");
+      showToast("航空写真を重ねる図面位置を確認できません",2600);
+      return;
+    }
+    profileZone=aerialPhotoZone;
+    const available=await refreshAerialPhotoSources(requestId);
+    if(requestId!==aerialPhotoEnableRequestId)return;
+    if(!available){aerialPhotoEnabled=false;return;}
+  }catch(e){
+    if(requestId!==aerialPhotoEnableRequestId)return;
+    console.error("Aerial photo activation failed",e);
+    aerialPhotoEnabled=false;
+    setAerialPhotoStatus("航空写真を表示できません。図面の座標変換または通信状態を確認してください。");
+    showToast("航空写真の取得処理でエラーが発生しました",2800);
+  }finally{
+    if(requestId===aerialPhotoEnableRequestId){
+      aerialPhotoResolveBusy=false;
+      updateAerialPhotoUi();
+      scheduleDraw();
+    }
   }
-  profileZone=aerialPhotoZone;
-  const available=await refreshAerialPhotoSources(requestId);
-  if(requestId!==aerialPhotoEnableRequestId){aerialPhotoResolveBusy=false;return;}
-  aerialPhotoResolveBusy=false;
-  if(!available){aerialPhotoEnabled=false;updateAerialPhotoUi();scheduleDraw();return;}
-  updateAerialPhotoUi();
-  scheduleDraw();
 }
 function scheduleAerialPhotoSourceRefresh(centerLl){
   if(!aerialPhotoEnabled||aerialPhotoResolveBusy||!centerLl) return;
@@ -2211,11 +2250,20 @@ function scheduleAerialPhotoSourceRefresh(centerLl){
     if(!aerialPhotoEnabled||aerialPhotoResolveBusy) return;
     const requestId=++aerialPhotoEnableRequestId;
     aerialPhotoResolveBusy=true;updateAerialPhotoUi();
-    const available=await refreshAerialPhotoSources(requestId);
-    if(requestId!==aerialPhotoEnableRequestId) return;
-    aerialPhotoResolveBusy=false;
-    if(!available) aerialPhotoEnabled=false;
-    updateAerialPhotoUi();scheduleDraw();
+    try{
+      const available=await refreshAerialPhotoSources(requestId);
+      if(requestId!==aerialPhotoEnableRequestId)return;
+      if(!available)aerialPhotoEnabled=false;
+    }catch(e){
+      if(requestId!==aerialPhotoEnableRequestId)return;
+      console.error("Aerial photo refresh failed",e);
+      aerialPhotoEnabled=false;
+      setAerialPhotoStatus("航空写真を更新できません。図面の座標変換または通信状態を確認してください。");
+    }finally{
+      if(requestId===aerialPhotoEnableRequestId){
+        aerialPhotoResolveBusy=false;updateAerialPhotoUi();scheduleDraw();
+      }
+    }
   },700);
 }
 function getAerialPhotoTile(url){
