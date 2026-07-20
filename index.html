@@ -67,8 +67,7 @@ body{display:flex;flex-direction:column;}
   z-index:200;
   flex:0 0 auto;
 }
-#topbar::after{content:"";display:none;position:absolute;left:0;right:0;top:100%;height:var(--cad-toolbar-offset,40px);background:var(--panel);border-bottom:1px solid var(--border);pointer-events:none;z-index:199;}
-body.context-tools-open #topbar::after{display:block;}
+#topbar::after{display:none!important;}
 body.file-menu-open #topbar{z-index:240;}
 body.file-menu-open #topbarMain>*:not(#openIconBtn){pointer-events:none;}
 body.file-menu-open #topbarSub{pointer-events:none;}
@@ -86,8 +85,7 @@ body.file-menu-open #topbarSub{pointer-events:none;}
 .topbar-row>*{flex:0 0 auto;}
 .topbar-row::-webkit-scrollbar{height:4px;}
 #topbarMain{min-height:34px;}
-#topbarSub{display:flex;min-height:34px;visibility:hidden;pointer-events:none;position:absolute;left:6px;right:6px;top:100%;z-index:201;}
-body.context-tools-open #topbarSub{visibility:visible;pointer-events:auto;}
+#topbarSub{display:none!important;}
 body.profile-tools-active #pickCenterBtn,
 body.profile-tools-active #pickCrossBtn,
 body.profile-tools-active #pickEndBtn,
@@ -346,8 +344,11 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .supportLinkBtn:active{transform:translateY(1px) scale(0.98);filter:brightness(0.95);}
 
 #measureModePanel{width:190px; max-width:min(190px, calc(100vw - 16px)); position:absolute; z-index:60;}
-#measureBox{width:260px; right:12px; top:calc(54px + var(--cad-toolbar-offset,40px)); position:absolute; z-index:60;}
+#measureBox{width:min(300px,calc(100vw - 24px)); right:12px; top:calc(54px + var(--cad-toolbar-offset,0px)); position:absolute; z-index:60;}
 #measureTypeToggleBtn{display:block;width:100%;min-height:36px;margin:0 0 8px;padding:5px 8px;font-size:14px;font-weight:800;}
+#measurePickRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:0 0 8px;}
+#measurePickRow button{min-width:0!important;min-height:30px!important;padding:3px 1px!important;font-size:10px!important;line-height:1.15;white-space:nowrap;color:#2f7dff;}
+#measurePickRow button.pick-active{color:#1677ff!important;}
 #drawPanel{width:246px; right:12px; top:calc(54px + var(--cad-toolbar-offset,40px)); position:absolute; z-index:60;}
 .panelHeaderCompact{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
 .panelHeaderCompact .panelTitle{margin:0;font-size:15px;font-weight:800;}
@@ -899,18 +900,7 @@ gtag('config', 'G-88B9YPJXWP');
       <div id="viewerLabel">SFCスマホビューアー</div>
     </div>
     </div>
-  <div id="topbarSub" class="topbar-row">
-    <button id="pickCenterBtn" data-help-label="中心" title="丸の中心" style="width:32px;height:32px;padding:0;font-size:15px;"><span class="pick-center-icon"></span></button>
-    <button id="pickCrossBtn" data-help-label="交点" title="交点" style="width:32px;height:32px;padding:0;font-size:22px;font-weight:700;line-height:1;">＋</button>
-    <button id="pickEndBtn" data-help-label="端点" title="線の端点" style="width:32px;height:32px;padding:0;">—○</button>
-    <button id="pickFreeBtn" data-help-label="フリー" title="フリー" style="width:32px;height:32px;padding:0;font-size:13px;"><span class="pick-free-icon"></span></button>
-    <button id="pickLineBtn" data-help-label="線上" title="線上" style="width:32px;height:32px;padding:0;">／</button>
-    <button id="stopBtn" class="toolIconBtn stopIconBtn" data-help-label="閉じる" title="現在の作業を閉じる" aria-label="現在の作業を閉じる">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="8"></circle><path d="M8.5 8.5 15.5 15.5"></path><path d="M15.5 8.5 8.5 15.5"></path>
-      </svg>
-    </button>
-  </div>
+  <div id="topbarSub" class="topbar-row" aria-hidden="true"></div>
 </div>
 
 <div id="envNotice" style="display:none;padding:8px 12px;background:#fff3cd;color:#664d03;border-bottom:1px solid #e0c36c;font-size:13px;line-height:1.5;">
@@ -970,6 +960,13 @@ gtag('config', 'G-88B9YPJXWP');
   <div id="measureBox" class="panel">
     <div class="panelHeaderCompact"><div class="panelTitle">計測</div><button id="measureCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <button id="measureTypeToggleBtn" type="button" title="押すと3点垂直へ切り替えます">↔ 2点間</button>
+    <div id="measurePickRow" aria-label="点の選択方法">
+      <button id="pickCenterBtn" type="button" title="丸の中心">◎中心</button>
+      <button id="pickCrossBtn" type="button" title="交点">＋交点</button>
+      <button id="pickEndBtn" type="button" title="線の端点">—○端点</button>
+      <button id="pickLineBtn" type="button" title="線上">／線上</button>
+      <button id="pickFreeBtn" type="button" title="フリー">・フリー</button>
+    </div>
     <div id="measureText" style="font-size:13px; line-height:1.6;">測定OFFです。</div>
     
   </div>
@@ -1049,7 +1046,7 @@ gtag('config', 'G-88B9YPJXWP');
 
   <a id="photoCredit" href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院 地理院タイル</a>
 
-  <div id="miniHint">2本指で移動・拡大縮小 / モードアイコンで 単点・フリー・線上・直角距離</div>
+  <div id="miniHint">2本指で移動・拡大縮小</div>
   <div id="pickStatus">選択候補: 丸の中心</div>
 
   <div id="startupModal" style="display:flex;">
@@ -1200,7 +1197,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">計測</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">始め方</div><b>計測</b> を押すと、すぐに2点間測定が始まり、ボタンが青くなります。計測ボタンをもう一度押すと処理を終了し、青色も解除されます。2点間と3点垂直は、計測ポップアップ内の切替ボタンで変更します。</div>
-              <div class="helpBlock"><div class="helpHead">点の取り方</div>計測中だけ上段に補助ボタンが現れます。丸の中心・交点・線の端点・フリー・線上を選べ、青枠のものが有効です。</div>
+              <div class="helpBlock"><div class="helpHead">点の取り方</div>計測ポップアップ内の、中心・交点・端点・線上・フリーを選びます。青枠のものが有効で、中心→交点→端点→線上→フリーの順に判定します。</div>
               <div class="helpBlock"><div class="helpHead">2点間</div>2点を取ると距離が出ます。続けて次の点を取ると、直前の2点目から新しい点までを連続して計測します。</div>
               <div class="helpBlock"><div class="helpHead">3点垂直</div>基準線の2点と、離れた1点を取ると、垂直距離を出します。</div>
               <div class="helpBlock"><div class="helpHead">閉じる</div>作業中に表示される <b>閉じる</b> を押すと、選択途中の点を消して通常表示へ戻ります。</div>
@@ -1227,12 +1224,12 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">手書きメモ</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。線・丸・消しゴムはどれか1つだけが選択され、選択したボタンが青くなった後、設定画面が自動で閉じます。</div>
-              <div class="helpBlock"><div class="helpHead">線</div>指でなぞって描きます。中心・交点・端点などが選択中でも、線を描く間はフリー選択へ切り替わり、終了時に元の点選択へ戻ります。</div>
+              <div class="helpBlock"><div class="helpHead">線</div>指でなぞった位置へ自由に描きます。手書きは常にフリー入力で、計測の点選択設定には影響しません。</div>
               <div class="helpBlock"><div class="helpHead">丸</div>図面をタップすると、選んだ大きさの丸を配置します。中心・交点・端点・線上が有効な時は、その点へ丸の中心を合わせます。</div>
               <div class="helpBlock"><div class="helpHead">保存レイヤー</div>SFC保存時は、線を <b>「線（赤）」「線（青）」「線（緑）」「線（黄）」「線（黒）」</b>、丸を同じ5色の <b>「丸（色名）」</b>へ分けて保存します。同じ名前の既存レイヤーがある場合は重複作成しません。</div>
               <div class="helpBlock"><div class="helpHead">図面操作</div>手書き中でも2本指の移動・拡大縮小・回転を使えます。指を2本置いた時点で、描きかけの線を確定して図面操作へ切り替えます。</div>
               <div class="helpBlock"><div class="helpHead">消去・やり直し</div><b>消しゴム</b>を選ぶと青くなり、線・丸の選択は解除されます。図面上のメモをなぞると個別に消せます。<b>メモ全消去</b> は確認後に全削除します。図面左上の青い矢印で元に戻す・やり直しができます。</div>
-              <div class="helpBlock"><div class="helpHead">閉じる</div>作業中に表示される <b>閉じる</b> を押すと、手書き状態を終了して通常表示へ戻ります。色・太さ・丸の大きさ・透過率・点の取り方は次回も保持されます。</div>
+              <div class="helpBlock"><div class="helpHead">閉じる</div>手書きポップアップの <b>閉じる</b> を押すと、手書き状態を終了して通常表示へ戻ります。色・太さ・丸の大きさ・透過率は次回も保持されます。</div>
             </div>
           </div>
 
@@ -1449,11 +1446,9 @@ function getViewportHeight(){
 }
 function updateWrapLayout(){
   const topbar = document.getElementById("topbar");
-  const subbar = document.getElementById("topbarSub");
   const vh = getViewportHeight();
   const topH = topbar ? Math.ceil(topbar.getBoundingClientRect().height || topbar.offsetHeight || 54) : 54;
-  const subH = subbar ? Math.ceil(subbar.getBoundingClientRect().height || subbar.offsetHeight || 34) : 34;
-  document.documentElement.style.setProperty("--cad-toolbar-offset", (subH + 6) + "px");
+  document.documentElement.style.setProperty("--cad-toolbar-offset", "0px");
   document.documentElement.style.setProperty("--topbar-height", topH + "px");
   const h = Math.max(120, Math.round(vh - topH));
   if (wrap){
@@ -1535,7 +1530,7 @@ let layerColorOverrides = {};
 
 let measureMode = false;
 let measureType = "2point";
-let activePickModes = ["center","cross","end"];
+let activePickModes = ["center","cross","end","free"];
 let selectedMeasurePoints = [];
 let redoStrokes = [];
 let hoverMeasurePoint = null;
@@ -3552,8 +3547,10 @@ function loadUiPreferences(){
     if(Number.isFinite(+prefs.inkOpacity)) inkOpacity = Math.max(.1,Math.min(1,+prefs.inkOpacity));
     if(prefs.inkTool === "line" || prefs.inkTool === "circle") inkTool = prefs.inkTool;
     if(Array.isArray(prefs.activePickModes)){
-      const allowed = ["center","cross","end","free","line"];
-      const next = prefs.activePickModes.filter((v,i,a)=>allowed.includes(v) && a.indexOf(v)===i);
+      const allowed = ["center","cross","end","line","free"];
+      const next = prefs.activePickModes
+        .filter((v,i,a)=>allowed.includes(v) && a.indexOf(v)===i)
+        .sort((a,b)=>allowed.indexOf(a)-allowed.indexOf(b));
       if(next.length) activePickModes = next;
     }
     toolbarHelpLabelsOpen = true;
@@ -4045,38 +4042,16 @@ function updateModeStatus(){
   modeStatus.style.display=label?"block":"none";
 }
 function updateStopBtnUI(){
-  const btn = document.getElementById("stopBtn");
-  if(!btn) return;
   const panelOpen = !!(measureModePanel && measureModePanel.style.display === "block");
   const hasProfileLine = !!(profileStartWorld || profileEndWorld || profileData);
   const profileToolsActive = !!(profileZoneResolving || profileMode || hasProfileLine || (profileModal && profileModal.classList.contains("open")));
   // 断面は図面上の線と小型ウインドウで操作できるため、上段の「閉じる」は出さない。
-  const active = !!(measureMode || inkEnabled || panelOpen);
-  const showSnapTools = !profileToolsActive && !!(measureMode || inkEnabled);
-  const subbar = document.getElementById("topbarSub");
-  const wasOpen = document.body.classList.contains("context-tools-open");
-  document.body.classList.toggle("context-tools-open", active);
+  document.body.classList.remove("context-tools-open");
   document.body.classList.toggle("profile-tools-active", profileToolsActive);
   const measureMainBtn=document.getElementById("measureBtn");
   const drawMainBtn=document.getElementById("drawBtn");
   if(measureMainBtn) measureMainBtn.classList.toggle("modeActive",!!(measureMode||panelOpen));
   if(drawMainBtn) drawMainBtn.classList.toggle("modeActive",!!inkEnabled);
-  ["pickCenterBtn","pickCrossBtn","pickEndBtn","pickFreeBtn","pickLineBtn"].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.hidden=!showSnapTools;
-  });
-  // 計測・手書きの終了操作は、それぞれのパネル内へ統一した。
-  // 上段ツールバーにはスナップ選択だけを表示する。
-  btn.hidden=true;
-  btn.style.background = "";
-  btn.style.color = "";
-  btn.style.borderColor = "";
-  if(wasOpen!==active && subbar){
-    requestAnimationFrame(()=>{
-      updateWrapLayout();
-      resize();
-    });
-  }
   updateModeStatus();
   updateHomeButtonUI();
 }
@@ -5357,19 +5332,15 @@ function updateMeasureBox(){
   }
   function fmtX(p){ return (p.y/1000).toFixed(3); }
   function fmtY(p){ return (p.x/1000).toFixed(3); }
-  function pickName(m){
-    return m==="center" ? "丸の中心" : m==="cross" ? "交点" : m==="end" ? "線の端点" : m==="line" ? "線上" : "フリー";
-  }
-  const prio = activePickModes.map(pickName).join(" → ");
   if (measureType === "3vertical"){
     if(selectedMeasurePoints.length===0){
-      txt.innerHTML = `3点垂直です。<br>優先順位: ${prio}<br><br>底辺の1点目を選んでください。`;
+      txt.textContent = "底辺の1点目を選んでください。";
     }else if(selectedMeasurePoints.length===1){
       const p=selectedMeasurePoints[0];
-      txt.innerHTML = `底辺1点目<br>X=${fmtX(p)}<br>Y=${fmtY(p)}<br><br>底辺の2点目を選んでください。<br>優先順位: ${prio}`;
+      txt.innerHTML = `底辺1点目<br>X=${fmtX(p)}<br>Y=${fmtY(p)}<br><br>底辺の2点目を選んでください。`;
     }else if(selectedMeasurePoints.length===2){
       const a=selectedMeasurePoints[0], b=selectedMeasurePoints[1];
-      txt.innerHTML = `底辺2点<br>A X=${fmtX(a)} Y=${fmtY(a)}<br>B X=${fmtX(b)} Y=${fmtY(b)}<br><br>頂点を1点選んでください。<br>優先順位: ${prio}`;
+      txt.innerHTML = `底辺2点<br>A X=${fmtX(a)} Y=${fmtY(a)}<br>B X=${fmtX(b)} Y=${fmtY(b)}<br><br>頂点を1点選んでください。`;
     }else{
       const a=selectedMeasurePoints[0], b=selectedMeasurePoints[1], p=selectedMeasurePoints[2];
       const vx=b.x-a.x, vy=b.y-a.y;
@@ -5381,10 +5352,10 @@ function updateMeasureBox(){
     }
   } else {
     if(selectedMeasurePoints.length===0){
-      txt.innerHTML = `2点間です。<br>優先順位: ${prio}<br><br>1点目を選んでください。`;
+      txt.textContent = "1点目を選んでください。";
     }else if(selectedMeasurePoints.length===1){
       const p=selectedMeasurePoints[0];
-      txt.innerHTML = `1点目<br>X=${fmtX(p)}<br>Y=${fmtY(p)}<br><br>2点目を選んでください。<br>優先順位: ${prio}`;
+      txt.innerHTML = `1点目<br>X=${fmtX(p)}<br>Y=${fmtY(p)}<br><br>2点目を選んでください。`;
     }else{
       const a=selectedMeasurePoints[0], b=selectedMeasurePoints[1];
       const dx=(b.y-a.y)/1000, dy=(b.x-a.x)/1000, dist=Math.hypot(b.x-a.x,b.y-a.y)/1000;
@@ -6017,11 +5988,9 @@ function strokeToWorldPolyline(stroke){
   };
 }
 function buildCircleStrokeFromScreenPoint(sx, sy){
-  let anchor = chooseMeasurePointByMode(sx, sy);
-  if (!anchor) {
-    const p = screenToWorld(sx, sy);
-    anchor = { x:p[0], y:p[1], layer:-1, free:true };
-  }
+  // 手書きはフリー入力に統一し、計測用のスナップ設定には連動させない。
+  const p = screenToWorld(sx, sy);
+  const anchor = { x:p[0], y:p[1], layer:-1, free:true };
   const cx = +anchor.x || 0;
   const cy = +anchor.y || 0;
 
@@ -6047,7 +6016,7 @@ function buildCircleStrokeFromScreenPoint(sx, sy){
     opacity: inkOpacity,
     eraser: false,
     isCircleMemo: true,
-    anchorMode: Array.isArray(activePickModes) && activePickModes.length ? activePickModes[0] : "center",
+    anchorMode: "free",
     points: pts
   };
 }
@@ -8187,7 +8156,8 @@ layersColorAllInput.addEventListener("change",()=>{applyAllLayerColor();saveReco
 
 
 function togglePickMode(mode){
-  const order = ["center","cross","end","free","line"];
+  // フリーは必ず最後。先に置くと任意点がすべてを捕捉し、線上が選べない。
+  const order = ["center","cross","end","line","free"];
   const i = activePickModes.indexOf(mode);
   if (i >= 0) {
     if (activePickModes.length > 1) activePickModes.splice(i, 1);
@@ -8462,7 +8432,7 @@ document.getElementById("drawBtn").addEventListener("click", ()=>{
   updateStopBtnUI();
   scheduleDraw();
 });
-document.getElementById("stopBtn").addEventListener("click", (e)=>{
+document.getElementById("stopBtn")?.addEventListener("click", (e)=>{
   const btn = e.currentTarget;
   btn.classList.add("pressed");
   setTimeout(()=>btn.classList.remove("pressed"), 140);
