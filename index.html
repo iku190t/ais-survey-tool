@@ -94,7 +94,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #title{display:none;}
 #creditWrap{margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-end; gap:0; min-height:30px; padding-right:10px; padding-left:8px;}
 #viewerLabel{font-size:13px; font-weight:700; opacity:.9; color:var(--fg); line-height:1; white-space:nowrap; cursor:pointer; margin-top:auto; padding:0 0 1px 0;}
-#textSearchModal{display:none;position:fixed;inset:0;z-index:96;background:rgba(0,0,0,.10);align-items:flex-start;justify-content:flex-end;padding:calc(var(--topbar-height,90px) + var(--cad-toolbar-offset,40px) + 54px) 12px calc(10px + env(safe-area-inset-bottom)) 12px;box-sizing:border-box;pointer-events:none;}
+#textSearchModal{display:none;position:fixed;inset:0;z-index:96;background:rgba(0,0,0,.10);align-items:flex-start;justify-content:flex-end;padding:calc(var(--topbar-height,90px) + var(--cad-toolbar-offset,40px) + 58px) 12px calc(10px + env(safe-area-inset-bottom)) 12px;box-sizing:border-box;pointer-events:none;}
 #textSearchModalBox{width:min(260px,68vw);max-width:260px;max-height:calc(100vh - var(--topbar-height,90px) - var(--cad-toolbar-offset,40px) - 70px);overflow:auto;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.28);padding:10px 10px 9px 10px;pointer-events:auto;touch-action:manipulation;}
 #profileModal{display:none;position:fixed;inset:0;z-index:120;background:transparent;align-items:flex-end;justify-content:center;padding:10px 10px calc(10px + env(safe-area-inset-bottom));box-sizing:border-box;pointer-events:none;}
 #profileModal.open{display:flex;}
@@ -252,7 +252,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 }
 
 @media (max-width: 640px){
-  #textSearchModal{padding:calc(var(--topbar-height,90px) + var(--cad-toolbar-offset,40px) + 54px) 12px calc(8px + env(safe-area-inset-bottom)) 12px;}
+  #textSearchModal{padding:calc(var(--topbar-height,90px) + var(--cad-toolbar-offset,40px) + 58px) 12px calc(8px + env(safe-area-inset-bottom)) 12px;}
   #supportPanel{width:min(210px, calc(100vw - 14px)); right:7px; bottom:8px;}
   .supportPanelText{font-size:11px; line-height:1.62;}
   #supportBtn{padding:6px 9px;font-size:11px;}
@@ -344,7 +344,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .supportLinkBtn:active{transform:translateY(1px) scale(0.98);filter:brightness(0.95);}
 
 #measureModePanel{width:190px; max-width:min(190px, calc(100vw - 16px)); position:absolute; z-index:60;}
-#measureBox{width:min(300px,calc(100vw - 24px)); right:12px; top:calc(54px + var(--cad-toolbar-offset,0px)); position:absolute; z-index:60;}
+#measureBox{width:min(300px,calc(100vw - 24px)); right:12px; top:calc(58px + var(--cad-toolbar-offset,0px)); position:absolute; z-index:60;}
 #measureTypeToggleBtn{display:block;width:100%;min-height:36px;margin:0 0 8px;padding:5px 8px;font-size:14px;font-weight:800;}
 #measurePickRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:0 0 8px;}
 #measureBackRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:8px;}
@@ -354,7 +354,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #measurePickRow button.pick-active,#drawPanel .toolRow button.inkToolActive{color:#fff!important;background:#1677ff!important;border-color:#1677ff!important;box-shadow:none!important;}
 #measureBackBtn:disabled{opacity:.34;cursor:default;}
 #measureBackBtn:not(:disabled):active{background:#1677ff!important;border-color:#1677ff!important;transform:scale(.96);}
-#drawPanel{width:246px; right:12px; top:calc(54px + var(--cad-toolbar-offset,40px)); position:absolute; z-index:60;}
+#drawPanel{width:246px; right:12px; top:calc(58px + var(--cad-toolbar-offset,40px)); position:absolute; z-index:60;}
 .panelHeaderCompact{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
 .panelHeaderCompact .panelTitle{margin:0;font-size:15px;font-weight:800;}
 .panelCloseBtn{min-width:62px!important;min-height:32px!important;padding:4px 9px!important;background:var(--button)!important;color:var(--buttonText)!important;border-color:var(--border)!important;font-size:12px!important;}
@@ -367,7 +367,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #drawPanel .toolRow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;}
 #drawPanel .toolRow button{min-width:0;padding-left:0;padding-right:0;}
 #supportPanel{width:min(248px, calc(100vw - 16px)); right:10px; bottom:12px; top:auto; position:absolute; z-index:60;}
-#aerialPhotoPanel{width:min(292px,calc(100vw - 16px));right:12px;top:calc(54px + var(--cad-toolbar-offset,40px));z-index:78;box-sizing:border-box;padding:8px !important;max-height:calc(100% - var(--cad-toolbar-offset,40px) - 62px);overflow:auto;}
+#aerialPhotoPanel{width:min(292px,calc(100vw - 16px));right:12px;top:calc(58px + var(--cad-toolbar-offset,40px));z-index:78;box-sizing:border-box;padding:8px !important;max-height:calc(100% - var(--cad-toolbar-offset,40px) - 66px);overflow:auto;}
 #aerialPhotoPanel .photoHeader{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:5px;}
 #aerialPhotoPanel .photoTitle{font-size:15px;font-weight:800;}
 #aerialPhotoPanel .photoSettingRow{display:flex;align-items:center;justify-content:space-between;gap:9px;min-height:37px;border-top:1px solid rgba(128,128,128,.22);}
