@@ -1204,7 +1204,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">断面図の大きさ</div>最初は図面上の断面線が見える小表示です。<b>拡大／縮小</b>で断面図の大きさを切り替えられます。</div>
               <div class="helpBlock"><div class="helpHead">グラフ</div>横軸と縦軸は同じ縮尺（縦横1:1）です。延長と高低差を表示します。1本指でなぞると図面上の対応位置が分かり、2本指で拡大縮小・移動できます。</div>
               <div class="helpBlock"><div class="helpHead">格子</div>表示倍率に応じ、1m・5m・10m・25m・50m以上から見やすい最小間隔へ自動で切り替わります。細格子は極細、主格子だけ少し濃く表示します。</div>
-              <div class="helpBlock"><div class="helpHead">断面SFC書出</div>断面画面の <b>断面SFC書出 1/100</b> を押すと、縦横1:1・縮尺1/100の断面をSFCで保存できます。起点・終点のX・Y・標高、延長、方向角も図面内と再配置用データへ記録します。スマホでは保存・共有画面、PCでは保存先選択画面が開きます。</div>
+              <div class="helpBlock"><div class="helpHead">断面SFC書出</div>断面画面の <b>断面SFC書出 1/100</b> を押すと、縦横1:1・縮尺1/100の断面をSFCで保存できます。起点・終点のX・Y・標高、延長、方向角も図面内と再配置用データへ記録します。PCではSFCの保存先選択画面、スマホではGmailでも添付できるZIP形式の送信画面が開きます。ZIP内にはSFCファイルが1個入っています。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>断面を押すと現在地から図面の座標系を自動判定します。iPhoneから確認が出た場合は位置情報を許可してください。判定中・起点・終点の案内は図面上部に表示されます。</div>
               <div class="helpBlock"><div class="helpHead">通信とキャッシュ</div>初回は国土地理院の標高タイルを取得します。同じ場所付近は端末内キャッシュを再利用します。通信できずキャッシュもない場合は表示できません。</div>
               <div class="helpBlock"><div class="helpHead">閉じる・消す</div><b>閉じる</b> でグラフと図面上の断面線を消し、通常表示へ戻ります。</div>
@@ -2947,20 +2947,63 @@ async function exportProfileSfc(){
   const out=buildProfileSfcFile();
   if(!out){showToast("断面データを作成してから書き出してください",2400);return;}
   if(profileExportSfcBtn)profileExportSfcBtn.disabled=true;
+  showBusy("断面SFCを準備中…");
+  await waitForUiPaint();
   try{
-    if(window.showSaveFilePicker&&!isMobileDevice()){
-      try{
-        const handle=await window.showSaveFilePicker({id:"sfcviewer-profile",suggestedName:out.fileName,types:[{description:"SFC断面図",accept:{"application/octet-stream":[".sfc"]}}]});
-        await writeBlobToHandle(handle,out.blob);
-        showToast("縮尺1/100の断面SFCを保存しました",2400);return;
-      }catch(e){if(e&&e.name==="AbortError")return;console.error(e);}
+    if(!isTouchMobileLike()){
+      hideBusy();
+      if(window.showSaveFilePicker){
+        try{
+          const handle=await window.showSaveFilePicker({id:"sfcviewer-profile",suggestedName:out.fileName,types:[{description:"SFC断面図",accept:{"application/octet-stream":[".sfc"]}}]});
+          showBusy("断面SFCを保存中…");
+          await writeBlobToHandle(handle,out.blob);
+          hideBusy();
+          showToast("縮尺1/100の断面SFCを保存しました",2400);return;
+        }catch(e){
+          hideBusy();
+          if(e&&e.name==="AbortError"){showToast("保存をキャンセルしました");return;}
+          console.error(e);
+        }
+      }
+      downloadBlob(out.blob,out.fileName);
+      showToast("縮尺1/100の断面SFCをダウンロードしました",2400);
+      return;
     }
-    const shared=await shareBlobFile(out.blob,out.fileName);
-    if(shared==="cancelled"){showToast("保存をキャンセルしました");return;}
-    if(shared){showToast("断面SFCの保存・共有が完了しました",2200);return;}
-    downloadBlob(out.blob,out.fileName);
-    showToast("縮尺1/100の断面SFCを保存しました",2400);
-  }finally{if(profileExportSfcBtn)profileExportSfcBtn.disabled=false;}
+
+    updateBusy("メール添付用ZIPを準備中…");
+    const zipBlob=await createSingleFileZip(out.blob,out.fileName);
+    const zipName=out.fileName.replace(/\.sfc$/i,"")+".zip";
+    hideBusy();
+
+    const rawBtn=document.getElementById("saveAsRawShareBtn");
+    const zipBtn=document.getElementById("saveAsZipShareBtn");
+    const title=document.getElementById("saveAsChoiceTitle");
+    const rawDisplay=rawBtn?rawBtn.style.display:"";
+    if(rawBtn)rawBtn.style.display="none";
+    const choicePromise=chooseSaveAsShareMode();
+    if(title)title.textContent="断面SFCを送信";
+    if(zipBtn)zipBtn.textContent="ZIP圧縮して送信";
+    const shareMode=await choicePromise;
+    if(rawBtn)rawBtn.style.display=rawDisplay;
+    if(!shareMode){showToast("送信をキャンセルしました");return;}
+
+    const directEnabled=!!getGmailOAuthClientId();
+    const recipient=directEnabled?saveGmailRecipient(document.getElementById("gmailRecipientInput")?.value||""):"";
+    if(directEnabled&&!isValidEmailAddress(recipient)){
+      showToast("正しい送信先メールアドレスを入力してください");return;
+    }
+    const shared=await sendBlobByGmailOrShare(zipBlob,zipName,recipient);
+    if(shared)return;
+    downloadBlob(zipBlob,zipName);
+    showToast("共有を開けないためZIPを保存しました",2400);
+  }catch(e){
+    hideBusy();
+    console.error(e);
+    showToast("断面SFCを作成・保存できませんでした",2600);
+  }finally{
+    hideBusy();
+    if(profileExportSfcBtn)profileExportSfcBtn.disabled=false;
+  }
 }
 function sameProfilePoint(a,b){
   return !!(a&&b&&Math.abs(a.x-b.x)<1e-7&&Math.abs(a.y-b.y)<1e-7);
@@ -8028,7 +8071,9 @@ document.getElementById("terrainPanelCloseBtn")?.addEventListener("click",()=>{
 });
 if(profileCloseBtn) profileCloseBtn.addEventListener("click",()=>cancelTransientOperations());
 if(profileSizeToggleBtn) profileSizeToggleBtn.addEventListener("click",toggleProfileModalSize);
-if(profileExportSfcBtn) profileExportSfcBtn.addEventListener("click",exportProfileSfc);
+if(profileExportSfcBtn) profileExportSfcBtn.addEventListener("click",()=>{
+  exportProfileSfc().catch(e=>{console.error(e);hideBusy();showToast("断面SFCを書き出せませんでした",2600);if(profileExportSfcBtn)profileExportSfcBtn.disabled=false;});
+});
 if(profileModal) profileModal.addEventListener("click",e=>{if(e.target===profileModal)cancelTransientOperations();});
 if(profileChart){
   const traceProfileAtClientX=clientX=>{
