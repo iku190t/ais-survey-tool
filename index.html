@@ -102,11 +102,13 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #profileSummary{font-size:13px;line-height:1.45;flex:1;min-width:0;}
 #profileSizeToggleBtn{min-width:54px;height:34px;border-radius:17px;}
 #profileCloseBtn{min-width:62px;height:34px;border-radius:17px;}
+#profileFooter{display:flex;align-items:center;gap:8px;padding:6px 10px 8px;}
+#profileExportSfcBtn{flex:0 0 auto;min-height:32px;border-radius:16px;padding:5px 11px;font-size:12px;font-weight:800;color:#fff;background:#1677ff;border-color:#0f5ec8;}
 #profileChartWrap{position:relative;flex:1;min-height:0;padding:6px 8px 0;}
 #profileChart{display:block;width:100%;height:100%;touch-action:none;border-radius:9px;background:rgba(127,127,127,.06);}
 #profileLoading{display:none;position:absolute;inset:6px 8px 0;align-items:center;justify-content:center;background:rgba(20,20,20,.36);border-radius:9px;color:#fff;font-weight:800;z-index:2;}
 #profileLoading.show{display:flex;}
-#profileNotice{font-size:12px;line-height:1.45;text-align:center;padding:7px 10px 9px;color:var(--muted);}
+#profileNotice{flex:1;min-width:0;font-size:12px;line-height:1.45;text-align:left;color:var(--muted);}
 #terrainActions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;}
 #terrainActions button{min-height:34px;padding:5px 3px;font-size:12px;font-weight:750;}
 #terrainActions button.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
@@ -156,7 +158,9 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
   #profileSummary{font-size:12px;}
   #profileTitle{font-size:14px;}
   #profileSizeToggleBtn,#profileCloseBtn{min-width:50px;height:32px;padding:4px 8px;}
-  #profileNotice{font-size:11px;padding:6px 8px 8px;}
+  #profileFooter{gap:6px;padding:5px 7px 7px;}
+  #profileNotice{font-size:10px;line-height:1.35;}
+  #profileExportSfcBtn{min-height:30px;padding:4px 8px;font-size:11px;}
 }
 #textSearchModalTitle{font-size:14px;font-weight:700;margin:0 0 5px 0;}
 #textSearchModalHint{display:none;}
@@ -961,7 +965,10 @@ gtag('config', 'G-88B9YPJXWP');
         <canvas id="profileChart"></canvas>
         <div id="profileLoading">標高データを取得中…</div>
       </div>
-      <div id="profileNotice">この断面図は概略です。測量には使用できません。<br>地理院タイル（標高タイル（基盤地図情報数値標高モデル））を加工して作成</div>
+      <div id="profileFooter">
+        <div id="profileNotice">この断面図は概略です。測量には使用できません。<br>地理院タイル（標高タイル（基盤地図情報数値標高モデル））を加工して作成</div>
+        <button id="profileExportSfcBtn" type="button">断面SFC書出<br>1/100</button>
+      </div>
     </div>
   </div>
 
@@ -1179,6 +1186,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">断面図の大きさ</div>最初は図面上の断面線が見える小表示です。<b>拡大／縮小</b>で断面図の大きさを切り替えられます。</div>
               <div class="helpBlock"><div class="helpHead">グラフ</div>横軸と縦軸は同じ縮尺（縦横1:1）です。延長と高低差を表示します。1本指でなぞると図面上の対応位置が分かり、2本指で拡大縮小・移動できます。</div>
               <div class="helpBlock"><div class="helpHead">格子</div>表示倍率に応じ、1m・5m・10m・25m・50m以上から見やすい最小間隔へ自動で切り替わります。細格子は極細、主格子だけ少し濃く表示します。</div>
+              <div class="helpBlock"><div class="helpHead">断面SFC書出</div>断面画面の <b>断面SFC書出 1/100</b> を押すと、縦横1:1・縮尺1/100の断面をSFCで保存できます。起点・終点のX・Y・標高、延長、方向角も図面内と再配置用データへ記録します。スマホでは保存・共有画面、PCでは保存先選択画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>断面を押すと現在地から図面の座標系を自動判定します。iPhoneから確認が出た場合は位置情報を許可してください。判定中・起点・終点の案内は図面上部に表示されます。</div>
               <div class="helpBlock"><div class="helpHead">通信とキャッシュ</div>初回は国土地理院の標高タイルを取得します。同じ場所付近は端末内キャッシュを再利用します。通信できずキャッシュもない場合は表示できません。</div>
               <div class="helpBlock"><div class="helpHead">閉じる・消す</div><b>閉じる</b> でグラフと図面上の断面線を消し、通常表示へ戻ります。</div>
@@ -1625,6 +1633,7 @@ const viewerSupportCloseBtn = document.getElementById("viewerSupportCloseBtn");
 const viewerLabel = document.getElementById("viewerLabel");
 const profileBtn = document.getElementById("profileBtn");
 const profileModal = document.getElementById("profileModal");
+const profileExportSfcBtn = document.getElementById("profileExportSfcBtn");
 const aerialPhotoPanel = document.getElementById("aerialPhotoPanel");
 const terrainPanel = document.getElementById("terrainPanel");
 const photoTimeSlider = document.getElementById("photoTimeSlider");
@@ -2774,6 +2783,117 @@ function updateProfileSummary(){
   const first=valid[0],last=valid[valid.length-1];
   const diff=first&&last?last.elevation-first.elevation:0;
   profileSummary.textContent=`延長 ${formatProfileDistance(profileData.length)}　高低差 ${diff>=0?"+":""}${formatTerrainElevation(diff)}　縦横1:1`;
+}
+function sfcProfileRecord(id, body){
+  return `/*SXF\r\n#${id} = ${body}\r\nSXF*/`;
+}
+function profileSfcTextFeature(id, layer, color, text, x, y, height=300){
+  const safe=String(text||"").replace(/['\\\r\n]/g," ");
+  const width=Math.max(900,Math.min(24000,safe.length*190));
+  return sfcProfileRecord(id,`text_string_feature('${layer}','${color}','1','${safe}','${x.toFixed(3)}','${y.toFixed(3)}','${height.toFixed(3)}','${width.toFixed(3)}','0.000000','0.000000','0.000000','1','1')`);
+}
+function profileSfcLineFeature(id, layer, color, x1, y1, x2, y2){
+  return sfcProfileRecord(id,`line_feature('${layer}','${color}','1','1','${x1.toFixed(3)}','${y1.toFixed(3)}','${x2.toFixed(3)}','${y2.toFixed(3)}')`);
+}
+function buildProfileSfcFile(){
+  if(!profileData||!profileStartWorld||!profileEndWorld) return null;
+  const samples=profileData.samples.filter(s=>Number.isFinite(s.distance)&&Number.isFinite(s.elevation));
+  if(samples.length<2) return null;
+  const startPlane=sfcWorldToPlane(profileStartWorld.x,profileStartWorld.y);
+  const endPlane=sfcWorldToPlane(profileEndWorld.x,profileEndWorld.y);
+  if(!startPlane||!endPlane||![startPlane.xNorth,startPlane.yEast,endPlane.xNorth,endPlane.yEast].every(Number.isFinite)) return null;
+
+  const length=Math.max(.001,+profileData.length||0);
+  const minElevation=Math.min(...samples.map(s=>s.elevation));
+  const maxElevation=Math.max(...samples.map(s=>s.elevation));
+  const elevationSpan=Math.max(.1,maxElevation-minElevation);
+  const gridInterval=(length>120||elevationSpan>60)?10:5;
+  const datum=Math.floor((minElevation-1)/gridInterval)*gridInterval;
+  const topElevation=Math.ceil((maxElevation+1)/gridInterval)*gridInterval;
+  const maxY=(topElevation-datum)*1000;
+  const lengthMm=length*1000;
+  const graphPts=samples.map(s=>({x:s.distance*1000,y:(s.elevation-datum)*1000}));
+  const firstSample=samples[0],lastSample=samples[samples.length-1];
+  const dx=endPlane.xNorth-startPlane.xNorth,dy=endPlane.yEast-startPlane.yEast;
+  const azimuth=(Math.atan2(dy,dx)*180/Math.PI+360)%360;
+  const sourceBase=String(data?.source_name||"drawing").replace(/\.[^.]+$/," ").trim().replace(/[\\/:*?"<>|]/g,"_")||"drawing";
+  const fileName=`${sourceBase}_断面_1-100.sfc`;
+  const meta={version:1,kind:"terrain-profile",scale:100,zone:profileData.zone||profileZone||null,datum,
+    start:{x:startPlane.xNorth,y:startPlane.yEast,z:firstSample.elevation,worldX:profileStartWorld.x,worldY:profileStartWorld.y},
+    end:{x:endPlane.xNorth,y:endPlane.yEast,z:lastSample.elevation,worldX:profileEndWorld.x,worldY:profileEndWorld.y},
+    length,azimuth,sourceName:data?.source_name||""};
+
+  const entities=[];let id=10;
+  entities.push(sfcProfileRecord(id+=10,"pre_defined_colour_feature('black')"));
+  entities.push(sfcProfileRecord(id+=10,"pre_defined_colour_feature('blue')"));
+  entities.push(sfcProfileRecord(id+=10,"pre_defined_colour_feature('darkgray')"));
+  entities.push(sfcProfileRecord(id+=10,"pre_defined_font_feature('continuous')"));
+  entities.push(sfcProfileRecord(id+=10,"width_feature('0.130000')"));
+  entities.push(sfcProfileRecord(id+=10,"text_font_feature('MS Gothic')"));
+
+  const gridLayer="1",profileLayer="2",infoLayer="3";
+  entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,0,lengthMm,0));
+  entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,0,0,maxY));
+  for(let d=0;d<=length+1e-7;d+=gridInterval){
+    const x=d*1000;
+    entities.push(profileSfcLineFeature(id+=10,gridLayer,"3",x,0,x,maxY));
+    entities.push(profileSfcTextFeature(id+=10,infoLayer,"1",`${Math.round(d)}m`,x,-700,260));
+  }
+  for(let z=Math.ceil(datum/gridInterval)*gridInterval;z<=topElevation+1e-7;z+=gridInterval){
+    const y=(z-datum)*1000;
+    entities.push(profileSfcLineFeature(id+=10,gridLayer,"3",0,y,lengthMm,y));
+    entities.push(profileSfcTextFeature(id+=10,infoLayer,"1",`${Math.round(z)}m`,-1900,y,260));
+  }
+  const xs=graphPts.map(p=>p.x.toFixed(3)).join(",");
+  const ys=graphPts.map(p=>p.y.toFixed(3)).join(",");
+  entities.push(sfcProfileRecord(id+=10,`polyline_feature('${profileLayer}','2','1','1','${graphPts.length}','(${xs})','(${ys})')`));
+  const marker=500;
+  for(const p of [graphPts[0],graphPts[graphPts.length-1]]){
+    entities.push(profileSfcLineFeature(id+=10,profileLayer,"2",p.x-marker,p.y,p.x+marker,p.y));
+    entities.push(profileSfcLineFeature(id+=10,profileLayer,"2",p.x,p.y-marker,p.x,p.y+marker));
+  }
+  let labelY=maxY+1300;
+  const labels=[
+    "TERRAIN PROFILE  SCALE 1/100  H=V",
+    `START X=${startPlane.xNorth.toFixed(3)} Y=${startPlane.yEast.toFixed(3)} Z=${firstSample.elevation.toFixed(3)}`,
+    `END   X=${endPlane.xNorth.toFixed(3)} Y=${endPlane.yEast.toFixed(3)} Z=${lastSample.elevation.toFixed(3)}`,
+    `L=${length.toFixed(3)}m  AZ=${azimuth.toFixed(6)}deg  DATUM=${datum.toFixed(3)}m`,
+    "GSI DEM / APPROXIMATE PROFILE - NOT FOR SURVEY"
+  ];
+  for(const label of labels){entities.push(profileSfcTextFeature(id+=10,infoLayer,"1",label,0,labelY,300));labelY+=520;}
+  entities.push(sfcProfileRecord(id+=10,"sfig_org_feature('PROFILE_1-100','2')"));
+  entities.push(sfcProfileRecord(id+=10,"sfig_locate_feature('0','PROFILE_1-100','0.000000','0.000000','0.00000000000000','0.01000000000000','0.01000000000000')"));
+  const sheetW=Math.max(297,Math.ceil((lengthMm+5000)*.01));
+  const sheetH=Math.max(210,Math.ceil((labelY+2500)*.01));
+  entities.push(sfcProfileRecord(id+=10,`drawing_sheet_feature('','0','1','${sheetW}','${sheetH}')`));
+  entities.push(sfcProfileRecord(id+=10,"layer_feature('PROFILE_GRID','1')"));
+  entities.push(sfcProfileRecord(id+=10,"layer_feature('PROFILE_LINE','1')"));
+  entities.push(sfcProfileRecord(id+=10,"layer_feature('PROFILE_INFO','1')"));
+  const metaComment=`/* SFCVIEWER_PROFILE_META_V1:${utf8ToBase64(JSON.stringify(meta))} */`;
+  const stamp=new Date().toISOString().replace(/\.\d{3}Z$/," ").trim();
+  const text=["ISO-10303-21;","HEADER;","FILE_DESCRIPTION(('SCADEC level2 feature_mode'),'2;1');",
+    `FILE_NAME('profile_1-100.sfc','${stamp}',(''),(''),'SFC Smartphone Viewer','SFC Smartphone Viewer','');`,
+    "FILE_SCHEMA(('ASSOCIATIVE_DRAUGHTING'));","ENDSEC;","DATA;","",...entities,"",metaComment,"ENDSEC;","END-ISO-10303-21;",""] .join("\r\n");
+  return {fileName,text,blob:new Blob([latin1StringToBytes(text)],{type:"application/octet-stream"}),meta};
+}
+async function exportProfileSfc(){
+  const out=buildProfileSfcFile();
+  if(!out){showToast("断面データを作成してから書き出してください",2400);return;}
+  if(profileExportSfcBtn)profileExportSfcBtn.disabled=true;
+  try{
+    if(window.showSaveFilePicker&&!isMobileDevice()){
+      try{
+        const handle=await window.showSaveFilePicker({id:"sfcviewer-profile",suggestedName:out.fileName,types:[{description:"SFC断面図",accept:{"application/octet-stream":[".sfc"]}}]});
+        await writeBlobToHandle(handle,out.blob);
+        showToast("縮尺1/100の断面SFCを保存しました",2400);return;
+      }catch(e){if(e&&e.name==="AbortError")return;console.error(e);}
+    }
+    const shared=await shareBlobFile(out.blob,out.fileName);
+    if(shared==="cancelled"){showToast("保存をキャンセルしました");return;}
+    if(shared){showToast("断面SFCの保存・共有が完了しました",2200);return;}
+    downloadBlob(out.blob,out.fileName);
+    showToast("縮尺1/100の断面SFCを保存しました",2400);
+  }finally{if(profileExportSfcBtn)profileExportSfcBtn.disabled=false;}
 }
 function sameProfilePoint(a,b){
   return !!(a&&b&&Math.abs(a.x-b.x)<1e-7&&Math.abs(a.y-b.y)<1e-7);
@@ -7532,6 +7652,7 @@ document.getElementById("terrainPanelCloseBtn")?.addEventListener("click",()=>{
 });
 if(profileCloseBtn) profileCloseBtn.addEventListener("click",()=>cancelTransientOperations());
 if(profileSizeToggleBtn) profileSizeToggleBtn.addEventListener("click",toggleProfileModalSize);
+if(profileExportSfcBtn) profileExportSfcBtn.addEventListener("click",exportProfileSfc);
 if(profileModal) profileModal.addEventListener("click",e=>{if(e.target===profileModal)cancelTransientOperations();});
 if(profileChart){
   const traceProfileAtClientX=clientX=>{
