@@ -2891,15 +2891,19 @@ function buildProfileSfcFile(){
   // Some CAD applications ignore the partial-figure magnification, so exporting
   // full-size coordinates and relying on a 0.01 locate scale made it 100x too large.
   const paperMmPerMeter=10;
+  const marginRoundingUnit=length>=50?10:1;
+  const leftMarginMeters=Math.max(marginRoundingUnit,Math.round((length/10)/marginRoundingUnit)*marginRoundingUnit);
+  const leftMarginMm=leftMarginMeters*paperMmPerMeter;
   const maxY=(topElevation-datum)*paperMmPerMeter;
   const lengthMm=length*paperMmPerMeter;
-  const graphPts=samples.map(s=>({x:s.distance*paperMmPerMeter,y:(s.elevation-datum)*paperMmPerMeter}));
+  const totalWidthMm=leftMarginMm+lengthMm;
+  const graphPts=samples.map(s=>({x:leftMarginMm+s.distance*paperMmPerMeter,y:(s.elevation-datum)*paperMmPerMeter}));
   const firstSample=samples[0],lastSample=samples[samples.length-1];
   const dx=endPlane.xNorth-startPlane.xNorth,dy=endPlane.yEast-startPlane.yEast;
   const azimuth=(Math.atan2(dy,dx)*180/Math.PI+360)%360;
   const sourceBase=String(data?.source_name||"drawing").replace(/\.[^.]+$/," ").trim().replace(/[\\/:*?"<>|]/g,"_")||"drawing";
   const fileName=`${sourceBase}_断面_1-100.sfc`;
-  const meta={version:1,kind:"terrain-profile",scale:100,zone:profileData.zone||profileZone||null,datum,
+  const meta={version:1,kind:"terrain-profile",scale:100,zone:profileData.zone||profileZone||null,datum,leftMarginMeters,
     start:{x:startPlane.xNorth,y:startPlane.yEast,z:firstSample.elevation,worldX:profileStartWorld.x,worldY:profileStartWorld.y},
     end:{x:endPlane.xNorth,y:endPlane.yEast,z:lastSample.elevation,worldX:profileEndWorld.x,worldY:profileEndWorld.y},
     length,azimuth,sourceName:data?.source_name||""};
@@ -2915,17 +2919,16 @@ function buildProfileSfcFile(){
   // 後ろに開始定義を置くと、他CADでは1/100縮尺が断面図形へ適用されない。
   entities.push(sfcProfileRecord(id+=10,"sfig_org_feature('PROFILE_1-100','2')"));
 
-  const gridLayer="1",profileLayer="2",infoLayer="3";
-  entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,0,lengthMm,0));
+  const profileLayer="2",infoLayer="3";
+  entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,0,totalWidthMm,0));
   entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,0,0,maxY));
-  for(let d=0;d<=length+1e-7;d+=gridInterval){
-    const x=d*paperMmPerMeter;
-    entities.push(profileSfcLineFeature(id+=10,gridLayer,"1",x,0,x,maxY));
+  const distanceTick=Math.min(gridInterval,leftMarginMeters);
+  for(let d=-leftMarginMeters;d<=length+1e-7;d+=distanceTick){
+    const x=(d+leftMarginMeters)*paperMmPerMeter;
     entities.push(profileSfcTextFeature(id+=10,infoLayer,"1",`${Math.round(d)}m`,x,-7,2.6));
   }
   for(let z=Math.ceil(datum/gridInterval)*gridInterval;z<=topElevation+1e-7;z+=gridInterval){
     const y=(z-datum)*paperMmPerMeter;
-    entities.push(profileSfcLineFeature(id+=10,gridLayer,"1",0,y,lengthMm,y));
     entities.push(profileSfcTextFeature(id+=10,infoLayer,"1",`${Math.round(z)}m`,-19,y,2.6));
   }
   const xs=graphPts.map(p=>p.x.toFixed(3)).join(",");
@@ -2947,10 +2950,9 @@ function buildProfileSfcFile(){
   ];
   for(const label of labels){entities.push(profileSfcTextFeature(id+=10,infoLayer,"1",label,0,labelY,3));labelY+=5.2;}
   entities.push(sfcProfileRecord(id+=10,"sfig_locate_feature('0','PROFILE_1-100','0.000000','0.000000','0.00000000000000','1.00000000000000','1.00000000000000')"));
-  const sheetW=Math.max(297,Math.ceil(lengthMm+50));
+  const sheetW=Math.max(297,Math.ceil(totalWidthMm+50));
   const sheetH=Math.max(210,Math.ceil(labelY+25));
   entities.push(sfcProfileRecord(id+=10,`drawing_sheet_feature('','0','1','${sheetW}','${sheetH}')`));
-  entities.push(sfcProfileRecord(id+=10,"layer_feature('PROFILE_GRID','1')"));
   entities.push(sfcProfileRecord(id+=10,"layer_feature('PROFILE_LINE','1')"));
   entities.push(sfcProfileRecord(id+=10,"layer_feature('PROFILE_INFO','1')"));
   const metaComment=`/* SFCVIEWER_PROFILE_META_V1:${utf8ToBase64(JSON.stringify(meta))} */`;
