@@ -350,6 +350,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #measureBackRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:8px;}
 #measureBackBtn{grid-column:5;}
 #measurePickRow button,#measureBackBtn,#drawPanel .toolRow button{min-width:0!important;min-height:38px!important;padding:5px 2px!important;font-size:13px!important;line-height:1.15;white-space:nowrap;color:#fff!important;background:#2a2a2a!important;border-color:#555!important;border-radius:8px!important;font-weight:700;}
+#measureBackBtn{color:#48d878!important;}
 #measurePickRow button.pick-active,#drawPanel .toolRow button.inkToolActive{color:#fff!important;background:#1677ff!important;border-color:#1677ff!important;box-shadow:none!important;}
 #measureBackBtn:disabled{opacity:.34;cursor:default;}
 #measureBackBtn:not(:disabled):active{background:#1677ff!important;border-color:#1677ff!important;transform:scale(.96);}
@@ -970,7 +971,7 @@ gtag('config', 'G-88B9YPJXWP');
       <button id="pickFreeBtn" type="button" title="フリー">フリー</button>
     </div>
     <div id="measureText" style="font-size:13px; line-height:1.6;">測定OFFです。</div>
-    <div id="measureBackRow"><button id="measureBackBtn" type="button" disabled title="直前に選択した点へ戻します">↶ 後退</button></div>
+    <div id="measureBackRow"><button id="measureBackBtn" type="button" disabled title="直前に選択した点へ戻します">後退</button></div>
   </div>
 
   <div id="gpsBox" class="panel" style="display:none;left:12px;top:100px;bottom:auto;width:260px;max-height:calc(100% - 112px);overflow:auto;padding:10px;z-index:60;background:rgba(20,20,20,.45);backdrop-filter:blur(4px);">
@@ -1202,7 +1203,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">点の取り方</div>計測ポップアップ内の、中心・交点・端点・線上・フリーを選びます。選択中のボタンは青くなり、中心→交点→端点→線上→フリーの順に判定します。</div>
               <div class="helpBlock"><div class="helpHead">2点間</div>2点を取ると距離が出ます。続けて次の点を取ると、直前の2点目から新しい点までを連続して計測します。</div>
               <div class="helpBlock"><div class="helpHead">3点垂直</div>基準線の2点と、離れた1点を取ると、垂直距離を出します。</div>
-              <div class="helpBlock"><div class="helpHead">後退</div>右下の <b>↶ 後退</b> を押すと、最後の点選択を1つ戻します。連続2点間でも直前の測定結果へ戻れます。戻せる点がない場合は薄い灰色になり、押せません。</div>
+              <div class="helpBlock"><div class="helpHead">後退</div>右下の緑文字の <b>後退</b> を押すと、最後の点選択を1つ戻します。連続2点間でも直前の測定結果へ戻れます。戻せる点がない場合は薄くなり、押せません。</div>
               <div class="helpBlock"><div class="helpHead">閉じる</div>作業中に表示される <b>閉じる</b> を押すと、選択途中の点を消して通常表示へ戻ります。</div>
             </div>
           </div>
@@ -1226,7 +1227,7 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="memo">
             <div class="helpSectionTitle">手書きメモ</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。太さは段階1で0.006mm、段階100で1.00mmとなり、その間も連続して変化します。丸の段階1は従来の最小サイズの20％です。透過率は0％で透けず、100％で完全に透明です。線・丸・消しゴムはどれか1つだけが選択され、選択したボタンが青くなった後、設定画面が自動で閉じます。</div>
+              <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。太さは段階1で0.006mm、段階100で0.50mmとなり、その間も連続して変化します。丸の段階1は従来の最小サイズの20％です。透過率は0％で透けず、100％で完全に透明です。線・丸・消しゴムはどれか1つだけが選択され、選択したボタンが青くなった後、設定画面が自動で閉じます。</div>
               <div class="helpBlock"><div class="helpHead">線</div>指でなぞった位置へ自由に描きます。手書きは常にフリー入力で、計測の点選択設定には影響しません。</div>
               <div class="helpBlock"><div class="helpHead">丸</div>図面をタップすると、その位置へ選んだ大きさの丸を配置します。手書きは常にフリー入力です。</div>
               <div class="helpBlock"><div class="helpHead">保存レイヤー</div>SFC保存時は、線を <b>「線（赤）」「線（青）」「線（緑）」「線（黄）」「線（黒）」</b>、丸を同じ5色の <b>「丸（色名）」</b>へ分けて保存します。同じ名前の既存レイヤーがある場合は重複作成しません。</div>
@@ -5415,7 +5416,7 @@ function drawInkStroke(stroke){
   ctx.fillStyle = strokeColor;
   ctx.globalAlpha = stroke.opacity == null ? 1 : stroke.opacity;
 
-  // 線幅は段階1=0.006mm、100=1.00mm。全体表示を1倍としてズームにも追従する。
+  // 線幅は段階1=0.006mm、100=0.50mm。全体表示を1倍としてズームにも追従する。
   const storedWidthMm = stroke.worldWidthMm == null ? NaN : +stroke.worldWidthMm;
   // 旧版は10～1000という過大な値を保存していたため、段階値から安全に再計算する。
   const widthMm = Number.isFinite(storedWidthMm) && storedWidthMm <= 1.0001
@@ -8583,7 +8584,7 @@ const PEN_WIDTH_MAX_LEVEL = 100;
 
 function penWidthMmFromLevel(v){
   const level = normalizePenWidthLevel(v);
-  return 0.006 + ((level - 1) / 99) * (1.00 - 0.006); // 1->0.006mm, 100->1.00mm
+  return 0.006 + ((level - 1) / 99) * (0.50 - 0.006); // 1->0.006mm, 100->0.50mm
 }
 function circleRadiusMmFromLevel(v){
   const level = normalizeCircleSizeLevel(v);
