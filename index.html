@@ -2923,13 +2923,9 @@ function buildProfileSfcFile(){
   entities.push(sfcProfileRecord(id+=10,"pre_defined_font_feature('continuous')"));
   entities.push(sfcProfileRecord(id+=10,"width_feature('0.130000')"));
   entities.push(sfcProfileRecord(id+=10,"text_font_feature('MS Gothic')"));
-  // SXF部分図の子要素は、sfig_org_feature と sfig_locate_feature の間に置く。
-  // 後ろに開始定義を置くと、他CADでは1/100縮尺が断面図形へ適用されない。
-  entities.push(sfcProfileRecord(id+=10,"sfig_org_feature('PROFILE_1-100','2')"));
-
-  // SXF layer references are zero-based ordinals.  With the two definitions
-  // emitted below, PROFILE_LINE is 0 and PROFILE_INFO is 1.
-  const profileLayer="0",infoLayer="1";
+  // SXFの一般図形は、その図形が属する複合図形定義より前に並べる。
+  // TREND-ONEでも有効なレイヤーコードは1始まり。
+  const profileLayer="1",infoLayer="2";
   entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,0,totalWidthMm,0));
   entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,0,0,maxY));
   const distanceTick=Math.min(gridInterval,leftMarginMeters);
@@ -2972,6 +2968,7 @@ function buildProfileSfcFile(){
   // order is: scale, start, end, length.
   let labelY=maxY+13+(labels.length-1)*5.2;
   for(const label of labels){entities.push(profileSfcTextFeature(id+=10,infoLayer,"6",label,0,labelY,3));labelY-=5.2;}
+  entities.push(sfcProfileRecord(id+=10,"sfig_org_feature('PROFILE_1-100','2')"));
   entities.push(sfcProfileRecord(id+=10,"sfig_locate_feature('0','PROFILE_1-100','0.000000','0.000000','0.00000000000000','1.00000000000000','1.00000000000000')"));
   const sheetW=Math.max(297,Math.ceil(totalWidthMm+50));
   const sheetH=Math.max(210,Math.ceil(maxY+13+labels.length*5.2+25));
@@ -6348,7 +6345,7 @@ function getMemoLayerInfo(srcText){
   const flat = getFlatSxfText(srcText);
   const defs = parseLayerFeatureDefsFlat(flat);
   const idx = defs.findIndex(d => d.name === MEMO_LAYER_NAME || d.rawName === MEMO_LAYER_NAME || d.rawName === MEMO_LAYER_NAME_SJIS_LATIN1);
-  return { flat, defs, index: idx, code: idx >= 0 ? idx : defs.length, featureId: idx >= 0 ? defs[idx].featureId : null };
+  return { flat, defs, index: idx, code: idx >= 0 ? (idx + 1) : (defs.length + 1), featureId: idx >= 0 ? defs[idx].featureId : null };
 }
 function buildMemoLayerDefinitions(baseText, startId, strokes){
   const flat = getFlatSxfText(baseText);
@@ -6365,10 +6362,10 @@ function buildMemoLayerDefinitions(baseText, startId, strokes){
   for (const item of required) {
     const existingIndex = defs.findIndex(d => d.name === item.name || d.rawName === item.name || d.rawName === item.rawName);
     if (existingIndex >= 0) {
-      codes[item.id] = existingIndex;
+      codes[item.id] = existingIndex + 1;
       continue;
     }
-    const code = defs.length;
+    const code = defs.length + 1;
     defs.push({featureId:id, rawName:item.rawName, name:item.name});
     codes[item.id] = code;
     parts.push(`/*SXF
@@ -6596,7 +6593,7 @@ function getNearestSourceSegmentStyleForPoints(points, sourceSegs){
 
 function buildInkPolylineFeatureText(baseText){
   const normalized = inkStrokes.map(strokeToWorldPolyline).filter(s => s && Array.isArray(s.points) && s.points.length >= 2);
-  if (!normalized.length) return { colorText: "", layerText: "", lineText: "", expectedFeatureCount:0 };
+  if (!normalized.length) return { colorText: "", layerText: "", lineText: "", expectedFeatureCount:0, exportPoints:[] };
 
   let id = getNextSfcFeatureId(baseText);
   const colorBuild = buildMemoColorDefinitionText(baseText, id, normalized);
@@ -6608,20 +6605,14 @@ function buildInkPolylineFeatureText(baseText){
 
   const lineParts = [];
   const sourceSegs = getSourceFeatureSegments(baseText);
-
-  // General drawing features must belong to a partial figure.  Appending bare
-  // LINE/CIRCLE records after the source figure's locate record leaves valid
-  // layer names but invisible geometry in strict SXF CAD applications.
-  lineParts.push(`/*SXF
-#${id} = sfig_org_feature('SFCVIEWER_MEMO','3')
-SXF*/`);
-  id += 1;
+  const allExportPoints=[];
 
   for (const s of normalized) {
     const exportPts = Array.isArray(s.points)
       ? s.points.map(p => ({ x:+p.x||0, y:+p.y||0 })).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
       : [];
     if (exportPts.length < 2) continue;
+    allExportPoints.push(...exportPts);
 
     const segStyle = getNearestSourceSegmentStyleForPoints(exportPts, sourceSegs);
     const memoSpec = getMemoLayerSpecForStroke(s);
@@ -6661,10 +6652,7 @@ SXF*/`);
       id += 1;
     }
   }
-  lineParts.push(`/*SXF
-#${id} = sfig_locate_feature('0','SFCVIEWER_MEMO','0.000000','0.000000','0.00000000000000','1.00000000000000','1.00000000000000')
-SXF*/`);
-  return { colorText, layerText, lineText: lineParts.join("\r\n"), expectedFeatureCount:normalized.length };
+  return { colorText, layerText, lineText: lineParts.join("\r\n"), expectedFeatureCount:normalized.length, exportPoints:allExportPoints };
 }
 function stripEmbeddedAnnotations(srcText){
   let text = String(srcText || "");
@@ -6742,16 +6730,77 @@ function insertMemoLayerDefinition(baseText, layerText){
   }
   return text + "\r\n" + layerText;
 }
-function insertMemoGeneralFeatures(baseText, lineText){
-  if (!lineText) return String(baseText || "");
-  let text = String(baseText || "");
-  const block = `/* --- sfcviewer_generated_begin --- */\r\n${lineText}\r\n/* --- sfcviewer_generated_end --- */`;
-  const tailRe = /\r?\nENDSEC\s*;\s*\r?\nEND-ISO-10303-21\s*;/;
-  const m = tailRe.exec(text);
-  if (m) {
-    return text.slice(0, m.index) + "\r\n\r\n" + block + "\r\n" + text.slice(m.index);
+function findSfcFeatureBlockStartByName(text,featureName,wantedName){
+  const source=String(text||"");
+  const token=`${featureName}(`;
+  let cursor=0,found=-1;
+  while(cursor<source.length){
+    const at=source.indexOf(token,cursor);
+    if(at<0)break;
+    const open=at+token.length-1;
+    let depth=1,quote=false,i=open+1;
+    for(;i<source.length&&depth>0;i++){
+      const ch=source[i];
+      if(ch==="'"){quote=!quote;continue;}
+      if(!quote&&ch==='(')depth++;
+      else if(!quote&&ch===')')depth--;
+    }
+    if(depth===0){
+      const args=splitSxfArgs(source.slice(open+1,i-1));
+      if(unquoteSxfValue(args[0]||"")===wantedName){
+        const blockStart=source.lastIndexOf("/*SXF",at);
+        found=blockStart>=0?blockStart:at;
+      }
+    }
+    cursor=Math.max(i,at+token.length);
   }
-  return text.replace(/[\s\r\n]*$/, "") + "\r\n\r\n" + block + "\r\nENDSEC;\r\nEND-ISO-10303-21;";
+  return found;
+}
+function findMemoGeometryInsertion(baseText,points){
+  const text=String(baseText||"");
+  const endAt=Math.max(0,text.search(/\r?\nENDSEC\s*;/i));
+  const definitionTokens=["drawing_attribute_feature(","drawing_sheet_feature(","layer_feature("];
+  const definitionPositions=definitionTokens.map(t=>text.indexOf(t)).filter(v=>v>=0&&(endAt<=0||v<endAt));
+  const firstDefinition=definitionPositions.length?Math.min(...definitionPositions):(endAt||text.length);
+  const precedingBlock=text.lastIndexOf("/*SXF",firstDefinition);
+  const sheetInsertAt=precedingBlock>=0?precedingBlock:firstDefinition;
+  const flat=getFlatSxfText(text);
+  const records=parseSxfFeatureRecords(flat);
+  const sheet=records.find(r=>r.name==="drawing_sheet_feature"&&r.args.length>=5);
+  const sheetWidth=sheet?Number(unquoteSxfValue(sheet.args[3])):NaN;
+  const sheetHeight=sheet?Number(unquoteSxfValue(sheet.args[4])):NaN;
+  const pts=(Array.isArray(points)?points:[]).filter(p=>Number.isFinite(+p.x)&&Number.isFinite(+p.y));
+  if(!pts.length||!(sheetWidth>0)||!(sheetHeight>0))return {index:sheetInsertAt,partialFigure:null};
+  const onSheet=(x,y)=>x>=0&&x<=sheetWidth&&y>=0&&y<=sheetHeight;
+  const identityScore=pts.reduce((n,p)=>n+(onSheet(+p.x,+p.y)?1:0),0);
+  let best=null;
+  for(const r of records){
+    if(r.name!=="sfig_locate_feature"||r.args.length<7)continue;
+    const name=unquoteSxfValue(r.args[1]);
+    const ox=Number(unquoteSxfValue(r.args[2])),oy=Number(unquoteSxfValue(r.args[3]));
+    const angle=Number(unquoteSxfValue(r.args[4])),sx=Number(unquoteSxfValue(r.args[5])),sy=Number(unquoteSxfValue(r.args[6]));
+    if(!name||![ox,oy,angle,sx,sy].every(Number.isFinite)||Math.abs(sx)<1e-12||Math.abs(sy)<1e-12)continue;
+    const rad=angle*Math.PI/180,c=Math.cos(rad),s=Math.sin(rad);
+    const score=pts.reduce((n,p)=>{
+      const paperX=ox+sx*(+p.x*c-(+p.y)*s);
+      const paperY=oy+sy*(+p.x*s+(+p.y)*c);
+      return n+(onSheet(paperX,paperY)?1:0);
+    },0);
+    if(!best||score>best.score)best={name,score};
+  }
+  if(best&&best.score>identityScore&&best.score*2>=pts.length){
+    const at=findSfcFeatureBlockStartByName(text,"sfig_org_feature",best.name);
+    if(at>=0)return {index:at,partialFigure:best.name};
+  }
+  return {index:sheetInsertAt,partialFigure:null};
+}
+function insertMemoGeneralFeatures(baseText, lineText, points){
+  if (!lineText) return String(baseText || "");
+  const text = String(baseText || "");
+  const block = `/* --- sfcviewer_generated_begin --- */\r\n${lineText}\r\n/* --- sfcviewer_generated_end --- */`;
+  const placement=findMemoGeometryInsertion(text,points);
+  const at=Math.max(0,Math.min(text.length,placement.index));
+  return text.slice(0,at)+"\r\n"+block+"\r\n"+text.slice(at);
 }
 function validateSfcExportAgainstSource(baseText, ann){
   const srcSegs = getSourceFeatureSegments(baseText);
@@ -6802,22 +6851,17 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   for(const rec of geometries){
     const layer=Number(unquoteSxfValue(rec.args[0]));
     const color=Number(unquoteSxfValue(rec.args[1]));
-    if(!Number.isInteger(layer)||layer<0||layer>=layerCount){
+    if(!Number.isInteger(layer)||layer<1||layer>layerCount){
       return {ok:false,reason:`手書き図形のレイヤー参照が不正です（${layer}）。`};
     }
     if(!Number.isInteger(color)||color<1||color>16){
       return {ok:false,reason:`手書き図形の色コードが不正です（${color}）。`};
     }
   }
-  const org=records.find(r=>r.name==="sfig_org_feature"&&unquoteSxfValue(r.args[0])==="SFCVIEWER_MEMO");
-  const locate=records.find(r=>r.name==="sfig_locate_feature"&&unquoteSxfValue(r.args[1])==="SFCVIEWER_MEMO");
-  if(!org||!locate)return {ok:false,reason:"手書き図形の作図グループをSFCへ配置できませんでした。"};
   return {ok:true};
 }
 function buildSfcExportBlobAndName(){
   let base = stripEmbeddedAnnotations(String(loadedSfcText || "")).replace(/[\s\r\n]+$/, "");
-  // 末尾の ENDSEC / END-ISO を一旦外して本文を正規化
-  base = base.replace(/\r?\nENDSEC\s*;\s*\r?\nEND-ISO-10303-21\s*;\s*$/i, "");
   const ann = buildSfcAnnotations(base);
   const validation = validateSfcExportAgainstSource(base, ann);
   if (!validation.ok) return { ok:false, reason: validation.reason || 'SFC保存を中止しました' };
@@ -6825,7 +6869,7 @@ function buildSfcExportBlobAndName(){
   base = insertMemoLayerDefinition(base, ann.layerText);
   const metaComment = buildMemoMetaComment();
   const exportText = ann.lineText + (metaComment ? "\r\n" + metaComment : "");
-  const newSfc = insertMemoGeneralFeatures(base, exportText).replace(/[\s\r\n]*$/, "\r\n");
+  const newSfc = insertMemoGeneralFeatures(base, exportText, ann.exportPoints).replace(/[\s\r\n]*$/, "\r\n");
   const generatedValidation=validateGeneratedMemoSfc(newSfc,ann.expectedFeatureCount||0);
   if(!generatedValidation.ok)return {ok:false,reason:generatedValidation.reason||"手書き図形をSFCへ書き込めませんでした。"};
   const overwriteName = data.source_name || "sfc_view.sfc";
