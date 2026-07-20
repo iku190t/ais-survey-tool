@@ -304,8 +304,10 @@ label.fileBtn{
 .layerActions{display:flex;gap:6px;flex-wrap:wrap;}
 .layerActions button,.layerActions .layerActionLabel{font-size:13px;min-height:34px;box-sizing:border-box;}
 .layerActions .layerActionLabel{display:inline-flex;align-items:center;justify-content:center;background:var(--button);color:var(--buttonText);border:1px solid var(--border);border-radius:8px;padding:6px 8px;cursor:pointer;}
-.layerItem{display:grid;grid-template-columns:auto minmax(0,1fr) 42px;align-items:center;gap:10px;margin:0;padding:9px 2px;border-bottom:1px solid rgba(128,128,128,.24);font-size:15px;}
-.layerItemName{overflow-wrap:anywhere;line-height:1.35;}
+.layerItem{display:grid;grid-template-columns:30px minmax(0,1fr) 42px;align-items:center;gap:8px;margin:0;padding:8px 2px;border-bottom:1px solid rgba(128,128,128,.24);font-size:15px;}
+.layerItem input[type="checkbox"]{width:24px;height:24px;margin:0;justify-self:center;cursor:pointer;}
+.layerItemName{overflow-wrap:anywhere;line-height:1.35;min-height:34px;display:flex;align-items:center;cursor:pointer;border-radius:7px;padding:0 4px;user-select:none;-webkit-user-select:none;}
+.layerItemName:active{background:rgba(47,125,255,.16);}
 .layerColorInput{width:38px;height:30px;padding:1px;border-radius:6px;border:1px solid var(--border);background:transparent;}
 #layersColorAllInput{position:absolute;width:1px;height:1px;opacity:0;clip-path:inset(50%);}
 body.light #layerPanel, body.light #layerPanel *{color:#000 !important;}
@@ -900,14 +902,14 @@ gtag('config', 'G-88B9YPJXWP');
   <button id="gpsBtn" class="toolIconBtn mapGpsFab" title="現在地" aria-label="現在地">
     <svg class="gpsDotIcon" viewBox="0 0 24 24" aria-hidden="true">
       <circle class="gpsHalo" cx="12" cy="12" r="8"></circle>
-      <circle class="gpsCore" cx="12" cy="12" r="3.4"></circle>
+      <circle class="gpsCore" cx="12" cy="12" r="4.8"></circle>
     </svg>
   </button>
   <button id="compassFab" title="北を上に戻す"><span class="compassFace"><span class="compassN">N</span><span class="compassNeedle"></span><span class="compassDot"></span></span></button>
   <button id="gpsDetailFab" style="position:absolute;left:12px;top:58px;bottom:auto;z-index:70;display:inline-flex;align-items:center;gap:6px;">
       <svg class="gpsDotIcon" viewBox="0 0 24 24" aria-hidden="true" style="width:17px;height:17px;flex:0 0 auto;">
         <circle class="gpsHalo" cx="12" cy="12" r="8"></circle>
-        <circle class="gpsCore" cx="12" cy="12" r="3.4"></circle>
+        <circle class="gpsCore" cx="12" cy="12" r="4.8"></circle>
       </svg>
       <span>詳細</span>
     </button>
@@ -4736,8 +4738,23 @@ function renderLayerList(){
     row.className="layerItem";
     const cb=document.createElement("input");
     cb.type="checkbox"; cb.checked=!!layerVisibility[layer];
-    cb.addEventListener("change", ()=>{ layerVisibility[layer]=cb.checked; cachedMeasurePointsDirty=true; draw(); scheduleRecoverySnapshot(180); });
     const sp=document.createElement("span"); sp.className="layerItemName";sp.textContent=getLayerLabel(layer);
+    sp.setAttribute("role","switch");
+    sp.setAttribute("tabindex","0");
+    sp.setAttribute("aria-checked",cb.checked?"true":"false");
+    const applyLayerVisibility=()=>{
+      layerVisibility[layer]=cb.checked;
+      sp.setAttribute("aria-checked",cb.checked?"true":"false");
+      cachedMeasurePointsDirty=true;
+      draw();
+      scheduleRecoverySnapshot(180);
+    };
+    const toggleLayerVisibility=()=>{cb.checked=!cb.checked;applyLayerVisibility();};
+    cb.addEventListener("change",applyLayerVisibility);
+    sp.addEventListener("click",toggleLayerVisibility);
+    sp.addEventListener("keydown",e=>{
+      if(e.key==="Enter"||e.key===" "){e.preventDefault();toggleLayerVisibility();}
+    });
     const color=document.createElement("input");color.type="color";color.className="layerColorInput";color.title="表示色を変更";
     color.value=layerColorOverrides[String(layer)]||getLayerBaseColor(layer);
     color.addEventListener("input",()=>{layerColorOverrides[String(layer)]=color.value.toLowerCase();draw();});
