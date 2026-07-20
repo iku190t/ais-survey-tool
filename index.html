@@ -1142,7 +1142,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容をSFCまたはHTMLへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">別名保存・メール送信</div>送信先を入力して <b>SFCを直接送信</b> または <b>ZIP圧縮して直接送信</b> を選びます。送信先は端末に保存され、次回から入力不要です。初回だけGoogleアカウントの許可画面が表示されます。直接送信できない端末では従来の共有画面へ切り替わります。</div>
               <div class="helpBlock"><div class="helpHead">SFCへの書き込み</div>SFCを開いて保存すると、手書きの線は <b>「線」レイヤー</b>、丸は <b>「丸」レイヤー</b>のSFC要素として書き込みます。重要な原本は念のため別に保管してください。</div>
-              <div class="helpBlock"><div class="helpHead">ブラウザー内の自動保存</div>メモ、レイヤー表示、表示色などは復元用として端末内にも保存されます。詳しくは <b>復元保存</b> を確認してください。</div>
+              <div class="helpBlock"><div class="helpHead">ブラウザー内の自動保存</div>メモ、丸、消去、レイヤー表示、表示色などは、操作のたびに復元用として端末内へ軽量保存されます。SFC本体を毎回書き換えないため、通常操作の重さを抑えています。詳しくは <b>復元保存</b> を確認してください。</div>
             </div>
           </div>
 
@@ -1273,9 +1273,9 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="recovery">
             <div class="helpSectionTitle">復元保存</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">どこに残るか</div>復元データはこの端末・このブラウザーの中に保存されます。SFCや別保存ファイルとは別のデータです。</div>
-              <div class="helpBlock"><div class="helpHead">いつ残るか</div>手書きメモ、レイヤー表示、表示色などを変更した時に復元データを更新します。</div>
-              <div class="helpBlock"><div class="helpHead">何件残るか</div>最新10件だけ残し、11件目からは古いものを自動で削除します。</div>
+              <div class="helpBlock"><div class="helpHead">どこに残るか</div>復元データはこの端末・このブラウザーのIndexedDBと予備保存の両方に残します。SFCや別保存ファイルとは別のデータです。</div>
+              <div class="helpBlock"><div class="helpHead">いつ残るか</div>手書き、丸、消去、Undo・Redoは操作直後に保存します。表示位置、レイヤー表示、表示色は操作終了後にまとめて保存し、連続操作中の負荷を抑えます。</div>
+              <div class="helpBlock"><div class="helpHead">何件残るか</div>図面は最新10件、各図面は最新状態に加えて直近3世代まで残し、古いものを自動で削除します。</div>
               <div class="helpBlock"><div class="helpHead">注意</div>Safariの履歴・Webサイトデータを消すと復元データも消える場合があります。必要な成果は上書きまたは別保存してください。</div>
               <div class="helpBlock"><div class="helpHead">消したい時</div>下のボタンで、今開いている図面の復元データだけを消せます。元のSFCや保存済みファイルは削除しません。</div>
               <button id="deleteRecoveryBtn" type="button">この図面の復元メモを消す</button>
@@ -1530,10 +1530,20 @@ const AUTO_SAVE_DEBOUNCE_MS = 700;
 const RECOVERY_STORAGE_PREFIX = "sfcviewer-recovery::";
 const RECOVERY_INDEX_KEY = RECOVERY_STORAGE_PREFIX + "__index__";
 const RECOVERY_MAX_ENTRIES = 10;
+const RECOVERY_DB_NAME = "sfcviewer-recovery-v2";
+const RECOVERY_DB_VERSION = 1;
+const RECOVERY_DB_SNAPSHOT_STORE = "snapshots";
+const RECOVERY_DB_HISTORY_STORE = "history";
+const RECOVERY_HISTORY_PER_DRAWING = 3;
+const RECOVERY_HISTORY_INTERVAL_MS = 15000;
 
-let autoSaveTimer = null;
-let autoSaveBusy = false;
-let autoSavePending = false;
+let recoverySnapshotTimer = null;
+let recoveryDbPromise = null;
+let recoveryDbPendingRecord = null;
+let recoveryDbFlushBusy = false;
+let recoveryDbFlushTimer = null;
+let recoveryRestoreInFlightKey = "";
+const recoveryHistoryLastSaved = new Map();
 let inkDrawing = false;
 let inkTool = "line";
 let inkStrokes = [];
@@ -4732,7 +4742,7 @@ function renderLayerList(){
     row.className="layerItem";
     const cb=document.createElement("input");
     cb.type="checkbox"; cb.checked=!!layerVisibility[layer];
-    cb.addEventListener("change", ()=>{ layerVisibility[layer]=cb.checked; cachedMeasurePointsDirty=true; draw(); });
+    cb.addEventListener("change", ()=>{ layerVisibility[layer]=cb.checked; cachedMeasurePointsDirty=true; draw(); scheduleRecoverySnapshot(180); });
     const sp=document.createElement("span"); sp.className="layerItemName";sp.textContent=getLayerLabel(layer);
     const color=document.createElement("input");color.type="color";color.className="layerColorInput";color.title="表示色を変更";
     color.value=layerColorOverrides[String(layer)]||getLayerBaseColor(layer);
@@ -5584,11 +5594,14 @@ function hasLoadedDrawing(){
 }
 function deleteCurrentRecoverySnapshot(){
   try{
-    if (!window.localStorage || !data || !loadedSfcText) return false;
+    if (!data || !loadedSfcText) return false;
     const key = getRecoveryStorageKey();
-    localStorage.removeItem(key);
-    const next = loadRecoveryIndex().filter(v => v && v.key !== key);
-    saveRecoveryIndex(next);
+    try{
+      if(window.localStorage)localStorage.removeItem(key);
+      const next = loadRecoveryIndex().filter(v => v && v.key !== key);
+      saveRecoveryIndex(next);
+    }catch(_e){}
+    deleteRecoveryIndexedDbKey(key);
     return true;
   }catch(_e){
     return false;
@@ -6543,6 +6556,7 @@ function touchRecoveryIndex(key, sourceName){
     try{
       if (removed && removed.key) localStorage.removeItem(removed.key);
     }catch(_e){}
+    if (removed && removed.key) deleteRecoveryIndexedDbKey(removed.key);
   }
   saveRecoveryIndex(index);
 }
@@ -6550,30 +6564,166 @@ function touchRecoveryIndex(key, sourceName){
 function getRecoveryStorageKey(){
   return RECOVERY_STORAGE_PREFIX + computeRecoveryFingerprint();
 }
-function saveRecoverySnapshot(){
-  try{
-    if (!window.localStorage) return false;
-    if (!data || !loadedSfcText) return false;
-    const payload = {
-      version: 1,
-      ts: Date.now(),
-      currentLoadedKind,
-      sourceName: String((data && data.source_name) || ""),
-      fingerprint: computeRecoveryFingerprint(),
-      darkTheme: !!darkTheme,
-      showText: !!showText,
-      layerVisibility: layerVisibility || {},
-      layerColorOverrides: layerColorOverrides || {},
-      inkStrokes: Array.isArray(inkStrokes) ? inkStrokes : [],
-      view: view || null,
-      rotationDeg: Number.isFinite(+rotationDeg) ? +rotationDeg : 0
+function recoveryDbRequest(request){
+  return new Promise((resolve,reject)=>{
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error||new Error("IndexedDB request failed"));
+  });
+}
+function recoveryDbTransactionDone(transaction){
+  return new Promise((resolve,reject)=>{
+    transaction.oncomplete=()=>resolve();
+    transaction.onerror=()=>reject(transaction.error||new Error("IndexedDB transaction failed"));
+    transaction.onabort=()=>reject(transaction.error||new Error("IndexedDB transaction aborted"));
+  });
+}
+function openRecoveryDb(){
+  if(recoveryDbPromise)return recoveryDbPromise;
+  if(!window.indexedDB)return Promise.reject(new Error("IndexedDB is unavailable"));
+  recoveryDbPromise=new Promise((resolve,reject)=>{
+    const request=indexedDB.open(RECOVERY_DB_NAME,RECOVERY_DB_VERSION);
+    request.onupgradeneeded=()=>{
+      const db=request.result;
+      if(!db.objectStoreNames.contains(RECOVERY_DB_SNAPSHOT_STORE)){
+        const store=db.createObjectStore(RECOVERY_DB_SNAPSHOT_STORE,{keyPath:"key"});
+        store.createIndex("updatedAt","updatedAt",{unique:false});
+      }
+      if(!db.objectStoreNames.contains(RECOVERY_DB_HISTORY_STORE)){
+        const store=db.createObjectStore(RECOVERY_DB_HISTORY_STORE,{keyPath:"id",autoIncrement:true});
+        store.createIndex("key","key",{unique:false});
+        store.createIndex("updatedAt","updatedAt",{unique:false});
+      }
     };
-    localStorage.setItem(getRecoveryStorageKey(), JSON.stringify(payload));
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error||new Error("IndexedDB open failed"));
+    request.onblocked=()=>reject(new Error("IndexedDB upgrade blocked"));
+  }).catch(err=>{
+    recoveryDbPromise=null;
+    throw err;
+  });
+  return recoveryDbPromise;
+}
+async function pruneRecoveryHistory(db,key){
+  const tx=db.transaction(RECOVERY_DB_HISTORY_STORE,"readwrite");
+  const done=recoveryDbTransactionDone(tx);
+  const store=tx.objectStore(RECOVERY_DB_HISTORY_STORE);
+  const request=store.index("key").getAll(IDBKeyRange.only(key));
+  request.onsuccess=()=>{
+    const records=Array.isArray(request.result)?request.result:[];
+    records.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+    for(const record of records.slice(RECOVERY_HISTORY_PER_DRAWING))store.delete(record.id);
+  };
+  await done;
+}
+async function flushRecoveryIndexedDbSave(){
+  if(recoveryDbFlushBusy)return;
+  recoveryDbFlushBusy=true;
+  try{
+    while(recoveryDbPendingRecord){
+      const record=recoveryDbPendingRecord;
+      recoveryDbPendingRecord=null;
+      const db=await openRecoveryDb();
+      const lastHistory=recoveryHistoryLastSaved.get(record.key)||0;
+      const addHistory=record.updatedAt-lastHistory>=RECOVERY_HISTORY_INTERVAL_MS;
+      const stores=addHistory
+        ? [RECOVERY_DB_SNAPSHOT_STORE,RECOVERY_DB_HISTORY_STORE]
+        : [RECOVERY_DB_SNAPSHOT_STORE];
+      const tx=db.transaction(stores,"readwrite");
+      const done=recoveryDbTransactionDone(tx);
+      tx.objectStore(RECOVERY_DB_SNAPSHOT_STORE).put(record);
+      if(addHistory){
+        tx.objectStore(RECOVERY_DB_HISTORY_STORE).add({
+          key:record.key,
+          updatedAt:record.updatedAt,
+          sourceName:record.sourceName,
+          fingerprint:record.fingerprint,
+          json:record.json
+        });
+      }
+      await done;
+      if(addHistory){
+        recoveryHistoryLastSaved.set(record.key,record.updatedAt);
+        await pruneRecoveryHistory(db,record.key);
+      }
+    }
+  }catch(err){
+    console.warn("Recovery IndexedDB save failed",err);
+  }finally{
+    recoveryDbFlushBusy=false;
+    if(recoveryDbPendingRecord)queueRecoveryIndexedDbSave(recoveryDbPendingRecord,true);
+  }
+}
+function queueRecoveryIndexedDbSave(record,immediate=false){
+  recoveryDbPendingRecord=record;
+  clearTimeout(recoveryDbFlushTimer);
+  recoveryDbFlushTimer=setTimeout(flushRecoveryIndexedDbSave,immediate?0:300);
+}
+async function deleteRecoveryIndexedDbKey(key){
+  try{
+    if(recoveryDbPendingRecord&&recoveryDbPendingRecord.key===key){
+      recoveryDbPendingRecord=null;
+      clearTimeout(recoveryDbFlushTimer);
+    }
+    const db=await openRecoveryDb();
+    const tx=db.transaction([RECOVERY_DB_SNAPSHOT_STORE,RECOVERY_DB_HISTORY_STORE],"readwrite");
+    const done=recoveryDbTransactionDone(tx);
+    tx.objectStore(RECOVERY_DB_SNAPSHOT_STORE).delete(key);
+    const historyStore=tx.objectStore(RECOVERY_DB_HISTORY_STORE);
+    const request=historyStore.index("key").getAll(IDBKeyRange.only(key));
+    request.onsuccess=()=>{
+      const records=Array.isArray(request.result)?request.result:[];
+      for(const record of records)historyStore.delete(record.id);
+    };
+    await done;
+    recoveryHistoryLastSaved.delete(key);
+  }catch(err){
+    console.warn("Recovery IndexedDB delete failed",err);
+  }
+}
+function buildRecoveryPayload(){
+  return {
+    version: 2,
+    ts: Date.now(),
+    currentLoadedKind,
+    sourceName: String((data && data.source_name) || ""),
+    fingerprint: computeRecoveryFingerprint(),
+    darkTheme: !!darkTheme,
+    showText: !!showText,
+    layerVisibility: layerVisibility || {},
+    layerColorOverrides: layerColorOverrides || {},
+    inkStrokes: Array.isArray(inkStrokes) ? inkStrokes : [],
+    view: view || null,
+    rotationDeg: Number.isFinite(+rotationDeg) ? +rotationDeg : 0
+  };
+}
+function saveRecoverySnapshot(options={}){
+  try{
+    if (!data || !loadedSfcText) return false;
+    const payload=buildRecoveryPayload();
+    const key=getRecoveryStorageKey();
+    const json=JSON.stringify(payload);
+    try{
+      if(window.localStorage)localStorage.setItem(key,json);
+      touchRecoveryIndex(key,payload.sourceName);
+    }catch(err){
+      console.warn("Recovery localStorage save failed",err);
+    }
+    queueRecoveryIndexedDbSave({
+      key,
+      updatedAt:payload.ts,
+      sourceName:payload.sourceName,
+      fingerprint:payload.fingerprint,
+      json
+    },!!options.immediate);
     return true;
   }catch(err){
     console.error(err);
     return false;
   }
+}
+function scheduleRecoverySnapshot(delayMs=AUTO_SAVE_DEBOUNCE_MS){
+  clearTimeout(recoverySnapshotTimer);
+  recoverySnapshotTimer=setTimeout(()=>saveRecoverySnapshot(),Math.max(120,delayMs||AUTO_SAVE_DEBOUNCE_MS));
 }
 
 function migrateLegacyCircleMemoStroke(stroke){
@@ -6661,64 +6811,77 @@ function migrateMemoLayerCirclesFromDataToInk(){
   data.circles = nextCircles;
 }
 
+function applyRecoveryPayload(payload){
+  if(!payload||payload.fingerprint!==computeRecoveryFingerprint())return false;
+  if(Array.isArray(payload.inkStrokes))inkStrokes=migrateInkStrokesToSingleFormat(payload.inkStrokes);
+  redoStrokes=[];
+  darkTheme=!!payload.darkTheme;
+  showText=payload.showText!==false;
+  layerVisibility=payload.layerVisibility&&typeof payload.layerVisibility==="object"?payload.layerVisibility:{};
+  layerColorOverrides=payload.layerColorOverrides&&typeof payload.layerColorOverrides==="object"?payload.layerColorOverrides:{};
+  if(payload.view&&typeof payload.view==="object")view=payload.view;
+  if(Number.isFinite(+payload.rotationDeg))rotationDeg=+payload.rotationDeg;
+  updateThemeUI();
+  ensureLayerVisibility();
+  renderLayerList();
+  migrateMemoLayerCirclesFromDataToInk();
+  updateUndoRedoUI();
+  updateStopBtnUI();
+  scheduleDraw();
+  updateDrawingDependentUi();
+  showToast("前回のメモを復元しました",1700);
+  return true;
+}
+async function restoreRecoverySnapshotFromIndexedDb(key,fingerprint){
+  if(recoveryRestoreInFlightKey===key)return false;
+  recoveryRestoreInFlightKey=key;
+  try{
+    const db=await openRecoveryDb();
+    let record=await recoveryDbRequest(db.transaction(RECOVERY_DB_SNAPSHOT_STORE,"readonly").objectStore(RECOVERY_DB_SNAPSHOT_STORE).get(key));
+    if(!record){
+      const tx=db.transaction(RECOVERY_DB_HISTORY_STORE,"readonly");
+      const records=await recoveryDbRequest(tx.objectStore(RECOVERY_DB_HISTORY_STORE).index("key").getAll(IDBKeyRange.only(key)));
+      records.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+      record=records[0]||null;
+    }
+    if(!record||getRecoveryStorageKey()!==key||computeRecoveryFingerprint()!==fingerprint)return false;
+    const payload=JSON.parse(record.json);
+    if(!applyRecoveryPayload(payload))return false;
+    try{
+      if(window.localStorage)localStorage.setItem(key,record.json);
+      touchRecoveryIndex(key,payload.sourceName);
+    }catch(_e){}
+    return true;
+  }catch(err){
+    console.warn("Recovery IndexedDB restore failed",err);
+    return false;
+  }finally{
+    if(recoveryRestoreInFlightKey===key)recoveryRestoreInFlightKey="";
+  }
+}
 function restoreRecoverySnapshotIfAvailable(){
   try{
-    if (!window.localStorage || !data || !loadedSfcText) return false;
-    const raw = localStorage.getItem(getRecoveryStorageKey());
-    if (!raw) return false;
-    const payload = JSON.parse(raw);
-    if (!payload || payload.fingerprint !== computeRecoveryFingerprint()) return false;
-    if (Array.isArray(payload.inkStrokes)) inkStrokes = migrateInkStrokesToSingleFormat(payload.inkStrokes);
-    redoStrokes = [];
-    darkTheme = !!payload.darkTheme;
-    showText = payload.showText !== false;
-    layerVisibility = payload.layerVisibility && typeof payload.layerVisibility === "object" ? payload.layerVisibility : {};
-    layerColorOverrides = payload.layerColorOverrides && typeof payload.layerColorOverrides === "object" ? payload.layerColorOverrides : {};
-    if (payload.view && typeof payload.view === "object") view = payload.view;
-    if (Number.isFinite(+payload.rotationDeg)) rotationDeg = +payload.rotationDeg;
-    updateThemeUI();
-    ensureLayerVisibility();
-    renderLayerList();
-    migrateMemoLayerCirclesFromDataToInk();
-    updateUndoRedoUI();
-    updateStopBtnUI();
-    scheduleDraw();
-    updateDrawingDependentUi();
-    showToast("前回のメモを復元しました", 1700);
-    return true;
+    if(!data||!loadedSfcText)return false;
+    const key=getRecoveryStorageKey();
+    const fingerprint=computeRecoveryFingerprint();
+    let raw=null;
+    try{if(window.localStorage)raw=localStorage.getItem(key);}catch(_e){}
+    if(raw){
+      try{
+        const payload=JSON.parse(raw);
+        if(applyRecoveryPayload(payload))return true;
+      }catch(err){console.warn("Recovery localStorage restore failed",err);}
+    }
+    restoreRecoverySnapshotFromIndexedDb(key,fingerprint);
+    return false;
   }catch(err){
     console.error(err);
     return false;
   }
 }
-function canSilentAutoOverwrite(){
-  return !!((currentLoadedKind === "html" && currentOpenHandle && typeof currentOpenHandle.createWritable === "function") || (lastHtmlSaveHandle && typeof lastHtmlSaveHandle.createWritable === "function"));
-}
-async function runAutoSaveNow(){
-  saveRecoverySnapshot();
-  if (!canSilentAutoOverwrite()) return;
-  if (autoSaveBusy) { autoSavePending = true; return; }
-  autoSaveBusy = true;
-  try{
-    await saveSfcOverwrite();
-  }catch(err){
-    console.error(err);
-  }finally{
-    autoSaveBusy = false;
-    if (autoSavePending){
-      autoSavePending = false;
-      scheduleAutoSave(250);
-    }
-  }
-}
-function scheduleAutoSave(delayMs = AUTO_SAVE_DEBOUNCE_MS){
-  clearTimeout(autoSaveTimer);
-  autoSaveTimer = setTimeout(()=>{ runAutoSaveNow(); }, Math.max(120, delayMs || AUTO_SAVE_DEBOUNCE_MS));
-}
 function markMemoChanged(){
   gaTrackMemoWrite();
-  saveRecoverySnapshot();
-  scheduleAutoSave();
+  saveRecoverySnapshot({immediate:true});
 }
 function buildHtmlExportBlobAndName(){
   if (!loadedSfcText && !(data && ((data.lines&&data.lines.length)||(data.polylines&&data.polylines.length)||(data.texts&&data.texts.length)||(data.circles&&data.circles.length)))) {
@@ -7217,6 +7380,7 @@ document.getElementById("textBtn").addEventListener("click", ()=>{
   showText = !showText;
   document.getElementById("textBtn").textContent = "文字: " + (showText ? "ON" : "OFF");
   draw();
+  scheduleRecoverySnapshot(180);
 });
 document.getElementById("bgBtn").addEventListener("click", ()=>{
   closePanelsExcept('aerialPhoto');
@@ -7227,10 +7391,10 @@ document.getElementById("bgBtn").addEventListener("click", ()=>{
 });
 document.getElementById("photoPanelCloseBtn")?.addEventListener("click",()=>{if(aerialPhotoPanel)aerialPhotoPanel.style.display="none";});
 document.getElementById("backgroundBlackBtn")?.addEventListener("click",()=>{
-  darkTheme=true;updateThemeUI();updateAerialPhotoUi();scheduleDraw();
+  darkTheme=true;updateThemeUI();updateAerialPhotoUi();scheduleDraw();scheduleRecoverySnapshot(180);
 });
 document.getElementById("backgroundWhiteBtn")?.addEventListener("click",()=>{
-  darkTheme=false;updateThemeUI();updateAerialPhotoUi();scheduleDraw();
+  darkTheme=false;updateThemeUI();updateAerialPhotoUi();scheduleDraw();scheduleRecoverySnapshot(180);
 });
 photoToggleSwitch?.addEventListener("change",async()=>{
   if(photoToggleSwitch.checked){
@@ -7530,10 +7694,12 @@ document.getElementById("layerCloseBtn").addEventListener("click",()=>{layerPane
 document.getElementById("layersAllOn").addEventListener("click", ()=>{
   for(const layer of getAllLayers()) layerVisibility[layer]=true;
   cachedMeasurePointsDirty=true; renderLayerList(); draw();
+  scheduleRecoverySnapshot(180);
 });
 document.getElementById("layersAllOff").addEventListener("click", ()=>{
   for(const layer of getAllLayers()) layerVisibility[layer]=false;
   cachedMeasurePointsDirty=true; renderLayerList(); draw();
+  scheduleRecoverySnapshot(180);
 });
 const layersColorAllInput=document.getElementById("layersColorAllInput");
 function applyAllLayerColor(){
@@ -8046,7 +8212,7 @@ window.addEventListener("mouseup", ()=>{
     }
     currentStroke=null; inkDrawing=false; scheduleDraw();
   }
-  if(wasDragging) scheduleDraw();
+  if(wasDragging){ scheduleDraw(); scheduleRecoverySnapshot(); }
 });
 window.addEventListener("mousemove", e=>{
   const ptLocal = getCanvasLocalPointFromClient(e.clientX, e.clientY);
@@ -8095,6 +8261,7 @@ canvas.addEventListener("wheel", e=>{
   const factor = e.deltaY<0 ? 1.16 : 1/1.16;
   setScaleAroundScreenPoint(mx, my, view.scale * factor);
   scheduleDraw();
+  scheduleRecoverySnapshot();
 }, {passive:false});
 canvas.addEventListener("dblclick", e=>{
   e.preventDefault();
@@ -8103,6 +8270,7 @@ canvas.addEventListener("dblclick", e=>{
   const mx=local.x, my=local.y, factor=1.9;
   setScaleAroundScreenPoint(mx, my, view.scale * factor);
   scheduleDraw();
+  scheduleRecoverySnapshot();
 });
 
 // iOS Safariのページ全体ダブルタップ拡大だけを止める。
@@ -8353,6 +8521,7 @@ canvas.addEventListener("touchend", e=>{
     pendingTouchInk = null;
     suppressTouchInkUntil = Date.now() + 420;
     scheduleDraw();
+    scheduleRecoverySnapshot();
   }
   if(profileLineDrag&&profileLineDrag.pointerType==="touch"&&e.touches.length===0){
     finishProfileLineDrag();
@@ -8368,6 +8537,7 @@ canvas.addEventListener("touchend", e=>{
     touchPanMoved=false;
     suppressClickUntil=Date.now()+700;
     scheduleDraw();
+    scheduleRecoverySnapshot();
     return;
   }
   if(profileMode&&profileTouchCandidate&&e.touches.length===0){
@@ -8410,6 +8580,7 @@ canvas.addEventListener("touchend", e=>{
     touchPanCandidate = null;
     touchPanMoved = false;
     scheduleDraw();
+    scheduleRecoverySnapshot();
     return;
   }
   if(!measureMode || !touchTapCandidate) return;
@@ -8470,8 +8641,14 @@ if (compassFab) {
     setViewFromWorldAnchor(anchor[0], anchor[1], cx, cy, view.scale);
     updateCompassUi();
     scheduleDraw();
+    scheduleRecoverySnapshot();
   });
 }
+
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="hidden")saveRecoverySnapshot({immediate:true});
+});
+window.addEventListener("pagehide",()=>{saveRecoverySnapshot({immediate:true});});
 
 loadUiPreferences();
 updateThemeUI();
