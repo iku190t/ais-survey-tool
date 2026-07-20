@@ -36,7 +36,7 @@ Tokushima Japan
   --bg:#000;
   --fg:#fff;
   --panel:#1a1a1a;
-  --panel2:rgba(20,20,20,.96);
+  --panel2:rgba(20,20,20,.80);
   --border:#444;
   --muted:#888;
   --button:#2a2a2a;
@@ -46,7 +46,7 @@ body.light{
   --bg:#fff;
   --fg:#000;
   --panel:#f4f4f4;
-  --panel2:rgba(255,255,255,.97);
+  --panel2:rgba(255,255,255,.80);
   --border:#bdbdbd;
   --muted:#666;
   --button:#fff;
@@ -54,6 +54,8 @@ body.light{
 }
 html,body{margin:0;height:100%;min-height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:Segoe UI,"Yu Gothic UI",Meiryo,sans-serif;touch-action:manipulation;}
 body{display:flex;flex-direction:column;}
+#portraitOnlyNotice{display:none;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;background:#111;color:#fff;text-align:center;font-size:18px;font-weight:800;line-height:1.7;}
+@media (orientation:landscape) and (pointer:coarse){body.portrait-preferred #portraitOnlyNotice{display:flex;}}
 #topbar{
   box-sizing:border-box;
   padding:6px 6px;
@@ -796,6 +798,7 @@ gtag('config', 'G-88B9YPJXWP');
 
 </head>
 <body>
+<div id="portraitOnlyNotice" role="status">このアプリは縦画面専用です。<br>端末を縦向きにしてください。</div>
 <div id="topbar">
   <div id="topbarMain" class="topbar-row">
     <button id="openIconBtn" class="fileBtn toolIconBtn" data-help-label="ファイル" title="ファイルを開く・保存" aria-label="ファイルを開く・保存" style="width:32px;height:32px;padding:0;">
@@ -1249,6 +1252,8 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">2本指</div>2本指で移動・拡大縮小・回転できます。</div>
               <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークは図面の回転に合わせて回ります。押すと北を上に戻します。</div>
               <div class="helpBlock"><div class="helpHead">ホーム／閉じる</div>通常時は<b>ホーム</b>で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。画面や作業を開いている間は薄い赤の<b>閉じる</b>に変わり、図面位置を変えずに現在の画面・作業だけを終了します。ダブルタップや方位長押しでは全体表示になりません。</div>
+              <div class="helpBlock"><div class="helpHead">縦画面専用</div>このアプリは縦画面用です。端末が横向きになった場合は、縦向きへ戻す案内を表示します。</div>
+              <div class="helpBlock"><div class="helpHead">青いボタン</div>背景・計測・断面・手書き・検索・ヘルプは起動中に青くなります。同じボタンをもう一度押すと終了します。</div>
             </div>
           </div>
 
@@ -2640,6 +2645,7 @@ function formatProfileDistance(m){
 function updateProfileUi(){
   const active=!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||(profileModal&&profileModal.classList.contains("open")));
   if(profileBtn) profileBtn.classList.toggle("profileActive",active);
+  updateToolbarActivationUI();
 }
 function setProfilePrompt(text, isError=false, autoHideMs=0){
   if(!profilePrompt) return;
@@ -3359,6 +3365,7 @@ function updateTextSearchPopupUI(){
     updateModeIcons();
   }
   updateStopBtnUI();
+  updateToolbarActivationUI();
 }
 updateTextSearchModeUI();
 updateTextSearchResultUI();
@@ -5675,6 +5682,7 @@ function applyPortraitPreference(){
   };
   document.addEventListener("click", lock, {once:true});
   document.addEventListener("touchend", lock, {once:true, passive:true});
+  lock();
 }
 function updateDrawingDependentUi(){
   const available = hasLoadedDrawing();
@@ -7491,13 +7499,20 @@ document.getElementById("textBtn").addEventListener("click", ()=>{
   scheduleRecoverySnapshot(180);
 });
 document.getElementById("bgBtn").addEventListener("click", ()=>{
+  const wasOpen=!!((aerialPhotoPanel&&getComputedStyle(aerialPhotoPanel).display!=="none")||(terrainPanel&&getComputedStyle(terrainPanel).display!=="none"));
   closePanelsExcept('aerialPhoto');
+  if(wasOpen){
+    if(aerialPhotoPanel)aerialPhotoPanel.style.display="none";
+    if(terrainPanel)terrainPanel.style.display="none";
+    updateToolbarActivationUI();
+    return;
+  }
   if(aerialPhotoPanel){
-    aerialPhotoPanel.style.display=aerialPhotoPanel.style.display==='block'?'none':'block';
+    aerialPhotoPanel.style.display='block';
     updateAerialPhotoUi();
   }
 });
-document.getElementById("photoPanelCloseBtn")?.addEventListener("click",()=>{if(aerialPhotoPanel)aerialPhotoPanel.style.display="none";});
+document.getElementById("photoPanelCloseBtn")?.addEventListener("click",()=>{if(aerialPhotoPanel)aerialPhotoPanel.style.display="none";updateToolbarActivationUI();});
 document.getElementById("backgroundBlackBtn")?.addEventListener("click",()=>{
   darkTheme=true;updateThemeUI();updateAerialPhotoUi();scheduleDraw();scheduleRecoverySnapshot(180);
 });
@@ -7606,13 +7621,18 @@ document.querySelectorAll('.supportLinkBtn').forEach(link=>link.addEventListener
 if (textSearchOpenBtn) textSearchOpenBtn.addEventListener("click", (e)=>{
   e.stopPropagation();
   if (!isDrawingActionAvailable()) return;
+  if(textSearchPopupOpen){closeTextSearchPopup();return;}
   cancelTransientOperations("search");
   openTextSearchPopup();
   updateStopBtnUI();
 });
 if (helpBtn) helpBtn.addEventListener("click", (e)=>{
   e.stopPropagation();
+  if(helpModalOpen){closeHelpModal();updateToolbarActivationUI();return;}
+  cancelTransientOperations();
+  closePanelsExcept("");
   openHelpModal();
+  updateToolbarActivationUI();
 });
 if (viewerLabel) viewerLabel.addEventListener("click", (e)=>{
   e.stopPropagation();
@@ -7888,6 +7908,21 @@ function isHomeCloseModeActive(){
     visible(terrainPanel)||visible(supportPanel)||visible(viewerSupportModal)
   );
 }
+function updateToolbarActivationUI(){
+  const visible=el=>!!(el&&getComputedStyle(el).display!=="none");
+  const states={
+    bgBtn:visible(aerialPhotoPanel)||visible(terrainPanel),
+    measureBtn:!!(measureMode||visible(measureModePanel)||visible(measureBox)),
+    profileBtn:!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||visible(profileModal)),
+    drawBtn:!!(inkEnabled||visible(drawPanel)),
+    textSearchOpenBtn:!!textSearchPopupOpen,
+    helpBtn:!!helpModalOpen
+  };
+  Object.entries(states).forEach(([id,active])=>{
+    const btn=document.getElementById(id);
+    if(btn)btn.classList.toggle("modeActive",!!active);
+  });
+}
 function updateHomeButtonUI(){
   const btn=document.getElementById("fitBtn");
   if(!btn)return;
@@ -7928,14 +7963,17 @@ document.addEventListener("click",e=>{
   const command=e.target&&e.target.closest?e.target.closest("button,label.fileBtn"):null;
   if(!command||!toolbarCommandIds.has(command.id)) return;
   if(command.id==="fitBtn")return;
+  if(helpModalOpen&&command.id!=="helpBtn")closeHelpModal();
+  if(viewerSupportModal&&getComputedStyle(viewerSupportModal).display!=="none")closeViewerSupportModal();
   const activeCommandId=getActiveToolbarCommandId();
   if(activeCommandId&&command.id!==activeCommandId) cancelTransientOperations();
 },true);
-const homePanelObserver=new MutationObserver(()=>updateHomeButtonUI());
-[measureModePanel,drawPanel,layerPanel,aerialPhotoPanel,terrainPanel,supportPanel,helpModal,viewerSupportModal,profileModal].forEach(el=>{
+const homePanelObserver=new MutationObserver(()=>{updateHomeButtonUI();updateToolbarActivationUI();});
+[measureModePanel,measureBox,drawPanel,layerPanel,aerialPhotoPanel,terrainPanel,supportPanel,helpModal,viewerSupportModal,profileModal].forEach(el=>{
   if(el)homePanelObserver.observe(el,{attributes:true,attributeFilter:["style","class"]});
 });
 updateHomeButtonUI();
+updateToolbarActivationUI();
 document.getElementById("pickCenterBtn").addEventListener("click", ()=>{
   togglePickMode("center");
 });
@@ -7945,10 +7983,9 @@ document.getElementById("pickFreeBtn").addEventListener("click", ()=> togglePick
 document.getElementById("pickLineBtn").addEventListener("click", ()=> togglePickMode("line"));
 
 if(profileBtn) profileBtn.addEventListener("click",()=>{
-  if(profileMode){
-    profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;
-    setProfilePrompt("");updateProfileUi();updateStopBtnUI();scheduleDraw();
-  }else beginProfileMode();
+  const active=!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||(profileModal&&profileModal.classList.contains("open")));
+  if(active)cancelTransientOperations();
+  else beginProfileMode();
 });
 document.getElementById("terrainElevationBtn")?.addEventListener("click",()=>activateTerrainMode("elevation"));
 document.getElementById("terrainSlopeBtn")?.addEventListener("click",()=>activateTerrainMode("slope"));
@@ -8038,12 +8075,14 @@ if(profileChart){
 
 document.getElementById("measureBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
-  const wasMeasuring = measureMode;
+  const wasMeasuring = !!(measureMode||(measureModePanel&&getComputedStyle(measureModePanel).display!=="none"));
   cancelTransientOperations("measure");
   if (wasMeasuring) {
-    measureBox.style.display = "block";
+    measureMode=false;
+    resetMeasureUI();
     updateMeasureBox();
     updateStopBtnUI();
+    scheduleDraw();
     return;
   }
   resetMeasureUI();
@@ -8068,7 +8107,14 @@ document.getElementById("measureTypeToggleBtn").addEventListener("click", ()=>{
 
 document.getElementById("drawBtn").addEventListener("click", ()=>{
   if (!hasLoadedDrawing()) return;
+  const wasDrawing=!!(inkEnabled||(drawPanel&&getComputedStyle(drawPanel).display!=="none"));
   cancelTransientOperations("draw");
+  if(wasDrawing){
+    inkEnabled=false;
+    if(drawPanel)drawPanel.style.display="none";
+    updateInkUI();updateStopBtnUI();scheduleDraw();
+    return;
+  }
   inkEnabled = true;
   closePanelsExcept('draw');
   drawPanel.style.display = "block";
@@ -8810,6 +8856,7 @@ updatePickStatus();
 updateUndoRedoUI();
 ensureLayerVisibility();
 updateStopBtnUI();
+applyPortraitPreference();
 applyMobileUiTweaks();
 refreshEnvironmentNotice();
 updateGpsUi();
