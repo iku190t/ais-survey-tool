@@ -105,8 +105,8 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #profileHeader{display:flex;align-items:center;gap:10px;padding:10px 12px 8px;border-bottom:1px solid var(--border);}
 #profileTitle{font-size:15px;font-weight:800;white-space:nowrap;}
 #profileSummary{font-size:13px;line-height:1.45;flex:1;min-width:0;}
-#profileSizeToggleBtn{min-width:54px;height:34px;border-radius:17px;}
-#profileCloseBtn{min-width:62px;height:34px;border-radius:17px;}
+#profileSizeToggleBtn{min-width:54px;}
+#profileCloseBtn{min-width:62px;}
 #profileFooter{display:flex;align-items:center;gap:8px;padding:6px 10px 8px;}
 #profileExportSfcBtn{flex:0 0 auto;min-height:32px;border-radius:16px;padding:5px 11px;font-size:12px;font-weight:800;color:#fff;background:#1677ff;border-color:#0f5ec8;}
 #profileChartWrap{position:relative;flex:1;min-height:0;padding:6px 8px 0;}
@@ -174,7 +174,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
   #profileNotice{font-size:10px;line-height:1.35;}
   #profileExportSfcBtn{min-height:30px;padding:4px 8px;font-size:11px;}
 }
-#textSearchModalTitle{font-size:15px;font-weight:700;margin:0 0 5px 0;}
+#textSearchModalTitle{font-size:15px;font-weight:800;margin:0;}
 #textSearchModalHint{display:none;}
 #textSearchInput{width:100%;height:34px;box-sizing:border-box;padding:6px 8px;border-radius:9px;border:1px solid var(--border);background:var(--button);color:var(--buttonText);font-size:16px;outline:none;-webkit-user-select:text;user-select:text;}
 #textSearchInput::placeholder{color:var(--muted);}
@@ -195,7 +195,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #textSearchNavButtons{flex:1;display:flex;flex-direction:column;gap:6px;}
 #textSearchNavButtons button{min-height:30px;font-size:12px;}
 #textSearchPrevBtn,#textSearchNextBtn{padding:5px 8px;text-align:center;}
-#textSearchDoneBtn{display:flex;width:100%;min-height:32px;margin-top:8px;align-items:center;justify-content:center;}
+#textSearchDoneBtn{display:inline-flex;align-items:center;justify-content:center;}
 #textSearchPrevBtn:disabled,#textSearchNextBtn:disabled{opacity:.45;cursor:default;}
 #helpModal{display:none;position:absolute;inset:0;z-index:97;background:rgba(0,0,0,.14);align-items:center;justify-content:center;padding:12px;box-sizing:border-box;}
 #helpModalBox{width:min(420px,92vw);max-height:min(78vh,680px);overflow:hidden;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 30px rgba(0,0,0,.28);padding:14px 14px 12px 14px;display:flex;flex-direction:column;box-sizing:border-box;}
@@ -318,8 +318,8 @@ label.fileBtn{
 #layerPanel{inset:0;width:auto;max-height:none;overflow:hidden;display:none;padding:0;border-radius:0;z-index:85;flex-direction:column;}
 #layerHeader{flex:0 0 auto;background:var(--panel2);z-index:2;border-bottom:1px solid var(--border);padding:12px;}
 #layerHeaderTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
-#layerHeader h3{margin:0;font-size:18px;}
-#layerCloseBtn{min-width:72px;font-size:14px;}
+#layerHeader h3{margin:0;font-size:15px;font-weight:800;}
+#layerCloseBtn{min-width:62px;}
 #layerBody{flex:1 1 auto;min-height:0;overflow:auto;padding:10px 12px 24px;}
 .layerActions{display:flex;gap:6px;flex-wrap:wrap;}
 .layerActions button,.layerActions .layerActionLabel{font-size:13px;min-height:34px;box-sizing:border-box;}
@@ -350,6 +350,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .panelHeaderCompact{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
 .panelHeaderCompact .panelTitle{margin:0;font-size:15px;font-weight:800;}
 .panelCloseBtn{min-width:62px!important;min-height:32px!important;padding:4px 9px!important;background:var(--button)!important;color:var(--buttonText)!important;border-color:var(--border)!important;font-size:12px!important;}
+.panelUtilityBtn{min-width:54px!important;min-height:32px!important;padding:4px 9px!important;background:var(--button)!important;color:var(--buttonText)!important;border-color:var(--border)!important;border-radius:8px!important;font-size:12px!important;}
 #drawPanel .stack{gap:7px;}
 #drawPanel .controlRow{display:flex;align-items:center;gap:8px;}
 #drawPanel .controlLabel{display:inline-block;flex:0 0 48px;width:48px;}
@@ -949,7 +950,7 @@ gtag('config', 'G-88B9YPJXWP');
   <div id="fileDropOverlay" role="status" aria-live="polite"><span>ここにドロップして開く</span></div>
   <div id="layerPanel" class="panel">
     <div id="layerHeader">
-      <div id="layerHeaderTop"><h3>レイヤー表示・色変更</h3><button id="layerCloseBtn">閉じる</button></div>
+      <div id="layerHeaderTop"><h3>レイヤー表示・色変更</h3><button id="layerCloseBtn" class="panelCloseBtn">閉じる</button></div>
       <div class="layerActions">
         <button id="layersAllOn">全部ON</button>
         <button id="layersAllOff">全部OFF</button>
@@ -981,8 +982,8 @@ gtag('config', 'G-88B9YPJXWP');
       <div id="profileHeader">
         <div id="profileTitle">地形断面</div>
         <div id="profileSummary">断面データを取得しています</div>
-        <button id="profileSizeToggleBtn" type="button">拡大</button>
-        <button id="profileCloseBtn" type="button">閉じる</button>
+        <button id="profileSizeToggleBtn" class="panelUtilityBtn" type="button">拡大</button>
+        <button id="profileCloseBtn" class="panelCloseBtn" type="button">閉じる</button>
       </div>
       <div id="profileChartWrap">
         <canvas id="profileChart"></canvas>
@@ -1101,7 +1102,7 @@ gtag('config', 'G-88B9YPJXWP');
 
 <div id="textSearchModal">
     <div id="textSearchModalBox">
-      <div id="textSearchModalTitle">文字検索</div>
+      <div class="panelHeaderCompact"><div id="textSearchModalTitle" class="panelTitle">文字検索</div><button id="textSearchDoneBtn" class="panelCloseBtn" type="button" title="文字検索を閉じる">閉じる</button></div>
       <div id="textSearchModalHint"></div>
       <input id="textSearchInput" type="text" placeholder="検索文字を入力" autocomplete="off" spellcheck="false">
       <div id="textSearchModeRow">
@@ -1113,7 +1114,6 @@ gtag('config', 'G-88B9YPJXWP');
       </div>
       <div id="textSearchModeText"></div>
       <div id="textSearchModalActions"></div>
-      <button id="textSearchDoneBtn" type="button" title="文字検索を閉じる">閉じる</button>
       <div id="textSearchResultPanel" aria-live="polite">
         <div id="textSearchResultBox">
           <div id="textSearchResultLabel">発見数</div>
