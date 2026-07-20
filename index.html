@@ -1004,7 +1004,7 @@ gtag('config', 'G-88B9YPJXWP');
       </div>
       <div class="row controlRow"><span class="controlLabel">太さ</span><input class="controlRange" id="penWidth" type="range" min="1" max="100" step="1" value="10"><input class="controlNumber" id="penWidthNumber" type="number" min="1" max="100" step="1" value="10"></div>
       <div class="row controlRow"><span class="controlLabel">大きさ</span><input class="controlRange" id="circleSize" type="range" min="1" max="100" step="1" value="10"><input class="controlNumber" id="circleSizeNumber" type="number" min="1" max="100" step="1" value="10"></div>
-      <div class="row controlRow"><span class="controlLabel">透過率</span><input class="controlRange" id="opacityRange" type="range" min="10" max="100" step="5" value="100"><input class="controlNumber" id="opacityNumber" type="number" min="10" max="100" step="5" value="100"></div>
+      <div class="row controlRow"><span class="controlLabel">透過率</span><input class="controlRange" id="opacityRange" type="range" min="0" max="100" step="5" value="0"><input class="controlNumber" id="opacityNumber" type="number" min="0" max="100" step="5" value="0"></div>
       <div class="row toolRow"><button id="lineToolBtn">線</button><button id="circleToolBtn">丸</button><button id="eraserBtn">消しゴム</button><button id="clearInkBtn">全消去</button></div>
     </div>
   </div>
@@ -1220,7 +1220,7 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="memo">
             <div class="helpSectionTitle">手書きメモ</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。線・丸・消しゴムはどれか1つだけが選択され、選択したボタンが青くなった後、設定画面が自動で閉じます。</div>
+              <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。太さは段階1で0.06mm、段階100で1.00mmとなり、その間も連続して変化します。透過率は0％で透けず、100％で完全に透明です。線・丸・消しゴムはどれか1つだけが選択され、選択したボタンが青くなった後、設定画面が自動で閉じます。</div>
               <div class="helpBlock"><div class="helpHead">線</div>指でなぞった位置へ自由に描きます。手書きは常にフリー入力で、計測の点選択設定には影響しません。</div>
               <div class="helpBlock"><div class="helpHead">丸</div>図面をタップすると、その位置へ選んだ大きさの丸を配置します。手書きは常にフリー入力です。</div>
               <div class="helpBlock"><div class="helpHead">保存レイヤー</div>SFC保存時は、線を <b>「線（赤）」「線（青）」「線（緑）」「線（黄）」「線（黒）」</b>、丸を同じ5色の <b>「丸（色名）」</b>へ分けて保存します。同じ名前の既存レイヤーがある場合は重複作成しません。</div>
@@ -1550,7 +1550,7 @@ let inkColor = "#ff3030";
 let inkWidth = 10;
 let inkCircleSize = 14.5; // level 10 default (1-100 => 25mm-5000mm)
 // Internally opacity is stored in the Canvas range 0.0-1.0.
-// The control displays that value as 10-100 percent.
+// The control displays transparency: 0% is opaque and 100% is invisible.
 let inkOpacity = 1.0;
 const AUTO_SAVE_DEBOUNCE_MS = 700;
 const RECOVERY_STORAGE_PREFIX = "sfcviewer-recovery::";
@@ -3541,7 +3541,7 @@ function loadUiPreferences(){
     if(allowedColors.includes(prefs.inkColor)) inkColor = prefs.inkColor;
     if(Number.isFinite(+prefs.inkWidth)) inkWidth = Math.max(1,Math.min(100,Math.round(+prefs.inkWidth)));
     if(Number.isFinite(+prefs.inkCircleSize)) inkCircleSize = Math.max(8,Math.min(80,+prefs.inkCircleSize));
-    if(Number.isFinite(+prefs.inkOpacity)) inkOpacity = Math.max(.1,Math.min(1,+prefs.inkOpacity));
+    if(Number.isFinite(+prefs.inkOpacity)) inkOpacity = Math.max(0,Math.min(1,+prefs.inkOpacity));
     if(prefs.inkTool === "line" || prefs.inkTool === "circle") inkTool = prefs.inkTool;
     if(Array.isArray(prefs.activePickModes)){
       const allowed = ["center","cross","end","line","free"];
@@ -5373,14 +5373,15 @@ function drawInkStroke(stroke){
   ctx.fillStyle = strokeColor;
   ctx.globalAlpha = stroke.opacity == null ? 1 : stroke.opacity;
 
-  // freehand線は図面1/1基準の固定mm幅
-  const isMobileInk = /iPhone|Android|Mobile/i.test(navigator.userAgent);
-  const mobileWidthScale = isMobileInk ? 0.4 : 1;
-  const baseWorldWidthMm = stroke.worldWidthMm != null
-    ? Math.max(0.05, +stroke.worldWidthMm || 0.05)
+  // 線幅は段階1=0.06mm、100=1.00mm。全体表示を1倍としてズームにも追従する。
+  const storedWidthMm = stroke.worldWidthMm == null ? NaN : +stroke.worldWidthMm;
+  // 旧版は10～1000という過大な値を保存していたため、段階値から安全に再計算する。
+  const widthMm = Number.isFinite(storedWidthMm) && storedWidthMm <= 1.0001
+    ? Math.max(0.06, storedWidthMm)
     : penWidthMmFromLevel(stroke.width || 15);
-  const worldWidthMm = Math.max(0.05, baseWorldWidthMm * mobileWidthScale);
-  const lineW = Math.max(0.2, worldWidthMm * Math.max(view.scale || 1, 0.000001));
+  const zoomRatio = Math.max(view.scale || 1, 0.000001) / Math.max(baseFitScale || 1, 0.000001);
+  const cssPixelsPerMm = 96 / 25.4;
+  const lineW = Math.max(0.2, widthMm * cssPixelsPerMm * zoomRatio);
   ctx.lineWidth = lineW;
 
   if(!stroke.points || stroke.points.length<2){ ctx.restore(); return; }
@@ -6344,6 +6345,30 @@ function getMemoWidthInfo(srcText){
   const idx = defs.findIndex(d => d.value === "0.130000");
   return { flat, defs, index: idx, code: idx >= 0 ? (idx + 1) : 1, featureId: idx >= 0 ? defs[idx].featureId : null };
 }
+function getStrokeWidthMm(stroke){
+  const stored=stroke==null||stroke.worldWidthMm==null?NaN:+stroke.worldWidthMm;
+  return Number.isFinite(stored)&&stored<=1.0001
+    ? Math.max(0.06,Math.min(1,stored))
+    : penWidthMmFromLevel(stroke&&stroke.width||1);
+}
+function buildMemoWidthDefinitions(baseText,startId,strokes){
+  const defs=parseWidthFeatureDefsFlat(getFlatSxfText(baseText));
+  const parts=[],codes={};
+  let id=startId;
+  for(const stroke of strokes||[]){
+    const value=getStrokeWidthMm(stroke).toFixed(6);
+    if(codes[value]!=null)continue;
+    const existingIndex=defs.findIndex(d=>Math.abs(parseFloat(d.value)-parseFloat(value))<0.0000005);
+    if(existingIndex>=0){codes[value]=existingIndex+1;continue;}
+    codes[value]=defs.length+1;
+    defs.push({featureId:id,value});
+    parts.push(`/*SXF
+#${id} = width_feature('${value}')
+SXF*/`);
+    id+=1;
+  }
+  return {widthText:parts.join("\r\n"),nextId:id,codes};
+}
 function widthValueToScreenPx(v){
   const num = parseFloat(v);
   if (!Number.isFinite(num)) return 0.35;
@@ -6556,7 +6581,7 @@ function getNearestSourceSegmentStyleForPoints(points, sourceSegs){
 
 function buildInkPolylineFeatureText(baseText){
   const normalized = inkStrokes.map(strokeToWorldPolyline).filter(s => s && Array.isArray(s.points) && s.points.length >= 2);
-  if (!normalized.length) return { colorText: "", layerText: "", lineText: "", expectedFeatureCount:0, exportPoints:[] };
+  if (!normalized.length) return { colorText: "", layerText: "", widthText:"", lineText: "", expectedFeatureCount:0, exportPoints:[] };
 
   let id = getNextSfcFeatureId(baseText);
   const colorBuild = buildMemoColorDefinitionText(baseText, id, normalized);
@@ -6565,6 +6590,9 @@ function buildInkPolylineFeatureText(baseText){
   const layerBuild = buildMemoLayerDefinitions(baseText, id, normalized);
   const layerText = layerBuild.layerText;
   id = layerBuild.nextId;
+  const widthBuild=buildMemoWidthDefinitions(baseText,id,normalized);
+  const widthText=widthBuild.widthText;
+  id=widthBuild.nextId;
 
   const lineParts = [];
   const sourceSegs = getSourceFeatureSegments(baseText);
@@ -6584,7 +6612,7 @@ function buildInkPolylineFeatureText(baseText){
     const exportColor = getMemoExportColor(s);
     const colorCode = String(colorBuild.codes[exportColor] || "1");
     const typeCode = segStyle?.typeRef || MEMO_FILE_TYPE_CODE;
-    const widthCode = segStyle?.widthRef || String(getMemoWidthInfo(baseText).code || "1");
+    const widthCode = String(widthBuild.codes[getStrokeWidthMm(s).toFixed(6)] || getMemoWidthInfo(baseText).code || "1");
 
     if (s.isCircleMemo) {
       const first = exportPts[0], last = exportPts[exportPts.length - 1];
@@ -6615,7 +6643,7 @@ SXF*/`);
       id += 1;
     }
   }
-  return { colorText, layerText, lineText: lineParts.join("\r\n"), expectedFeatureCount:normalized.length, exportPoints:allExportPoints };
+  return { colorText, layerText, widthText, lineText: lineParts.join("\r\n"), expectedFeatureCount:normalized.length, exportPoints:allExportPoints };
 }
 function stripEmbeddedAnnotations(srcText){
   let text = String(srcText || "");
@@ -6643,6 +6671,7 @@ function buildMemoMetaComment(){
       color: s.color || "#ff3030",
       opacity: s.opacity == null ? 1 : s.opacity,
       screenWidthPx: s.screenWidthPx == null ? null : +s.screenWidthPx,
+      worldWidthMm: getStrokeWidthMm(s),
       width: +(s.width || 1),
       isCircleMemo: !!s.isCircleMemo,
       points: s.points.map(p => ({x:+p.x||0, y:+p.y||0}))
@@ -6692,6 +6721,18 @@ function insertMemoLayerDefinition(baseText, layerText){
     return text.slice(0, dm.index + dm[0].length) + "\r\n\r\n" + layerText + "\r\n" + text.slice(dm.index + dm[0].length);
   }
   return text + "\r\n" + layerText;
+}
+function insertMemoWidthDefinitions(baseText,widthText){
+  if(!widthText)return String(baseText||"");
+  const text=String(baseText||"");
+  const widthBlockRe=/\/\*SXF\r?\n#\d+\s*=\s*width_feature\([\s\S]*?\)\r?\nSXF\*\//g;
+  let last=null,m;
+  while((m=widthBlockRe.exec(text))!==null)last=m;
+  if(last)return text.slice(0,last.index+last[0].length)+"\r\n"+widthText+text.slice(last.index+last[0].length);
+  const dataRe=/DATA\s*;\s*/;
+  const dm=dataRe.exec(text);
+  if(dm)return text.slice(0,dm.index+dm[0].length)+"\r\n\r\n"+widthText+"\r\n"+text.slice(dm.index+dm[0].length);
+  return text+"\r\n"+widthText;
 }
 function findSfcFeatureBlockStartByName(text,featureName,wantedName){
   const source=String(text||"");
@@ -6830,6 +6871,7 @@ function buildSfcExportBlobAndName(){
   if (!validation.ok) return { ok:false, reason: validation.reason || 'SFC保存を中止しました' };
   base = insertMemoColorDefinitions(base, ann.colorText);
   base = insertMemoLayerDefinition(base, ann.layerText);
+  base = insertMemoWidthDefinitions(base,ann.widthText);
   const metaComment = buildMemoMetaComment();
   const exportText = ann.lineText + (metaComment ? "\r\n" + metaComment : "");
   const newSfc = insertMemoGeneralFeatures(base, exportText, ann.exportPoints).replace(/[\s\r\n]*$/, "\r\n");
@@ -7464,7 +7506,10 @@ function restoreInkStrokesFromSourceText(srcText){
     return memoMeta.strokes.map(s => ({
       type: "freehand",
       color: s.color || "#ff3030",
-      screenWidthPx: s.screenWidthPx == null ? 3 : +s.screenWidthPx,
+      screenWidthPx: s.screenWidthPx == null ? null : +s.screenWidthPx,
+      worldWidthMm: Number.isFinite(+s.worldWidthMm) && +s.worldWidthMm <= 1.0001
+        ? Math.max(0.06,+s.worldWidthMm)
+        : penWidthMmFromLevel(s.width || 1),
       width: +(s.width || 1),
       opacity: s.opacity == null ? 1 : +s.opacity,
       eraser: false,
@@ -8494,7 +8539,7 @@ const PEN_WIDTH_MAX_LEVEL = 100;
 
 function penWidthMmFromLevel(v){
   const level = normalizePenWidthLevel(v);
-  return level * 10.0; // 1->10.0mm, 100->1000.0mm
+  return 0.06 + ((level - 1) / 99) * (1.00 - 0.06); // 1->0.06mm, 100->1.00mm
 }
 function circleRadiusMmFromLevel(v){
   const level = normalizeCircleSizeLevel(v);
@@ -8544,11 +8589,11 @@ function syncInkControlNumbers(){
   let normalizedOpacity = Number(inkOpacity);
   if (!Number.isFinite(normalizedOpacity)) normalizedOpacity = 1;
   if (normalizedOpacity > 1) normalizedOpacity /= 100;
-  normalizedOpacity = Math.max(0.1, Math.min(1, normalizedOpacity));
+  normalizedOpacity = Math.max(0, Math.min(1, normalizedOpacity));
   inkOpacity = normalizedOpacity;
-  const op = Math.round(normalizedOpacity * 100);
-  if (opacityRangeEl) opacityRangeEl.value = String(op);
-  if (opacityNumber) opacityNumber.value = String(op);
+  const transparency = Math.round((1 - normalizedOpacity) * 100);
+  if (opacityRangeEl) opacityRangeEl.value = String(transparency);
+  if (opacityNumber) opacityNumber.value = String(transparency);
 }
 if (penWidthNumber) penWidthNumber.addEventListener("input", e=>{
   const raw = String(e.target.value == null ? "" : e.target.value).trim();
@@ -8584,7 +8629,7 @@ if (circleSizeNumber) circleSizeNumber.addEventListener("input", e=>{
 });
 if (circleSizeNumber) circleSizeNumber.addEventListener("change", ()=>{ inkCircleSize = circleSizePxFromLevel(circleSizeNumber.value); syncInkControlNumbers(); saveUiPreferences(); });
 if (circleSizeNumber) circleSizeNumber.addEventListener("blur", ()=>{ inkCircleSize = circleSizePxFromLevel(circleSizeNumber.value); syncInkControlNumbers(); saveUiPreferences(); });
-if (opacityRangeEl) opacityRangeEl.addEventListener("input", e=>{ inkOpacity=(+e.target.value)/100; syncInkControlNumbers(); });
+if (opacityRangeEl) opacityRangeEl.addEventListener("input", e=>{ inkOpacity=1-(+e.target.value)/100; syncInkControlNumbers(); });
 if (opacityRangeEl) opacityRangeEl.addEventListener("change", saveUiPreferences);
 function commitOpacityNumberValue(){
   if (!opacityNumber) return;
@@ -8592,8 +8637,8 @@ function commitOpacityNumberValue(){
   if (raw === "") { syncInkControlNumbers(); return; }
   let v = Number(raw);
   if (!Number.isFinite(v)) { syncInkControlNumbers(); return; }
-  v = Math.max(10, Math.min(100, Math.round(v)));
-  inkOpacity = v / 100;
+  v = Math.max(0, Math.min(100, Math.round(v)));
+  inkOpacity = 1 - v / 100;
   if (opacityRangeEl) opacityRangeEl.value = String(v);
   opacityNumber.value = String(v);
   saveUiPreferences();
@@ -8604,8 +8649,8 @@ if (opacityNumber) {
     if (raw === "") return;
     const v = Number(raw);
     if (!Number.isFinite(v)) return;
-    const clamped = Math.max(10, Math.min(100, Math.round(v)));
-    inkOpacity = clamped / 100;
+    const clamped = Math.max(0, Math.min(100, Math.round(v)));
+    inkOpacity = 1 - clamped / 100;
     if (opacityRangeEl) opacityRangeEl.value = String(clamped);
   });
   opacityNumber.addEventListener("change", commitOpacityNumberValue);
@@ -8681,7 +8726,7 @@ canvas.addEventListener("mousedown", e=>{
       return;
     }
     inkDrawing = true;
-    currentStroke = { type:"freehand", color: inkColor, screenWidthPx: null, width: normalizePenWidthLevel(inkWidth), opacity: inkOpacity, eraser: false, points:[{x:snapped.x, y:snapped.y}] };
+    currentStroke = { type:"freehand", color: inkColor, screenWidthPx: null, worldWidthMm:penWidthMmFromLevel(inkWidth), width: normalizePenWidthLevel(inkWidth), opacity: inkOpacity, eraser: false, points:[{x:snapped.x, y:snapped.y}] };
     drawPanel.style.display = "none";
     scheduleDraw();
     return;
@@ -8949,8 +8994,9 @@ canvas.addEventListener("touchmove", e=>{
       currentStroke = {
         type:"freehand",
         color: inkColor,
-        screenWidthPx: inkWidth,
-        width: inkWidth / Math.max(view.scale, 0.0001),
+        screenWidthPx: null,
+        worldWidthMm: penWidthMmFromLevel(inkWidth),
+        width: normalizePenWidthLevel(inkWidth),
         opacity: inkOpacity,
         eraser:false,
         points:[{x:pendingTouchInk.startWorld.x, y:pendingTouchInk.startWorld.y}, {x:snapped.x, y:snapped.y}]
