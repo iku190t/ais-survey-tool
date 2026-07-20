@@ -84,7 +84,7 @@ body.file-menu-open #topbarSub{pointer-events:none;}
 .topbar-row>*{flex:0 0 auto;}
 .topbar-row::-webkit-scrollbar{height:4px;}
 #topbarMain{min-height:34px;}
-#topbarSub{display:flex;min-height:34px;visibility:hidden;pointer-events:none;}
+#topbarSub{display:flex;min-height:34px;visibility:hidden;pointer-events:none;position:absolute;left:6px;right:6px;top:100%;z-index:201;}
 body.context-tools-open #topbarSub{visibility:visible;pointer-events:auto;}
 body.profile-tools-active #pickCenterBtn,
 body.profile-tools-active #pickCrossBtn,
@@ -94,8 +94,8 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #title{display:none;}
 #creditWrap{margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-end; gap:0; min-height:30px; padding-right:10px; padding-left:8px;}
 #viewerLabel{font-size:13px; font-weight:700; opacity:.9; color:var(--fg); line-height:1; white-space:nowrap; cursor:pointer; margin-top:auto; padding:0 0 1px 0;}
-#textSearchModal{display:none;position:fixed;inset:0;z-index:96;background:rgba(0,0,0,.10);align-items:flex-start;justify-content:flex-end;padding:calc(var(--topbar-height,90px) + 54px) 12px calc(10px + env(safe-area-inset-bottom)) 12px;box-sizing:border-box;pointer-events:none;}
-#textSearchModalBox{width:min(260px,68vw);max-width:260px;max-height:calc(100vh - var(--topbar-height,90px) - 70px);overflow:auto;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.28);padding:10px 10px 9px 10px;pointer-events:auto;touch-action:manipulation;}
+#textSearchModal{display:none;position:fixed;inset:0;z-index:96;background:rgba(0,0,0,.10);align-items:flex-start;justify-content:flex-end;padding:calc(var(--topbar-height,90px) + var(--cad-toolbar-offset,40px) + 54px) 12px calc(10px + env(safe-area-inset-bottom)) 12px;box-sizing:border-box;pointer-events:none;}
+#textSearchModalBox{width:min(260px,68vw);max-width:260px;max-height:calc(100vh - var(--topbar-height,90px) - var(--cad-toolbar-offset,40px) - 70px);overflow:auto;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.28);padding:10px 10px 9px 10px;pointer-events:auto;touch-action:manipulation;}
 #profileModal{display:none;position:fixed;inset:0;z-index:120;background:transparent;align-items:flex-end;justify-content:center;padding:10px 10px calc(10px + env(safe-area-inset-bottom));box-sizing:border-box;pointer-events:none;}
 #profileModal.open{display:flex;}
 #profileBox{width:min(620px,94%);height:min(30vh,250px);min-height:190px;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:15px;box-shadow:0 14px 34px rgba(0,0,0,.42);display:flex;flex-direction:column;overflow:hidden;pointer-events:auto;transition:width .16s ease,height .16s ease;}
@@ -121,7 +121,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #terrainPanelOpenBtn{width:100%;min-height:36px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:6px 9px;font-weight:800;}
 #terrainPanelOpenBtn.active{background:#2f9e44;color:#fff;border-color:#237a35;}
 #terrainPanelOpenState{font-size:11px;font-weight:700;opacity:.88;}
-#terrainPanel{display:none;width:min(286px,calc(100vw - 16px));right:12px;top:54px;bottom:auto;z-index:78;box-sizing:border-box;padding:8px !important;max-height:calc(100% - 62px);overflow:auto;}
+#terrainPanel{display:none;width:min(286px,calc(100vw - 16px));right:12px;top:calc(54px + var(--cad-toolbar-offset,40px));bottom:auto;z-index:78;box-sizing:border-box;padding:8px !important;max-height:calc(100% - var(--cad-toolbar-offset,40px) - 62px);overflow:auto;}
 #terrainPanel .terrainHeader{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:7px;}
 #terrainPanel .terrainTitle{font-size:15px;font-weight:800;}
 @media (min-width:821px) and (hover:hover) and (pointer:fine){
@@ -141,7 +141,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #bgBtn.bgBothActive{background:#0b8f83;color:#fff;border-color:#087064;}
 #bgBtn.bgAerialActive svg,#bgBtn.bgTerrainActive svg,#bgBtn.bgBothActive svg{color:#fff;}
 #profilePrompt{
-  display:none;position:absolute;left:50%;top:58px;transform:translateX(-50%);z-index:82;
+  display:none;position:absolute;left:50%;top:calc(58px + var(--cad-toolbar-offset,40px));transform:translateX(-50%);z-index:82;
   max-width:min(82vw,360px);padding:8px 13px;border-radius:999px;
   background:rgba(20,20,20,.92);color:#fff;border:1px solid rgba(255,255,255,.34);
   box-shadow:0 6px 18px rgba(0,0,0,.3);font-size:13px;font-weight:800;line-height:1.35;
@@ -245,7 +245,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 }
 
 @media (max-width: 640px){
-  #textSearchModal{padding:calc(var(--topbar-height,90px) + 54px) 12px calc(8px + env(safe-area-inset-bottom)) 12px;}
+  #textSearchModal{padding:calc(var(--topbar-height,90px) + var(--cad-toolbar-offset,40px) + 54px) 12px calc(8px + env(safe-area-inset-bottom)) 12px;}
   #supportPanel{width:min(210px, calc(100vw - 14px)); right:7px; bottom:8px;}
   .supportPanelText{font-size:11px; line-height:1.62;}
   #supportBtn{padding:6px 9px;font-size:11px;}
@@ -297,9 +297,11 @@ label.fileBtn{
   position:absolute; z-index:60; background:var(--panel2); color:var(--fg);
   border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.28);
 }
-#topLeftToolbarMask{position:absolute;left:8px;top:8px;width:174px;height:42px;z-index:69;background:var(--bg);border-radius:12px;pointer-events:none;opacity:0.96;}
-#layerFab{position:absolute;left:12px;top:12px;z-index:70;}
-#gpsBtn.mapGpsFab{position:absolute;right:60px;top:12px;z-index:70;width:40px!important;height:40px!important;border-radius:999px;box-shadow:0 5px 14px rgba(0,0,0,.22);}
+#topLeftToolbarMask{position:absolute;left:8px;top:calc(8px + var(--cad-toolbar-offset,40px));width:174px;height:42px;z-index:69;background:var(--bg);border-radius:12px;pointer-events:none;opacity:0.96;}
+#layerFab{position:absolute;left:12px;top:calc(12px + var(--cad-toolbar-offset,40px));z-index:70;}
+#undoFab,#redoFab{top:calc(12px + var(--cad-toolbar-offset,40px))!important;}
+#gpsBtn.mapGpsFab{position:absolute;right:60px;top:calc(12px + var(--cad-toolbar-offset,40px));z-index:70;width:40px!important;height:40px!important;border-radius:999px;box-shadow:0 5px 14px rgba(0,0,0,.22);}
+#gpsDetailFab{top:calc(58px + var(--cad-toolbar-offset,40px))!important;}
 #gpsBtn.mapGpsFab svg{width:22px;height:22px;}
 #gpsReturnBtn{display:none;position:absolute;left:12px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:72;width:auto;min-width:104px;height:38px;padding:0 14px;border-radius:999px;background:var(--button);color:#1479ff;border:1px solid var(--border);box-shadow:0 6px 16px rgba(0,0,0,.3);align-items:center;justify-content:center;font-size:13px;font-weight:800;white-space:nowrap;}
 #gpsReturnBtn.show{display:inline-flex;}
@@ -334,9 +336,9 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .supportLinkBtn:active{transform:translateY(1px) scale(0.98);filter:brightness(0.95);}
 
 #measureModePanel{width:190px; max-width:min(190px, calc(100vw - 16px)); position:absolute; z-index:60;}
-#measureBox{width:260px; right:12px; top:54px; position:absolute; z-index:60;}
+#measureBox{width:260px; right:12px; top:calc(54px + var(--cad-toolbar-offset,40px)); position:absolute; z-index:60;}
 #measureTypeToggleBtn{display:block;width:100%;min-height:36px;margin:0 0 8px;padding:5px 8px;font-size:14px;font-weight:800;}
-#drawPanel{width:246px; right:12px; top:54px; position:absolute; z-index:60;}
+#drawPanel{width:246px; right:12px; top:calc(54px + var(--cad-toolbar-offset,40px)); position:absolute; z-index:60;}
 #drawPanel .stack{gap:7px;}
 #drawPanel .controlRow{display:flex;align-items:center;gap:8px;}
 #drawPanel .controlLabel{display:inline-block;flex:0 0 48px;width:48px;}
@@ -345,7 +347,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #drawPanel .toolRow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;}
 #drawPanel .toolRow button{min-width:0;padding-left:0;padding-right:0;}
 #supportPanel{width:min(248px, calc(100vw - 16px)); right:10px; bottom:12px; top:auto; position:absolute; z-index:60;}
-#aerialPhotoPanel{width:min(292px,calc(100vw - 16px));right:12px;top:54px;z-index:78;box-sizing:border-box;padding:8px !important;max-height:calc(100% - 62px);overflow:auto;}
+#aerialPhotoPanel{width:min(292px,calc(100vw - 16px));right:12px;top:calc(54px + var(--cad-toolbar-offset,40px));z-index:78;box-sizing:border-box;padding:8px !important;max-height:calc(100% - var(--cad-toolbar-offset,40px) - 62px);overflow:auto;}
 #aerialPhotoPanel .photoHeader{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:5px;}
 #aerialPhotoPanel .photoTitle{font-size:15px;font-weight:800;}
 #aerialPhotoPanel .photoSettingRow{display:flex;align-items:center;justify-content:space-between;gap:9px;min-height:37px;border-top:1px solid rgba(128,128,128,.22);}
@@ -517,7 +519,7 @@ body.light .colorBtn.selectedColor{
 
 
 #compassFab{
-  position:absolute;right:12px;top:12px;z-index:70;
+  position:absolute;right:12px;top:calc(12px + var(--cad-toolbar-offset,40px));z-index:70;
   width:40px;height:40px;padding:0;border-radius:999px;
   display:flex;align-items:center;justify-content:center;
   background:linear-gradient(180deg, rgba(34,34,38,.96), rgba(24,24,28,.96));
@@ -1442,8 +1444,11 @@ function getViewportHeight(){
 }
 function updateWrapLayout(){
   const topbar = document.getElementById("topbar");
+  const subbar = document.getElementById("topbarSub");
   const vh = getViewportHeight();
   const topH = topbar ? Math.ceil(topbar.getBoundingClientRect().height || topbar.offsetHeight || 54) : 54;
+  const subH = subbar ? Math.ceil(subbar.getBoundingClientRect().height || subbar.offsetHeight || 34) : 34;
+  document.documentElement.style.setProperty("--cad-toolbar-offset", (subH + 6) + "px");
   document.documentElement.style.setProperty("--topbar-height", topH + "px");
   const h = Math.max(120, Math.round(vh - topH));
   if (wrap){
