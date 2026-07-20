@@ -1164,7 +1164,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">PCでドラッグして開く</div>PCではSFCまたは保存済みHTMLを図面画面へドラッグし、「ここにドロップして開く」の表示上で離すと、そのまま図面を開けます。</div>
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容をSFCまたはHTMLへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">別名保存・メール送信</div>送信先を入力して <b>SFCを直接送信</b> または <b>ZIP圧縮して直接送信</b> を選びます。送信先は端末に保存され、次回から入力不要です。初回だけGoogleアカウントの許可画面が表示されます。直接送信できない端末では従来の共有画面へ切り替わります。</div>
-              <div class="helpBlock"><div class="helpHead">SFCへの書き込み</div>SFCを開いて保存すると、手書きの線は <b>「線」レイヤー</b>、丸は <b>「丸」レイヤー</b>のSFC要素として書き込みます。重要な原本は念のため別に保管してください。</div>
+              <div class="helpBlock"><div class="helpHead">SFCへの書き込み</div>SFCを開いて保存すると、手書きメモを形と色ごとのレイヤー（例: <b>「線（赤）」「丸（青）」</b>）へSFC要素として書き込みます。重要な原本は念のため別に保管してください。</div>
               <div class="helpBlock"><div class="helpHead">ブラウザー内の自動保存</div>メモ、丸、消去、レイヤー表示、表示色などは、操作のたびに復元用として端末内へ軽量保存されます。SFC本体を毎回書き換えないため、通常操作の重さを抑えています。詳しくは <b>復元保存</b> を確認してください。</div>
             </div>
           </div>
@@ -1177,6 +1177,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">文字</div><b>文字: ON/OFF</b> は、全レイヤーの文字だけをまとめて表示・非表示にします。</div>
               <div class="helpBlock"><div class="helpHead">個別の色変更</div>各行の右側にある色の四角を押し、そのレイヤーの表示色を選びます。元のSFC色そのものではなく、画面上の表示色を変更します。</div>
               <div class="helpBlock"><div class="helpHead">色を一括で変更</div><b>色を一括で変更</b> を押して色を選ぶと、全レイヤーを同じ表示色に変更します。</div>
+              <div class="helpBlock"><div class="helpHead">手書きメモのレイヤー</div>描いた線と丸は、赤・青・緑・黄・黒の色別レイヤーとして一覧へ自動追加されます。レイヤー名を押して、手書きメモも表示・非表示にできます。</div>
             </div>
           </div>
 
@@ -1224,7 +1225,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。</div>
               <div class="helpBlock"><div class="helpHead">線</div>指でなぞって描きます。中心・交点・端点などが選択中でも、線を描く間はフリー選択へ切り替わり、終了時に元の点選択へ戻ります。</div>
               <div class="helpBlock"><div class="helpHead">丸</div>図面をタップすると、選んだ大きさの丸を配置します。中心・交点・端点・線上が有効な時は、その点へ丸の中心を合わせます。</div>
-              <div class="helpBlock"><div class="helpHead">保存レイヤー</div>SFC保存時は、手書きの線を <b>「線」</b>、丸を <b>「丸」</b>の別レイヤーへ保存します。</div>
+              <div class="helpBlock"><div class="helpHead">保存レイヤー</div>SFC保存時は、線を <b>「線（赤）」「線（青）」「線（緑）」「線（黄）」「線（黒）」</b>、丸を同じ5色の <b>「丸（色名）」</b>へ分けて保存します。同じ名前の既存レイヤーがある場合は重複作成しません。</div>
               <div class="helpBlock"><div class="helpHead">図面操作</div>手書き中でも2本指の移動・拡大縮小・回転を使えます。指を2本置いた時点で、描きかけの線を確定して図面操作へ切り替えます。</div>
               <div class="helpBlock"><div class="helpHead">消去・やり直し</div><b>消しゴム</b> で個別に消します。<b>メモ全消去</b> は確認後に全削除します。図面左上の青い矢印で元に戻す・やり直しができます。</div>
               <div class="helpBlock"><div class="helpHead">閉じる</div>作業中に表示される <b>閉じる</b> を押すと、手書き状態を終了して通常表示へ戻ります。色・太さ・丸の大きさ・透過率・点の取り方は次回も保持されます。</div>
@@ -4835,6 +4836,8 @@ function applyDefaultFullViewAfterLoad(){
 }
 function getLayerLabel(layer){
   const key=String(layer);
+  const memoSpec=getMemoLayerSpecById(key);
+  if(memoSpec)return memoSpec.name;
   return (data.layerNames && data.layerNames[key]) ? data.layerNames[key] : ("レイヤー " + layer);
 }
 function getAllLayers(){
@@ -4848,13 +4851,24 @@ function getAllLayers(){
   for(const e of data.ellipses || []) set.add(e.layer);
   for(const e of data.ellipseArcs || []) set.add(e.layer);
   for(const m of data.markers || []) set.add(m.layer);
-  return Array.from(set).sort((a,b)=>a-b);
+  for(const stroke of inkStrokes || []){
+    const layer=getInkStrokeLayerId(stroke);
+    if(layer!=null)set.add(layer);
+  }
+  return Array.from(set).sort((a,b)=>{
+    const an=Number(a),bn=Number(b),af=Number.isFinite(an),bf=Number.isFinite(bn);
+    if(af&&bf)return an-bn;
+    if(af!==bf)return af?-1:1;
+    return getMemoLayerSortIndex(a)-getMemoLayerSortIndex(b);
+  });
 }
 function ensureLayerVisibility(){
   for(const layer of getAllLayers()) if(!(layer in layerVisibility)) layerVisibility[layer]=data._layerVisibleByDefault ? data._layerVisibleByDefault[String(layer)]!==false : true;
 }
 function isLayerVisible(layer){ return layerVisibility[layer]===true; }
 function getLayerBaseColor(layer){
+  const memoSpec=getMemoLayerSpecByLayer(layer);
+  if(memoSpec)return memoSpec.color;
   const same=v=>String(v)===String(layer);
   const line=(data.lines||[]).find(v=>same(v[4])); if(line)return rawColorFromIndex(line[5]);
   const poly=(data.polys||[]).find(v=>same(v[1])); if(poly)return rawColorFromIndex(poly[2]);
@@ -5326,12 +5340,16 @@ function updateMeasureBox(){
   }
 }
 function drawInkStroke(stroke){
+  const inkLayer=getInkStrokeLayerId(stroke);
+  if(inkLayer!=null && !isLayerVisible(inkLayer))return;
+  const layerOverride=inkLayer==null?null:layerColorOverrides[String(inkLayer)];
+  const strokeColor=adaptContrastColor(layerOverride || getMemoExportColor(stroke));
   ctx.save();
   ctx.lineCap="round";
   ctx.lineJoin="round";
   ctx.globalCompositeOperation = stroke.eraser ? "destination-out" : "source-over";
-  ctx.strokeStyle = stroke.color || "#ff3030";
-  ctx.fillStyle = stroke.color || "#ff3030";
+  ctx.strokeStyle = strokeColor;
+  ctx.fillStyle = strokeColor;
   ctx.globalAlpha = stroke.opacity == null ? 1 : stroke.opacity;
 
   // freehand線は図面1/1基準の固定mm幅
@@ -5986,6 +6004,59 @@ const MEMO_LINE_LAYER_NAME = "線";
 const MEMO_LINE_LAYER_NAME_SJIS_LATIN1 = "\x90\xfc";
 const MEMO_CIRCLE_LAYER_NAME = "丸";
 const MEMO_CIRCLE_LAYER_NAME_SJIS_LATIN1 = "\x8a\xdb";
+const MEMO_LAYER_SPECS = [
+  {id:"memo:line:red",shape:"line",colorKey:"red",colorName:"赤",color:"#ff3030",name:"線（赤）",rawName:"\x90\xfc\x81\x69\x90\xd4\x81\x6a"},
+  {id:"memo:line:blue",shape:"line",colorKey:"blue",colorName:"青",color:"#007aff",name:"線（青）",rawName:"\x90\xfc\x81\x69\x90\xc2\x81\x6a"},
+  {id:"memo:line:green",shape:"line",colorKey:"green",colorName:"緑",color:"#00a86b",name:"線（緑）",rawName:"\x90\xfc\x81\x69\x97\xce\x81\x6a"},
+  {id:"memo:line:yellow",shape:"line",colorKey:"yellow",colorName:"黄",color:"#ffd400",name:"線（黄）",rawName:"\x90\xfc\x81\x69\x89\xa9\x81\x6a"},
+  {id:"memo:line:black",shape:"line",colorKey:"black",colorName:"黒",color:"#000000",name:"線（黒）",rawName:"\x90\xfc\x81\x69\x8d\x95\x81\x6a"},
+  {id:"memo:circle:red",shape:"circle",colorKey:"red",colorName:"赤",color:"#ff3030",name:"丸（赤）",rawName:"\x8a\xdb\x81\x69\x90\xd4\x81\x6a"},
+  {id:"memo:circle:blue",shape:"circle",colorKey:"blue",colorName:"青",color:"#007aff",name:"丸（青）",rawName:"\x8a\xdb\x81\x69\x90\xc2\x81\x6a"},
+  {id:"memo:circle:green",shape:"circle",colorKey:"green",colorName:"緑",color:"#00a86b",name:"丸（緑）",rawName:"\x8a\xdb\x81\x69\x97\xce\x81\x6a"},
+  {id:"memo:circle:yellow",shape:"circle",colorKey:"yellow",colorName:"黄",color:"#ffd400",name:"丸（黄）",rawName:"\x8a\xdb\x81\x69\x89\xa9\x81\x6a"},
+  {id:"memo:circle:black",shape:"circle",colorKey:"black",colorName:"黒",color:"#000000",name:"丸（黒）",rawName:"\x8a\xdb\x81\x69\x8d\x95\x81\x6a"}
+];
+function getMemoColorKey(color){
+  const c=String(color||"").trim().toLowerCase();
+  if(c==="#000000"||c==="#ffffff")return "black";
+  if(c==="#007aff"||c==="#44aaff"||c==="#87cefa")return "blue";
+  if(c==="#00a86b"||c==="#00ff66"||c==="#90ee90")return "green";
+  if(c==="#ffd400"||c==="#ffb000"||c==="#ffa500")return "yellow";
+  return "red";
+}
+function getMemoLayerSpecForStroke(stroke){
+  const shape=(stroke&&((stroke.type==="circle")||stroke.isCircleMemo))?"circle":"line";
+  const colorKey=getMemoColorKey(stroke&&stroke.color);
+  return MEMO_LAYER_SPECS.find(s=>s.shape===shape&&s.colorKey===colorKey)||MEMO_LAYER_SPECS[0];
+}
+function getMemoLayerSpecById(layer){
+  const key=String(layer);
+  return MEMO_LAYER_SPECS.find(s=>s.id===key)||null;
+}
+function getMemoLayerSpecByLayer(layer){
+  const direct=getMemoLayerSpecById(layer);
+  if(direct)return direct;
+  const label=data&&data.layerNames?String(data.layerNames[String(layer)]||""):"";
+  return MEMO_LAYER_SPECS.find(s=>s.name===label)||null;
+}
+function getMemoLayerSortIndex(layer){
+  const spec=getMemoLayerSpecByLayer(layer);
+  return spec?MEMO_LAYER_SPECS.indexOf(spec):9999;
+}
+function getInkStrokeLayerId(stroke){
+  if(!stroke||stroke.eraser)return null;
+  const spec=getMemoLayerSpecForStroke(stroke);
+  if(data&&data.layerNames){
+    const existing=Object.keys(data.layerNames).find(key=>String(data.layerNames[key]||"")===spec.name);
+    if(existing!=null)return existing;
+  }
+  return spec.id;
+}
+function getMemoExportColor(stroke){
+  const spec=getMemoLayerSpecForStroke(stroke);
+  const layer=getInkStrokeLayerId(stroke);
+  return String((layer!=null&&layerColorOverrides[String(layer)])||spec.color).toLowerCase();
+}
 const MEMO_COLOR_TO_FILE_CODE = {
   "#000000": "1",
   "#ff3030": "2",
@@ -6159,7 +6230,7 @@ function buildMemoColorDefinitionText(baseText, startId, strokes){
   const existingNames = new Set(parsePredefinedColourFeatureDefsFlat(flat).map(d => d.name));
   const needed = [];
   for (const s of Array.isArray(strokes) ? strokes : []) {
-    const key = String(s?.color || '').trim().toLowerCase();
+    const key = getMemoExportColor(s);
     const code = memoStrokeColorToFileCode(key);
     if (code === '8' || code === '1') continue;
     const name = MEMO_COLOR_TO_PREDEFINED_NAME[key];
@@ -6232,8 +6303,10 @@ function buildMemoLayerDefinitions(baseText, startId, strokes){
   const flat = getFlatSxfText(baseText);
   const defs = parseLayerFeatureDefsFlat(flat);
   const required = [];
-  if ((strokes || []).some(s => !s.isCircleMemo)) required.push({name:MEMO_LINE_LAYER_NAME, rawName:MEMO_LINE_LAYER_NAME_SJIS_LATIN1});
-  if ((strokes || []).some(s => !!s.isCircleMemo)) required.push({name:MEMO_CIRCLE_LAYER_NAME, rawName:MEMO_CIRCLE_LAYER_NAME_SJIS_LATIN1});
+  for(const stroke of strokes||[]){
+    const spec=getMemoLayerSpecForStroke(stroke);
+    if(!required.some(v=>v.id===spec.id))required.push(spec);
+  }
 
   let id = startId;
   const parts = [];
@@ -6241,12 +6314,12 @@ function buildMemoLayerDefinitions(baseText, startId, strokes){
   for (const item of required) {
     const existingIndex = defs.findIndex(d => d.name === item.name || d.rawName === item.name || d.rawName === item.rawName);
     if (existingIndex >= 0) {
-      codes[item.name] = existingIndex + 1;
+      codes[item.id] = existingIndex + 1;
       continue;
     }
     const code = defs.length + 1;
     defs.push({featureId:id, rawName:item.rawName, name:item.name});
-    codes[item.name] = code;
+    codes[item.id] = code;
     parts.push(`/*SXF
 #${id} = layer_feature(\'${item.rawName}\',\'1\')
 SXF*/`);
@@ -6492,9 +6565,9 @@ function buildInkPolylineFeatureText(baseText){
     if (exportPts.length < 2) continue;
 
     const segStyle = getNearestSourceSegmentStyleForPoints(exportPts, sourceSegs);
-    const layerName = s.isCircleMemo ? MEMO_CIRCLE_LAYER_NAME : MEMO_LINE_LAYER_NAME;
-    const layerCode = String(layerBuild.codes[layerName] || getAnnotationLayer());
-    const colorCode = memoStrokeColorToFileCode(s.color);
+    const memoSpec = getMemoLayerSpecForStroke(s);
+    const layerCode = String(layerBuild.codes[memoSpec.id] || getAnnotationLayer());
+    const colorCode = memoStrokeColorToFileCode(getMemoExportColor(s));
     const typeCode = segStyle?.typeRef || MEMO_FILE_TYPE_CODE;
     const widthCode = segStyle?.widthRef || MEMO_FILE_WIDTH_CODE;
 
@@ -7029,6 +7102,8 @@ function restoreRecoverySnapshotIfAvailable(){
 }
 function markMemoChanged(){
   gaTrackMemoWrite();
+  ensureLayerVisibility();
+  renderLayerList();
   saveRecoverySnapshot({immediate:true});
 }
 function buildHtmlExportBlobAndName(){
@@ -7364,9 +7439,9 @@ function handleLoadedHtmlPayload(payload, fileName, handleOverride){
   rotationDeg = Number.isFinite(+(payload && payload.rotationDeg)) ? +(payload && payload.rotationDeg) : determineBestRotation(data);
   initialLoadRotationDeg = rotationDeg;
   updateThemeUI();
-  renderLayerList();
   document.getElementById("startupModal").style.display="none";
   migrateMemoLayerCirclesFromDataToInk();
+  renderLayerList();
   restoreRecoverySnapshotIfAvailable();
   applyDefaultFullViewAfterLoad();
   gaTrackOpenSfc("html");
@@ -7406,6 +7481,7 @@ async function handleLoadedSource(srcText, fileName, handleOverride){
   rotationDeg = determineBestRotation(data);
   initialLoadRotationDeg = rotationDeg;
   migrateMemoLayerCirclesFromDataToInk();
+  renderLayerList();
   document.getElementById("startupModal").style.display="none";
   restoreRecoverySnapshotIfAvailable();
   applyDefaultFullViewAfterLoad();
