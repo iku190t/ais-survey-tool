@@ -1165,7 +1165,8 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">開く・保存</div><b>ファイル</b> を押し、<b>開く</b>、<b>上書き保存</b>、<b>別名保存・メール送信</b>から選びます。開くと保存は1つのボタンにまとまっています。</div>
               <div class="helpBlock"><div class="helpHead">PCでドラッグして開く</div>PCではSFCまたは保存済みHTMLを図面画面へドラッグし、「ここにドロップして開く」の表示上で離すと、そのまま図面を開けます。</div>
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容をSFCまたはHTMLへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
-              <div class="helpBlock"><div class="helpHead">別名保存・メール送信</div>送信先を入力して <b>SFCを直接送信</b> または <b>ZIP圧縮して直接送信</b> を選びます。送信先は端末に保存され、次回から入力不要です。初回だけGoogleアカウントの許可画面が表示されます。直接送信できない端末では従来の共有画面へ切り替わります。</div>
+              <div class="helpBlock"><div class="helpHead">別名保存・メール送信</div>SFCをスマホから送る場合は、<b>送信する</b>を押すと自動的にZIPへ圧縮して送信します。送信先は端末に保存され、次回から入力不要です。初回だけGoogleアカウントの許可画面が表示されます。直接送信できない端末では共有画面、共有も使えない場合はZIPのダウンロードへ切り替わります。</div>
+              <div class="helpBlock"><div class="helpHead">ZIPで送る理由</div>SFCは一般的なメール添付形式として登録されていないため、iPhone・Android・Gmailなどが添付を拒否する場合があります。ZIPは広く対応しており、SFCのファイル名と内容を変えずに安全に添付できます。受信後はZIPを展開するとSFCファイルが1個入っています。</div>
               <div class="helpBlock"><div class="helpHead">SFCへの書き込み</div>SFCを開いて保存すると、手書きメモを形と色ごとのレイヤー（例: <b>「線（赤）」「丸（青）」</b>）へSFC要素として書き込みます。重要な原本は念のため別に保管してください。</div>
               <div class="helpBlock"><div class="helpHead">ブラウザー内の自動保存</div>メモ、丸、消去、レイヤー表示、表示色などは、操作のたびに復元用として端末内へ軽量保存されます。SFC本体を毎回書き換えないため、通常操作の重さを抑えています。詳しくは <b>復元保存</b> を確認してください。</div>
             </div>
@@ -1198,7 +1199,7 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="measure">
             <div class="helpSectionTitle">計測</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">始め方</div><b>計測</b> を押すと、すぐに2点間測定が始まります。計測中にもう一度押すと、2点間と3点垂直を切り替えられます。</div>
+              <div class="helpBlock"><div class="helpHead">始め方</div><b>計測</b> を押すと、すぐに2点間測定が始まり、ボタンが青くなります。計測ボタンをもう一度押すと処理を終了し、青色も解除されます。2点間と3点垂直は、計測ポップアップ内の切替ボタンで変更します。</div>
               <div class="helpBlock"><div class="helpHead">点の取り方</div>計測中だけ上段に補助ボタンが現れます。丸の中心・交点・線の端点・フリー・線上を選べ、青枠のものが有効です。</div>
               <div class="helpBlock"><div class="helpHead">2点間</div>2点を取ると距離が出ます。続けて次の点を取ると、直前の2点目から新しい点までを連続して計測します。</div>
               <div class="helpBlock"><div class="helpHead">3点垂直</div>基準線の2点と、離れた1点を取ると、垂直距離を出します。</div>
@@ -1213,7 +1214,8 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">断面図の大きさ</div>最初は図面上の断面線が見える小表示です。<b>拡大／縮小</b>で断面図の大きさを切り替えられます。</div>
               <div class="helpBlock"><div class="helpHead">グラフ</div>横軸と縦軸は同じ縮尺（縦横1:1）です。延長と高低差を表示します。1本指でなぞると図面上の対応位置が分かり、2本指で拡大縮小・移動できます。</div>
               <div class="helpBlock"><div class="helpHead">格子</div>表示倍率に応じ、1m・5m・10m・25m・50m以上から見やすい最小間隔へ自動で切り替わります。細格子は極細、主格子だけ少し濃く表示します。</div>
-              <div class="helpBlock"><div class="helpHead">断面SFC書出</div>断面画面の <b>断面SFC書出 1/100</b> を押すと、縦横1:1・縮尺1/100の断面をSFCで保存できます。起点・終点のX・Y・標高、延長、方向角も図面内と再配置用データへ記録します。PCではSFCの保存先選択画面、スマホではGmailでも添付できるZIP形式の送信画面が開きます。ZIP内にはSFCファイルが1個入っています。</div>
+              <div class="helpBlock"><div class="helpHead">断面SFC書出</div>断面画面の <b>断面SFC書出 1/100</b> を押すと、縦横1:1・縮尺1/100の断面をSFCで保存できます。断面の左余白は5mで、起点・終点はピンクの○×と文字で表示します。縮尺、起点・終点のX・Y・標高、延長、方向角も図面内と再配置用データへ記録します。PCではSFCの保存先選択画面、スマホでは送信画面が開きます。</div>
+              <div class="helpBlock"><div class="helpHead">断面をZIPで送る理由</div>SFCのままでは、端末やメールアプリが未対応の添付形式と判断して添付できない場合があります。そのためスマホでは自動的にZIPへ圧縮します。ZIPにすることでSFCの名前・座標・断面図形を変更せずに送信でき、受信後に展開すれば通常のSFCとして開けます。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>断面を押すと現在地から図面の座標系を自動判定します。iPhoneから確認が出た場合は位置情報を許可してください。判定中・起点・終点の案内は図面上部に表示されます。</div>
               <div class="helpBlock"><div class="helpHead">通信とキャッシュ</div>初回は国土地理院の標高タイルを取得します。同じ場所付近は端末内キャッシュを再利用します。通信できずキャッシュもない場合は表示できません。</div>
               <div class="helpBlock"><div class="helpHead">閉じる・消す</div><b>閉じる</b> でグラフと図面上の断面線を消し、通常表示へ戻ります。</div>
@@ -1224,12 +1226,12 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="memo">
             <div class="helpSectionTitle">手書きメモ</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。</div>
+              <div class="helpBlock"><div class="helpHead">使い方</div><b>手書き</b> を押し、色・太さ・大きさ・透過率を設定して <b>線</b> または <b>丸</b> を選びます。線・丸・消しゴムはどれか1つだけが選択され、選択したボタンが青くなった後、設定画面が自動で閉じます。</div>
               <div class="helpBlock"><div class="helpHead">線</div>指でなぞって描きます。中心・交点・端点などが選択中でも、線を描く間はフリー選択へ切り替わり、終了時に元の点選択へ戻ります。</div>
               <div class="helpBlock"><div class="helpHead">丸</div>図面をタップすると、選んだ大きさの丸を配置します。中心・交点・端点・線上が有効な時は、その点へ丸の中心を合わせます。</div>
               <div class="helpBlock"><div class="helpHead">保存レイヤー</div>SFC保存時は、線を <b>「線（赤）」「線（青）」「線（緑）」「線（黄）」「線（黒）」</b>、丸を同じ5色の <b>「丸（色名）」</b>へ分けて保存します。同じ名前の既存レイヤーがある場合は重複作成しません。</div>
               <div class="helpBlock"><div class="helpHead">図面操作</div>手書き中でも2本指の移動・拡大縮小・回転を使えます。指を2本置いた時点で、描きかけの線を確定して図面操作へ切り替えます。</div>
-              <div class="helpBlock"><div class="helpHead">消去・やり直し</div><b>消しゴム</b> で個別に消します。<b>メモ全消去</b> は確認後に全削除します。図面左上の青い矢印で元に戻す・やり直しができます。</div>
+              <div class="helpBlock"><div class="helpHead">消去・やり直し</div><b>消しゴム</b>を選ぶと青くなり、線・丸の選択は解除されます。図面上のメモをなぞると個別に消せます。<b>メモ全消去</b> は確認後に全削除します。図面左上の青い矢印で元に戻す・やり直しができます。</div>
               <div class="helpBlock"><div class="helpHead">閉じる</div>作業中に表示される <b>閉じる</b> を押すと、手書き状態を終了して通常表示へ戻ります。色・太さ・丸の大きさ・透過率・点の取り方は次回も保持されます。</div>
             </div>
           </div>
