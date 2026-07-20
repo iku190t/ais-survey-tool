@@ -84,8 +84,8 @@ body.file-menu-open #topbarSub{pointer-events:none;}
 .topbar-row>*{flex:0 0 auto;}
 .topbar-row::-webkit-scrollbar{height:4px;}
 #topbarMain{min-height:34px;}
-#topbarSub{display:none;min-height:34px;}
-body.context-tools-open #topbarSub{display:flex;}
+#topbarSub{display:flex;min-height:34px;visibility:hidden;pointer-events:none;}
+body.context-tools-open #topbarSub{visibility:visible;pointer-events:auto;}
 body.profile-tools-active #pickCenterBtn,
 body.profile-tools-active #pickCrossBtn,
 body.profile-tools-active #pickEndBtn,
@@ -593,6 +593,8 @@ body.light #compassFab .compassN{
 #fitBtn.homeCloseMode .homeIcon{display:none;}
 #fitBtn.homeCloseMode .homeCloseIcon{display:block;}
 body.light #fitBtn.homeCloseMode{background:#ffe3e3;color:#cf2020;border-color:#ee7777;}
+#fitBtn.homePressed{background:#1677ff!important;color:#fff!important;border-color:#0f5ec8!important;transform:scale(.94);}
+#fitBtn.homeClosePressed{background:#c92525!important;color:#fff!important;border-color:#9e1717!important;transform:scale(.94);}
 
 
 .activeGpsBtn svg,
@@ -7471,7 +7473,12 @@ window.addEventListener("drop",event=>{
   });
 });
 
-document.getElementById("fitBtn").addEventListener("click", ()=>{
+document.getElementById("fitBtn").addEventListener("click", (event)=>{
+  const btn=event.currentTarget;
+  const pressedClass=btn.classList.contains("homeCloseMode")?"homeClosePressed":"homePressed";
+  btn.classList.remove("homePressed","homeClosePressed");
+  btn.classList.add(pressedClass);
+  setTimeout(()=>btn.classList.remove(pressedClass),150);
   if (closeActiveUiFromHome()) return;
   if (!isDrawingActionAvailable()) return;
   fitToScreen();
