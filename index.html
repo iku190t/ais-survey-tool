@@ -298,11 +298,10 @@ label.fileBtn{
 #layerFab{position:absolute;left:12px;top:12px;z-index:70;}
 #gpsBtn.mapGpsFab{position:absolute;right:60px;top:12px;z-index:70;width:40px!important;height:40px!important;border-radius:999px;box-shadow:0 5px 14px rgba(0,0,0,.22);}
 #gpsBtn.mapGpsFab svg{width:22px;height:22px;}
-#gpsReturnBtn{display:none;position:absolute;left:12px;bottom:calc(38px + env(safe-area-inset-bottom));z-index:72;width:48px;height:48px;padding:0;border-radius:999px;background:var(--button);color:#1479ff;border:1px solid var(--border);box-shadow:0 6px 16px rgba(0,0,0,.3);align-items:center;justify-content:center;}
+#gpsReturnBtn{display:none;position:absolute;left:12px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:72;width:auto;min-width:104px;height:38px;padding:0 14px;border-radius:999px;background:var(--button);color:#1479ff;border:1px solid var(--border);box-shadow:0 6px 16px rgba(0,0,0,.3);align-items:center;justify-content:center;font-size:13px;font-weight:800;white-space:nowrap;}
 #gpsReturnBtn.show{display:inline-flex;}
-#gpsReturnBtn svg{width:30px;height:30px;}
 #gpsReturnBtn:active{transform:scale(.94);background:rgba(47,125,255,.18);}
-@media (display-mode:standalone){#gpsReturnBtn{bottom:calc(12px + env(safe-area-inset-bottom));}}
+@media (display-mode:standalone){#gpsReturnBtn{bottom:calc(6px + env(safe-area-inset-bottom));}}
 #layerPanel{inset:0;width:auto;max-height:none;overflow:hidden;display:none;padding:0;border-radius:0;z-index:85;flex-direction:column;}
 #layerHeader{flex:0 0 auto;background:var(--panel2);z-index:2;border-bottom:1px solid var(--border);padding:12px;}
 #layerHeaderTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
@@ -924,10 +923,7 @@ gtag('config', 'G-88B9YPJXWP');
     </svg>
   </button>
   <button id="gpsReturnBtn" type="button" title="現在地に戻る" aria-label="現在地に戻る">
-    <svg class="gpsDotIcon" viewBox="0 0 24 24" aria-hidden="true">
-      <circle class="gpsHalo" cx="12" cy="12" r="8"></circle>
-      <circle class="gpsCore" cx="12" cy="12" r="4.8"></circle>
-    </svg>
+    現在地に戻る
   </button>
   <button id="compassFab" title="北を上に戻す"><span class="compassFace"><span class="compassN">N</span><span class="compassNeedle"></span><span class="compassDot"></span></span></button>
   <button id="gpsDetailFab" style="position:absolute;left:12px;top:58px;bottom:auto;z-index:70;display:inline-flex;align-items:center;gap:6px;">
@@ -1177,7 +1173,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">現在地GPS</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開始・終了</div>図面右上の方位マーク横にある <b>現在地</b> を押すとGPSを開始し、現在位置を図面上へ表示します。もう一度押すと終了し、図面を全体表示へ戻します。</div>
-              <div class="helpBlock"><div class="helpHead">現在地への追従</div>GPS開始中は現在地を画面中央へ追従します。指で図面を移動・拡大縮小・回転すると追従だけを解除し、GPSの青い点は更新を続けます。左下に現れる青い現在地ボタンを押すと中央へ戻り、追従を再開します。</div>
+              <div class="helpBlock"><div class="helpHead">現在地への追従</div>GPS開始中は現在地を画面中央へ追従します。指で図面を移動・拡大縮小・回転すると追従だけを解除し、GPSの青い点は更新を続けます。画面左下の「現在地に戻る」を押すと中央へ戻り、追従を再開します。</div>
               <div class="helpBlock"><div class="helpHead">詳細</div>GPS開始中は左側の <b>詳細</b> から座標・誤差などを確認できます。詳細画面は同じボタンで閉じられます。</div>
               <div class="helpBlock"><div class="helpHead">図面との距離</div>現在地が図面から離れすぎている場合は、図面までのおよその距離を表示します。測地系や座標系が違う場合も大きく離れて表示されます。</div>
               <div class="helpBlock"><div class="helpHead">誤差</div>表示される誤差は端末GPSの推定値です。屋外の開けた場所で少し待つと小さくなる場合がありますが、測量成果には使用しないでください。</div>
