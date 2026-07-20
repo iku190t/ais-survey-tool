@@ -67,6 +67,9 @@ body{display:flex;flex-direction:column;}
   z-index:200;
   flex:0 0 auto;
 }
+body.file-menu-open #topbar{z-index:240;}
+body.file-menu-open #topbarMain>*:not(#openIconBtn){pointer-events:none;}
+body.file-menu-open #topbarSub{pointer-events:none;}
 .topbar-row{
   display:flex;
   align-items:center;
@@ -1253,7 +1256,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークは図面の回転に合わせて回ります。押すと北を上に戻します。</div>
               <div class="helpBlock"><div class="helpHead">ホーム／閉じる</div>通常時は<b>ホーム</b>で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。画面や作業を開いている間は薄い赤の<b>閉じる</b>に変わり、図面位置を変えずに現在の画面・作業だけを終了します。ダブルタップや方位長押しでは全体表示になりません。</div>
               <div class="helpBlock"><div class="helpHead">縦画面専用</div>このアプリは縦画面用です。端末が横向きになった場合は、縦向きへ戻す案内を表示します。</div>
-              <div class="helpBlock"><div class="helpHead">青いボタン</div>背景・計測・断面・手書き・検索・ヘルプは起動中に青くなります。同じボタンをもう一度押すと終了します。</div>
+              <div class="helpBlock"><div class="helpHead">青いボタン</div>ファイル・背景・計測・断面・手書き・検索・ヘルプは起動中に青くなります。同じボタンをもう一度押すと終了します。</div>
             </div>
           </div>
 
@@ -7412,7 +7415,7 @@ async function handleSelectedDrawingFile(file){
 const earlyFileState=window.__sfcFileOpenState;
 if(earlyFileState){
   earlyFileState.consumeFile=file=>handleSelectedDrawingFile(file);
-  earlyFileState.openFilePicker=()=>setSaveMenuOpen(true);
+  earlyFileState.openFilePicker=()=>setSaveMenuOpen(!isSaveMenuOpen());
   const pendingFile=earlyFileState.pendingFile;
   earlyFileState.pendingFile=null;
   if(pendingFile){
@@ -7761,6 +7764,10 @@ document.addEventListener("click", (e)=>{
   if (btn && btn.id === "supportBtn") return;
   supportPanel.style.display = "none";
 }, true);
+function isSaveMenuOpen(){
+  const modal=document.getElementById("saveMenuModal");
+  return !!(modal&&getComputedStyle(modal).display!=="none");
+}
 function setSaveMenuOpen(open){
   const modal=document.getElementById("saveMenuModal");
   const hasDrawing=hasLoadedDrawing();
@@ -7769,6 +7776,8 @@ function setSaveMenuOpen(open){
   if(overwriteBtn) overwriteBtn.disabled=!hasDrawing;
   if(saveAsBtn) saveAsBtn.disabled=!hasDrawing;
   if(modal) modal.style.display=open?"flex":"none";
+  document.body.classList.toggle("file-menu-open",!!open);
+  updateToolbarActivationUI();
 }
 document.getElementById("saveMenuOverwriteBtn").addEventListener("click", ()=>{
   setSaveMenuOpen(false);
@@ -7905,12 +7914,14 @@ function isHomeCloseModeActive(){
   return !!(
     measureMode||inkEnabled||textSearchPopupOpen||hasProfileWork||gpsDetailOpen||helpModalOpen||
     visible(measureModePanel)||visible(drawPanel)||visible(layerPanel)||visible(aerialPhotoPanel)||
-    visible(terrainPanel)||visible(supportPanel)||visible(viewerSupportModal)
+    visible(terrainPanel)||visible(supportPanel)||visible(viewerSupportModal)||
+    visible(document.getElementById("saveMenuModal"))||visible(document.getElementById("saveAsChoiceModal"))
   );
 }
 function updateToolbarActivationUI(){
   const visible=el=>!!(el&&getComputedStyle(el).display!=="none");
   const states={
+    openIconBtn:visible(document.getElementById("saveMenuModal"))||visible(document.getElementById("saveAsChoiceModal")),
     bgBtn:visible(aerialPhotoPanel)||visible(terrainPanel),
     measureBtn:!!(measureMode||visible(measureModePanel)||visible(measureBox)),
     profileBtn:!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||visible(profileModal)),
@@ -7969,7 +7980,7 @@ document.addEventListener("click",e=>{
   if(activeCommandId&&command.id!==activeCommandId) cancelTransientOperations();
 },true);
 const homePanelObserver=new MutationObserver(()=>{updateHomeButtonUI();updateToolbarActivationUI();});
-[measureModePanel,measureBox,drawPanel,layerPanel,aerialPhotoPanel,terrainPanel,supportPanel,helpModal,viewerSupportModal,profileModal].forEach(el=>{
+[measureModePanel,measureBox,drawPanel,layerPanel,aerialPhotoPanel,terrainPanel,supportPanel,helpModal,viewerSupportModal,profileModal,document.getElementById("saveMenuModal"),document.getElementById("saveAsChoiceModal")].forEach(el=>{
   if(el)homePanelObserver.observe(el,{attributes:true,attributeFilter:["style","class"]});
 });
 updateHomeButtonUI();
