@@ -1947,7 +1947,17 @@ function analyzeCoordinateMeshTransform(target){
     const xFit=fitCoordinateMeshPlane(group.X),yFit=fitCoordinateMeshPlane(group.Y);
     if(!xFit||!yFit) continue;
     const determinant=xFit.a*yFit.b-xFit.b*yFit.a;
-    if(!Number.isFinite(determinant)||Math.abs(determinant)<1e-5||Math.abs(determinant)>10000) continue;
+    const xScale=Math.hypot(xFit.a,xFit.b),yScale=Math.hypot(yFit.a,yFit.b);
+    const scaleRatio=Math.max(xScale,yScale)/Math.max(1e-12,Math.min(xScale,yScale));
+    const orthogonality=Math.abs(xFit.a*yFit.a+xFit.b*yFit.b)/Math.max(1e-12,xScale*yScale);
+    // Coordinate meshes on paper-space SFC drawings commonly produce a
+    // determinant equal to scale^2 (1/250 => 62,500, 1/500 => 250,000).
+    // The former 10,000 cap incorrectly rejected every scale above 1/100 and
+    // sent the drawing to the plane-coordinate origin.  Validate a survey
+    // similarity transform by equal axis scale and perpendicularity instead.
+    if(!Number.isFinite(determinant)||Math.abs(determinant)<1e-5||
+       !Number.isFinite(xScale)||!Number.isFinite(yScale)||xScale<0.01||yScale<0.01||
+       xScale>10000||yScale>10000||scaleRatio>1.05||orthogonality>0.03) continue;
     const fittedResidual=xFit.residual+yFit.residual;
     const span=Math.min(xFit.valueSpan,yFit.valueSpan);
     if(!Number.isFinite(fittedResidual)||fittedResidual>Math.max(2,span*0.01)) continue;
@@ -1965,7 +1975,7 @@ function analyzeCoordinateMeshTransform(target){
     // If any mesh already agrees with the normal survey-coordinate mapping,
     // prefer it over a separate inset/detail mesh that would trigger a correction.
     const score=fittedResidual+(currentResidual<=20?-1000:0)-Math.min(100,labelCount)*0.001;
-    const candidate={kind:"affine",xNorth:xFit,yEast:yFit,layer,labelCount,fittedResidual,currentResidual,score};
+    const candidate={kind:"affine",xNorth:xFit,yEast:yFit,layer,labelCount,fittedResidual,currentResidual,score,xScale,yScale,scaleRatio,orthogonality};
     if(!best||candidate.score<best.score) best=candidate;
   }
   return best;
