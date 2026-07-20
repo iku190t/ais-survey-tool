@@ -2989,7 +2989,10 @@ async function exportProfileSfc(){
       return;
     }
 
-    updateBusy("断面SFCの送信方法を準備中…");
+    updateBusy("ZIP送信用データを準備中…");
+    // Web Share requires transient user activation. Build the ZIP before the
+    // choice dialog so Android can open its share sheet immediately on tap.
+    const preparedZip=await createSingleFileZip(out.blob,out.fileName);
     hideBusy();
 
     const rawBtn=document.getElementById("saveAsRawShareBtn");
@@ -3005,11 +3008,8 @@ async function exportProfileSfc(){
     let sendBlob=out.blob;
     let sendName=out.fileName;
     if(shareMode==="zip"){
-      showBusy("ZIP圧縮中…");
-      await waitForUiPaint();
-      sendBlob=await createSingleFileZip(out.blob,out.fileName);
+      sendBlob=preparedZip;
       sendName=out.fileName.replace(/\.sfc$/i,"")+".zip";
-      hideBusy();
     }
 
     const directEnabled=!!getGmailOAuthClientId();
@@ -7553,7 +7553,6 @@ async function openSfcViaPickerOrInput(){
 async function handleSelectedDrawingFile(file){
   if(!file) return;
   if(!/\.(?:sfc|html?)$/i.test(String(file.name||""))){
-    showToast("SFCまたはHTML図面を選んでください",2600);
     return;
   }
   showBusy("ファイルを読み込み中…");
