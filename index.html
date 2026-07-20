@@ -132,6 +132,10 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #profileBtn.profileActive svg{color:#fff;}
 #gpsBtn svg{color:#0a84ff;}
 #gpsBtn.activeGpsBtn svg{color:#fff;}
+.gpsDotIcon .gpsHalo{fill:#2f7dff;fill-opacity:.18;stroke:none;}
+.gpsDotIcon .gpsCore{fill:#1479ff;stroke:none;}
+.activeGpsBtn .gpsDotIcon .gpsHalo,.activeGpsDetailBtn .gpsDotIcon .gpsHalo{fill:#fff;fill-opacity:.25;}
+.activeGpsBtn .gpsDotIcon .gpsCore,.activeGpsDetailBtn .gpsDotIcon .gpsCore{fill:#fff;}
 #bgBtn.bgAerialActive{background:#0a84ff;color:#fff;border-color:#0066cc;}
 #bgBtn.bgTerrainActive{background:#2f9e44;color:#fff;border-color:#237a35;}
 #bgBtn.bgBothActive{background:#0b8f83;color:#fff;border-color:#087064;}
@@ -185,7 +189,6 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #textSearchPrevBtn,#textSearchNextBtn{padding:5px 8px;text-align:center;}
 #textSearchDoneBtn{display:flex;width:100%;min-height:32px;margin-top:8px;align-items:center;justify-content:center;background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #textSearchPrevBtn:disabled,#textSearchNextBtn:disabled{opacity:.45;cursor:default;}
-#sizeToggleBtn{padding:6px 10px;font-size:12px;white-space:nowrap;}
 #helpModal{display:none;position:absolute;inset:0;z-index:97;background:rgba(0,0,0,.14);align-items:center;justify-content:center;padding:12px;box-sizing:border-box;}
 #helpModalBox{width:min(420px,92vw);max-height:min(78vh,680px);overflow:hidden;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 30px rgba(0,0,0,.28);padding:14px 14px 12px 14px;display:flex;flex-direction:column;box-sizing:border-box;}
 #helpModalHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:0 0 auto;margin-bottom:10px;}
@@ -254,7 +257,6 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
   #textSearchExactToggle{padding:5px 7px;font-size:11px;border-radius:8px;}
   #textSearchExactIcon{width:14px;height:14px;flex-basis:14px;font-size:10px;}
   #textSearchBtn{padding:5px 8px;font-size:11px;}
-  #sizeToggleBtn{padding:5px 8px;font-size:11px;}
   #textSearchResultPanel{gap:6px;margin-top:7px;}
   #textSearchResultBox{min-width:68px;padding:6px 6px 5px 6px;}
   #textSearchResultLabel{font-size:10px;margin-bottom:3px;}
@@ -292,9 +294,8 @@ label.fileBtn{
   position:absolute; z-index:60; background:var(--panel2); color:var(--fg);
   border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.28);
 }
-#topLeftToolbarMask{position:absolute;left:8px;top:8px;width:218px;height:42px;z-index:69;background:var(--bg);border-radius:12px;pointer-events:none;opacity:0.96;}
+#topLeftToolbarMask{position:absolute;left:8px;top:8px;width:174px;height:42px;z-index:69;background:var(--bg);border-radius:12px;pointer-events:none;opacity:0.96;}
 #layerFab{position:absolute;left:12px;top:12px;z-index:70;}
-#bgBtn.mapBgFab{position:absolute;left:88px;top:12px;z-index:70;width:40px!important;height:34px!important;}
 #gpsBtn.mapGpsFab{position:absolute;right:60px;top:12px;z-index:70;width:40px!important;height:40px!important;border-radius:999px;box-shadow:0 5px 14px rgba(0,0,0,.22);}
 #gpsBtn.mapGpsFab svg{width:22px;height:22px;}
 #layerPanel{inset:0;width:auto;max-height:none;overflow:hidden;display:none;padding:0;border-radius:0;z-index:85;flex-direction:column;}
@@ -359,8 +360,9 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #photoTimeThumb{position:absolute;left:0;top:50%;width:22px;height:22px;border-radius:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid rgba(0,0,0,.13);box-shadow:0 1px 5px rgba(0,0,0,.3);pointer-events:none;will-change:left;}
 #photoTimeEnds{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:1px;}
 #photoStatus{font-size:11px;line-height:1.35;margin-top:5px;color:var(--muted);}
-#photoCredit{display:none;position:absolute;right:8px;bottom:8px;z-index:55;padding:3px 6px;border-radius:5px;background:rgba(0,0,0,.68);color:#fff;font-size:10px;text-decoration:none;pointer-events:auto;}
+#photoCredit{display:none;position:absolute;right:8px;bottom:calc(34px + env(safe-area-inset-bottom));z-index:55;max-width:calc(100% - 16px);box-sizing:border-box;padding:3px 6px;border-radius:5px;background:rgba(0,0,0,.68);color:#fff;font-size:10px;text-decoration:none;pointer-events:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #photoCredit.show{display:block;}
+@media (display-mode:standalone){#photoCredit{bottom:calc(8px + env(safe-area-inset-bottom));}}
 #supportPanel .panelTitle{margin-bottom:6px;}
 .supportPanelText{font-size:12px; line-height:1.7; color:var(--fg); opacity:0.92; white-space:normal;}
 #supportBtn{opacity:0.78; background:rgba(120,130,140,.18); border-color:rgba(150,160,170,.45);}
@@ -618,11 +620,6 @@ body.help-labels #pickCrossBtn{font-size:18px !important;}
 body.help-labels #pickEndBtn{font-size:13px !important;}
 body.help-labels #pickLineBtn{font-size:18px !important;}
 body.help-labels #pickFreeBtn{font-size:12px !important;}
-body.help-labels #sizeToggleBtn{
-  background:#0A84FF;
-  color:#fff;
-  border-color:#0066cc;
-}
 @media (max-width:820px){
     body.help-labels #topbar{gap:6px;}
   body.help-labels #topbarMain,
@@ -823,9 +820,16 @@ gtag('config', 'G-88B9YPJXWP');
       });
     })();
     </script>
-    <button id="fitBtn" class="toolIconBtn" data-help-label="全体表示" title="全体表示" aria-label="全体表示">
+    <button id="fitBtn" class="toolIconBtn" data-help-label="ホーム" title="最初の全体表示へ戻る" aria-label="ホーム">
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 9V4h5"></path><path d="M20 9V4h-5"></path><path d="M4 15v5h5"></path><path d="M20 15v5h-5"></path>
+        <path d="M3.5 11.2 12 4l8.5 7.2"></path><path d="M5.8 10.2V20h12.4v-9.8"></path><path d="M9.5 20v-6h5v6"></path>
+      </svg>
+    </button>
+    <button id="bgBtn" class="toolIconBtn bgIconBtn" data-help-label="背景" title="背景" aria-label="背景">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="4" y="5.5" width="16" height="13" rx="2"></rect>
+        <path d="M12 5.5v13"></path>
+        <path d="M5 7h7v10H5z" fill="currentColor" stroke="none"></path>
       </svg>
     </button>
     <button id="measureBtn" class="toolIconBtn" data-help-label="計測" title="計測" aria-label="計測">
@@ -852,12 +856,6 @@ gtag('config', 'G-88B9YPJXWP');
         <rect x="3.5" y="4.5" width="9" height="13" rx="2"></rect>
         <path d="M6.8 9h2.2"></path><path d="M6.8 12h2.2"></path>
         <circle cx="16.6" cy="15.3" r="3.8"></circle><path d="M19.5 18.2 21.8 20.5"></path>
-      </svg>
-    </button>
-    <button id="sizeToggleBtn" class="toolIconBtn" data-help-label="サイズ" title="アイコンを大きく表示" aria-label="アイコンを大きく表示">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="4.2" y="11.2" width="6.2" height="6.2" rx="1.1"></rect>
-        <rect x="11.4" y="5.2" width="8.4" height="8.4" rx="1.2"></rect>
       </svg>
     </button>
     <button id="helpBtn" class="toolIconBtn" data-help-label="ヘルプ" title="ヘルプ" aria-label="ヘルプ">
@@ -900,26 +898,19 @@ gtag('config', 'G-88B9YPJXWP');
 <div id="wrap">
   <div id="topLeftToolbarMask" aria-hidden="true"></div>
   <button id="layerFab">レイヤー</button>
-  <button id="bgBtn" class="toolIconBtn bgIconBtn mapBgFab" title="背景" aria-label="背景">
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="4" y="5.5" width="16" height="13" rx="2"></rect>
-      <path d="M12 5.5v13"></path>
-      <path d="M5 7h7v10H5z" fill="currentColor" stroke="none"></path>
-    </svg>
-  </button>
-  <button id="undoFab" title="もどす" style="position:absolute;left:134px;top:12px;z-index:70;width:40px;height:34px;padding:0;font-weight:900;font-size:24px;color:#1f6fff;">↶</button>
-  <button id="redoFab" title="やりなおし" style="position:absolute;left:180px;top:12px;z-index:70;width:40px;height:34px;padding:0;font-weight:900;font-size:24px;color:#1f6fff;">↷</button>
+  <button id="undoFab" title="もどす" aria-label="もどす" style="position:absolute;left:88px;top:12px;z-index:70;width:40px;height:34px;padding:0;color:#1f6fff;"><svg viewBox="0 0 24 24" aria-hidden="true" style="width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round;"><path d="M9 7 4 12l5 5"></path><path d="M5 12h7c4.5 0 7 2.1 7 6"></path></svg></button>
+  <button id="redoFab" title="やりなおし" aria-label="やりなおし" style="position:absolute;left:134px;top:12px;z-index:70;width:40px;height:34px;padding:0;color:#1f6fff;"><svg viewBox="0 0 24 24" aria-hidden="true" style="width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round;"><path d="m15 7 5 5-5 5"></path><path d="M19 12h-7c-4.5 0-7 2.1-7 6"></path></svg></button>
   <button id="gpsBtn" class="toolIconBtn mapGpsFab" title="現在地" aria-label="現在地">
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 12 20 4 12 20 10.2 13.8 4 12z"></path>
-      <path d="M10.2 13.8 20 4"></path>
+    <svg class="gpsDotIcon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle class="gpsHalo" cx="12" cy="12" r="8"></circle>
+      <circle class="gpsCore" cx="12" cy="12" r="3.4"></circle>
     </svg>
   </button>
   <button id="compassFab" title="北を上に戻す"><span class="compassFace"><span class="compassN">N</span><span class="compassNeedle"></span><span class="compassDot"></span></span></button>
   <button id="gpsDetailFab" style="position:absolute;left:12px;top:58px;bottom:auto;z-index:70;display:inline-flex;align-items:center;gap:6px;">
-      <svg viewBox="0 0 24 24" aria-hidden="true" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.95;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;">
-        <path d="M4 12 20 4 12 20 10.2 13.8 4 12z"></path>
-        <path d="M10.2 13.8 20 4"></path>
+      <svg class="gpsDotIcon" viewBox="0 0 24 24" aria-hidden="true" style="width:17px;height:17px;flex:0 0 auto;">
+        <circle class="gpsHalo" cx="12" cy="12" r="8"></circle>
+        <circle class="gpsCore" cx="12" cy="12" r="3.4"></circle>
       </svg>
       <span>詳細</span>
     </button>
@@ -1235,7 +1226,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">1本指</div>通常時は1本指で図面を移動できます。1本指で2回タップし、2回目の指を離さず下へ動かすと拡大、上へ動かすと縮小します。</div>
               <div class="helpBlock"><div class="helpHead">2本指</div>2本指で移動・拡大縮小・回転できます。</div>
               <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークは図面の回転に合わせて回ります。押すと北を上に戻します。</div>
-              <div class="helpBlock"><div class="helpHead">全体表示</div><b>全体表示</b> で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。ダブルタップや方位長押しでは全体表示になりません。</div>
+              <div class="helpBlock"><div class="helpHead">ホーム</div><b>ホーム</b> で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。ダブルタップや方位長押しでは全体表示になりません。</div>
             </div>
           </div>
 
@@ -1262,9 +1253,9 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="display">
             <div class="helpSectionTitle">表示設定</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">サイズ</div><b>サイズ</b> を押すと、上部アイコンの下に機能名を表示します。もう一度押すと小さいアイコン表示へ戻ります。</div>
+              <div class="helpBlock"><div class="helpHead">アイコン</div>上部アイコンには機能名を常時表示し、現場でも押し間違えにくい配置にしています。</div>
               <div class="helpBlock"><div class="helpHead">コマンドの切替</div>計測・断面・手書き・検索などの作業中に別のコマンドを押すと、現在の作業を中止してから新しいコマンドへ切り替わります。</div>
-              <div class="helpBlock"><div class="helpHead">背景</div>図面左上のレイヤー横にある <b>背景</b> で黒背景と白背景を切り替えます。黒・白の図形色は、背景で見えなくならないよう表示時に自動調整します。</div>
+              <div class="helpBlock"><div class="helpHead">背景</div>上部の <b>ホーム</b> 右側にある <b>背景</b> で黒背景と白背景を切り替えます。黒・白の図形色は、背景で見えなくならないよう表示時に自動調整します。</div>
               <div class="helpBlock"><div class="helpHead">縦画面</div>このビューアーはスマートフォンの縦画面専用です。横向きにした場合は縦向きへ戻してください。</div>
             </div>
           </div>
@@ -1558,6 +1549,7 @@ let largeDrawingMode = false;
 let largeDrawingStats = {sourceBytes:0,features:0,vertices:0};
 let textSearchState = { raw:"", tokens:[], results:[], index:-1, exactMode:false };
 let textSearchExactMode = false;
+let textSearchNoResults = false;
 let searchHighlight = null;
 let searchHighlightUntil = 0;
 let textSearchPopupOpen = false;
@@ -1635,7 +1627,6 @@ let aerialPhotoSliderRatio = 0;
 
 const helpModal = document.getElementById("helpModal");
 const helpModalBox = document.getElementById("helpModalBox");
-const sizeToggleBtn = document.getElementById("sizeToggleBtn");
 const helpBtn = document.getElementById("helpBtn");
 const helpCloseBtn = document.getElementById("helpCloseBtn");
 const viewerSupportModal = document.getElementById("viewerSupportModal");
@@ -3364,16 +3355,15 @@ function closeViewerSupportModal(){
   if (viewerSupportModal) viewerSupportModal.style.display = "none";
 }
 
-function setToolbarHelpLabels(open){
-  toolbarHelpLabelsOpen = !!open;
-  document.body.classList.toggle("help-labels", toolbarHelpLabelsOpen);
+function setToolbarHelpLabels(_open){
+  toolbarHelpLabelsOpen = true;
+  document.body.classList.add("help-labels");
   saveUiPreferences();
 }
 
 function syncInitialToolbarHelpLabels(){
-  const initialOpen = uiPreferencesLoaded ? toolbarHelpLabelsOpen : isTouchMobileLike();
-  toolbarHelpLabelsOpen = initialOpen;
-  document.body.classList.toggle("help-labels", initialOpen);
+  toolbarHelpLabelsOpen = true;
+  document.body.classList.add("help-labels");
 }
 
 function loadUiPreferences(){
@@ -3392,7 +3382,7 @@ function loadUiPreferences(){
       const next = prefs.activePickModes.filter((v,i,a)=>allowed.includes(v) && a.indexOf(v)===i);
       if(next.length) activePickModes = next;
     }
-    toolbarHelpLabelsOpen = !!prefs.toolbarHelpLabelsOpen;
+    toolbarHelpLabelsOpen = true;
     uiPreferencesLoaded = true;
     return true;
   }catch(_e){
@@ -3415,6 +3405,7 @@ function toggleToolbarHelpLabels(){
 }
 function closeTextSearchPopup(){
   textSearchPopupOpen = false;
+  textSearchNoResults = false;
   keyboardResizeLock = false;
   updateTextSearchPopupUI();
   updateCompassUi();
@@ -3423,6 +3414,7 @@ function closeTextSearchPopup(){
 function openTextSearchPopup(){
   closePanelsExcept('textSearch');
   textSearchPopupOpen = true;
+  textSearchNoResults = false;
   keyboardResizeLock = true;
   updateTextSearchModeUI();
   updateTextSearchResultUI();
@@ -3527,8 +3519,10 @@ function runTextSearch(){
   gaTrackSearchText();
   const raw = textSearchInput ? String(textSearchInput.value || "") : "";
   if (!normalizeSearchTextValue(raw)){
+    textSearchNoResults = false;
     showToast("検索文字を入力してください", 1500);
     updateTextSearchResultUI();
+    updateModeStatus();
     return;
   }
   const currentNorm = normalizeSearchTextValue(raw);
@@ -3543,10 +3537,13 @@ function runTextSearch(){
   }
   const results = Array.isArray(textSearchState.results) ? textSearchState.results : [];
   if (!results.length){
+    textSearchNoResults = true;
     updateTextSearchResultUI();
-    showToast(textSearchExactMode ? "完全に同じ文字がありません" : "該当文字がありません", 1700);
+    updateModeStatus();
+    showToast(textSearchExactMode ? "完全に同じ文字はありません" : "該当する文字はありません", 1700);
     return;
   }
+  textSearchNoResults = false;
   if (currentNorm !== prevNorm || modeChanged || !Number.isFinite(textSearchState.index) || textSearchState.index < 0){
     textSearchState.index = 0;
   } else {
@@ -3835,7 +3832,7 @@ function getCurrentModeLabel(){
     if(!profileEndWorld) return "断面：終点を選択";
     return "断面表示中";
   }
-  if(textSearchPopupOpen) return "文字検索中";
+  if(textSearchPopupOpen) return textSearchNoResults ? "該当する文字はありません" : "文字検索中";
   if(measureMode){
     const count=Array.isArray(selectedMeasurePoints)?selectedMeasurePoints.length:0;
     return measureType==="3vertical"
@@ -7502,10 +7499,6 @@ if (textSearchOpenBtn) textSearchOpenBtn.addEventListener("click", (e)=>{
   openTextSearchPopup();
   updateStopBtnUI();
 });
-if (sizeToggleBtn) sizeToggleBtn.addEventListener("click", (e)=>{
-  e.stopPropagation();
-  toggleToolbarHelpLabels();
-});
 if (helpBtn) helpBtn.addEventListener("click", (e)=>{
   e.stopPropagation();
   openHelpModal();
@@ -7534,6 +7527,7 @@ if (textSearchNextBtn) textSearchNextBtn.addEventListener("click", ()=>{ moveTex
 if (textSearchDoneBtn) textSearchDoneBtn.addEventListener("click", ()=>{ cancelTransientOperations(); });
 if (textSearchExactToggle) textSearchExactToggle.addEventListener("click", ()=>{
   textSearchExactMode = !textSearchExactMode;
+  textSearchNoResults = false;
   textSearchState = { raw:"", tokens:[], results:[], index:-1, exactMode:!!textSearchExactMode };
   updateTextSearchModeUI();
   updateTextSearchResultUI();
@@ -7569,8 +7563,10 @@ if (textSearchInput) {
     }
   });
   textSearchInput.addEventListener("input", ()=>{
+    textSearchNoResults = false;
     textSearchState = { raw:"", tokens:[], results:[], index:-1, exactMode:!!textSearchExactMode };
     updateTextSearchResultUI();
+    updateModeStatus();
   });
 }
 document.addEventListener("click", (e)=>{
@@ -7782,7 +7778,7 @@ function getActiveToolbarCommandId(){
 }
 const toolbarCommandIds=new Set([
   "openIconBtn","fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn",
-  "textSearchOpenBtn","sizeToggleBtn","helpBtn","layerFab","bgBtn",
+  "textSearchOpenBtn","helpBtn","layerFab","bgBtn",
   "gpsDetailFab","supportBtn"
 ]);
 document.addEventListener("click",e=>{
