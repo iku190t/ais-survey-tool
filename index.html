@@ -298,6 +298,11 @@ label.fileBtn{
 #layerFab{position:absolute;left:12px;top:12px;z-index:70;}
 #gpsBtn.mapGpsFab{position:absolute;right:60px;top:12px;z-index:70;width:40px!important;height:40px!important;border-radius:999px;box-shadow:0 5px 14px rgba(0,0,0,.22);}
 #gpsBtn.mapGpsFab svg{width:22px;height:22px;}
+#gpsReturnBtn{display:none;position:absolute;left:12px;bottom:calc(38px + env(safe-area-inset-bottom));z-index:72;width:48px;height:48px;padding:0;border-radius:999px;background:var(--button);color:#1479ff;border:1px solid var(--border);box-shadow:0 6px 16px rgba(0,0,0,.3);align-items:center;justify-content:center;}
+#gpsReturnBtn.show{display:inline-flex;}
+#gpsReturnBtn svg{width:30px;height:30px;}
+#gpsReturnBtn:active{transform:scale(.94);background:rgba(47,125,255,.18);}
+@media (display-mode:standalone){#gpsReturnBtn{bottom:calc(12px + env(safe-area-inset-bottom));}}
 #layerPanel{inset:0;width:auto;max-height:none;overflow:hidden;display:none;padding:0;border-radius:0;z-index:85;flex-direction:column;}
 #layerHeader{flex:0 0 auto;background:var(--panel2);z-index:2;border-bottom:1px solid var(--border);padding:12px;}
 #layerHeaderTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
@@ -908,6 +913,12 @@ gtag('config', 'G-88B9YPJXWP');
       <circle class="gpsCore" cx="12" cy="12" r="4.8"></circle>
     </svg>
   </button>
+  <button id="gpsReturnBtn" type="button" title="現在地に戻る" aria-label="現在地に戻る">
+    <svg class="gpsDotIcon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle class="gpsHalo" cx="12" cy="12" r="8"></circle>
+      <circle class="gpsCore" cx="12" cy="12" r="4.8"></circle>
+    </svg>
+  </button>
   <button id="compassFab" title="北を上に戻す"><span class="compassFace"><span class="compassN">N</span><span class="compassNeedle"></span><span class="compassDot"></span></span></button>
   <button id="gpsDetailFab" style="position:absolute;left:12px;top:58px;bottom:auto;z-index:70;display:inline-flex;align-items:center;gap:6px;">
       <svg class="gpsDotIcon" viewBox="0 0 24 24" aria-hidden="true" style="width:17px;height:17px;flex:0 0 auto;">
@@ -1156,6 +1167,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">現在地GPS</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開始・終了</div>図面右上の方位マーク横にある <b>現在地</b> を押すとGPSを開始し、現在位置を図面上へ表示します。もう一度押すと終了し、図面を全体表示へ戻します。</div>
+              <div class="helpBlock"><div class="helpHead">現在地への追従</div>GPS開始中は現在地を画面中央へ追従します。指で図面を移動・拡大縮小・回転すると追従だけを解除し、GPSの青い点は更新を続けます。左下に現れる青い現在地ボタンを押すと中央へ戻り、追従を再開します。</div>
               <div class="helpBlock"><div class="helpHead">詳細</div>GPS開始中は左側の <b>詳細</b> から座標・誤差などを確認できます。詳細画面は同じボタンで閉じられます。</div>
               <div class="helpBlock"><div class="helpHead">図面との距離</div>現在地が図面から離れすぎている場合は、図面までのおよその距離を表示します。測地系や座標系が違う場合も大きく離れて表示されます。</div>
               <div class="helpBlock"><div class="helpHead">誤差</div>表示される誤差は端末GPSの推定値です。屋外の開けた場所で少し待つと小さくなる場合がありますが、測量成果には使用しないでください。</div>
@@ -1661,6 +1673,7 @@ const helpMenuView = document.getElementById("helpMenuView");
 const helpSectionWrap = document.getElementById("helpSectionWrap");
 const helpBackBtn = document.getElementById("helpBackBtn");
 const gpsBox = document.getElementById("gpsBox");
+const gpsReturnBtn = document.getElementById("gpsReturnBtn");
 let gpsWatchId = null;
 let gpsEnabled = false;
 let gpsFollow = true;
@@ -3097,6 +3110,11 @@ function updateGpsUi(){
     gpsDetailFab.style.color = gpsDetailOpen ? "#fff" : "";
     gpsDetailFab.style.borderColor = gpsDetailOpen ? "#0066cc" : "";
   }
+  if(gpsReturnBtn){
+    const showReturn=!!(gpsEnabled&&!gpsFollow&&gpsPosition&&hasLoadedDrawing());
+    gpsReturnBtn.classList.toggle("show",showReturn);
+    gpsReturnBtn.setAttribute("aria-hidden",showReturn?"false":"true");
+  }
   if (!gpsBox) return;
   gpsBox.style.display = gpsDetailOpen ? "block" : "none";
   const el = document.getElementById("gpsText");
@@ -3151,6 +3169,19 @@ function fitGpsInView(){
   const w = canvas.clientWidth, h = canvas.clientHeight;
   view.tx += w / 2 - sx;
   view.ty += h / 2 - sy;
+}
+function suspendGpsFollowFromUserGesture(){
+  if(!gpsEnabled||!gpsFollow)return;
+  gpsFollow=false;
+  updateGpsUi();
+}
+function resumeGpsFollow(){
+  if(!gpsEnabled||!gpsPosition)return;
+  gpsFollow=true;
+  fitGpsInView();
+  updateGpsUi();
+  scheduleDraw();
+  scheduleRecoverySnapshot();
 }
 function stopGps(fitIfFar = false){
   if (gpsWatchId != null && navigator.geolocation){
@@ -7440,6 +7471,11 @@ document.getElementById("gpsDetailFab").addEventListener("click", ()=>{
   gpsDetailOpen = !gpsDetailOpen;
   updateGpsUi();
 });
+if(gpsReturnBtn)gpsReturnBtn.addEventListener("click",event=>{
+  event.preventDefault();
+  event.stopPropagation();
+  resumeGpsFollow();
+});
 document.getElementById("textBtn").addEventListener("click", ()=>{
   showText = !showText;
   document.getElementById("textBtn").textContent = "文字: " + (showText ? "ON" : "OFF");
@@ -8302,6 +8338,7 @@ window.addEventListener("mousemove", e=>{
     return;
   }
   if(dragging){
+    suspendGpsFollowFromUserGesture();
     view.tx += e.clientX-lastX; view.ty += e.clientY-lastY;
     lastX=e.clientX; lastY=e.clientY; scheduleDraw(); return;
   }
@@ -8319,6 +8356,7 @@ canvas.addEventListener("mouseleave", ()=>{ hoverCursorScreen=null; hoverMeasure
 canvas.addEventListener("contextmenu", e=> e.preventDefault());
 canvas.addEventListener("wheel", e=>{
   e.preventDefault();
+  suspendGpsFollowFromUserGesture();
   const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
   const mx=local.x, my=local.y;
   const factor = e.deltaY<0 ? 1.16 : 1/1.16;
@@ -8329,6 +8367,7 @@ canvas.addEventListener("wheel", e=>{
 canvas.addEventListener("dblclick", e=>{
   e.preventDefault();
   if(Date.now() < suppressClickUntil) return;
+  suspendGpsFollowFromUserGesture();
   const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
   const mx=local.x, my=local.y, factor=1.9;
   setScaleAroundScreenPoint(mx, my, view.scale * factor);
@@ -8467,6 +8506,7 @@ canvas.addEventListener("touchstart", e=>{
 canvas.addEventListener("touchmove", e=>{
   if(e.touches.length===2 && touchMode==="twofinger"){
     e.preventDefault();
+    suspendGpsFollowFromUserGesture();
     pendingTouchInk = null;
     suppressTouchInkUntil = Date.now() + 420;
     scheduleDraw();
@@ -8496,6 +8536,7 @@ canvas.addEventListener("touchmove", e=>{
     const dy=clientY-oneFingerZoomGesture.startClientY;
     oneFingerZoomGesture.lastClientY=clientY;
     if(Math.abs(dy)>3) oneFingerZoomGesture.moved=true;
+    if(Math.abs(dy)>3)suspendGpsFollowFromUserGesture();
     // Google Maps convention: drag down to zoom in, drag up to zoom out.
     const factor=Math.exp(dy*0.012);
     setScaleAroundScreenPoint(oneFingerZoomGesture.anchorX,oneFingerZoomGesture.anchorY,oneFingerZoomGesture.startScale*factor);
@@ -8555,7 +8596,7 @@ canvas.addEventListener("touchmove", e=>{
       const dx = e.touches[0].clientX - lastX;
       const dy = e.touches[0].clientY - lastY;
       const total = Math.hypot(e.touches[0].clientX - touchPanCandidate.clientX, e.touches[0].clientY - touchPanCandidate.clientY);
-      if(total > 5) touchPanMoved = true;
+      if(total > 5){touchPanMoved = true;suspendGpsFollowFromUserGesture();}
       view.tx += dx;
       view.ty += dy;
       lastX = e.touches[0].clientX;
@@ -8592,6 +8633,7 @@ canvas.addEventListener("touchend", e=>{
   }
   if(touchMode==="onefingerzoom"&&oneFingerZoomGesture&&e.touches.length===0){
     if(!oneFingerZoomGesture.moved){
+      suspendGpsFollowFromUserGesture();
       setScaleAroundScreenPoint(oneFingerZoomGesture.anchorX,oneFingerZoomGesture.anchorY,oneFingerZoomGesture.startScale*1.7);
     }
     oneFingerZoomGesture=null;
