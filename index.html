@@ -658,10 +658,10 @@ body.help-labels button[data-help-label]::after{
   white-space:nowrap;
   letter-spacing:-0.02em;
 }
-/* 断面以外は、アイコンと名称を光学的な中央へ1pxだけ下げる。 */
+/* 断面以外は、アイコンと名称を光学的な中央へ合計3px下げる。 */
 body.help-labels #topbarMain button[data-help-label]:not(#profileBtn) > svg,
 body.help-labels #topbarMain button[data-help-label]:not(#profileBtn)::after{
-  transform:translateY(1px);
+  transform:translateY(3px);
 }
 body.help-labels #measurePickRow button{font-size:13px !important;}
 @media (max-width:820px){
