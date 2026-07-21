@@ -121,6 +121,8 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #terrainStatus{font-size:12px;line-height:1.55;margin-top:9px;color:var(--muted);min-height:19px;}
 #terrainStatus:empty{display:none;}
 #terrainLegend{display:none;align-items:center;gap:5px;margin-top:7px;font-size:11px;flex-wrap:wrap;}
+.terrainDemInfo{flex:0 0 100%;display:flex;flex-direction:column;gap:2px;margin-top:3px;padding-top:6px;border-top:1px solid rgba(255,255,255,.14);line-height:1.45;color:var(--muted);}
+.terrainDemInfo b{color:var(--text);font-weight:750;}
 .terrainSwatch{width:18px;height:8px;border-radius:2px;display:inline-block;}
 #terrainPanelOpenBtn{width:100%;min-height:36px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:6px 9px;font-weight:800;}
 #terrainPanelOpenBtn.active{background:#2f9e44;color:#fff;border-color:#237a35;}
@@ -1332,7 +1334,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">地形解析</div>背景画面の<b>地形解析</b>を押すと地形解析画面へ進みます。<b>閉じる</b>で背景画面へ戻ります。<b>標高</b>、<b>傾斜角</b>、<b>等高線</b>、<b>水の流れ</b>、<b>概算土量</b>は1種類だけ表示され、選択中の青いボタンをもう一度押すと解除できます。取得中は選択ボタンに進行表示が出ます。</div>
               <div class="helpBlock"><div class="helpHead">標高</div>現在見えている範囲の最低標高から最高標高までを10段階に分け、低い場所を青、高い場所を赤で表示します。凡例には実際の標高値を表示します。</div>
               <div class="helpBlock"><div class="helpHead">傾斜角</div>DEMから求めた概略傾斜を10段階で表示し、最後の区分を60度以上とします。</div>
-              <div class="helpBlock"><div class="helpHead">等高線</div>表示範囲の標高差に応じて、1m・2m・5m・10mなど見やすい間隔を自動選択します。通常の等高線と標高数字は黄色、5本ごとの計曲線は太い橙色で表示します。</div>
+              <div class="helpBlock"><div class="helpHead">等高線</div>表示範囲の標高差に応じて、1m・2m・5m・10mなど見やすい間隔を自動選択します。通常の等高線と標高数字は黄色、5本ごとの計曲線は太い橙色で表示します。凡例には、実際に使用した国土地理院DEMの種類・作成方法・標高精度の目安（標準偏差）を表示します。複数のDEMが混在する場合は、精度が低い方の標準偏差を安全側の目安として表示します。</div>
               <div class="helpBlock"><div class="helpHead">水の流れ</div>細かいDEMで方向を計算し、矢印数は高密度表示時の約10%まで間引いて低い方向を表示します。排水施設を考慮した流域解析ではありません。</div>
               <div class="helpBlock"><div class="helpHead">概算土量</div>表示範囲の平均標高を基準面として切土・盛土を概算します。正式な施工数量には使用できません。</div>
               <div class="helpBlock"><div class="helpHead">精細表示と軽量化</div>表示中の範囲だけを、倍率とDEM解像度に合わせて画面で識別できる最細密度まで自動解析します。移動・拡大後は新しい表示範囲へ自動更新し、取得済みDEMキャッシュを再利用します。</div>
@@ -1688,11 +1690,11 @@ const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v1";
 // v2 invalidates zone numbers remembered before GPS-first validation was added.
 const PROFILE_ZONE_CACHE_KEY = "sfc-dem-zones-v2";
 const PROFILE_DEM_SOURCES = [
-  {id:"DEM1A", url:"https://cyberjapandata.gsi.go.jp/xyz/dem1a_png/{z}/{x}/{y}.png", z:17},
-  {id:"DEM5A", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{z}/{x}/{y}.png", z:15},
-  {id:"DEM5B", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/{z}/{x}/{y}.png", z:15},
-  {id:"DEM5C", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5c_png/{z}/{x}/{y}.png", z:15},
-  {id:"DEM10B",url:"https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png", z:14}
+  {id:"DEM1A", method:"航空レーザ測量", standardDeviation:0.3, url:"https://cyberjapandata.gsi.go.jp/xyz/dem1a_png/{z}/{x}/{y}.png", z:17},
+  {id:"DEM5A", method:"航空レーザ測量", standardDeviation:0.3, url:"https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{z}/{x}/{y}.png", z:15},
+  {id:"DEM5B", method:"航空写真測量（画素20cm）", standardDeviation:0.7, url:"https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/{z}/{x}/{y}.png", z:15},
+  {id:"DEM5C", method:"航空写真測量（画素40cm）", standardDeviation:1.4, url:"https://cyberjapandata.gsi.go.jp/xyz/dem5c_png/{z}/{x}/{y}.png", z:15},
+  {id:"DEM10B",method:"2万5千分1地形図の等高線から作成", standardDeviation:5.0, url:"https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png", z:14}
 ];
 
 const AERIAL_PHOTO_SOURCES = [
@@ -2770,6 +2772,15 @@ function updateTerrainUi(){
   updateBackgroundIconState();
 }
 function setTerrainStatus(text){const el=document.getElementById("terrainStatus");if(el)el.textContent=text||"";}
+function terrainDemInfoHtml(grid){
+  const usedIds=[...new Set((grid?.points||[]).map(point=>point.source).filter(Boolean))];
+  const used=PROFILE_DEM_SOURCES.filter(source=>usedIds.includes(source.id));
+  if(!used.length)return "";
+  const methods=[...new Set(used.map(source=>source.method))];
+  const worstDeviation=Math.max(...used.map(source=>source.standardDeviation));
+  const mixed=used.length>1?"（混在）":"";
+  return `<span class="terrainDemInfo"><span><b>使用データ：</b>${used.map(source=>source.id).join("・")}${mixed}</span><span><b>作成方法：</b>${methods.join("／")}</span><span><b>標高精度の目安：</b>標準偏差 ${worstDeviation.toFixed(1)}m以内</span><span>出典：国土地理院</span></span>`;
+}
 function setTerrainLegend(mode){
   const el=document.getElementById("terrainLegend");if(!el)return;
   if(mode==="elevation"&&terrainElevationRange){
@@ -2779,7 +2790,7 @@ function setTerrainLegend(mode){
   }else if(mode==="slope"){
     el.style.display="flex";el.innerHTML=TERRAIN_SLOPE_BANDS.map(item=>`<span class="terrainSwatch" style="background:rgb(${item.color.join(",")})"></span>${item.label}`).join(" ");
   }else if(mode==="contour"&&terrainElevationRange){
-    el.style.display="flex";el.innerHTML='<span style="display:inline-block;width:24px;border-top:1px solid #ffd24a"></span> 等高線 <span style="display:inline-block;width:24px;border-top:2px solid #ff6b35"></span> 計曲線';
+    el.style.display="flex";el.innerHTML='<span style="display:inline-block;width:24px;border-top:1px solid #ffd24a"></span> 等高線 <span style="display:inline-block;width:24px;border-top:2px solid #ff6b35"></span> 計曲線'+terrainDemInfoHtml(terrainGrid);
   }else if(mode==="flow"){
     el.style.display="flex";el.innerHTML='<span style="color:#00a8ff;font-weight:800">→</span> 低い方向（概略）';
   }else if(mode==="volume"){
