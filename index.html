@@ -1690,15 +1690,14 @@ let terrainRefreshTimer = 0;
 let terrainHoverInfoTimer = 0;
 
 const PROFILE_TILE_CACHE = "sfc-dem-tiles-v1";
-const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v1";
+// v2 limits every elevation-dependent feature to laser-survey DEM1A/DEM5A.
+// Do not reuse older profiles that may contain DEM5B/DEM5C/DEM10B samples.
+const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v2-laser-only";
 // v2 invalidates zone numbers remembered before GPS-first validation was added.
 const PROFILE_ZONE_CACHE_KEY = "sfc-dem-zones-v2";
 const PROFILE_DEM_SOURCES = [
   {id:"DEM1A", method:"航空レーザ測量", standardDeviation:0.3, screenColor:"#27c7ff", sfcColorCode:"5", sfcColorName:"cyan", url:"https://cyberjapandata.gsi.go.jp/xyz/dem1a_png/{z}/{x}/{y}.png", z:17},
-  {id:"DEM5A", method:"航空レーザ測量", standardDeviation:0.3, screenColor:"#35c96f", sfcColorCode:"3", sfcColorName:"green", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{z}/{x}/{y}.png", z:15},
-  {id:"DEM5B", method:"航空写真測量（画素20cm）", standardDeviation:0.7, screenColor:"#ffd23f", sfcColorCode:"7", sfcColorName:"yellow", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/{z}/{x}/{y}.png", z:15},
-  {id:"DEM5C", method:"航空写真測量（画素40cm）", standardDeviation:1.4, screenColor:"#ff8c32", sfcColorCode:"6", sfcColorName:"magenta", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5c_png/{z}/{x}/{y}.png", z:15},
-  {id:"DEM10B",method:"2万5千分1地形図の等高線から作成", standardDeviation:5.0, screenColor:"#ff4b4b", sfcColorCode:"2", sfcColorName:"red", url:"https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png", z:14}
+  {id:"DEM5A", method:"航空レーザ測量", standardDeviation:0.3, screenColor:"#35c96f", sfcColorCode:"3", sfcColorName:"green", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{z}/{x}/{y}.png", z:15}
 ];
 
 const AERIAL_PHOTO_SOURCES = [
@@ -2964,7 +2963,7 @@ function getProfileSourceRuns(samples=profileData?.samples||[]){
   for(const sample of samples){
     if(!sample||!Number.isFinite(sample.elevation)||!Number.isFinite(sample.distance)){previous=null;current=null;continue;}
     if(previous){
-      const sourceId=sample.source||previous.source||"DEM10B";
+      const sourceId=sample.source||previous.source||"DEM5A";
       if(!current||current.sourceId!==sourceId){current={sourceId,samples:[previous,sample]};runs.push(current);}
       else current.samples.push(sample);
     }
