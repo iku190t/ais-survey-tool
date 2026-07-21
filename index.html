@@ -385,6 +385,8 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #aerialPhotoPanel .photoSettingRow{display:flex;align-items:center;justify-content:space-between;gap:9px;min-height:37px;border-top:1px solid rgba(128,128,128,.22);}
 #aerialPhotoPanel .photoSettingRow:first-of-type{border-top:0;}
 #aerialPhotoPanel .photoSettingLabel{font-size:13px;font-weight:700;}
+#aerialPhotoPanel .photoSettingLabel.mapLabel{max-width:205px;line-height:1.35;}
+.mapSettingStatus{font-size:11px;line-height:1.4;color:var(--muted);margin:-1px 0 3px;}
 #backgroundSegment{display:grid;grid-template-columns:1fr 1fr;min-width:124px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 #backgroundSegment button{min-height:30px;padding:4px 9px;border:0;border-radius:0;background:var(--button);color:var(--buttonText);font-weight:700;}
 #backgroundSegment button+button{border-left:1px solid var(--border);}
@@ -1076,6 +1078,11 @@ gtag('config', 'G-88B9YPJXWP');
       <span class="photoSettingLabel">航空写真</span>
       <label class="photoSwitch"><input id="photoToggleSwitch" type="checkbox" aria-label="航空写真を表示"><span class="photoSwitchTrack"></span></label>
     </div>
+    <div class="photoSettingRow">
+      <span class="photoSettingLabel mapLabel">地図（道路・建物・地名・鉄道・行政界・水域）</span>
+      <label class="photoSwitch"><input id="vectorMapToggleSwitch" type="checkbox" aria-label="道路・建物・地名・鉄道・行政界・水域を表示"><span class="photoSwitchTrack"></span></label>
+    </div>
+    <div id="vectorMapStatus" class="mapSettingStatus"></div>
     <div id="photoTimeLabel"></div>
     <div id="photoTimeSlider" class="disabled" role="slider" tabindex="0" aria-label="航空写真の年代" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-disabled="true">
       <div id="photoTimeTrack"><div id="photoTimeFill"></div><div id="photoTimeThumb"></div></div>
@@ -1329,6 +1336,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">背景色</div>上部の <b>背景</b> を押し、黒・白のうち表示したい背景色を選びます。青色になっている方が現在の設定です。</div>
               <div class="helpBlock"><div class="helpHead">航空写真</div><b>航空写真</b> のスイッチをONにすると、現在の場所で実際に利用できる写真年代を自動確認します。OFFの状態でもスライダーを操作すると自動的にONになります。</div>
+              <div class="helpBlock"><div class="helpHead">地図</div><b>地図（道路・建物・地名・鉄道・行政界・水域）</b>をONにすると、図面と同じ位置の地理院地図Vectorを重ねます。表示中の範囲だけ通信で取得し、等高線など地形解析の要素は混ぜません。</div>
               <div class="helpBlock"><div class="helpHead">年代の変更</div>つまみは指に合わせて滑らかに動き、移動中は最も近い利用可能な年代の写真へ切り替わります。指を離すと、その年代の位置へ吸着します。左端が最新で、右へ動かすほど古くなります。</div>
               <div class="helpBlock"><div class="helpHead">閉じる・非表示</div><b>閉じる</b> は選んだ航空写真を残して設定画面だけ閉じます。航空写真を消す場合はスイッチをOFFにしてください。</div>
               <div class="helpBlock"><div class="helpHead">写真がない場合</div>その場所で利用できる航空写真が一枚もない場合は、メッセージを表示してスイッチをOFFへ戻します。</div>
@@ -1728,6 +1736,13 @@ const aerialPhotoProbeCache = new Map();
 let aerialPhotoSliderDragging = false;
 let aerialPhotoSliderRatio = 0;
 
+const VECTOR_BASE_MAP_URL = "https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/{z}/{x}/{y}.pbf";
+const vectorBaseMapTileCache = new Map();
+let vectorBaseMapEnabled = false;
+let vectorBaseMapZone = null;
+let vectorBaseMapResolveBusy = false;
+let vectorTileDecoderPromise = null;
+
 const helpModal = document.getElementById("helpModal");
 const helpModalBox = document.getElementById("helpModalBox");
 const helpBtn = document.getElementById("helpBtn");
@@ -1746,6 +1761,8 @@ const photoTimeThumb = document.getElementById("photoTimeThumb");
 const photoTimeLabel = document.getElementById("photoTimeLabel");
 const photoStatus = document.getElementById("photoStatus");
 const photoToggleSwitch = document.getElementById("photoToggleSwitch");
+const vectorMapToggleSwitch = document.getElementById("vectorMapToggleSwitch");
+const vectorMapStatus = document.getElementById("vectorMapStatus");
 const photoCredit = document.getElementById("photoCredit");
 const profileCloseBtn = document.getElementById("profileCloseBtn");
 const profileSizeToggleBtn = document.getElementById("profileSizeToggleBtn");
@@ -2291,14 +2308,19 @@ function updateAerialPhotoUi(){
   }
   if(photoTimeLabel) photoTimeLabel.textContent=source?source.label:(aerialPhotoResolveBusy?"利用できる年代を確認中…":"");
   if(photoToggleSwitch) photoToggleSwitch.checked=aerialPhotoEnabled;
-  if(photoCredit) photoCredit.classList.toggle("show",aerialPhotoEnabled);
+  if(vectorMapToggleSwitch)vectorMapToggleSwitch.checked=vectorBaseMapEnabled;
+  if(photoCredit){
+    photoCredit.classList.toggle("show",aerialPhotoEnabled||vectorBaseMapEnabled);
+    photoCredit.textContent=aerialPhotoEnabled&&vectorBaseMapEnabled?"出典：国土地理院 地理院タイル・地理院地図Vector":(vectorBaseMapEnabled?"出典：国土地理院 地理院地図Vector":"出典：国土地理院 地理院タイル");
+    photoCredit.href=vectorBaseMapEnabled?"https://maps.gsi.go.jp/vector/":"https://maps.gsi.go.jp/development/ichiran.html";
+  }
   document.getElementById("backgroundBlackBtn")?.classList.toggle("selected",darkTheme);
   document.getElementById("backgroundWhiteBtn")?.classList.toggle("selected",!darkTheme);
   updateBackgroundIconState();
 }
 function updateBackgroundIconState(){
   const btn=document.getElementById("bgBtn");if(!btn)return;
-  const terrainActive=!!(terrainMode||terrainLoading),photoActive=!!aerialPhotoEnabled;
+  const terrainActive=!!(terrainMode||terrainLoading),photoActive=!!(aerialPhotoEnabled||vectorBaseMapEnabled);
   btn.classList.toggle("bgAerialActive",photoActive&&!terrainActive);
   btn.classList.toggle("bgTerrainActive",terrainActive&&!photoActive);
   btn.classList.toggle("bgBothActive",terrainActive&&photoActive);
@@ -2439,6 +2461,177 @@ function drawAerialPhoto(w,h){
     console.error(e);
     setAerialPhotoStatus("航空写真を表示できません。図面の座標系を確認してください。");
   }
+}
+function setVectorMapStatus(message){
+  if(vectorMapStatus&&vectorMapStatus.textContent!==(message||""))vectorMapStatus.textContent=message||"";
+}
+function vectorBaseMapUrl(z,x,y){
+  return VECTOR_BASE_MAP_URL.replace("{z}",z).replace("{x}",x).replace("{y}",y);
+}
+function classifyVectorBaseLayer(name){
+  const n=String(name||"").toLowerCase();
+  if(/anno|label|symbol|name/.test(n))return "label";
+  if(/rail|鉄道/.test(n))return "rail";
+  if(/boundary|admin|界線|行政/.test(n))return "boundary";
+  if(/building|bld|建物/.test(n))return "building";
+  if(/water|river|lake|coast|海岸|河川|水域/.test(n))return "water";
+  if(/road|rdcl|道路/.test(n))return "road";
+  return "";
+}
+function vectorBaseFeatureText(properties){
+  if(!properties)return "";
+  for(const key of ["knj","name","text","label","anno","kana"]){
+    const value=properties[key];
+    if(value!=null&&String(value).trim())return String(value).trim();
+  }
+  return "";
+}
+async function loadVectorTileDecoder(){
+  if(!vectorTileDecoderPromise){
+    vectorTileDecoderPromise=Promise.all([
+      import("https://esm.sh/@mapbox/vector-tile@1.3.1?bundle"),
+      import("https://esm.sh/pbf@3.2.1?bundle")
+    ]).then(([vectorTileModule,pbfModule])=>({
+      VectorTile:vectorTileModule.VectorTile,
+      Pbf:pbfModule.default||pbfModule.Pbf
+    })).catch(error=>{vectorTileDecoderPromise=null;throw error;});
+  }
+  return vectorTileDecoderPromise;
+}
+function paintVectorBaseFeature(tileCtx,feature,kind,scale){
+  let geometry;
+  try{geometry=feature.loadGeometry();}catch(_error){return;}
+  if(!geometry||!geometry.length)return;
+  const stroke={road:"#dca64b",rail:"#76583d",boundary:"#b55dad",water:"#5caee8",building:"#8d8d8d"}[kind]||"#666";
+  const fill={water:"rgba(80,165,220,.42)",building:"rgba(135,135,135,.38)"}[kind]||"rgba(0,0,0,0)";
+  tileCtx.save();
+  tileCtx.lineCap="round";tileCtx.lineJoin="round";
+  if(kind==="label"){
+    const text=vectorBaseFeatureText(feature.properties);
+    if(!text)return tileCtx.restore();
+    const first=geometry[0]&&geometry[0][0];
+    if(!first)return tileCtx.restore();
+    const fontSize=11;
+    tileCtx.font=`600 ${fontSize}px -apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif`;
+    tileCtx.textAlign="center";tileCtx.textBaseline="middle";
+    tileCtx.lineWidth=3;tileCtx.strokeStyle="rgba(255,255,255,.9)";
+    tileCtx.strokeText(text,first.x*scale,first.y*scale);
+    tileCtx.fillStyle="#303030";tileCtx.fillText(text,first.x*scale,first.y*scale);
+    return tileCtx.restore();
+  }
+  tileCtx.beginPath();
+  for(const part of geometry){
+    if(!part.length)continue;
+    tileCtx.moveTo(part[0].x*scale,part[0].y*scale);
+    for(let i=1;i<part.length;i++)tileCtx.lineTo(part[i].x*scale,part[i].y*scale);
+    if(feature.type===3)tileCtx.closePath();
+  }
+  if(feature.type===3&&(kind==="water"||kind==="building")){
+    tileCtx.fillStyle=fill;tileCtx.fill("evenodd");
+  }
+  if(feature.type!==1){
+    tileCtx.strokeStyle=stroke;
+    tileCtx.lineWidth=kind==="road"?1.35:(kind==="rail"?1.15:.85);
+    if(kind==="boundary")tileCtx.setLineDash([4,3]);
+    tileCtx.stroke();
+  }
+  tileCtx.restore();
+}
+async function createVectorBaseMapTile(z,x,y){
+  const url=vectorBaseMapUrl(z,x,y);
+  const response=await fetch(url,{mode:"cors",cache:"force-cache"});
+  if(!response.ok)throw new Error(`地図タイル ${response.status}`);
+  const buffer=await response.arrayBuffer();
+  const {VectorTile,Pbf}=await loadVectorTileDecoder();
+  if(!VectorTile||!Pbf)throw new Error("地図の解析機能を読み込めません");
+  const tile=new VectorTile(new Pbf(new Uint8Array(buffer)));
+  const offscreen=document.createElement("canvas");offscreen.width=512;offscreen.height=512;
+  const tileCtx=offscreen.getContext("2d");
+  const orderedKinds=["water","building","boundary","rail","road","label"];
+  let drawn=0,labelCount=0;
+  for(const kind of orderedKinds){
+    for(const [layerName,layer] of Object.entries(tile.layers||{})){
+      if(classifyVectorBaseLayer(layerName)!==kind)continue;
+      const scale=512/(layer.extent||4096);
+      for(let i=0;i<layer.length;i++){
+        const feature=layer.feature(i);
+        if(kind==="label"&&labelCount++>70)break;
+        paintVectorBaseFeature(tileCtx,feature,kind,scale);drawn++;
+      }
+    }
+  }
+  return {canvas:offscreen,drawn};
+}
+function getVectorBaseMapTile(z,x,y){
+  const key=`${z}/${x}/${y}`;
+  let entry=vectorBaseMapTileCache.get(key);
+  if(entry){entry.used=Date.now();return entry;}
+  entry={state:"loading",canvas:null,drawn:0,used:Date.now()};
+  vectorBaseMapTileCache.set(key,entry);
+  createVectorBaseMapTile(z,x,y).then(result=>{
+    entry.state="loaded";entry.canvas=result.canvas;entry.drawn=result.drawn;entry.used=Date.now();scheduleDraw();
+  }).catch(error=>{
+    console.error("Vector base map tile failed",error);entry.state="error";entry.used=Date.now();scheduleDraw();
+  });
+  if(vectorBaseMapTileCache.size>120){
+    const removable=[...vectorBaseMapTileCache.entries()].filter(([,value])=>value.state!=="loading").sort((a,b)=>a[1].used-b[1].used).slice(0,24);
+    for(const [oldKey] of removable)vectorBaseMapTileCache.delete(oldKey);
+  }
+  return entry;
+}
+async function enableVectorBaseMap(){
+  if(vectorBaseMapResolveBusy)return;
+  if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
+  vectorBaseMapEnabled=true;vectorBaseMapResolveBusy=true;updateAerialPhotoUi();setVectorMapStatus("図面の位置を確認中…");
+  try{
+    vectorBaseMapZone=await resolveProfileZone();
+    if(!vectorBaseMapZone)throw new Error("座標系未判定");
+    setVectorMapStatus("表示中（必要な範囲だけ読み込みます）");
+  }catch(error){
+    console.error("Vector base map enable failed",error);vectorBaseMapEnabled=false;vectorBaseMapZone=null;
+    const reason=String(error&&error.message||error).includes("座標系")?"座標系未判定":"通信失敗";
+    setVectorMapStatus(`地図を表示できません（${reason}）`);showToast(`地図を表示できません（${reason}）`,2600);
+  }finally{
+    vectorBaseMapResolveBusy=false;updateAerialPhotoUi();scheduleDraw();
+  }
+}
+function drawVectorBaseMap(w,h){
+  if(!vectorBaseMapEnabled||!vectorBaseMapZone||!ensureProj4Defs())return;
+  try{
+    const centerWorld=screenToWorld(w/2,h/2);
+    const centerPlane=sfcWorldToPlane(centerWorld[0],centerWorld[1]);
+    const centerLl=jgd2024XYToLatLon(centerPlane.xNorth,centerPlane.yEast,vectorBaseMapZone);
+    const metersPerPixel=1/Math.max(.000001,view.scale*1000);
+    const idealZ=Math.round(Math.log2(156543.03392*Math.max(.15,Math.cos(centerLl.lat*Math.PI/180))/metersPerPixel));
+    const z=Math.max(5,Math.min(16,idealZ));
+    const tileCorners=[[0,0],[w,0],[w,h],[0,h]].map(([sx,sy])=>{
+      const world=screenToWorld(sx,sy),plane=sfcWorldToPlane(world[0],world[1]);
+      const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,vectorBaseMapZone);
+      return aerialPhotoTileFloat(ll.lat,ll.lon,z);
+    });
+    const n=2**z;
+    let minX=Math.max(0,Math.floor(Math.min(...tileCorners.map(v=>v.x)))-1),maxX=Math.min(n-1,Math.floor(Math.max(...tileCorners.map(v=>v.x)))+1);
+    let minY=Math.max(0,Math.floor(Math.min(...tileCorners.map(v=>v.y)))-1),maxY=Math.min(n-1,Math.floor(Math.max(...tileCorners.map(v=>v.y)))+1);
+    if((maxX-minX+1)*(maxY-minY+1)>25){
+      const center=aerialPhotoTileFloat(centerLl.lat,centerLl.lon,z),cx=Math.floor(center.x),cy=Math.floor(center.y);
+      minX=Math.max(0,cx-2);maxX=Math.min(n-1,cx+2);minY=Math.max(0,cy-2);maxY=Math.min(n-1,cy+2);
+    }
+    let loaded=0,pending=0,failed=0;
+    for(let ty=minY;ty<=maxY;ty++)for(let tx=minX;tx<=maxX;tx++){
+      const entry=getVectorBaseMapTile(z,tx,ty);
+      if(entry.state==="loading"){pending++;continue;}
+      if(entry.state!=="loaded"){failed++;continue;}
+      if(!entry.drawn)continue;
+      loaded++;
+      const tl=aerialPhotoCornerScreen(tx,ty,z,vectorBaseMapZone),tr=aerialPhotoCornerScreen(tx+1,ty,z,vectorBaseMapZone),bl=aerialPhotoCornerScreen(tx,ty+1,z,vectorBaseMapZone);
+      ctx.save();ctx.globalAlpha=.92;ctx.imageSmoothingEnabled=true;
+      ctx.transform((tr[0]-tl[0])/512,(tr[1]-tl[1])/512,(bl[0]-tl[0])/512,(bl[1]-tl[1])/512,tl[0],tl[1]);
+      ctx.drawImage(entry.canvas,0,0,512,512);ctx.restore();
+    }
+    if(pending)setVectorMapStatus("地図を読み込み中…");
+    else if(loaded)setVectorMapStatus("表示中（道路・建物・地名・鉄道・行政界・水域）");
+    else if(failed)setVectorMapStatus("地図を表示できません（通信失敗）");
+  }catch(error){console.error("Vector base map draw failed",error);setVectorMapStatus("地図を表示できません（座標系未判定）");}
 }
 function profileDemUrl(source, ref){
   return source.url.replace("{z}", source.z).replace("{x}", ref.x).replace("{y}", ref.y);
@@ -6109,6 +6302,7 @@ function draw(){
   ctx.fillStyle=bgColor();
   ctx.fillRect(0,0,w,h);
   drawAerialPhoto(w,h);
+  drawVectorBaseMap(w,h);
 
   const totalCount=data.lines.length+data.polys.length+data.texts.length+data.circles.length+(data.arcs?.length||0)+(data.ellipses?.length||0)+(data.ellipseArcs?.length||0);
   if(totalCount){
@@ -6375,6 +6569,7 @@ function resetSessionFromLoad(){
   if(profileModal) profileModal.classList.remove("open","expanded");
   aerialPhotoEnableRequestId++;aerialPhotoEnabled=false;aerialPhotoZone=null;aerialPhotoResolveBusy=false;
   aerialAvailableSources=[];aerialPhotoSourceIndex=0;aerialPhotoAvailabilityKey="";
+  vectorBaseMapEnabled=false;vectorBaseMapZone=null;vectorBaseMapResolveBusy=false;setVectorMapStatus("");
   inkEnabled=false; inkDrawing=false; currentStroke=null; pendingTouchInk=null; suppressTouchInkUntil=0;
   hoverCursorScreen=null; flashCursorScreen=null; flashCursorUntil=0;
   updateModeIcons();
@@ -8545,6 +8740,13 @@ photoToggleSwitch?.addEventListener("change",async()=>{
     aerialPhotoEnableRequestId++;
     aerialPhotoResolveBusy=false;aerialPhotoEnabled=false;updateAerialPhotoUi();
     setAerialPhotoStatus("航空写真は表示していません。");scheduleDraw();
+  }
+});
+vectorMapToggleSwitch?.addEventListener("change",async()=>{
+  if(vectorMapToggleSwitch.checked)await enableVectorBaseMap();
+  else{
+    vectorBaseMapEnabled=false;vectorBaseMapResolveBusy=false;vectorBaseMapZone=null;
+    setVectorMapStatus("");updateAerialPhotoUi();scheduleDraw();
   }
 });
 function activateAerialPhotoFromSlider(){
