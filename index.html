@@ -3702,6 +3702,7 @@ function loadUiPreferences(){
     if(Number.isFinite(+prefs.inkCircleSize)) inkCircleSize = Math.max(1.6,Math.min(80,+prefs.inkCircleSize));
     if(Number.isFinite(+prefs.inkOpacity)) inkOpacity = Math.max(0,Math.min(1,+prefs.inkOpacity));
     if(prefs.inkTool === "line" || prefs.inkTool === "circle") inkTool = prefs.inkTool;
+    if(typeof prefs.inkEraser === "boolean") inkEraser = prefs.inkEraser;
     if(Array.isArray(prefs.activePickModes)){
       const allowed = ["center","cross","end","line","free"];
       const next = prefs.activePickModes
@@ -3719,10 +3720,16 @@ function loadUiPreferences(){
 function saveUiPreferences(){
   try{
     localStorage.setItem(UI_PREFERENCES_KEY,JSON.stringify({
-      inkColor, inkWidth, inkCircleSize, inkOpacity, inkTool,
+      inkColor, inkWidth, inkCircleSize, inkOpacity, inkTool, inkEraser,
       activePickModes:[...activePickModes], toolbarHelpLabelsOpen
     }));
   }catch(_e){}
+}
+
+function resetInkToolForNewDrawing(){
+  inkTool = "line";
+  inkEraser = false;
+  saveUiPreferences();
 }
 
 function toggleToolbarHelpLabels(){
@@ -8223,6 +8230,7 @@ function handleLoadedHtmlPayload(payload, fileName, handleOverride){
   layerVisibility = payload && payload.layerVisibility ? payload.layerVisibility : {};
   layerColorOverrides = payload && payload.layerColorOverrides ? payload.layerColorOverrides : {};
   if (!count){ showToast("このHTML図面は読めません"); draw(); return; }
+  resetInkToolForNewDrawing();
   rotationDeg = Number.isFinite(+(payload && payload.rotationDeg)) ? +(payload && payload.rotationDeg) : determineBestRotation(data);
   initialLoadRotationDeg = rotationDeg;
   updateThemeUI();
@@ -8265,6 +8273,7 @@ async function handleLoadedSource(srcText, fileName, handleOverride){
   updateUndoRedoUI();
   updateStopBtnUI();
   if(!count){ showToast("このSFCは読めません"); draw(); return; }
+  resetInkToolForNewDrawing();
   rotationDeg = determineBestRotation(data);
   initialLoadRotationDeg = rotationDeg;
   migrateMemoLayerCirclesFromDataToInk();
@@ -9085,10 +9094,6 @@ document.getElementById("drawBtn").addEventListener("click", ()=>{
     updateInkUI();updateStopBtnUI();scheduleDraw();
     return;
   }
-  // 手書きメモを開くたびに、必ず「線」から開始する。
-  inkEraser = false;
-  inkTool = "line";
-  saveUiPreferences();
   inkEnabled = true;
   closePanelsExcept('draw');
   drawPanel.style.display = "block";
@@ -9156,6 +9161,7 @@ document.getElementById("eraserBtn").addEventListener("click", ()=>{
   }
   inkEnabled = true;
   inkEraser = true;
+  saveUiPreferences();
   drawPanel.style.display = "block";
   updateInkUI();
   updateStopBtnUI();
@@ -9880,6 +9886,7 @@ if (window.__EMBED_PAYLOAD_B64__) {
       layerVisibility = payload.layerVisibility || {};
       layerColorOverrides = payload.layerColorOverrides || {};
       inkStrokes = Array.isArray(payload.inkStrokes) ? migrateInkStrokesToSingleFormat(payload.inkStrokes) : [];
+      resetInkToolForNewDrawing();
       if (payload.view) view = payload.view;
       rotationDeg = Number.isFinite(+payload.rotationDeg) ? +payload.rotationDeg : determineBestRotation(data);
       initialLoadRotationDeg = rotationDeg;
