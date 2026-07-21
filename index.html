@@ -598,6 +598,8 @@ body.light #compassFab .compassN{
 }
 #compassMenu.open{display:grid;gap:7px;}
 #compassMenu button{width:100%;min-height:38px;padding:7px 9px;font-size:13px;font-weight:700;text-align:center;}
+#compassMenu button.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
+#compassFab.following .compassFace{border-color:#1677ff;box-shadow:0 0 0 3px rgba(22,119,255,.38),inset 0 0 0 1px rgba(255,255,255,.28);}
 body.light #compassMenu{background:rgba(255,255,255,.92);}
 
 
@@ -960,7 +962,7 @@ gtag('config', 'G-88B9YPJXWP');
   <button id="compassFab" title="北を上に戻す"><span class="compassFace"><span class="compassN">N</span><span class="compassNeedle"></span><span class="compassDot"></span></span></button>
   <div id="compassMenu" role="dialog" aria-label="図面の向き">
     <button id="compassNorthBtn" type="button">北を上</button>
-    <button id="compassFieldBtn" type="button">図面を現場の向き</button>
+    <button id="compassFieldBtn" type="button" aria-pressed="false">現場の向きに追従</button>
   </div>
   <button id="gpsDetailFab" style="position:absolute;left:12px;top:58px;bottom:auto;z-index:70;display:inline-flex;align-items:center;gap:6px;">
       <svg class="gpsDotIcon" viewBox="0 0 24 24" aria-hidden="true" style="width:17px;height:17px;flex:0 0 auto;">
@@ -1295,7 +1297,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">1本指</div>通常時は1本指で図面を移動できます。1本指で2回タップし、2回目の指を離さず下へ動かすと拡大、上へ動かすと縮小します。</div>
               <div class="helpBlock"><div class="helpHead">2本指</div>2本指で移動・拡大縮小・回転できます。</div>
-              <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークを押すと、<b>北を上</b>または<b>図面を現場の向き</b>を選べます。後者はスマホの方位センサーを使い、図面を実際の現場と同じ向きに合わせます。</div>
+              <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークを押すと、<b>北を上</b>または<b>現場の向きに追従</b>を選べます。追従中は方位マークとボタンが青くなり、スマホの向きに合わせて図面が自動回転します。もう一度押すと追従を停止します。</div>
               <div class="helpBlock"><div class="helpHead">ホーム／閉じる</div>通常時は<b>ホーム</b>で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。画面や作業を開いている間は薄い赤の<b>閉じる</b>に変わり、図面位置を変えずに現在の画面・作業だけを終了します。ダブルタップや方位長押しでは全体表示になりません。</div>
               <div class="helpBlock"><div class="helpHead">縦画面専用</div>このアプリは縦画面用です。端末が横向きになった場合は、縦向きへ戻す案内を表示します。</div>
               <div class="helpBlock"><div class="helpHead">青いボタン</div>ファイル・背景・計測・断面・手書き・検索・ヘルプは起動中に青くなります。同じボタンをもう一度押すと終了します。</div>
@@ -1538,6 +1540,8 @@ const compassN = compassFab ? compassFab.querySelector(".compassN") : null;
 const compassMenu = document.getElementById("compassMenu");
 const compassNorthBtn = document.getElementById("compassNorthBtn");
 const compassFieldBtn = document.getElementById("compassFieldBtn");
+let compassFollowEnabled = false;
+let compassFollowLastAppliedAt = 0;
 
 let data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [], ellipseArcs: [], markers: [], layerNames: {}, source_name: "" };
 /*__EMBED_PAYLOAD_START__*/ window.__EMBED_PAYLOAD_B64__ = ""; /*__EMBED_PAYLOAD_END__*/
@@ -4846,6 +4850,42 @@ async function requestCurrentDeviceHeading(){
     window.addEventListener("deviceorientationabsolute",onOrientation,true);
     window.addEventListener("deviceorientation",onOrientation,true);
   });
+}
+function updateCompassFollowUi(){
+  compassFieldBtn?.classList.toggle("active",compassFollowEnabled);
+  compassFieldBtn?.setAttribute("aria-pressed",compassFollowEnabled?"true":"false");
+  compassFab?.classList.toggle("following",compassFollowEnabled);
+}
+function applyCompassFollowHeading(heading,force=false){
+  if(!Number.isFinite(heading))return;
+  const target=normalizeRotation360(getNorthUpRotationDeg()+heading);
+  const delta=normalizeAngleDeltaDeg(target-rotationDeg);
+  if(!force&&Math.abs(delta)<1)return;
+  setDrawingRotationPreserveCenter(rotationDeg+delta);
+}
+function onCompassFollowOrientation(event){
+  if(!compassFollowEnabled)return;
+  const heading=headingFromOrientationEvent(event);
+  if(!Number.isFinite(heading))return;
+  const now=performance.now();
+  if(now-compassFollowLastAppliedAt<50)return;
+  compassFollowLastAppliedAt=now;
+  applyCompassFollowHeading(heading);
+}
+function stopCompassFollow(){
+  compassFollowEnabled=false;
+  window.removeEventListener("deviceorientationabsolute",onCompassFollowOrientation,true);
+  window.removeEventListener("deviceorientation",onCompassFollowOrientation,true);
+  updateCompassFollowUi();
+}
+async function startCompassFollow(){
+  const heading=await requestCurrentDeviceHeading();
+  compassFollowEnabled=true;
+  compassFollowLastAppliedAt=0;
+  window.addEventListener("deviceorientationabsolute",onCompassFollowOrientation,true);
+  window.addEventListener("deviceorientation",onCompassFollowOrientation,true);
+  updateCompassFollowUi();
+  applyCompassFollowHeading(heading,true);
 }
 function updateCompassUi(){
   const deg = normalizeRotation360(getNorthUpRotationDeg()-rotationDeg);
@@ -9695,23 +9735,29 @@ if (compassFab) {
 }
 compassNorthBtn?.addEventListener("click",event=>{
   event.stopPropagation();
+  stopCompassFollow();
   setDrawingRotationPreserveCenter(getNorthUpRotationDeg());
   setCompassMenuOpen(false);
 });
 compassFieldBtn?.addEventListener("click",async event=>{
   event.stopPropagation();
-  const originalText=compassFieldBtn.textContent;
+  if(compassFollowEnabled){
+    stopCompassFollow();
+    setCompassMenuOpen(false);
+    return;
+  }
   compassFieldBtn.disabled=true;
   compassFieldBtn.textContent="方位を取得中…";
   try{
-    const heading=await requestCurrentDeviceHeading();
-    setDrawingRotationPreserveCenter(getNorthUpRotationDeg()+heading);
+    await startCompassFollow();
     setCompassMenuOpen(false);
   }catch(error){
+    stopCompassFollow();
     showToast(error&&error.message?error.message:"方位を取得できません",2600);
   }finally{
     compassFieldBtn.disabled=false;
-    compassFieldBtn.textContent=originalText;
+    compassFieldBtn.textContent="現場の向きに追従";
+    updateCompassFollowUi();
   }
 });
 compassMenu?.addEventListener("click",event=>event.stopPropagation());

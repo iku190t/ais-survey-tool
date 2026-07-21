@@ -77,9 +77,12 @@ const required=[
   'function getNorthUpRotationDeg()',
   'planeToSfcWorld(1,0)',
   'getNorthUpRotationDeg()-rotationDeg',
-  '図面を現場の向き',
+  '現場の向きに追従',
   'DeviceOrientationEvent.requestPermission()',
   'getNorthUpRotationDeg()+heading',
+  'function startCompassFollow()',
+  'function stopCompassFollow()',
+  'onCompassFollowOrientation',
   'setDrawingRotationPreserveCenter(targetRotationDeg)'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`missing implementation: ${token}`);
