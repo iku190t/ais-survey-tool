@@ -29,8 +29,9 @@
       #nearbyShareTitle{font-size:15px;font-weight:800}
       #nearbyShareCloseBtn{min-width:62px;min-height:32px;padding:4px 9px;font-size:12px}
       #nearbyShareStatus{font-size:13px;line-height:1.65;text-align:center;white-space:pre-line}
-      #nearbyShareQr{display:none;width:214px;height:214px;margin:10px auto;padding:8px;box-sizing:border-box;border-radius:10px;background:#fff;align-items:center;justify-content:center}
-      #nearbyShareQr img,#nearbyShareQr canvas{display:block!important;width:198px!important;height:198px!important}
+      #nearbyShareQr{display:none!important;width:274px!important;height:274px!important;min-width:274px!important;min-height:274px!important;max-width:274px!important;max-height:274px!important;aspect-ratio:1/1!important;margin:10px auto!important;padding:15px!important;overflow:hidden!important;box-sizing:border-box!important;border-radius:10px;background:#fff;flex:none!important;align-items:center;justify-content:center}
+      #nearbyShareQr[style*="flex"]{display:flex!important}
+      #nearbyShareQr img,#nearbyShareQr canvas,#nearbyShareQr table{display:block!important;width:244px!important;height:244px!important;min-width:244px!important;min-height:244px!important;max-width:244px!important;max-height:244px!important;aspect-ratio:1/1!important;object-fit:contain!important;margin:0!important;padding:0!important;border:0!important;box-sizing:border-box!important}
       #nearbyShareFile{margin-top:7px;font-size:12px;font-weight:800;text-align:center;overflow-wrap:anywhere}
       #nearbyShareExpire{margin-top:5px;font-size:11px;color:var(--muted);text-align:center}
       #nearbyShareProgressWrap{display:none;margin:12px 0 4px}
@@ -210,8 +211,16 @@
         const url=new URL(location.href);url.hash=`nearby=${id}.${senderSession.token}`;
         senderSession.shareUrl=url.href;
         const qr=byId("nearbyShareQr");qr.innerHTML="";qr.style.display="flex";
-        new QRCode(qr,{text:url.href,width:198,height:198,colorDark:"#000000",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
-        setStatus("相手のスマホでQRを読み取ってください");
+        new QRCode(qr,{text:url.href,width:244,height:244,colorDark:"#000000",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
+        const qrGraphic=qr.querySelector("canvas,img,table");
+        if(qrGraphic){
+          qrGraphic.setAttribute("width","244");
+          qrGraphic.setAttribute("height","244");
+          qrGraphic.style.setProperty("width","244px","important");
+          qrGraphic.style.setProperty("height","244px","important");
+          qrGraphic.style.setProperty("aspect-ratio","1 / 1","important");
+        }
+        setStatus("相手のスマホの標準カメラでQRを読み取ってください\n（iPhoneはコードスキャナーへの切替不要です）");
         startExpiryCountdown();
       });
       peer.on("connection",handleSenderConnection);
