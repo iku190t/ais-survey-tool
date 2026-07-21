@@ -1774,6 +1774,38 @@ function getLoadedSfcBoundsWorld(){
     return null;
   }
 }
+function calcDistanceFromPlaneToSfcBoundsMeters(xNorth,yEast,useMeshTransform=!!activeCoordinateMeshTransform){
+  const bounds=getLoadedSfcBoundsWorld();
+  if(!bounds||!Number.isFinite(xNorth)||!Number.isFinite(yEast)) return null;
+  const toPlane=(x,y)=>useMeshTransform&&activeCoordinateMeshTransform
+    ? sfcWorldToPlane(x,y)
+    : defaultSfcWorldToPlane(x,y);
+  const polygon=[
+    toPlane(bounds.minX,bounds.minY),
+    toPlane(bounds.maxX,bounds.minY),
+    toPlane(bounds.maxX,bounds.maxY),
+    toPlane(bounds.minX,bounds.maxY)
+  ];
+  if(polygon.some(p=>!p||!Number.isFinite(p.xNorth)||!Number.isFinite(p.yEast))) return null;
+  let inside=false;
+  for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
+    const a=polygon[i],b=polygon[j];
+    if(((a.yEast>yEast)!==(b.yEast>yEast))&&
+       (xNorth<(b.xNorth-a.xNorth)*(yEast-a.yEast)/(b.yEast-a.yEast)+a.xNorth)) inside=!inside;
+  }
+  if(inside) return 0;
+  let minDistance=Infinity;
+  for(let i=0;i<polygon.length;i++){
+    const a=polygon[i],b=polygon[(i+1)%polygon.length];
+    const dx=b.xNorth-a.xNorth,dy=b.yEast-a.yEast;
+    const lengthSquared=dx*dx+dy*dy;
+    const t=lengthSquared>0
+      ? Math.max(0,Math.min(1,((xNorth-a.xNorth)*dx+(yEast-a.yEast)*dy)/lengthSquared))
+      : 0;
+    minDistance=Math.min(minDistance,Math.hypot(xNorth-(a.xNorth+t*dx),yEast-(a.yEast+t*dy)));
+  }
+  return Number.isFinite(minDistance)?minDistance:null;
+}
 function chooseJapanPlaneZone(lat, lon){
   // 四国エリアは実務上ほぼ4系で使う前提に固定する
   // 徳島・香川・愛媛・高知の現在地で、変な系へ飛ばないようにする
@@ -1995,11 +2027,11 @@ function configureCoordinateMeshFallback(target){
 function chooseSfcPlacementFromDeviceXY(xNorth,yEast){
   const standard=defaultPlaneToSfcWorld(xNorth,yEast);
   if(!activeCoordinateMeshTransform){
-    return {sfc:standard,usedMesh:false,standardDistance:calcDistanceFromSfcBoundsMeters(standard.x,standard.y),meshDistance:null};
+    return {sfc:standard,usedMesh:false,standardDistance:calcDistanceFromPlaneToSfcBoundsMeters(xNorth,yEast,false),meshDistance:null};
   }
   const mesh=planeToSfcWorld(xNorth,yEast);
-  const standardDistance=calcDistanceFromSfcBoundsMeters(standard.x,standard.y);
-  const meshDistance=calcDistanceFromSfcBoundsMeters(mesh.x,mesh.y);
+  const standardDistance=calcDistanceFromPlaneToSfcBoundsMeters(xNorth,yEast,false);
+  const meshDistance=calcDistanceFromPlaneToSfcBoundsMeters(xNorth,yEast,true);
   // Coordinate labels are sometimes merely annotations with leader lines. In
   // that case an affine fit based on their text insertion points can move the
   // drawing by an entire plane-coordinate zone. Reject it only when the normal
@@ -2048,8 +2080,7 @@ function profileZoneFromDevicePosition(pos){
   const zone = chooseJapanPlaneZone(lat, lon);
   const xy = latLonToJgd2024XY(lat, lon, zone);
   const placement=chooseSfcPlacementFromDeviceXY(xy.x,xy.y);
-  const sfc = placement.sfc;
-  const distance = calcDistanceFromSfcBoundsMeters(sfc.x, sfc.y);
+  const distance = calcDistanceFromPlaneToSfcBoundsMeters(xy.x,xy.y,placement.usedMesh);
   // A zone cannot be determined from local plane coordinates alone.  The
   // device position must be in the same broad work area at least once.
   if (distance != null && distance > 250000) return null;
@@ -3410,8 +3441,8 @@ function calcDistanceFromSfcBoundsMeters(xMeters, yMeters){
   const dy = y < bounds.minY ? (bounds.minY - y) : (y > bounds.maxY ? (y - bounds.maxY) : 0);
   return Math.hypot(dx, dy) / 1000;
 }
-function maybeShowGpsFarMessage(xMeters, yMeters){
-  const distMeters = calcDistanceFromSfcBoundsMeters(xMeters, yMeters);
+function maybeShowGpsFarMessage(xNorth,yEast,useMeshTransform){
+  const distMeters = calcDistanceFromPlaneToSfcBoundsMeters(xNorth,yEast,useMeshTransform);
   gpsLastDistanceMeters = distMeters;
   if (distMeters == null){
     gpsIsFarFromDrawing = false;
@@ -3455,9 +3486,10 @@ function startGps(){
       const accuracy = pos.coords.accuracy || 0;
       const zone = chooseJapanPlaneZone(lat, lon);
       const xy = latLonToJgd2024XY(lat, lon, zone);
-      const sfc = planeToSfcWorld(xy.x, xy.y);
-      gpsPosition = { lat, lon, accuracy, altitude: pos.coords.altitude, zone, x: xy.x, y: xy.y, sfcX: sfc.x, sfcY: sfc.y };
-      maybeShowGpsFarMessage(gpsPosition.sfcX, gpsPosition.sfcY);
+      const placement = chooseSfcPlacementFromDeviceXY(xy.x, xy.y);
+      const sfc = placement.sfc;
+      gpsPosition = { lat, lon, accuracy, altitude: pos.coords.altitude, zone, x: xy.x, y: xy.y, sfcX: sfc.x, sfcY: sfc.y, usedMeshTransform:placement.usedMesh };
+      maybeShowGpsFarMessage(xy.x,xy.y,placement.usedMesh);
       updateGpsUi();
       if (gpsFollow) fitGpsInView();
       scheduleDraw();
