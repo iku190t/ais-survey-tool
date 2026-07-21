@@ -2,7 +2,7 @@
 (()=>{
   "use strict";
 
-  const SESSION_TTL_MS=5*60*1000;
+  const SESSION_TTL_MS=10*60*1000;
   const CONNECT_TIMEOUT_MS=25000;
   const CHUNK_SIZE=16*1024;
   const MAX_BUFFERED_BYTES=512*1024;
@@ -90,7 +90,7 @@
           <button id="nearbyShareRetryBtn" type="button">もう一度試す</button>
           <button id="nearbyShareCancelBtn" type="button">キャンセル</button>
         </div>
-        <div id="nearbyShareSafety">図面は端末側で暗号化して転送し、接続を仲介するサーバーには保存しません。QRは5分・受信1台限りです。</div>
+        <div id="nearbyShareSafety">図面は端末側で暗号化して転送し、接続を仲介するサーバーには保存しません。QRは10分・受信1台限りです。</div>
       </div>`;
     document.body.appendChild(modal);
     byId("nearbyShareCloseBtn").addEventListener("click",closeShareModal);
