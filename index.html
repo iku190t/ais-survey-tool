@@ -591,6 +591,14 @@ body.light #compassFab .compassN{
   color:#ff3030;
   text-shadow:0 1px 1px rgba(255,255,255,.95), 0 0 1px rgba(255,255,255,.85);
 }
+#compassMenu{
+  display:none;position:absolute;right:10px;top:calc(58px + var(--cad-toolbar-offset,40px));z-index:86;
+  width:184px;padding:7px;box-sizing:border-box;border:1px solid var(--border);border-radius:11px;
+  background:rgba(24,24,28,.90);box-shadow:0 8px 24px rgba(0,0,0,.38);
+}
+#compassMenu.open{display:grid;gap:7px;}
+#compassMenu button{width:100%;min-height:38px;padding:7px 9px;font-size:13px;font-weight:700;text-align:center;}
+body.light #compassMenu{background:rgba(255,255,255,.92);}
 
 
 .toolIconBtn{
@@ -941,6 +949,10 @@ gtag('config', 'G-88B9YPJXWP');
     現在地に戻る
   </button>
   <button id="compassFab" title="北を上に戻す"><span class="compassFace"><span class="compassN">N</span><span class="compassNeedle"></span><span class="compassDot"></span></span></button>
+  <div id="compassMenu" role="dialog" aria-label="図面の向き">
+    <button id="compassNorthBtn" type="button">北を上</button>
+    <button id="compassFieldBtn" type="button">図面を現場の向き</button>
+  </div>
   <button id="gpsDetailFab" style="position:absolute;left:12px;top:58px;bottom:auto;z-index:70;display:inline-flex;align-items:center;gap:6px;">
       <svg class="gpsDotIcon" viewBox="0 0 24 24" aria-hidden="true" style="width:17px;height:17px;flex:0 0 auto;">
         <circle class="gpsHalo" cx="12" cy="12" r="8"></circle>
@@ -1274,7 +1286,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">1本指</div>通常時は1本指で図面を移動できます。1本指で2回タップし、2回目の指を離さず下へ動かすと拡大、上へ動かすと縮小します。</div>
               <div class="helpBlock"><div class="helpHead">2本指</div>2本指で移動・拡大縮小・回転できます。</div>
-              <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークは図面の回転に合わせて回ります。押すと北を上に戻します。</div>
+              <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークを押すと、<b>北を上</b>または<b>図面を現場の向き</b>を選べます。後者はスマホの方位センサーを使い、図面を実際の現場と同じ向きに合わせます。</div>
               <div class="helpBlock"><div class="helpHead">ホーム／閉じる</div>通常時は<b>ホーム</b>で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。画面や作業を開いている間は薄い赤の<b>閉じる</b>に変わり、図面位置を変えずに現在の画面・作業だけを終了します。ダブルタップや方位長押しでは全体表示になりません。</div>
               <div class="helpBlock"><div class="helpHead">縦画面専用</div>このアプリは縦画面用です。端末が横向きになった場合は、縦向きへ戻す案内を表示します。</div>
               <div class="helpBlock"><div class="helpHead">青いボタン</div>ファイル・背景・計測・断面・手書き・検索・ヘルプは起動中に青くなります。同じボタンをもう一度押すと終了します。</div>
@@ -1514,6 +1526,9 @@ const PICK_CENTER_DEFAULT_TITLE = pickCenterBtn ? (pickCenterBtn.getAttribute("t
 const compassFab = document.getElementById("compassFab");
 const compassNeedle = compassFab ? compassFab.querySelector(".compassNeedle") : null;
 const compassN = compassFab ? compassFab.querySelector(".compassN") : null;
+const compassMenu = document.getElementById("compassMenu");
+const compassNorthBtn = document.getElementById("compassNorthBtn");
+const compassFieldBtn = document.getElementById("compassFieldBtn");
 
 let data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [], ellipseArcs: [], markers: [], layerNames: {}, source_name: "" };
 /*__EMBED_PAYLOAD_START__*/ window.__EMBED_PAYLOAD_B64__ = ""; /*__EMBED_PAYLOAD_END__*/
@@ -4769,6 +4784,59 @@ function getNorthUpRotationDeg(){
     }
   }catch(e){ console.error(e); }
   return 0;
+}
+function setDrawingRotationPreserveCenter(targetRotationDeg){
+  const target=normalizeRotation360(targetRotationDeg);
+  if(Math.abs(normalizeAngleDeltaDeg(rotationDeg-target))<0.01)return;
+  const w=canvas.clientWidth||window.innerWidth||1000;
+  const h=canvas.clientHeight||window.innerHeight||700;
+  const cx=w/2,cy=h/2;
+  const anchor=screenToWorld(cx,cy);
+  rotationDeg=target;
+  setViewFromWorldAnchor(anchor[0],anchor[1],cx,cy,view.scale);
+  updateCompassUi();
+  scheduleDraw();
+  scheduleRecoverySnapshot();
+}
+function setCompassMenuOpen(open){
+  if(!compassMenu)return;
+  compassMenu.classList.toggle("open",!!open);
+  compassFab?.setAttribute("aria-expanded",open?"true":"false");
+}
+function headingFromOrientationEvent(event){
+  const iosHeading=Number(event&&event.webkitCompassHeading);
+  if(Number.isFinite(iosHeading))return normalizeRotation360(iosHeading);
+  const alpha=Number(event&&event.alpha);
+  if(Number.isFinite(alpha)&&(event.absolute===true||event.type==="deviceorientationabsolute")){
+    return normalizeRotation360(360-alpha);
+  }
+  return null;
+}
+async function requestCurrentDeviceHeading(){
+  if(typeof DeviceOrientationEvent==="undefined")throw new Error("この端末では方位センサーを利用できません");
+  if(typeof DeviceOrientationEvent.requestPermission==="function"){
+    const permission=await DeviceOrientationEvent.requestPermission();
+    if(permission!=="granted")throw new Error("方位センサーの使用が許可されていません");
+  }
+  return await new Promise((resolve,reject)=>{
+    let settled=false;
+    const cleanup=()=>{
+      window.removeEventListener("deviceorientationabsolute",onOrientation,true);
+      window.removeEventListener("deviceorientation",onOrientation,true);
+      clearTimeout(timer);
+    };
+    const onOrientation=event=>{
+      const heading=headingFromOrientationEvent(event);
+      if(!Number.isFinite(heading)||settled)return;
+      settled=true;cleanup();resolve(heading);
+    };
+    const timer=setTimeout(()=>{
+      if(settled)return;
+      settled=true;cleanup();reject(new Error("方位を取得できません。端末を8の字に動かして再度お試しください"));
+    },3000);
+    window.addEventListener("deviceorientationabsolute",onOrientation,true);
+    window.addEventListener("deviceorientation",onOrientation,true);
+  });
 }
 function updateCompassUi(){
   const deg = normalizeRotation360(getNorthUpRotationDeg()-rotationDeg);
@@ -9603,20 +9671,39 @@ canvas.addEventListener("touchcancel", ()=>{
 }, {passive:true});
 
 if (compassFab) {
-  compassFab.addEventListener("click", ()=>{
-    const northUpRotation=getNorthUpRotationDeg();
-    if (Math.abs(normalizeAngleDeltaDeg(rotationDeg-northUpRotation)) < 0.01) return;
-    const w = canvas.clientWidth || window.innerWidth || 1000;
-    const h = canvas.clientHeight || window.innerHeight || 700;
-    const cx = w / 2, cy = h / 2;
-    const anchor = screenToWorld(cx, cy);
-    rotationDeg = northUpRotation;
-    setViewFromWorldAnchor(anchor[0], anchor[1], cx, cy, view.scale);
-    updateCompassUi();
-    scheduleDraw();
-    scheduleRecoverySnapshot();
+  compassFab.setAttribute("aria-haspopup","dialog");
+  compassFab.setAttribute("aria-expanded","false");
+  compassFab.title="図面の向きを変更";
+  compassFab.addEventListener("click", event=>{
+    event.stopPropagation();
+    if(!hasLoadedDrawing())return;
+    setCompassMenuOpen(!compassMenu?.classList.contains("open"));
   });
 }
+compassNorthBtn?.addEventListener("click",event=>{
+  event.stopPropagation();
+  setDrawingRotationPreserveCenter(getNorthUpRotationDeg());
+  setCompassMenuOpen(false);
+});
+compassFieldBtn?.addEventListener("click",async event=>{
+  event.stopPropagation();
+  const originalText=compassFieldBtn.textContent;
+  compassFieldBtn.disabled=true;
+  compassFieldBtn.textContent="方位を取得中…";
+  try{
+    const heading=await requestCurrentDeviceHeading();
+    setDrawingRotationPreserveCenter(getNorthUpRotationDeg()+heading);
+    setCompassMenuOpen(false);
+  }catch(error){
+    showToast(error&&error.message?error.message:"方位を取得できません",2600);
+  }finally{
+    compassFieldBtn.disabled=false;
+    compassFieldBtn.textContent=originalText;
+  }
+});
+compassMenu?.addEventListener("click",event=>event.stopPropagation());
+document.addEventListener("click",()=>setCompassMenuOpen(false));
+document.addEventListener("keydown",event=>{if(event.key==="Escape")setCompassMenuOpen(false);});
 function circleDiameterMmFromLevel(v){
   const level=normalizeCircleSizeLevel(v);
   const t=(level-CIRCLE_SIZE_MIN_LEVEL)/(CIRCLE_SIZE_MAX_LEVEL-CIRCLE_SIZE_MIN_LEVEL);
