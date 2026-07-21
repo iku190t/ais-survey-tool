@@ -5591,11 +5591,7 @@ function drawInkStroke(stroke){
   ctx.globalAlpha = stroke.opacity == null ? 1 : stroke.opacity;
 
   // 線幅は段階1=0.006mm、100=0.50mm。全体表示を1倍としてズームにも追従する。
-  const storedWidthMm = stroke.worldWidthMm == null ? NaN : +stroke.worldWidthMm;
-  // 旧版は10～1000という過大な値を保存していたため、段階値から安全に再計算する。
-  const widthMm = Number.isFinite(storedWidthMm) && storedWidthMm <= 1.0001
-    ? Math.max(0.006, storedWidthMm)
-    : penWidthMmFromLevel(stroke.width || 15);
+  const widthMm = getStrokeWidthMm(stroke);
   const lineW = Math.max(0.02, widthMm * getMemoWorldUnitsPerPaperMm() * Math.max(view.scale || 1, 0.000001));
   ctx.lineWidth = lineW;
 
@@ -6177,7 +6173,7 @@ function strokeToWorldPolyline(stroke){
       const t = (Math.PI * 2 * i) / segs;
       pts.push({x: cx + Math.cos(t) * r, y: cy + Math.sin(t) * r});
     }
-    return { type:"freehand", color: stroke.color || "#ff3030", opacity: stroke.opacity == null ? 1 : stroke.opacity, eraser:false, screenWidthPx: null, width:+(stroke.width || 1), isCircleMemo:true, paperDiameterMm:Number.isFinite(+stroke.paperDiameterMm)?+stroke.paperDiameterMm:null, circleSizeLevel:Number.isFinite(+stroke.circleSizeLevel)?+stroke.circleSizeLevel:null, circleGeometryVersion:Number.isFinite(+stroke.circleGeometryVersion)?+stroke.circleGeometryVersion:null, points:pts };
+    return { type:"freehand", color: stroke.color || "#ff3030", opacity: stroke.opacity == null ? 1 : stroke.opacity, eraser:false, screenWidthPx: null, worldWidthMm:getStrokeWidthMm(stroke), width:+(stroke.width || 1), isCircleMemo:true, paperDiameterMm:Number.isFinite(+stroke.paperDiameterMm)?+stroke.paperDiameterMm:null, circleSizeLevel:Number.isFinite(+stroke.circleSizeLevel)?+stroke.circleSizeLevel:null, circleGeometryVersion:Number.isFinite(+stroke.circleGeometryVersion)?+stroke.circleGeometryVersion:null, points:pts };
   }
   if (!Array.isArray(stroke.points) || stroke.points.length < 2) return null;
   return {
@@ -6583,9 +6579,10 @@ function getMemoWidthInfo(srcText){
 }
 function getStrokeWidthMm(stroke){
   const stored=stroke==null||stroke.worldWidthMm==null?NaN:+stroke.worldWidthMm;
-  return Number.isFinite(stored)&&stored<=1.0001
-    ? Math.max(0.006,Math.min(1,stored))
-    : penWidthMmFromLevel(stroke&&stroke.width||1);
+  if(Number.isFinite(stored)&&stored>0&&stored<=1.0001)return Math.max(0.006,Math.min(1,stored));
+  const legacyPx=Number(stroke&&stroke.screenWidthPx);
+  if(Number.isFinite(legacyPx)&&legacyPx>0)return Math.max(0.006,Math.min(1,legacyPx/0.9));
+  return penWidthMmFromLevel(stroke&&stroke.width||1);
 }
 function getDrawingScaleDenominator(){
   const placement=data&&data._mainDrawingPlacement;
@@ -7473,9 +7470,26 @@ function migrateLegacyCircleMemoStroke(stroke){
 
   return stroke;
 }
+function migrateStrokePaperWidth(stroke){
+  if(!stroke)return stroke;
+  const stored=Number(stroke.worldWidthMm);
+  let widthMm=Number.isFinite(stored)&&stored>0&&stored<=1.0001?stored:NaN;
+  if(!Number.isFinite(widthMm)){
+    // Old SFC restoration converted millimetres to pixels first. Recover the
+    // original physical width once, then discard the viewport-dependent value.
+    const legacyPx=Number(stroke.screenWidthPx);
+    widthMm=Number.isFinite(legacyPx)&&legacyPx>0
+      ? Math.max(0.006,Math.min(1,legacyPx/0.9))
+      : penWidthMmFromLevel(stroke.width||1);
+  }
+  stroke.worldWidthMm=Math.max(0.006,Math.min(1,widthMm));
+  stroke.width=penWidthLevelFromMm(stroke.worldWidthMm);
+  stroke.screenWidthPx=null;
+  return stroke;
+}
 function migrateInkStrokesToSingleFormat(strokes){
   if (!Array.isArray(strokes)) return [];
-  return strokes.map(migrateLegacyCircleMemoStroke).filter(Boolean);
+  return strokes.map(migrateLegacyCircleMemoStroke).map(migrateStrokePaperWidth).filter(Boolean);
 }
 
 
@@ -7496,7 +7510,7 @@ function migrateMemoLayerCirclesFromDataToInk(){
     }
 
     const colorHex = FILE_CODE_TO_DRAW_COLOR[+color] || "#ff3030";
-    const screenWidthPx = Math.max(0.8, Math.min(6, ((+width || 1) * 0.7)));
+    const widthMm=Math.max(0.006,Math.min(1,Number(width)||0.13));
 
     // SFC丸はworld半径のまま保持する
     const radiusWorld = Math.max(1, +r || 1);
@@ -7516,8 +7530,8 @@ function migrateMemoLayerCirclesFromDataToInk(){
       opacity: 1,
       eraser: false,
       screenWidthPx: null,
-      worldWidthMm: penWidthMmFromLevel(width || 15),
-      width: +(width || 15),
+      worldWidthMm: widthMm,
+      width: penWidthLevelFromMm(widthMm),
       isCircleMemo: true,
       anchorMode: "center",
       points: pts
@@ -7878,12 +7892,13 @@ function restoreInkStrokesFromSourceText(srcText){
       if (!pts.every(p => Number.isFinite(p.x) && Number.isFinite(p.y))) continue;
       const color = colorMapFromIdx[+colorIdx] || "#000000";
       const widthDef = widthDefs[(+widthCode || 1) - 1];
-      const screenWidthPx = widthDef ? widthValueToScreenPx(widthDef.value) : 3;
+      const widthMm = widthDef && Number.isFinite(+widthDef.value) ? Math.max(0.006,Math.min(1,+widthDef.value)) : 0.13;
       restored.push({
         type:"freehand",
         color,
-        screenWidthPx,
-        width: screenWidthPx / Math.max(baseFitScale || 1, 0.000001),
+        screenWidthPx:null,
+        worldWidthMm:widthMm,
+        width:penWidthLevelFromMm(widthMm),
         opacity: 1,
         eraser: false,
         points: pts
@@ -7901,12 +7916,13 @@ function restoreInkStrokesFromSourceText(srcText){
       const pts = xlist.map((x,i) => ({x, y:ylist[i]}));
       const color = colorMapFromIdx[+colorIdx] || "#ff3030";
       const widthDef = widthDefs[(+widthCode || 1) - 1];
-      const screenWidthPx = widthDef ? widthValueToScreenPx(widthDef.value) : 3;
+      const widthMm = widthDef && Number.isFinite(+widthDef.value) ? Math.max(0.006,Math.min(1,+widthDef.value)) : 0.13;
       restored.push({
         type:"freehand",
         color,
-        screenWidthPx,
-        width: screenWidthPx / Math.max(baseFitScale || 1, 0.000001),
+        screenWidthPx:null,
+        worldWidthMm:widthMm,
+        width:penWidthLevelFromMm(widthMm),
         opacity: 1,
         eraser: false,
         points: pts
@@ -8901,6 +8917,10 @@ function penWidthMmFromLevel(v){
   const level = normalizePenWidthLevel(v);
   return 0.006 + ((level - 1) / 99) * (0.50 - 0.006); // 1->0.006mm, 100->0.50mm
 }
+function penWidthLevelFromMm(v){
+  const mm=Math.max(0.006,Math.min(0.50,Number(v)||0.006));
+  return normalizePenWidthLevel(1+((mm-0.006)/(0.50-0.006))*99);
+}
 function normalizePenWidthLevel(v){
   let n = Number(v);
   if (!Number.isFinite(n)) n = 10;
@@ -9565,7 +9585,7 @@ if (window.__EMBED_PAYLOAD_B64__) {
       showText = payload.showText !== false;
       layerVisibility = payload.layerVisibility || {};
       layerColorOverrides = payload.layerColorOverrides || {};
-      inkStrokes = Array.isArray(payload.inkStrokes) ? payload.inkStrokes : [];
+      inkStrokes = Array.isArray(payload.inkStrokes) ? migrateInkStrokesToSingleFormat(payload.inkStrokes) : [];
       if (payload.view) view = payload.view;
       rotationDeg = Number.isFinite(+payload.rotationDeg) ? +payload.rotationDeg : determineBestRotation(data);
       initialLoadRotationDeg = rotationDeg;

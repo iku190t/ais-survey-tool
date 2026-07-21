@@ -27,6 +27,20 @@ for(const scale of scales){
   }
 }
 
+const widthMm=level=>0.006+(level-1)/99*(0.50-0.006);
+let previousWidth=0;
+for(let level=1;level<=100;level++){
+  const mm=widthMm(level);
+  if(!(mm>previousWidth))throw new Error(`pen width is not monotonic at ${level}`);
+  previousWidth=mm;
+  for(const scale of scales){
+    const modelPxAtOnePxPerWorldMm=mm*scale;
+    const paperPxAtOnePxPerWorldMm=mm;
+    if(!(modelPxAtOnePxPerWorldMm>0&&paperPxAtOnePxPerWorldMm>0))throw new Error(`invalid pen width 1/${scale}`);
+  }
+}
+if(Math.abs(widthMm(1)-0.006)>1e-12||Math.abs(widthMm(100)-0.50)>1e-12)throw new Error('pen width endpoints changed');
+
 const commands=['openIconBtn','gpsBtn','measureBtn','profileBtn','drawBtn','textSearchOpenBtn','helpBtn','layerFab','bgBtn','gpsDetailFab','supportBtn'];
 const surfaces=['file','measure','profile','draw','search','help','layer','background','gpsDetail','support'];
 const keep={openIconBtn:'file',measureBtn:'measure',profileBtn:'profile',drawBtn:'draw',textSearchOpenBtn:'search',helpBtn:'help',layerFab:'layer',bgBtn:'background',gpsDetailFab:'gpsDetail',supportBtn:'support'};
@@ -45,7 +59,9 @@ const required=[
   'paperDiameterMm=circleDiameterMmFromLevel(circleSizeLevel)',
   'getMemoWorldUnitsPerPaperMm()',
   'classifyDrawingCoordinateStorage(bounds,sheet,denominator)',
-  'circleGeometryVersion: CIRCLE_GEOMETRY_VERSION'
+  'circleGeometryVersion: CIRCLE_GEOMETRY_VERSION',
+  'worldWidthMm:widthMm',
+  'width:penWidthLevelFromMm(widthMm)'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`missing implementation: ${token}`);
 console.log(`OK: ${scripts.length} inline scripts; ${scales.length*2*levels.length} circle-scale cases; ${commands.length**2} toolbar transitions`);
