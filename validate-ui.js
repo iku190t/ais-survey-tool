@@ -83,7 +83,14 @@ const required=[
   'function startCompassFollow()',
   'function stopCompassFollow()',
   'onCompassFollowOrientation',
+  'const TERRAIN_SLOPE_BANDS=[',
+  'label:"60°以上"',
+  'length:TERRAIN_ELEVATION_COLORS.length+1',
+  '基準標高 ${formatTerrainElevation(v.reference)}',
   'setDrawingRotationPreserveCenter(targetRotationDeg)'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`missing implementation: ${token}`);
+for(const obsolete of ['傾斜角を4段階で色分け','を5段階で色分け（','表示範囲を自動更新','細かいDEMで計算・矢印は見やすく間引いて表示']){
+  if(html.includes(obsolete))throw new Error(`obsolete terrain description remains: ${obsolete}`);
+}
 console.log(`OK: ${scripts.length} inline scripts; ${scales.length*2*levels.length} circle-scale cases; ${commands.length**2} toolbar transitions`);

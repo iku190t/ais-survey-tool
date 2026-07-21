@@ -119,6 +119,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #terrainActions button.active:disabled{opacity:1;}
 @keyframes terrainSpin{to{transform:rotate(360deg);}}
 #terrainStatus{font-size:12px;line-height:1.55;margin-top:9px;color:var(--muted);min-height:19px;}
+#terrainStatus:empty{display:none;}
 #terrainLegend{display:none;align-items:center;gap:5px;margin-top:7px;font-size:11px;flex-wrap:wrap;}
 .terrainSwatch{width:18px;height:8px;border-radius:2px;display:inline-block;}
 #terrainPanelOpenBtn{width:100%;min-height:36px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:6px 9px;font-weight:800;}
@@ -1074,7 +1075,7 @@ gtag('config', 'G-88B9YPJXWP');
       <button id="terrainFlowBtn" type="button">水の流れ</button>
       <button id="terrainVolumeBtn" type="button">概算土量</button>
     </div>
-    <div id="terrainStatus">表示範囲を倍率に合わせて最も細かく解析します。</div>
+    <div id="terrainStatus"></div>
     <div id="terrainLegend"></div>
   </div>
 
@@ -1315,8 +1316,8 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">位置情報</div>SFCと航空写真を合わせるため、初回は現在地から図面の座標系を確認します。位置情報の利用を許可してください。</div>
               <div class="helpBlock"><div class="helpHead">出典</div>国土地理院の地理院タイルを通信で表示します。航空写真表示中は画面右下に出典を表示します。</div>
               <div class="helpBlock"><div class="helpHead">地形解析</div>背景画面の<b>地形解析</b>を押すと地形解析画面へ進みます。<b>閉じる</b>で背景画面へ戻ります。<b>標高</b>、<b>傾斜角</b>、<b>等高線</b>、<b>水の流れ</b>、<b>概算土量</b>は1種類だけ表示され、選択中の青いボタンをもう一度押すと解除できます。取得中は選択ボタンに進行表示が出ます。</div>
-              <div class="helpBlock"><div class="helpHead">標高</div>現在見えている範囲の最低標高から最高標高までを5段階に分け、低い場所を青、高い場所を赤で表示します。凡例には実際の標高値を表示します。</div>
-              <div class="helpBlock"><div class="helpHead">傾斜角</div>DEMから求めた概略傾斜を、0～4度、5～14度、15～29度、30度以上の4色で表示します。</div>
+              <div class="helpBlock"><div class="helpHead">標高</div>現在見えている範囲の最低標高から最高標高までを10段階に分け、低い場所を青、高い場所を赤で表示します。凡例には実際の標高値を表示します。</div>
+              <div class="helpBlock"><div class="helpHead">傾斜角</div>DEMから求めた概略傾斜を10段階で表示し、最後の区分を60度以上とします。</div>
               <div class="helpBlock"><div class="helpHead">等高線</div>表示範囲の標高差に応じて、1m・2m・5m・10mなど見やすい間隔を自動選択します。通常の等高線と標高数字は黄色、5本ごとの計曲線は太い橙色で表示します。</div>
               <div class="helpBlock"><div class="helpHead">水の流れ</div>細かいDEMで方向を計算し、矢印数は高密度表示時の約10%まで間引いて低い方向を表示します。排水施設を考慮した流域解析ではありません。</div>
               <div class="helpBlock"><div class="helpHead">概算土量</div>表示範囲の平均標高を基準面として切土・盛土を概算します。正式な施工数量には使用できません。</div>
@@ -2672,12 +2673,27 @@ async function buildTerrainGrid(){
   if(valid.length<Math.ceil(points.length*.45)) throw new Error("標高データを取得できません");
   return {cols,rows,zone,points,createdAt:Date.now(),width:w,height:h,viewport};
 }
-const TERRAIN_ELEVATION_COLORS=[[38,103,255],[38,166,91],[241,207,54],[238,138,45],[216,68,63]];
+const TERRAIN_ELEVATION_COLORS=[
+  [38,103,255],[35,145,232],[34,181,188],[46,177,100],[139,190,62],
+  [224,207,54],[245,173,43],[239,119,39],[222,70,50],[173,38,82]
+];
+const TERRAIN_SLOPE_BANDS=[
+  {max:5,label:"0～4°",color:[45,173,78]},
+  {max:10,label:"5～9°",color:[91,190,67]},
+  {max:15,label:"10～14°",color:[159,202,59]},
+  {max:20,label:"15～19°",color:[226,211,55]},
+  {max:25,label:"20～24°",color:[246,174,45]},
+  {max:30,label:"25～29°",color:[241,126,38]},
+  {max:40,label:"30～39°",color:[227,82,43]},
+  {max:50,label:"40～49°",color:[211,53,56]},
+  {max:60,label:"50～59°",color:[178,42,76]},
+  {max:Infinity,label:"60°以上",color:[126,36,92]}
+];
 function calculateTerrainElevationRange(grid){
   const values=grid.points.filter(p=>Number.isFinite(p.elevation)).map(p=>p.elevation);
   if(!values.length)return null;
   const min=Math.min(...values),max=Math.max(...values),span=Math.max(.01,max-min);
-  return {min,max,span,steps:Array.from({length:6},(_,i)=>min+span*i/5)};
+  return {min,max,span,steps:Array.from({length:TERRAIN_ELEVATION_COLORS.length+1},(_,i)=>min+span*i/TERRAIN_ELEVATION_COLORS.length)};
 }
 function terrainElevationColor(value,range,alpha=.50){
   if(!range||!Number.isFinite(value))return null;
@@ -2696,10 +2712,8 @@ function terrainSlopeAt(grid,row,col){
   return Math.atan(Math.hypot(gx,gy))*180/Math.PI;
 }
 function terrainSlopeColor(deg,alpha=.48){
-  if(deg<5)return `rgba(58,181,74,${alpha})`;
-  if(deg<15)return `rgba(247,210,55,${alpha})`;
-  if(deg<30)return `rgba(245,137,31,${alpha})`;
-  return `rgba(222,52,52,${alpha})`;
+  const band=TERRAIN_SLOPE_BANDS.find(item=>deg<item.max)||TERRAIN_SLOPE_BANDS[TERRAIN_SLOPE_BANDS.length-1];
+  return `rgba(${band.color[0]},${band.color[1]},${band.color[2]},${alpha})`;
 }
 function chooseTerrainContourInterval(range){
   if(!range||!(range.span>0))return 1;
@@ -2749,10 +2763,9 @@ function setTerrainLegend(mode){
     el.style.display="flex";
     el.innerHTML=TERRAIN_ELEVATION_COLORS.map((c,i)=>`<span class="terrainSwatch" style="background:rgb(${c.join(",")})"></span>${Math.round(steps[i])}～${Math.round(steps[i+1])}m`).join(" ");
   }else if(mode==="slope"){
-    el.style.display="flex";el.innerHTML='<span class="terrainSwatch" style="background:#3ab54a"></span>0～4° <span class="terrainSwatch" style="background:#f7d237"></span>5～14° <span class="terrainSwatch" style="background:#f5891f"></span>15～29° <span class="terrainSwatch" style="background:#de3434"></span>30°以上';
+    el.style.display="flex";el.innerHTML=TERRAIN_SLOPE_BANDS.map(item=>`<span class="terrainSwatch" style="background:rgb(${item.color.join(",")})"></span>${item.label}`).join(" ");
   }else if(mode==="contour"&&terrainElevationRange){
-    const interval=chooseTerrainContourInterval(terrainElevationRange);
-    el.style.display="flex";el.innerHTML=`<span style="display:inline-block;width:24px;border-top:1px solid #ffd24a"></span> 等高線 ${interval<1?interval.toFixed(1):Math.round(interval)}m間隔 <span style="display:inline-block;width:24px;border-top:2px solid #ff6b35"></span> 計曲線`;
+    el.style.display="flex";el.innerHTML='<span style="display:inline-block;width:24px;border-top:1px solid #ffd24a"></span> 等高線 <span style="display:inline-block;width:24px;border-top:2px solid #ff6b35"></span> 計曲線';
   }else if(mode==="flow"){
     el.style.display="flex";el.innerHTML='<span style="color:#00a8ff;font-weight:800">→</span> 低い方向（概略）';
   }else if(mode==="volume"){
@@ -2791,17 +2804,11 @@ async function activateTerrainMode(mode,force=false){
     terrainMode=mode;
     terrainElevationRange=(mode==="elevation"||mode==="contour")?calculateTerrainElevationRange(grid):null;
     setTerrainLegend(mode);
-    const detail=`${Math.max(1,grid.cols-1)}×${Math.max(1,grid.rows-1)}区画・表示範囲を自動更新`;
     if(mode==="volume"){
       terrainReferenceElevation=calculateTerrainVolume(grid);
       const v=terrainReferenceElevation;
-      setTerrainStatus(`平均標高 ${formatTerrainElevation(v.reference)} 基準・切土 約${Math.round(v.cut).toLocaleString()}m³・盛土 約${Math.round(v.fill).toLocaleString()}m³（${detail}）`);
-    }else if(mode==="elevation")setTerrainStatus(`標高 ${formatTerrainElevation(terrainElevationRange?.min)}～${formatTerrainElevation(terrainElevationRange?.max)}を5段階で色分け（${detail}）`);
-    else if(mode==="slope")setTerrainStatus(`傾斜角を4段階で色分け（${detail}）`);
-    else if(mode==="contour"){
-      const interval=chooseTerrainContourInterval(terrainElevationRange);
-      setTerrainStatus(`等高線 ${interval<1?interval.toFixed(1):Math.round(interval)}m間隔（${detail}）`);
-    }else if(mode==="flow")setTerrainStatus(`細かいDEMで計算・矢印は見やすく間引いて表示（${detail}）`);
+      setTerrainStatus(`基準標高 ${formatTerrainElevation(v.reference)}・切土 約${Math.round(v.cut).toLocaleString()}m³・盛土 約${Math.round(v.fill).toLocaleString()}m³`);
+    }else setTerrainStatus("");
     updateTerrainUi();scheduleDraw();
   }catch(e){
     console.error(e);
@@ -2815,7 +2822,7 @@ async function activateTerrainMode(mode,force=false){
 function clearTerrainAnalysis(){
   terrainRequestVersion++;terrainLoading=false;terrainRequestedMode="";terrainMode="";terrainReferenceElevation=null;terrainElevationRange=null;setTerrainLegend("");
   clearTimeout(terrainRefreshTimer);terrainRefreshTimer=0;
-  setTerrainStatus("表示範囲を倍率に合わせて最も細かく解析します。");updateTerrainUi();scheduleDraw();
+  setTerrainStatus("");updateTerrainUi();scheduleDraw();
 }
 function formatProfileDistance(m){
   return m>=1000?`${(m/1000).toFixed(2)}km`:`${m.toFixed(m<100?1:0)}m`;
