@@ -126,7 +126,7 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #terrainPanelOpenBtn{width:100%;min-height:36px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:6px 9px;font-weight:800;}
 #terrainPanelOpenBtn.active{background:#2f9e44;color:#fff;border-color:#237a35;}
 #terrainPanelOpenState{font-size:11px;font-weight:700;opacity:.88;}
-#terrainPanel{display:none;width:min(286px,calc(100vw - 16px));right:12px;top:calc(54px + var(--cad-toolbar-offset,40px));bottom:auto;z-index:78;box-sizing:border-box;padding:8px !important;max-height:calc(100% - var(--cad-toolbar-offset,40px) - 62px);overflow:auto;}
+#terrainPanel{display:none;width:min(286px,calc(100vw - 16px));right:12px;top:calc(58px + var(--cad-toolbar-offset,40px));bottom:auto;z-index:78;box-sizing:border-box;padding:8px !important;max-height:calc(100% - var(--cad-toolbar-offset,40px) - 62px);overflow:auto;}
 #terrainPanel .terrainHeader{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:7px;}
 #terrainPanel .terrainTitle{font-size:15px;font-weight:800;}
 @media (min-width:821px) and (hover:hover) and (pointer:fine){
@@ -344,7 +344,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .supportLinkBtn:active{transform:translateY(1px) scale(0.98);filter:brightness(0.95);}
 
 #measureModePanel{width:190px; max-width:min(190px, calc(100vw - 16px)); position:absolute; z-index:60;}
-#measureBox{width:min(300px,calc(100vw - 24px)); right:12px; top:calc(58px + var(--cad-toolbar-offset,0px)); position:absolute; z-index:60;}
+#measureBox{box-sizing:border-box;width:min(280px,calc(100vw - 104px)); right:12px; top:calc(58px + var(--cad-toolbar-offset,0px)); position:absolute; z-index:60;}
 #measureTypeToggleBtn{display:block;width:100%;min-height:36px;margin:0 0 8px;padding:5px 8px;font-size:14px;font-weight:800;}
 #measurePickRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:0 0 8px;}
 #measureBackRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:8px;}
@@ -398,7 +398,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .supportPanelText{font-size:12px; line-height:1.7; color:var(--fg); opacity:0.92; white-space:normal;}
 #supportBtn{opacity:0.78; background:rgba(120,130,140,.18); border-color:rgba(150,160,170,.45);}
 #supportBtn:hover{opacity:0.94;}
-.panelTitle{font-weight:700;margin-bottom:8px;font-size:15px;}
+.panelTitle{font-weight:800;margin-bottom:8px;font-size:15px;}
 .stack{display:flex;flex-direction:column;gap:6px;}
 .row{display:flex;align-items:center;gap:8px;}
 .small{font-size:12px;color:var(--muted);}
@@ -974,7 +974,7 @@ gtag('config', 'G-88B9YPJXWP');
     <div id="measureBackRow"><button id="measureBackBtn" type="button" disabled title="直前に選択した点へ戻します">後退</button></div>
   </div>
 
-  <div id="gpsBox" class="panel" style="display:none;left:12px;top:100px;bottom:auto;width:260px;max-height:calc(100% - 112px);overflow:auto;padding:10px;z-index:60;background:rgba(20,20,20,.45);backdrop-filter:blur(4px);">
+  <div id="gpsBox" class="panel" style="display:none;left:12px;top:100px;bottom:auto;width:260px;max-height:calc(100% - 112px);overflow:auto;padding:10px;z-index:60;background:rgba(20,20,20,.8);backdrop-filter:blur(4px);">
     <div class="panelTitle">現在地</div>
     <div id="gpsText" style="font-size:13px; line-height:1.6;">GPSはOFFです。</div>
   </div>
@@ -1002,11 +1002,11 @@ gtag('config', 'G-88B9YPJXWP');
     <div class="panelHeaderCompact"><div class="panelTitle">手書きメモ</div><button id="drawCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <div class="stack">
       <div class="row">
-        <button class="colorBtn" data-color="#ff3030" style="width:26px;height:26px;padding:0;background:#ff3030;"></button>
-        <button class="colorBtn" data-color="#007aff" style="width:26px;height:26px;padding:0;background:#007aff;"></button>
-        <button class="colorBtn" data-color="#00a86b" style="width:26px;height:26px;padding:0;background:#00a86b;"></button>
-        <button class="colorBtn" data-color="#ffd400" id="yellowBtn" style="width:26px;height:26px;padding:0;background:#ffd400;"></button>
-        <button class="colorBtn" id="contrastColorBtn" data-color="#ffffff" style="width:26px;height:26px;padding:0;background:#ffffff;border:1px solid #555;"></button>
+        <button class="colorBtn" data-color="#ff3030" title="赤" aria-label="赤" style="width:26px;height:26px;padding:0;background:#ff3030;"></button>
+        <button class="colorBtn" data-color="#007aff" title="青" aria-label="青" style="width:26px;height:26px;padding:0;background:#007aff;"></button>
+        <button class="colorBtn" data-color="#00a86b" title="緑" aria-label="緑" style="width:26px;height:26px;padding:0;background:#00a86b;"></button>
+        <button class="colorBtn" data-color="#ffd400" id="yellowBtn" title="黄" aria-label="黄" style="width:26px;height:26px;padding:0;background:#ffd400;"></button>
+        <button class="colorBtn" id="contrastColorBtn" data-color="#ffffff" title="白または黒" aria-label="白または黒" style="width:26px;height:26px;padding:0;background:#ffffff;border:1px solid #555;"></button>
       </div>
       <div class="row controlRow"><span class="controlLabel">太さ</span><input class="controlRange" id="penWidth" type="range" min="1" max="100" step="1" value="10"><input class="controlNumber" id="penWidthNumber" type="number" min="1" max="100" step="1" value="10"></div>
       <div class="row controlRow"><span class="controlLabel">大きさ</span><input class="controlRange" id="circleSize" type="range" min="1" max="100" step="1" value="10"><input class="controlNumber" id="circleSizeNumber" type="number" min="1" max="100" step="1" value="10"></div>
@@ -3383,7 +3383,7 @@ function stopGps(fitIfFar = false){
   if (gpsWatchId != null && navigator.geolocation){
     navigator.geolocation.clearWatch(gpsWatchId);
   }
-  if (!gpsOnlyBlankMode && fitIfFar && gpsLastDistanceMeters != null && gpsLastDistanceMeters >= 5000){
+  if (!gpsOnlyBlankMode && fitIfFar){
     fitToScreen();
   }
   gpsWatchId = null;
@@ -8288,7 +8288,7 @@ function setSaveMenuOpen(open){
 document.getElementById("saveMenuOverwriteBtn").addEventListener("click", ()=>{
   setSaveMenuOpen(false);
   saveRecoverySnapshot();
-  saveSfcOverwrite().catch((e)=>{ console.error(e); showToast("上書きほぞんしっぱい"); });
+  saveSfcOverwrite().catch((e)=>{ console.error(e); showToast("上書き保存に失敗しました"); });
 });
 document.getElementById("saveMenuSaveAsBtn").addEventListener("click", ()=>{
   setSaveMenuOpen(false);
