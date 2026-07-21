@@ -6161,6 +6161,7 @@ function normalizeInkStrokeForSave(s){
     isCircleMemo: !!s.isCircleMemo,
     paperDiameterMm: Number.isFinite(+s.paperDiameterMm) ? +s.paperDiameterMm : null,
     circleSizeLevel: Number.isFinite(+s.circleSizeLevel) ? +s.circleSizeLevel : null,
+    circleGeometryVersion: Number.isFinite(+s.circleGeometryVersion) ? +s.circleGeometryVersion : null,
     points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})) : []
   };
 }
@@ -6176,7 +6177,7 @@ function strokeToWorldPolyline(stroke){
       const t = (Math.PI * 2 * i) / segs;
       pts.push({x: cx + Math.cos(t) * r, y: cy + Math.sin(t) * r});
     }
-    return { type:"freehand", color: stroke.color || "#ff3030", opacity: stroke.opacity == null ? 1 : stroke.opacity, eraser:false, screenWidthPx: null, width:+(stroke.width || 1), isCircleMemo:true, paperDiameterMm:Number.isFinite(+stroke.paperDiameterMm)?+stroke.paperDiameterMm:null, circleSizeLevel:Number.isFinite(+stroke.circleSizeLevel)?+stroke.circleSizeLevel:null, points:pts };
+    return { type:"freehand", color: stroke.color || "#ff3030", opacity: stroke.opacity == null ? 1 : stroke.opacity, eraser:false, screenWidthPx: null, width:+(stroke.width || 1), isCircleMemo:true, paperDiameterMm:Number.isFinite(+stroke.paperDiameterMm)?+stroke.paperDiameterMm:null, circleSizeLevel:Number.isFinite(+stroke.circleSizeLevel)?+stroke.circleSizeLevel:null, circleGeometryVersion:Number.isFinite(+stroke.circleGeometryVersion)?+stroke.circleGeometryVersion:null, points:pts };
   }
   if (!Array.isArray(stroke.points) || stroke.points.length < 2) return null;
   return {
@@ -6190,6 +6191,7 @@ function strokeToWorldPolyline(stroke){
     isCircleMemo: !!stroke.isCircleMemo,
     paperDiameterMm: Number.isFinite(+stroke.paperDiameterMm) ? +stroke.paperDiameterMm : null,
     circleSizeLevel: Number.isFinite(+stroke.circleSizeLevel) ? +stroke.circleSizeLevel : null,
+    circleGeometryVersion: Number.isFinite(+stroke.circleGeometryVersion) ? +stroke.circleGeometryVersion : null,
     points: stroke.points.map(p => ({x:+p.x||0, y:+p.y||0}))
   };
 }
@@ -6228,6 +6230,7 @@ function buildCircleStrokeFromScreenPoint(sx, sy){
     isCircleMemo: true,
     paperDiameterMm,
     circleSizeLevel,
+    circleGeometryVersion: CIRCLE_GEOMETRY_VERSION,
     anchorMode: "free",
     points: pts
   };
@@ -6596,23 +6599,72 @@ function getDrawingScaleDenominator(){
   if(storedPaperScale>1e-12)return 1/storedPaperScale;
   return extractSfcScaleInfo(loadedSfcText).denominator||1;
 }
-function getCoordinateMeshRealMmPerWorldUnit(){
-  const tr=activeCoordinateMeshTransform;
-  if(!tr)return 1;
-  if(tr.kind==="affine"){
-    const xScale=Math.hypot(Number(tr.xNorth&&tr.xNorth.a)||0,Number(tr.xNorth&&tr.xNorth.b)||0);
-    const yScale=Math.hypot(Number(tr.yEast&&tr.yEast.a)||0,Number(tr.yEast&&tr.yEast.b)||0);
-    if(xScale>1e-12&&yScale>1e-12)return Math.sqrt(xScale*yScale);
+function classifyDrawingCoordinateStorage(bounds,sheet,denominator){
+  const scale=Math.max(1,Math.abs(Number(denominator))||1);
+  const sw=Math.abs(Number(sheet&&sheet.width)),sh=Math.abs(Number(sheet&&sheet.height));
+  const bw=Math.abs(Number(bounds&&bounds.width)),bh=Math.abs(Number(bounds&&bounds.height));
+  if(scale<=1.000001||!(sw>0)||!(sh>0)||(!(bw>0)&&!(bh>0))){
+    return {kind:"model",unitsPerPaperMm:scale,extentScale:null,reason:"default-model"};
   }
-  const xScale=Math.abs(Number(tr.xNorth&&tr.xNorth.slope));
-  const yScale=Math.abs(Number(tr.yEast&&tr.yEast.slope));
-  if(xScale>1e-12&&yScale>1e-12)return Math.sqrt(xScale*yScale);
-  return 1;
+
+  // SXF files occur in two coordinate-storage forms:
+  //   model: geometry is stored at real size (paper 1 mm = scale denominator)
+  //   paper: geometry itself is already stored in drawing-sheet millimetres
+  // GPS/coordinate-mesh fitting is deliberately not used here.  It describes
+  // georeferencing, not the physical size of an annotation on the sheet.
+  const ratios=[];
+  if(bw>0)ratios.push(bw/sw);
+  if(bh>0)ratios.push(bh/sh);
+  const extentScale=Math.max(...ratios.filter(Number.isFinite));
+  if(!(extentScale>0))return {kind:"model",unitsPerPaperMm:scale,extentScale:null,reason:"invalid-extent"};
+
+  // Compare the observed drawing extent with both hypotheses on a logarithmic
+  // scale. This remains stable for 1/100 through 1/5000 and does not hard-code
+  // any one scale denominator.
+  const paperDistance=Math.abs(Math.log(extentScale));
+  const modelDistance=Math.abs(Math.log(extentScale/scale));
+  const kind=paperDistance<modelDistance?"paper":"model";
+  return {kind,unitsPerPaperMm:kind==="paper"?1:scale,extentScale,reason:"sheet-extent"};
+}
+function getMemoClassificationBounds(){
+  // Partial figures and coordinate annotations can contain a few points far
+  // outside the main drawing.  A min/max box would let one such point decide
+  // the storage type, so use a deterministic, bounded sample and trim 2% at
+  // each edge. This affects classification only; no drawing data is removed.
+  const limit=16000,points=[];
+  let seen=0;
+  const add=(x,y)=>{
+    x=Number(x);y=Number(y);
+    if(!Number.isFinite(x)||!Number.isFinite(y))return;
+    seen+=1;
+    if(points.length<limit){points.push([x,y]);return;}
+    const slot=((Math.imul(seen,2654435761)>>>0)%seen);
+    if(slot<limit)points[slot]=[x,y];
+  };
+  for(const v of data&&data.lines||[]){add(v[0],v[1]);add(v[2],v[3]);}
+  for(const v of data&&data.polys||[])for(const p of v[0]||[])add(p[0],p[1]);
+  for(const v of data&&data.splines||[])for(const p of v[0]||[])add(p[0],p[1]);
+  for(const v of data&&data.circles||[]){add(v[0]-Math.abs(v[2]),v[1]-Math.abs(v[2]));add(v[0]+Math.abs(v[2]),v[1]+Math.abs(v[2]));}
+  for(const a of data&&data.arcs||[]){add(a.cx-Math.abs(a.r),a.cy-Math.abs(a.r));add(a.cx+Math.abs(a.r),a.cy+Math.abs(a.r));}
+  for(const e of data&&data.ellipses||[]){add(e.cx-Math.abs(e.rx),e.cy-Math.abs(e.ry));add(e.cx+Math.abs(e.rx),e.cy+Math.abs(e.ry));}
+  for(const e of data&&data.ellipseArcs||[]){add(e.cx-Math.abs(e.rx),e.cy-Math.abs(e.ry));add(e.cx+Math.abs(e.rx),e.cy+Math.abs(e.ry));}
+  for(const t of data&&data.texts||[])add(t.x,t.y);
+  for(const m of data&&data.markers||[])add(m.x,m.y);
+  if(points.length<30)return getDataWorldBounds();
+  const xs=points.map(p=>p[0]).sort((a,b)=>a-b),ys=points.map(p=>p[1]).sort((a,b)=>a-b);
+  const trim=Math.max(1,Math.floor(points.length*0.02));
+  const minx=xs[trim],maxx=xs[xs.length-1-trim],miny=ys[trim],maxy=ys[ys.length-1-trim];
+  if(![minx,maxx,miny,maxy].every(Number.isFinite)||!(maxx>minx)||!(maxy>miny))return getDataWorldBounds();
+  return {minx,miny,maxx,maxy,width:maxx-minx,height:maxy-miny};
+}
+function getDrawingCoordinateStorage(){
+  if(data&&data._memoCoordinateStorage)return data._memoCoordinateStorage;
+  const result=classifyDrawingCoordinateStorage(getMemoClassificationBounds(),data&&data._drawingSheet,getDrawingScaleDenominator());
+  if(data)data._memoCoordinateStorage=result;
+  return result;
 }
 function getMemoWorldUnitsPerPaperMm(){
-  const denominator=Math.max(1e-9,getDrawingScaleDenominator());
-  const realMmPerWorldUnit=Math.max(1e-9,getCoordinateMeshRealMmPerWorldUnit());
-  return denominator/realMmPerWorldUnit;
+  return Math.max(1e-9,getDrawingCoordinateStorage().unitsPerPaperMm||1);
 }
 function buildMemoWidthDefinitions(baseText,startId,strokes){
   const defs=parseWidthFeatureDefsFlat(getFlatSxfText(baseText));
@@ -6939,6 +6991,7 @@ function buildMemoMetaComment(){
       isCircleMemo: !!s.isCircleMemo,
       paperDiameterMm: Number.isFinite(+s.paperDiameterMm) ? +s.paperDiameterMm : null,
       circleSizeLevel: Number.isFinite(+s.circleSizeLevel) ? +s.circleSizeLevel : null,
+      circleGeometryVersion: Number.isFinite(+s.circleGeometryVersion) ? +s.circleGeometryVersion : null,
       points: s.points.map(p => ({x:+p.x||0, y:+p.y||0}))
     }));
     const payload = { version:1, strokes };
@@ -7369,7 +7422,7 @@ function scheduleRecoverySnapshot(delayMs=AUTO_SAVE_DEBOUNCE_MS){
 function migrateLegacyCircleMemoStroke(stroke){
   if (!stroke || stroke.eraser) return stroke;
 
-  if (stroke.type === "circle_polyline_screen" || (stroke.isCircleMemo && (!Number.isFinite(+stroke.paperDiameterMm) || Number.isFinite(+stroke.radiusAtFitPx)))) {
+  if (stroke.type === "circle_polyline_screen" || (stroke.isCircleMemo && (!Number.isFinite(+stroke.paperDiameterMm) || Number.isFinite(+stroke.radiusAtFitPx) || +stroke.circleGeometryVersion!==CIRCLE_GEOMETRY_VERSION))) {
     let cx=+stroke.cx||0,cy=+stroke.cy||0;
     let observedRadiusWorld=NaN;
     if(stroke.type!=="circle_polyline_screen"&&Array.isArray(stroke.points)&&stroke.points.length){
@@ -7412,6 +7465,7 @@ function migrateLegacyCircleMemoStroke(stroke){
       isCircleMemo: true,
       paperDiameterMm,
       circleSizeLevel,
+      circleGeometryVersion: CIRCLE_GEOMETRY_VERSION,
       anchorMode: stroke.anchorMode || "center",
       points: pts
     };
@@ -7802,6 +7856,7 @@ function restoreInkStrokesFromSourceText(srcText){
       isCircleMemo: !!s.isCircleMemo,
       paperDiameterMm: Number.isFinite(+s.paperDiameterMm) ? +s.paperDiameterMm : null,
       circleSizeLevel: Number.isFinite(+s.circleSizeLevel) ? +s.circleSizeLevel : null,
+      circleGeometryVersion: Number.isFinite(+s.circleGeometryVersion) ? +s.circleGeometryVersion : null,
       points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y)) : []
     })).map(migrateLegacyCircleMemoStroke).filter(s => s.points.length >= 2);
   }
@@ -8838,6 +8893,7 @@ const CIRCLE_SIZE_MIN_LEVEL = 1;
 const CIRCLE_SIZE_MAX_LEVEL = 100;
 const CIRCLE_DIAMETER_MIN_MM = 0.2;
 const CIRCLE_DIAMETER_MAX_MM = 10;
+const CIRCLE_GEOMETRY_VERSION = 2;
 const PEN_WIDTH_MIN_LEVEL = 1;
 const PEN_WIDTH_MAX_LEVEL = 100;
 

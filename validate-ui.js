@@ -9,14 +9,20 @@ for(let i=0;i<scripts.length;i++)new vm.Script(scripts[i],{filename:`inline-${i+
 const levels=[1,10,25,50,75,100];
 const scales=[1,100,200,250,500,1000,2000,2500,5000];
 const diameter=level=>0.2+(level-1)/99*(10-0.2);
+const classify=(extentScale,scale)=>{
+  if(scale<=1.000001)return 'model';
+  return Math.abs(Math.log(extentScale))<Math.abs(Math.log(extentScale/scale))?'paper':'model';
+};
 for(const scale of scales){
-  for(const realScale of [1,scale]){
-    const unitsPerPaperMm=scale/realScale;
+  for(const storage of ['model','paper']){
+    const extentScale=storage==='model'?scale:1;
+    const detected=classify(extentScale,scale);
+    if(detected!==storage&&scale>1)throw new Error(`coordinate storage mismatch 1/${scale}: ${storage} -> ${detected}`);
+    const unitsPerPaperMm=detected==='paper'?1:scale;
     for(const level of levels){
       const worldDiameter=diameter(level)*unitsPerPaperMm;
-      const realDiameter=worldDiameter*realScale;
-      const expected=diameter(level)*scale;
-      if(Math.abs(realDiameter-expected)>1e-8)throw new Error(`circle scale mismatch 1/${scale}`);
+      const expected=storage==='paper'?diameter(level):diameter(level)*scale;
+      if(Math.abs(worldDiameter-expected)>1e-8)throw new Error(`circle scale mismatch 1/${scale} ${storage}`);
     }
   }
 }
@@ -37,7 +43,9 @@ const required=[
   'if(commandId!=="openIconBtn"&&isSaveMenuOpen())setSaveMenuOpen(false)',
   'if(commandId!=="bgBtn")',
   'paperDiameterMm=circleDiameterMmFromLevel(circleSizeLevel)',
-  'getMemoWorldUnitsPerPaperMm()'
+  'getMemoWorldUnitsPerPaperMm()',
+  'classifyDrawingCoordinateStorage(bounds,sheet,denominator)',
+  'circleGeometryVersion: CIRCLE_GEOMETRY_VERSION'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`missing implementation: ${token}`);
 console.log(`OK: ${scripts.length} inline scripts; ${scales.length*2*levels.length} circle-scale cases; ${commands.length**2} toolbar transitions`);
