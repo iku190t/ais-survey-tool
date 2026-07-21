@@ -4582,6 +4582,27 @@ function textHorizontalScore(d, rot){
   }
   return score;
 }
+function textUprightScore(d,rot){
+  const candidates=(d&&Array.isArray(d.texts)?d.texts:[]).filter(t=>
+    t&&String(t.text||"").trim()&&Number.isFinite(+t.angle)&&Number.isFinite(+t.h)&&+t.h>0
+  ).map(t=>{
+    const length=Math.max(1,Array.from(String(t.text||"")).length);
+    const area=Math.max(1,Math.abs(+t.h||0)*Math.max(Math.abs(+t.w||0),Math.abs(+t.h||0)));
+    return {t,weight:Math.min(10000,Math.sqrt(area)*Math.log2(length+2))};
+  }).sort((a,b)=>b.weight-a.weight).slice(0,300);
+  let score=0,evidence=0;
+  for(const item of candidates){
+    const rendered=normalize180(-((+item.t.angle||0)+rot));
+    const cosine=Math.cos(rendered*Math.PI/180);
+    // Horizontal text decides 0/180. Vertical text contributes almost zero,
+    // so legitimate vertical writing cannot turn the whole drawing over.
+    const horizontalStrength=Math.pow(Math.abs(cosine),3);
+    const weighted=item.weight*horizontalStrength;
+    score+=weighted*cosine;
+    evidence+=weighted;
+  }
+  return {score,evidence};
+}
 function lineAlignmentScore(d, rot){
   let score = 0;
   function add(dx, dy, w){
@@ -4630,14 +4651,23 @@ function determineBestRotation(d){
     // authoritative drawing-to-paper direction. JS rotates world coordinates
     // before its Y inversion, so the placement angle is used with this sign.
     const placement=d&&d._mainDrawingPlacement;
-    if(placement&&Number.isFinite(+placement.angle)) return normalize180(+placement.angle);
+    let baseRotation=null;
+    if(placement&&Number.isFinite(+placement.angle))baseRotation=normalize180(+placement.angle);
     // Files without a usable placement fall back to the largest drawing text.
     // The JS text renderer uses -(text angle + drawing rotation).
     const largest=(d&&Array.isArray(d.texts)?d.texts:[]).filter(t=>t&&String(t.text||'').trim()&&+t.h>0).sort((a,b)=>{
       const areaA=(+a.h||0)*Math.max(1,+a.w||0),areaB=(+b.h||0)*Math.max(1,+b.w||0);
       return areaB-areaA||(+b.w||0)-(+a.w||0)||String(b.text||'').length-String(a.text||'').length;
     })[0];
-    return largest?normalize180(-(+largest.angle||0)):0;
+    if(baseRotation==null)baseRotation=largest?normalize180(-(+largest.angle||0)):0;
+    const flippedRotation=normalize180(baseRotation+180);
+    const baseReadability=textUprightScore(d,baseRotation);
+    const flippedReadability=textUprightScore(d,flippedRotation);
+    const evidence=Math.max(baseReadability.evidence,flippedReadability.evidence);
+    if(evidence>0&&Math.abs(baseReadability.score-flippedReadability.score)>evidence*0.02){
+      return flippedReadability.score>baseReadability.score?flippedRotation:baseRotation;
+    }
+    return baseRotation;
   }catch(e){
     console.error(e);
     return 0;
@@ -5590,9 +5620,9 @@ function drawInkStroke(stroke){
   ctx.fillStyle = strokeColor;
   ctx.globalAlpha = stroke.opacity == null ? 1 : stroke.opacity;
 
-  // 線幅は段階1=0.006mm、100=0.50mm。全体表示を1倍としてズームにも追従する。
-  const widthMm = getStrokeWidthMm(stroke);
-  const lineW = Math.max(0.02, widthMm * getMemoWorldUnitsPerPaperMm() * Math.max(view.scale || 1, 0.000001));
+  // SFCへ保存する紙面mmと、スマホで確認する表示幅は別物として扱う。
+  // 表示幅は全体表示を基準に1～100の差を保ち、ズームにも追従する。
+  const lineW = getMemoPreviewLineWidthPx(stroke);
   ctx.lineWidth = lineW;
 
   if(!stroke.points || stroke.points.length<2){ ctx.restore(); return; }
@@ -5621,8 +5651,7 @@ function hitTestInkObject(worldPt){
   for (let i = inkStrokes.length - 1; i >= 0; i--) {
     const s = inkStrokes[i];
     let d = Infinity;
-    const widthMm=getStrokeWidthMm(s);
-    const renderedWidthPx=Math.max(.02,widthMm*getMemoWorldUnitsPerPaperMm()*Math.max(view.scale||1,0.000001));
+    const renderedWidthPx=getMemoPreviewLineWidthPx(s);
     const tolPx=Math.max(10,renderedWidthPx/2+7);
     if (s.points && s.points.length) {
       let previous=worldToScreen(s.points[0].x,s.points[0].y);
@@ -6583,6 +6612,12 @@ function getStrokeWidthMm(stroke){
   const legacyPx=Number(stroke&&stroke.screenWidthPx);
   if(Number.isFinite(legacyPx)&&legacyPx>0)return Math.max(0.006,Math.min(1,legacyPx/0.9));
   return penWidthMmFromLevel(stroke&&stroke.width||1);
+}
+function getMemoPreviewLineWidthPx(stroke){
+  const level=penWidthLevelFromMm(getStrokeWidthMm(stroke));
+  const atFitPx=0.30+((level-1)/99)*(5.0-0.30);
+  const zoomRatio=Math.max(0.05,Math.min(100,(view.scale||1)/Math.max(baseFitScale||view.scale||1,1e-9)));
+  return Math.max(0.20,atFitPx*zoomRatio);
 }
 function getDrawingScaleDenominator(){
   const placement=data&&data._mainDrawingPlacement;

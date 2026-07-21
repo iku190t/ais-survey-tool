@@ -40,6 +40,13 @@ for(let level=1;level<=100;level++){
   }
 }
 if(Math.abs(widthMm(1)-0.006)>1e-12||Math.abs(widthMm(100)-0.50)>1e-12)throw new Error('pen width endpoints changed');
+const previewPx=level=>0.30+(level-1)/99*(5.0-0.30);
+if(Math.abs(previewPx(1)-0.30)>1e-12||Math.abs(previewPx(100)-5.0)>1e-12)throw new Error('pen preview endpoints changed');
+for(let level=2;level<=100;level++)if(!(previewPx(level)>previewPx(level-1)))throw new Error(`pen preview is not monotonic at ${level}`);
+
+const uprightScore=(textAngle,rotation)=>Math.cos((-(textAngle+rotation))*Math.PI/180);
+if(!(uprightScore(0,0)>uprightScore(0,180)))throw new Error('0/180 orientation selection failed');
+if(!(uprightScore(180,180)>uprightScore(180,0)))throw new Error('flipped text orientation selection failed');
 
 const commands=['openIconBtn','gpsBtn','measureBtn','profileBtn','drawBtn','textSearchOpenBtn','helpBtn','layerFab','bgBtn','gpsDetailFab','supportBtn'];
 const surfaces=['file','measure','profile','draw','search','help','layer','background','gpsDetail','support'];
@@ -61,7 +68,9 @@ const required=[
   'classifyDrawingCoordinateStorage(bounds,sheet,denominator)',
   'circleGeometryVersion: CIRCLE_GEOMETRY_VERSION',
   'worldWidthMm:widthMm',
-  'width:penWidthLevelFromMm(widthMm)'
+  'width:penWidthLevelFromMm(widthMm)',
+  'getMemoPreviewLineWidthPx(stroke)',
+  'textUprightScore(d,baseRotation)'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`missing implementation: ${token}`);
 console.log(`OK: ${scripts.length} inline scripts; ${scales.length*2*levels.length} circle-scale cases; ${commands.length**2} toolbar transitions`);
