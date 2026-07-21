@@ -1566,7 +1566,7 @@ let inkEnabled = false;
 let inkEraser = false;
 let inkColor = "#ff3030";
 let inkWidth = 10;
-let inkCircleSize = 14.5; // level 10 default (1-100 => 25mm-5000mm)
+let inkCircleSize = 14.5; // full-drawing-view radius in CSS pixels (UI level 1-100)
 // Internally opacity is stored in the Canvas range 0.0-1.0.
 // The control displays transparency: 0% is opaque and 100% is invisible.
 let inkOpacity = 1.0;
@@ -5613,26 +5613,34 @@ function drawInkStroke(stroke){
   ctx.restore();
 }
 
-function worldDist(a,b){
-  return Math.hypot(a.x-b.x, a.y-b.y);
-}
 function hitTestInkObject(worldPt){
   let bestIndex = -1;
   let bestDist = Infinity;
   const targetScreen = worldPt ? worldToScreen(worldPt.x, worldPt.y) : null;
+  if(!targetScreen)return -1;
+  const distanceToScreenSegment=(px,py,ax,ay,bx,by)=>{
+    const dx=bx-ax,dy=by-ay,len2=dx*dx+dy*dy;
+    if(len2<=1e-12)return Math.hypot(px-ax,py-ay);
+    const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/len2));
+    return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));
+  };
   for (let i = inkStrokes.length - 1; i >= 0; i--) {
     const s = inkStrokes[i];
     let d = Infinity;
-    let tol = (((s.worldWidthMm != null ? s.worldWidthMm : penWidthMmFromLevel(s.width || inkWidth)) / Math.max(view.scale,0.0001)) * 4) + 1.5;
-    if (s.type === "circle") {
-      const center = {x:s.cx, y:s.cy};
-      const r = s.r || 0;
-      d = Math.abs(worldDist(worldPt, center) - r);
-      d = Math.min(d, worldDist(worldPt, center)); // allow hit inside too
-    } else if (s.points && s.points.length) {
-      for (const p of s.points) d = Math.min(d, worldDist(worldPt, p));
+    const widthMm=getStrokeWidthMm(s);
+    const zoomRatio=Math.max(view.scale||1,0.000001)/Math.max(baseFitScale||1,0.000001);
+    const renderedWidthPx=Math.max(.02,widthMm*(96/25.4)*zoomRatio);
+    const tolPx=Math.max(10,renderedWidthPx/2+7);
+    if (s.points && s.points.length) {
+      let previous=worldToScreen(s.points[0].x,s.points[0].y);
+      d=Math.hypot(targetScreen[0]-previous[0],targetScreen[1]-previous[1]);
+      for(let pIndex=1;pIndex<s.points.length;pIndex++){
+        const current=worldToScreen(s.points[pIndex].x,s.points[pIndex].y);
+        d=Math.min(d,distanceToScreenSegment(targetScreen[0],targetScreen[1],previous[0],previous[1],current[0],current[1]));
+        previous=current;
+      }
     }
-    if (d < bestDist && d <= tol) {
+    if (d < bestDist && d <= tolPx) {
       bestDist = d;
       bestIndex = i;
     }
@@ -6191,8 +6199,12 @@ function buildCircleStrokeFromScreenPoint(sx, sy){
   const cx = +anchor.x || 0;
   const cy = +anchor.y || 0;
 
-  // 図面1/1基準の固定mm半径
-  const radiusWorld = circleRadiusMmFromLevel(inkCircleSize);
+  // The circle control represents its radius at the initial full-drawing view.
+  // Convert that screen radius to drawing coordinates exactly once.  Using a
+  // paper/model scale denominator here made paper-space 1/250 drawings apply
+  // their scale twice and produced enormous circles.
+  const radiusAtFitPx=normalizeCircleSizePx(inkCircleSize);
+  const radiusWorld=radiusAtFitPx/Math.max(baseFitScale||view.scale||1,0.000001);
 
   const segs = 48;
   const pts = [];
@@ -6213,6 +6225,7 @@ function buildCircleStrokeFromScreenPoint(sx, sy){
     opacity: inkOpacity,
     eraser: false,
     isCircleMemo: true,
+    radiusAtFitPx,
     anchorMode: "free",
     points: pts
   };
@@ -7325,7 +7338,8 @@ function migrateLegacyCircleMemoStroke(stroke){
   if (stroke.type === "circle_polyline_screen") {
     const cx = +stroke.cx || 0;
     const cy = +stroke.cy || 0;
-    const radiusWorld = Math.max(4, +stroke.screenRadiusPx || 14) / Math.max(view.scale || 1, 0.000001);
+    const radiusAtFitPx=Math.max(4,+stroke.screenRadiusPx||14);
+    const radiusWorld=radiusAtFitPx/Math.max(baseFitScale||view.scale||1,0.000001);
     const segs = 48;
     const pts = [];
     for (let i = 0; i <= segs; i++) {
@@ -7344,6 +7358,7 @@ function migrateLegacyCircleMemoStroke(stroke){
       worldWidthMm: stroke.worldWidthMm != null ? +stroke.worldWidthMm : penWidthMmFromLevel(stroke.width || inkWidth || 15),
       width: +(stroke.width || 1),
       isCircleMemo: true,
+      radiusAtFitPx,
       anchorMode: stroke.anchorMode || "center",
       points: pts
     };
@@ -8765,11 +8780,6 @@ const PEN_WIDTH_MAX_LEVEL = 100;
 function penWidthMmFromLevel(v){
   const level = normalizePenWidthLevel(v);
   return 0.006 + ((level - 1) / 99) * (0.50 - 0.006); // 1->0.006mm, 100->0.50mm
-}
-function circleRadiusMmFromLevel(v){
-  const level = normalizeCircleSizeLevel(v);
-  const t = (level - 1) / 99;
-  return 10 + t * (2000 - 10); // 1->10mm, 100->2000mm
 }
 function normalizePenWidthLevel(v){
   let n = Number(v);
