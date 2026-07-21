@@ -5203,33 +5203,29 @@ function segmentIntersection(a,b,c,d){
   const px=((x1*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4))/den;
   const py=((x1*y2-y1*x2)*(y3-y4)-(y1-y2)*(x3*y4-y3*x4))/den;
   function within(p,a,b){ return p>=Math.min(a,b)-1e-6 && p<=Math.max(a,b)+1e-6; }
-  if(within(px,x1,x2)&&within(py,y1,y2)&&within(px,x3,x4)&&within(py,y3,y4)) return {x:px,y:py};
+  if(within(px,x1,x2)&&within(py,y1,y2)&&within(px,x3,x4)&&within(py,y3,y4)){
+    const ab2=(x2-x1)*(x2-x1)+(y2-y1)*(y2-y1);
+    const cd2=(x4-x3)*(x4-x3)+(y4-y3)*(y4-y3);
+    const t=ab2>1e-18?((px-x1)*(x2-x1)+(py-y1)*(y2-y1))/ab2:0;
+    const u=cd2>1e-18?((px-x3)*(x4-x3)+(py-y3)*(y4-y3))/cd2:0;
+    return {x:px,y:py,t,u};
+  }
   return null;
 }
 function rebuildMeasurePoints(){
-  const pts=[], lines=[];
+  const pts=[];
   for(const [x1,y1,x2,y2,layer] of data.lines){
     if(!isLayerVisible(layer)) continue;
     pts.push({x:x1,y:y1,layer}); pts.push({x:x2,y:y2,layer});
-    lines.push([{x:x1,y:y1},{x:x2,y:y2},layer]);
   }
   for(const [polyPts,layer] of data.polys){
     if(!isLayerVisible(layer)) continue;
     for(let i=0;i<polyPts.length;i++){
       pts.push({x:polyPts[i][0],y:polyPts[i][1],layer});
-      if(i>0) lines.push([{x:polyPts[i-1][0],y:polyPts[i-1][1]}, {x:polyPts[i][0],y:polyPts[i][1]}, layer]);
     }
   }
   for(const m of data.markers || []){
     if(isLayerVisible(m.layer)) pts.push({x:m.x,y:m.y,layer:m.layer,marker:true});
-  }
-  if(lines.length<=1500){
-    for(let i=0;i<lines.length;i++){
-      for(let j=i+1;j<lines.length;j++){
-        const hit=segmentIntersection(lines[i][0],lines[i][1],lines[j][0],lines[j][1]);
-        if(hit) pts.push({x:hit.x,y:hit.y,layer:lines[i][2]});
-      }
-    }
   }
   const unique=[], seen=new Set();
   for(const p of pts){
@@ -5297,10 +5293,6 @@ function getVisibleLineEndpoints(){
   }
   return pts;
 }
-function getVisibleIntersections(){
-  ensureMeasurePoints();
-  return cachedMeasurePoints || [];
-}
 function nearestFromList(screenX, screenY, pts, threshold=18){
   let best=null, bestDist=Infinity;
   for (const p of pts){
@@ -5336,6 +5328,74 @@ function projectPointToNearestVisibleSegment(screenX, screenY){
   }
   return best;
 }
+function getVisibleSegmentsNearScreen(screenX,screenY,threshold=26){
+  const nearby=[];
+  const queryCorners=[
+    screenToWorld(screenX-threshold,screenY-threshold),screenToWorld(screenX+threshold,screenY-threshold),
+    screenToWorld(screenX+threshold,screenY+threshold),screenToWorld(screenX-threshold,screenY+threshold)
+  ];
+  const queryBounds={
+    minx:Math.min(...queryCorners.map(p=>p[0])),miny:Math.min(...queryCorners.map(p=>p[1])),
+    maxx:Math.max(...queryCorners.map(p=>p[0])),maxy:Math.max(...queryCorners.map(p=>p[1]))
+  };
+  const overlaps=b=>!b||!(b.maxx<queryBounds.minx||b.minx>queryBounds.maxx||b.maxy<queryBounds.miny||b.miny>queryBounds.maxy);
+  const visitNearbyRuns=(runs,fallback,visit)=>{
+    if(Array.isArray(runs)&&runs.length){
+      for(const run of runs){
+        if(!overlaps(run&&run._renderBounds))continue;
+        for(const item of run.items||[])if(overlaps(item&&item._renderBounds))visit(item);
+      }
+    }else for(const item of fallback||[])visit(item);
+  };
+  const consider=(ax,ay,bx,by,layer)=>{
+    if(![ax,ay,bx,by].every(Number.isFinite))return;
+    const a=worldToScreen(ax,ay),b=worldToScreen(bx,by);
+    const vx=b[0]-a[0],vy=b[1]-a[1],len2=vx*vx+vy*vy;
+    if(len2<=1e-12)return;
+    let t=((screenX-a[0])*vx+(screenY-a[1])*vy)/len2;
+    t=Math.max(0,Math.min(1,t));
+    const distance=Math.hypot(a[0]+t*vx-screenX,a[1]+t*vy-screenY);
+    if(distance<=threshold)nearby.push({a:{x:ax,y:ay},b:{x:bx,y:by},layer,distance});
+  };
+  visitNearbyRuns(data._lineRenderRuns,data.lines,item=>{
+    const [x1,y1,x2,y2,layer]=item;
+    if(isLayerVisible(layer))consider(x1,y1,x2,y2,layer);
+  });
+  visitNearbyRuns(data._polyRenderRuns,data.polys,item=>{
+    const [pts,layer]=item;
+    if(!isLayerVisible(layer))return;
+    for(let i=1;i<(pts||[]).length;i++)consider(pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1],layer);
+  });
+  visitNearbyRuns(data._splineRenderRuns,data.splines,item=>{
+    const [pts,layer]=item;
+    if(!isLayerVisible(layer))return;
+    for(let i=1;i<(pts||[]).length;i++)consider(pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1],layer);
+  });
+  // Dense drawings can place hundreds of short segments under one finger.
+  // The nearest segments are sufficient to determine the intended crossing.
+  nearby.sort((a,b)=>a.distance-b.distance);
+  return nearby.slice(0,120);
+}
+function findNearestVisibleIntersection(screenX,screenY,threshold=24){
+  const segments=getVisibleSegmentsNearScreen(screenX,screenY,threshold+4);
+  let best=null,bestDistance=Infinity;
+  for(let i=0;i<segments.length;i++){
+    for(let j=i+1;j<segments.length;j++){
+      const hit=segmentIntersection(segments[i].a,segments[i].b,segments[j].a,segments[j].b);
+      if(!hit)continue;
+      // A shared vertex is an endpoint, not a crossing.  Keep the two modes
+      // independent so the intersection button cannot behave like endpoint.
+      const edgeEpsilon=1e-7;
+      if(hit.t<=edgeEpsilon||hit.t>=1-edgeEpsilon||hit.u<=edgeEpsilon||hit.u>=1-edgeEpsilon)continue;
+      const s=worldToScreen(hit.x,hit.y),distance=Math.hypot(s[0]-screenX,s[1]-screenY);
+      if(distance<=threshold&&distance<bestDistance){
+        bestDistance=distance;
+        best={x:hit.x,y:hit.y,layer:segments[i].layer,intersection:true};
+      }
+    }
+  }
+  return best;
+}
 function chooseMeasurePoint(screenX,screenY){ return findNearestPointNumberText(screenX,screenY) || findNearestPoint(screenX,screenY); }
 
 function getGpsWorldPoint(){
@@ -5360,7 +5420,7 @@ function chooseMeasurePointByMode(screenX,screenY){
       continue;
     }
     if (mode === "cross"){
-      const p = nearestFromList(screenX, screenY, getVisibleIntersections(), 24);
+      const p = findNearestVisibleIntersection(screenX,screenY,24);
       if (p) return p;
       continue;
     }
@@ -5418,6 +5478,17 @@ function undoMeasureSelection(){
   updateMeasureBox();
   scheduleDraw();
 }
+function measurePointToPlaneCoordinate(point){
+  if(!point)return null;
+  const plane=sfcWorldToPlane(+point.x||0,+point.y||0);
+  if(plane&&Number.isFinite(plane.xNorth)&&Number.isFinite(plane.yEast))return plane;
+  return {xNorth:(+point.y||0)/1000,yEast:(+point.x||0)/1000};
+}
+function measureDistanceMeters(a,b){
+  const pa=measurePointToPlaneCoordinate(a),pb=measurePointToPlaneCoordinate(b);
+  if(!pa||!pb)return 0;
+  return Math.hypot(pb.xNorth-pa.xNorth,pb.yEast-pa.yEast);
+}
 function updateMeasureBox(){
   updateModeStatus();
   const txt=document.getElementById("measureText");
@@ -5430,8 +5501,8 @@ function updateMeasureBox(){
     toggle.textContent=vertical?"⊥ 3点垂直":"↔ 2点間";
     toggle.title=vertical?"押すと2点間へ切り替えます":"押すと3点垂直へ切り替えます";
   }
-  function fmtX(p){ return (p.y/1000).toFixed(3); }
-  function fmtY(p){ return (p.x/1000).toFixed(3); }
+  function fmtX(p){ const q=measurePointToPlaneCoordinate(p); return q?q.xNorth.toFixed(3):""; }
+  function fmtY(p){ const q=measurePointToPlaneCoordinate(p); return q?q.yEast.toFixed(3):""; }
   if (measureType === "3vertical"){
     if(selectedMeasurePoints.length===0){
       txt.textContent = "底辺の1点目を選んでください。";
@@ -5443,11 +5514,12 @@ function updateMeasureBox(){
       txt.innerHTML = `底辺2点<br>A X=${fmtX(a)} Y=${fmtY(a)}<br>B X=${fmtX(b)} Y=${fmtY(b)}<br><br>頂点を1点選んでください。`;
     }else{
       const a=selectedMeasurePoints[0], b=selectedMeasurePoints[1], p=selectedMeasurePoints[2];
-      const vx=b.x-a.x, vy=b.y-a.y;
-      const wx=p.x-a.x, wy=p.y-a.y;
+      const ap=measurePointToPlaneCoordinate(a),bp=measurePointToPlaneCoordinate(b),pp=measurePointToPlaneCoordinate(p);
+      const vx=bp.xNorth-ap.xNorth, vy=bp.yEast-ap.yEast;
+      const wx=pp.xNorth-ap.xNorth, wy=pp.yEast-ap.yEast;
       const area2 = Math.abs(vx*wy - vy*wx);
       const base = Math.hypot(vx,vy);
-      const dist = (base ? area2/base : 0)/1000;
+      const dist = base ? area2/base : 0;
       txt.innerHTML = `底辺A X=${fmtX(a)} Y=${fmtY(a)}<br>底辺B X=${fmtX(b)} Y=${fmtY(b)}<br>頂点 X=${fmtX(p)} Y=${fmtY(p)}<br><br><b>直角距離=${dist.toFixed(3)}</b>`;
     }
   } else {
@@ -5458,7 +5530,7 @@ function updateMeasureBox(){
       txt.innerHTML = `1点目<br>X=${fmtX(p)}<br>Y=${fmtY(p)}<br><br>2点目を選んでください。`;
     }else{
       const a=selectedMeasurePoints[0], b=selectedMeasurePoints[1];
-      const dx=(b.y-a.y)/1000, dy=(b.x-a.x)/1000, dist=Math.hypot(b.x-a.x,b.y-a.y)/1000;
+      const dist=measureDistanceMeters(a,b);
       txt.innerHTML = `1点目 X=${fmtX(a)} Y=${fmtY(a)}<br>2点目 X=${fmtX(b)} Y=${fmtY(b)}<br><br><b>点間距離=${dist.toFixed(3)}</b>`;
     }
   }
