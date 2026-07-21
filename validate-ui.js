@@ -40,8 +40,8 @@ for(let level=1;level<=100;level++){
   }
 }
 if(Math.abs(widthMm(1)-0.006)>1e-12||Math.abs(widthMm(100)-0.50)>1e-12)throw new Error('pen width endpoints changed');
-const previewPx=level=>0.30+(level-1)/99*(5.0-0.30);
-if(Math.abs(previewPx(1)-0.30)>1e-12||Math.abs(previewPx(100)-5.0)>1e-12)throw new Error('pen preview endpoints changed');
+const previewPx=level=>0.03+(level-1)/99*(0.50-0.03);
+if(Math.abs(previewPx(1)-0.03)>1e-12||Math.abs(previewPx(100)-0.50)>1e-12)throw new Error('pen preview endpoints changed');
 for(let level=2;level<=100;level++)if(!(previewPx(level)>previewPx(level-1)))throw new Error(`pen preview is not monotonic at ${level}`);
 
 const uprightScore=(textAngle,rotation)=>Math.cos((-(textAngle+rotation))*Math.PI/180);
@@ -70,7 +70,10 @@ const required=[
   'worldWidthMm:widthMm',
   'width:penWidthLevelFromMm(widthMm)',
   'getMemoPreviewLineWidthPx(stroke)',
-  'textUprightScore(d,baseRotation)'
+  'textUprightScore(d,baseRotation)',
+  'dominantTextAxisRotation(d)',
+  'trustedMainFigures=transformedFigures.filter',
+  '元図より|拡大図|座標一覧'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`missing implementation: ${token}`);
 console.log(`OK: ${scripts.length} inline scripts; ${scales.length*2*levels.length} circle-scale cases; ${commands.length**2} toolbar transitions`);
