@@ -101,6 +101,9 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #profileHeader{display:flex;align-items:center;gap:10px;padding:10px 12px 8px;border-bottom:1px solid var(--border);}
 #profileTitle{font-size:15px;font-weight:800;white-space:nowrap;}
 #profileSummary{font-size:13px;line-height:1.45;flex:1;min-width:0;}
+.profileDemLegend{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;margin-left:6px;font-size:10px;color:var(--muted);}
+.profileDemLegendItem{display:inline-flex;align-items:center;gap:2px;white-space:nowrap;}
+.profileDemLegendDot{width:9px;height:3px;border-radius:2px;display:inline-block;}
 #profileSizeToggleBtn{min-width:54px;}
 #profileCloseBtn{min-width:62px;}
 #profileFooter{display:flex;align-items:center;gap:8px;padding:6px 10px 8px;}
@@ -1263,9 +1266,9 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">使い方</div><b>断面</b>を押し、図面上で起点と終点を順にタップすると自動で断面図を表示します。起点・終点はそれぞれドラッグでき、線の途中をドラッグすると断面線全体を移動できます。</div>
               <div class="helpBlock"><div class="helpHead">断面図の大きさ</div>最初は図面上の断面線が見える小表示です。<b>拡大／縮小</b>で断面図の大きさを切り替えられます。</div>
-              <div class="helpBlock"><div class="helpHead">グラフ</div>横軸と縦軸は同じ縮尺（縦横1:1）です。延長と高低差を表示します。1本指でなぞると図面上の対応位置が分かり、2本指で拡大縮小・移動できます。</div>
+              <div class="helpBlock"><div class="helpHead">グラフ</div>横軸と縦軸は同じ縮尺（縦横1:1）です。延長と高低差を表示し、断面線は使用したDEM種別ごとに色分けします。1本指でなぞると図面上の対応位置が分かり、2本指で拡大縮小・移動できます。</div>
               <div class="helpBlock"><div class="helpHead">格子</div>表示倍率に応じ、1m・5m・10m・25m・50m以上から見やすい最小間隔へ自動で切り替わります。細格子は極細、主格子だけ少し濃く表示します。</div>
-              <div class="helpBlock"><div class="helpHead">断面SFC書出</div>断面画面の <b>断面SFC書出 1/100</b> を押すと、縦横1:1・縮尺1/100の断面をSFCで保存できます。断面の左余白は5mで、起点・終点はピンクの○×と文字で表示します。縮尺、起点・終点のX・Y・標高、延長、方向角も図面内と再配置用データへ記録します。PCではSFCの保存先選択画面、スマホでは送信画面が開きます。</div>
+              <div class="helpBlock"><div class="helpHead">断面SFC書出</div>断面画面の <b>断面SFC書出 1/100</b> を押すと、縦横1:1・縮尺1/100の断面をSFCで保存できます。断面線はPROFILE_DEM1Aなど使用DEM別のレイヤーへ分けて保存します。断面の左余白は5mで、起点・終点はピンクの○×と文字で表示します。縮尺、起点・終点のX・Y・標高、延長、方向角も図面内と再配置用データへ記録します。PCではSFCの保存先選択画面、スマホでは送信画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">断面をZIPで送る理由</div>SFCのままでは、端末やメールアプリが未対応の添付形式と判断して添付できない場合があります。そのためスマホでは自動的にZIPへ圧縮します。ZIPにすることでSFCの名前・座標・断面図形を変更せずに送信でき、受信後に展開すれば通常のSFCとして開けます。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>断面を押すと現在地から図面の座標系を自動判定します。iPhoneから確認が出た場合は位置情報を許可してください。判定中・起点・終点の案内は図面上部に表示されます。</div>
               <div class="helpBlock"><div class="helpHead">通信とキャッシュ</div>初回は国土地理院の標高タイルを取得します。同じ場所付近は端末内キャッシュを再利用します。通信できずキャッシュもない場合は表示できません。</div>
@@ -1334,7 +1337,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">地形解析</div>背景画面の<b>地形解析</b>を押すと地形解析画面へ進みます。<b>閉じる</b>で背景画面へ戻ります。<b>標高</b>、<b>傾斜角</b>、<b>等高線</b>、<b>水の流れ</b>、<b>概算土量</b>は1種類だけ表示され、選択中の青いボタンをもう一度押すと解除できます。取得中は選択ボタンに進行表示が出ます。</div>
               <div class="helpBlock"><div class="helpHead">標高</div>現在見えている範囲の最低標高から最高標高までを10段階に分け、低い場所を青、高い場所を赤で表示します。凡例には実際の標高値を表示します。</div>
               <div class="helpBlock"><div class="helpHead">傾斜角</div>DEMから求めた概略傾斜を10段階で表示し、最後の区分を60度以上とします。</div>
-              <div class="helpBlock"><div class="helpHead">等高線</div>表示範囲の標高差に応じて、1m・2m・5m・10mなど見やすい間隔を自動選択します。通常の等高線と標高数字は黄色、5本ごとの計曲線は太い橙色で表示します。凡例には、実際に使用した国土地理院DEMの種類・作成方法・標高精度の目安（標準偏差）を表示します。複数のDEMが混在する場合は、精度が低い方の標準偏差を安全側の目安として表示します。</div>
+              <div class="helpBlock"><div class="helpHead">等高線</div>表示範囲の標高差に応じて、1m・2m・5m・10mなど見やすい間隔を自動選択します。通常の等高線と標高数字は黄色、5本ごとの計曲線は太い橙色で表示します。凡例には、実際に使用した国土地理院DEMの種類・作成方法・標高精度の目安（標準偏差）を表示します。PCはマウス位置、スマホは画面中央位置のDEMを表示します。複数のDEMが混在する場合は、精度が低い方の標準偏差を安全側の目安として表示します。</div>
               <div class="helpBlock"><div class="helpHead">水の流れ</div>細かいDEMで方向を計算し、矢印数は高密度表示時の約10%まで間引いて低い方向を表示します。排水施設を考慮した流域解析ではありません。</div>
               <div class="helpBlock"><div class="helpHead">概算土量</div>表示範囲の平均標高を基準面として切土・盛土を概算します。正式な施工数量には使用できません。</div>
               <div class="helpBlock"><div class="helpHead">精細表示と軽量化</div>表示中の範囲だけを、倍率とDEM解像度に合わせて画面で識別できる最細密度まで自動解析します。移動・拡大後は新しい表示範囲へ自動更新し、取得済みDEMキャッシュを再利用します。</div>
@@ -1684,17 +1687,18 @@ let terrainRequestVersion = 0;
 let terrainReferenceElevation = null;
 let terrainElevationRange = null;
 let terrainRefreshTimer = 0;
+let terrainHoverInfoTimer = 0;
 
 const PROFILE_TILE_CACHE = "sfc-dem-tiles-v1";
 const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v1";
 // v2 invalidates zone numbers remembered before GPS-first validation was added.
 const PROFILE_ZONE_CACHE_KEY = "sfc-dem-zones-v2";
 const PROFILE_DEM_SOURCES = [
-  {id:"DEM1A", method:"航空レーザ測量", standardDeviation:0.3, url:"https://cyberjapandata.gsi.go.jp/xyz/dem1a_png/{z}/{x}/{y}.png", z:17},
-  {id:"DEM5A", method:"航空レーザ測量", standardDeviation:0.3, url:"https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{z}/{x}/{y}.png", z:15},
-  {id:"DEM5B", method:"航空写真測量（画素20cm）", standardDeviation:0.7, url:"https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/{z}/{x}/{y}.png", z:15},
-  {id:"DEM5C", method:"航空写真測量（画素40cm）", standardDeviation:1.4, url:"https://cyberjapandata.gsi.go.jp/xyz/dem5c_png/{z}/{x}/{y}.png", z:15},
-  {id:"DEM10B",method:"2万5千分1地形図の等高線から作成", standardDeviation:5.0, url:"https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png", z:14}
+  {id:"DEM1A", method:"航空レーザ測量", standardDeviation:0.3, screenColor:"#27c7ff", sfcColorCode:"5", sfcColorName:"cyan", url:"https://cyberjapandata.gsi.go.jp/xyz/dem1a_png/{z}/{x}/{y}.png", z:17},
+  {id:"DEM5A", method:"航空レーザ測量", standardDeviation:0.3, screenColor:"#35c96f", sfcColorCode:"3", sfcColorName:"green", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{z}/{x}/{y}.png", z:15},
+  {id:"DEM5B", method:"航空写真測量（画素20cm）", standardDeviation:0.7, screenColor:"#ffd23f", sfcColorCode:"7", sfcColorName:"yellow", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/{z}/{x}/{y}.png", z:15},
+  {id:"DEM5C", method:"航空写真測量（画素40cm）", standardDeviation:1.4, screenColor:"#ff8c32", sfcColorCode:"6", sfcColorName:"magenta", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5c_png/{z}/{x}/{y}.png", z:15},
+  {id:"DEM10B",method:"2万5千分1地形図の等高線から作成", standardDeviation:5.0, screenColor:"#ff4b4b", sfcColorCode:"2", sfcColorName:"red", url:"https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png", z:14}
 ];
 
 const AERIAL_PHOTO_SOURCES = [
@@ -2779,7 +2783,22 @@ function terrainDemInfoHtml(grid){
   const methods=[...new Set(used.map(source=>source.method))];
   const worstDeviation=Math.max(...used.map(source=>source.standardDeviation));
   const mixed=used.length>1?"（混在）":"";
-  return `<span class="terrainDemInfo"><span><b>使用データ：</b>${used.map(source=>source.id).join("・")}${mixed}</span><span><b>作成方法：</b>${methods.join("／")}</span><span><b>標高精度の目安：</b>標準偏差 ${worstDeviation.toFixed(1)}m以内</span><span>出典：国土地理院</span></span>`;
+  return `<span class="terrainDemInfo"><span><b>使用データ：</b>${used.map(source=>source.id).join("・")}${mixed}</span><span><b>作成方法：</b>${methods.join("／")}</span><span><b>標高精度の目安：</b>標準偏差 ${worstDeviation.toFixed(1)}m以内</span><span id="terrainDemPositionInfo"></span><span>出典：国土地理院</span></span>`;
+}
+function terrainPointAtScreen(grid,screenX,screenY){
+  if(!grid||terrainViewportNeedsRefresh(grid)||!Number.isFinite(screenX)||!Number.isFinite(screenY))return null;
+  const first=getTerrainPoint(grid,0,0),last=getTerrainPoint(grid,grid.rows-1,grid.cols-1);
+  if(!first||!last||!(last.sx>first.sx)||!(last.sy>first.sy))return null;
+  const col=Math.max(0,Math.min(grid.cols-1,Math.round((screenX-first.sx)/(last.sx-first.sx)*(grid.cols-1))));
+  const row=Math.max(0,Math.min(grid.rows-1,Math.round((screenY-first.sy)/(last.sy-first.sy)*(grid.rows-1))));
+  return getTerrainPoint(grid,row,col);
+}
+function updateTerrainDemPositionInfo(screenX,screenY,label){
+  const el=document.getElementById("terrainDemPositionInfo");
+  if(!el||terrainMode!=="contour"||!terrainGrid)return;
+  const point=terrainPointAtScreen(terrainGrid,screenX,screenY);
+  const source=point&&PROFILE_DEM_SOURCES.find(item=>item.id===point.source);
+  el.innerHTML=source?`<b>${label}：</b>${source.id}（${source.method}・標準偏差 ${source.standardDeviation.toFixed(1)}m以内）`:`<b>${label}：</b>判定中…`;
 }
 function setTerrainLegend(mode){
   const el=document.getElementById("terrainLegend");if(!el)return;
@@ -2791,6 +2810,10 @@ function setTerrainLegend(mode){
     el.style.display="flex";el.innerHTML=TERRAIN_SLOPE_BANDS.map(item=>`<span class="terrainSwatch" style="background:rgb(${item.color.join(",")})"></span>${item.label}`).join(" ");
   }else if(mode==="contour"&&terrainElevationRange){
     el.style.display="flex";el.innerHTML='<span style="display:inline-block;width:24px;border-top:1px solid #ffd24a"></span> 等高線 <span style="display:inline-block;width:24px;border-top:2px solid #ff6b35"></span> 計曲線'+terrainDemInfoHtml(terrainGrid);
+    requestAnimationFrame(()=>{
+      if(isTouchMobileLike())updateTerrainDemPositionInfo(canvas.clientWidth/2,canvas.clientHeight/2,"画面中央");
+      else{const position=document.getElementById("terrainDemPositionInfo");if(position)position.innerHTML="<b>マウス位置：</b>図面上にマウスを移動してください";}
+    });
   }else if(mode==="flow"){
     el.style.display="flex";el.innerHTML='<span style="color:#00a8ff;font-weight:800">→</span> 低い方向（概略）';
   }else if(mode==="volume"){
@@ -2905,12 +2928,13 @@ function getProfileGraphGeometry(){
   if(!profileChart||!profileData) return null;
   const dpr=profileChart.width/Math.max(1,profileChart.getBoundingClientRect().width);
   const w=profileChart.width/dpr,h=profileChart.height/dpr;
-  const margin={left:48,right:14,top:15,bottom:32};
+  const compactMobile=isTouchMobileLike()&&profileModal&&!profileModal.classList.contains("expanded");
+  const margin=compactMobile?{left:48,right:10,top:6,bottom:24}:{left:48,right:14,top:15,bottom:32};
   const valid=profileData.samples.filter(s=>s.elevation!=null&&Number.isFinite(s.elevation));
   if(valid.length<2) return null;
   let minE=Math.min(...valid.map(s=>s.elevation)),maxE=Math.max(...valid.map(s=>s.elevation));
   if(maxE-minE<1){const mid=(minE+maxE)/2;minE=mid-.5;maxE=mid+.5;}
-  const pad=(maxE-minE)*.08;minE-=pad;maxE+=pad;
+  const pad=(maxE-minE)*(compactMobile?.03:.08);minE-=pad;maxE+=pad;
   const plotW=w-margin.left-margin.right,plotH=h-margin.top-margin.bottom;
   const length=Math.max(.001,profileData.length);
   const elevationRange=Math.max(.001,maxE-minE);
@@ -2929,6 +2953,24 @@ function profileGraphXY(sample,g){
     x:g.originX+baseX*profileGraphScaleX+profileGraphOffsetX,
     y:g.originY+baseY*profileGraphScaleY+profileGraphOffsetY
   };
+}
+function getProfileDemSource(id){return PROFILE_DEM_SOURCES.find(source=>source.id===id)||null;}
+function getProfileUsedDemSources(samples=profileData?.samples||[]){
+  const ids=new Set(samples.map(sample=>sample&&sample.source).filter(Boolean));
+  return PROFILE_DEM_SOURCES.filter(source=>ids.has(source.id));
+}
+function getProfileSourceRuns(samples=profileData?.samples||[]){
+  const runs=[];let previous=null,current=null;
+  for(const sample of samples){
+    if(!sample||!Number.isFinite(sample.elevation)||!Number.isFinite(sample.distance)){previous=null;current=null;continue;}
+    if(previous){
+      const sourceId=sample.source||previous.source||"DEM10B";
+      if(!current||current.sourceId!==sourceId){current={sourceId,samples:[previous,sample]};runs.push(current);}
+      else current.samples.push(sample);
+    }
+    previous=sample;
+  }
+  return runs;
 }
 function chooseProfileGridPitch(pixelsPerMeter){
   const candidates=[1,5,10,25,50,100,250,500,1000];
@@ -2993,15 +3035,11 @@ function drawProfileChart(){
   }
   ctxp.save();
   ctxp.beginPath();ctxp.rect(g.margin.left,g.margin.top,g.plotW,g.plotH);ctxp.clip();
-  ctxp.strokeStyle="#22a7f0";ctxp.lineWidth=2;ctxp.lineJoin="round";ctxp.lineCap="round";
-  ctxp.beginPath();
-  let started=false;
-  for(const sample of profileData.samples){
-    if(sample.elevation==null){started=false;continue;}
-    const p=profileGraphXY(sample,g);
-    if(!started){ctxp.moveTo(p.x,p.y);started=true;}else ctxp.lineTo(p.x,p.y);
+  ctxp.lineWidth=2;ctxp.lineJoin="round";ctxp.lineCap="round";
+  for(const run of getProfileSourceRuns()){
+    const source=getProfileDemSource(run.sourceId);ctxp.strokeStyle=source?.screenColor||"#22a7f0";ctxp.beginPath();
+    run.samples.forEach((sample,index)=>{const p=profileGraphXY(sample,g);if(index===0)ctxp.moveTo(p.x,p.y);else ctxp.lineTo(p.x,p.y);});ctxp.stroke();
   }
-  ctxp.stroke();
   if(profileHoverWorld){
     const nearest=profileData.samples.reduce((best,s)=>{
       const d=Math.hypot(s.worldX-profileHoverWorld.x,s.worldY-profileHoverWorld.y);
@@ -3022,7 +3060,8 @@ function updateProfileSummary(){
   const valid=profileData.samples.filter(s=>s.elevation!=null);
   const first=valid[0],last=valid[valid.length-1];
   const diff=first&&last?last.elevation-first.elevation:0;
-  profileSummary.textContent=`延長 ${formatProfileDistance(profileData.length)}　高低差 ${diff>=0?"+":""}${formatTerrainElevation(diff)}　縦横1:1`;
+  const legend=getProfileUsedDemSources().map(source=>`<span class="profileDemLegendItem"><span class="profileDemLegendDot" style="background:${source.screenColor}"></span>${source.id}</span>`).join("");
+  profileSummary.innerHTML=`延長 ${formatProfileDistance(profileData.length)}　高低差 ${diff>=0?"+":""}${formatTerrainElevation(diff)}　縦横1:1${legend?`<span class="profileDemLegend">${legend}</span>`:""}`;
 }
 function sfcProfileRecord(id, body){
   return `/*SXF\r\n#${id} = ${body}\r\nSXF*/`;
@@ -3064,6 +3103,9 @@ function buildProfileSfcFile(){
   const lengthMm=length*paperMmPerMeter;
   const totalWidthMm=leftMarginMm+lengthMm;
   const graphPts=samples.map(s=>({x:leftMarginMm+s.distance*paperMmPerMeter,y:(s.elevation-datum)*paperMmPerMeter}));
+  const usedDemSources=getProfileUsedDemSources(samples);
+  const sourceRuns=getProfileSourceRuns(samples);
+  const profileDemLayers=new Map(usedDemSources.map((source,index)=>[source.id,String(3+index)]));
   const firstSample=samples[0],lastSample=samples[samples.length-1];
   const dx=endPlane.xNorth-startPlane.xNorth,dy=endPlane.yEast-startPlane.yEast;
   const azimuth=(Math.atan2(dy,dx)*180/Math.PI+360)%360;
@@ -3072,13 +3114,16 @@ function buildProfileSfcFile(){
   const meta={version:1,kind:"terrain-profile",scale:100,zone:profileData.zone||profileZone||null,datum,leftMarginMeters,
     start:{x:startPlane.xNorth,y:startPlane.yEast,z:firstSample.elevation,worldX:profileStartWorld.x,worldY:profileStartWorld.y},
     end:{x:endPlane.xNorth,y:endPlane.yEast,z:lastSample.elevation,worldX:profileEndWorld.x,worldY:profileEndWorld.y},
-    length,azimuth,sourceName:data?.source_name||""};
+    length,azimuth,sourceName:data?.source_name||"",demSources:usedDemSources.map(source=>source.id)};
 
   const entities=[];let id=10;
   entities.push(sfcProfileRecord(id+=10,"pre_defined_colour_feature('black')"));
   // PROFILE_INFO uses colour reference 2.  Magenta is the most portable SXF
   // predefined colour corresponding to the requested pink display.
   entities.push(sfcProfileRecord(id+=10,"pre_defined_colour_feature('magenta')"));
+  for(const colorName of [...new Set(usedDemSources.map(source=>source.sfcColorName))].filter(name=>name!=="magenta"&&name!=="black")){
+    entities.push(sfcProfileRecord(id+=10,`pre_defined_colour_feature('${colorName}')`));
+  }
   entities.push(sfcProfileRecord(id+=10,"pre_defined_font_feature('continuous')"));
   entities.push(sfcProfileRecord(id+=10,"width_feature('0.130000')"));
   entities.push(sfcProfileRecord(id+=10,"text_font_feature('MS Gothic')"));
@@ -3100,11 +3145,13 @@ function buildProfileSfcFile(){
     entities.push(profileSfcLineFeature(id+=10,profileLayer,"1",0,y,3,y));
     entities.push(profileSfcTextFeature(id+=10,infoLayer,"6",`${Math.round(z)}m`,-19,y,2.6));
   }
-  const xs=graphPts.map(p=>p.x.toFixed(3)).join(",");
-  const ys=graphPts.map(p=>p.y.toFixed(3)).join(",");
-  // Use colour code 1 consistently. Some SXF readers reject an ordinal colour code
-  // when it does not match the colour table expected by that reader.
-  entities.push(sfcProfileRecord(id+=10,`polyline_feature('${profileLayer}','1','1','1','${graphPts.length}','(${xs})','(${ys})')`));
+  for(const run of sourceRuns){
+    const source=getProfileDemSource(run.sourceId);if(!source)continue;
+    const pts=run.samples.map(sample=>({x:leftMarginMm+sample.distance*paperMmPerMeter,y:(sample.elevation-datum)*paperMmPerMeter}));
+    if(pts.length<2)continue;
+    const xs=pts.map(p=>p.x.toFixed(3)).join(","),ys=pts.map(p=>p.y.toFixed(3)).join(",");
+    entities.push(sfcProfileRecord(id+=10,`polyline_feature('${profileDemLayers.get(source.id)}','${source.sfcColorCode}','1','1','${pts.length}','(${xs})','(${ys})')`));
+  }
   const markerRadius=3.5,markerDiag=2.4;
   const endpointMarkers=[
     {p:graphPts[0],text:"\x8B\x4E\x93\x5F",textX:graphPts[0].x+5.5},
@@ -3134,6 +3181,7 @@ function buildProfileSfcFile(){
   entities.push(sfcProfileRecord(id+=10,`drawing_sheet_feature('','0','1','${sheetW}','${sheetH}')`));
   entities.push(sfcProfileRecord(id+=10,"layer_feature('PROFILE_LINE','1')"));
   entities.push(sfcProfileRecord(id+=10,"layer_feature('PROFILE_INFO','1')"));
+  for(const source of usedDemSources)entities.push(sfcProfileRecord(id+=10,`layer_feature('PROFILE_${source.id}','1')`));
   const metaComment=`/* SFCVIEWER_PROFILE_META_V1:${utf8ToBase64(JSON.stringify(meta))} */`;
   const stamp=new Date().toISOString().replace(/\.\d{3}Z$/," ").trim();
   const text=["ISO-10303-21;","HEADER;","FILE_DESCRIPTION(('SCADEC level2 feature_mode'),'2;1');",
@@ -9409,6 +9457,11 @@ window.addEventListener("mouseup", ()=>{
 window.addEventListener("mousemove", e=>{
   const ptLocal = getCanvasLocalPointFromClient(e.clientX, e.clientY);
   const ox = ptLocal.x, oy = ptLocal.y;
+
+  if(terrainMode==="contour"&&!isTouchMobileLike()&&terrainPanel&&getComputedStyle(terrainPanel).display!=="none"){
+    clearTimeout(terrainHoverInfoTimer);
+    terrainHoverInfoTimer=setTimeout(()=>updateTerrainDemPositionInfo(ox,oy,"マウス位置"),80);
+  }
 
   if(profileLineDrag&&profileLineDrag.pointerType==="mouse"){
     moveProfileLineDrag(ox,oy);
