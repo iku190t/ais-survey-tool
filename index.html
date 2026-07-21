@@ -8974,6 +8974,10 @@ document.getElementById("drawBtn").addEventListener("click", ()=>{
     updateInkUI();updateStopBtnUI();scheduleDraw();
     return;
   }
+  // 手書きメモを開くたびに、必ず「線」から開始する。
+  inkEraser = false;
+  inkTool = "line";
+  saveUiPreferences();
   inkEnabled = true;
   closePanelsExcept('draw');
   drawPanel.style.display = "block";
