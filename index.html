@@ -5596,9 +5596,7 @@ function drawInkStroke(stroke){
   const widthMm = Number.isFinite(storedWidthMm) && storedWidthMm <= 1.0001
     ? Math.max(0.006, storedWidthMm)
     : penWidthMmFromLevel(stroke.width || 15);
-  const zoomRatio = Math.max(view.scale || 1, 0.000001) / Math.max(baseFitScale || 1, 0.000001);
-  const cssPixelsPerMm = 96 / 25.4;
-  const lineW = Math.max(0.02, widthMm * cssPixelsPerMm * zoomRatio);
+  const lineW = Math.max(0.02, widthMm * getMemoWorldUnitsPerPaperMm() * Math.max(view.scale || 1, 0.000001));
   ctx.lineWidth = lineW;
 
   if(!stroke.points || stroke.points.length<2){ ctx.restore(); return; }
@@ -5628,8 +5626,7 @@ function hitTestInkObject(worldPt){
     const s = inkStrokes[i];
     let d = Infinity;
     const widthMm=getStrokeWidthMm(s);
-    const zoomRatio=Math.max(view.scale||1,0.000001)/Math.max(baseFitScale||1,0.000001);
-    const renderedWidthPx=Math.max(.02,widthMm*(96/25.4)*zoomRatio);
+    const renderedWidthPx=Math.max(.02,widthMm*getMemoWorldUnitsPerPaperMm()*Math.max(view.scale||1,0.000001));
     const tolPx=Math.max(10,renderedWidthPx/2+7);
     if (s.points && s.points.length) {
       let previous=worldToScreen(s.points[0].x,s.points[0].y);
@@ -6162,6 +6159,8 @@ function normalizeInkStrokeForSave(s){
     worldWidthMm: s.worldWidthMm != null ? +s.worldWidthMm : null,
     width: +(s.width || 1),
     isCircleMemo: !!s.isCircleMemo,
+    paperDiameterMm: Number.isFinite(+s.paperDiameterMm) ? +s.paperDiameterMm : null,
+    circleSizeLevel: Number.isFinite(+s.circleSizeLevel) ? +s.circleSizeLevel : null,
     points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})) : []
   };
 }
@@ -6177,7 +6176,7 @@ function strokeToWorldPolyline(stroke){
       const t = (Math.PI * 2 * i) / segs;
       pts.push({x: cx + Math.cos(t) * r, y: cy + Math.sin(t) * r});
     }
-    return { type:"freehand", color: stroke.color || "#ff3030", opacity: stroke.opacity == null ? 1 : stroke.opacity, eraser:false, screenWidthPx: null, width:+(stroke.width || 1), isCircleMemo:true, points:pts };
+    return { type:"freehand", color: stroke.color || "#ff3030", opacity: stroke.opacity == null ? 1 : stroke.opacity, eraser:false, screenWidthPx: null, width:+(stroke.width || 1), isCircleMemo:true, paperDiameterMm:Number.isFinite(+stroke.paperDiameterMm)?+stroke.paperDiameterMm:null, circleSizeLevel:Number.isFinite(+stroke.circleSizeLevel)?+stroke.circleSizeLevel:null, points:pts };
   }
   if (!Array.isArray(stroke.points) || stroke.points.length < 2) return null;
   return {
@@ -6189,6 +6188,8 @@ function strokeToWorldPolyline(stroke){
     worldWidthMm: stroke.worldWidthMm != null ? +stroke.worldWidthMm : null,
     width: +(stroke.width || 1),
     isCircleMemo: !!stroke.isCircleMemo,
+    paperDiameterMm: Number.isFinite(+stroke.paperDiameterMm) ? +stroke.paperDiameterMm : null,
+    circleSizeLevel: Number.isFinite(+stroke.circleSizeLevel) ? +stroke.circleSizeLevel : null,
     points: stroke.points.map(p => ({x:+p.x||0, y:+p.y||0}))
   };
 }
@@ -6199,12 +6200,12 @@ function buildCircleStrokeFromScreenPoint(sx, sy){
   const cx = +anchor.x || 0;
   const cy = +anchor.y || 0;
 
-  // The circle control represents its radius at the initial full-drawing view.
-  // Convert that screen radius to drawing coordinates exactly once.  Using a
-  // paper/model scale denominator here made paper-space 1/250 drawings apply
-  // their scale twice and produced enormous circles.
-  const radiusAtFitPx=normalizeCircleSizePx(inkCircleSize);
-  const radiusWorld=radiusAtFitPx/Math.max(baseFitScale||view.scale||1,0.000001);
+  // Circle size is a physical paper size.  Never derive it from the viewport
+  // or the full-view fit scale: those change with the sheet, outliers and the
+  // browser chrome and made 1/250 drawings produce oversized circles.
+  const circleSizeLevel=circleSizeLevelFromPx(inkCircleSize);
+  const paperDiameterMm=circleDiameterMmFromLevel(circleSizeLevel);
+  const radiusWorld=(paperDiameterMm*0.5)*getMemoWorldUnitsPerPaperMm();
 
   const segs = 48;
   const pts = [];
@@ -6225,7 +6226,8 @@ function buildCircleStrokeFromScreenPoint(sx, sy){
     opacity: inkOpacity,
     eraser: false,
     isCircleMemo: true,
-    radiusAtFitPx,
+    paperDiameterMm,
+    circleSizeLevel,
     anchorMode: "free",
     points: pts
   };
@@ -6582,6 +6584,36 @@ function getStrokeWidthMm(stroke){
     ? Math.max(0.006,Math.min(1,stored))
     : penWidthMmFromLevel(stroke&&stroke.width||1);
 }
+function getDrawingScaleDenominator(){
+  const placement=data&&data._mainDrawingPlacement;
+  const sx=Math.abs(Number(placement&&placement.sx));
+  const sy=Math.abs(Number(placement&&placement.sy));
+  if(sx>1e-12&&sy>1e-12){
+    const paperScale=Math.sqrt(sx*sy);
+    if(Number.isFinite(paperScale)&&paperScale>1e-12)return 1/paperScale;
+  }
+  const storedPaperScale=Math.abs(Number(data&&data._drawingToPaperScale));
+  if(storedPaperScale>1e-12)return 1/storedPaperScale;
+  return extractSfcScaleInfo(loadedSfcText).denominator||1;
+}
+function getCoordinateMeshRealMmPerWorldUnit(){
+  const tr=activeCoordinateMeshTransform;
+  if(!tr)return 1;
+  if(tr.kind==="affine"){
+    const xScale=Math.hypot(Number(tr.xNorth&&tr.xNorth.a)||0,Number(tr.xNorth&&tr.xNorth.b)||0);
+    const yScale=Math.hypot(Number(tr.yEast&&tr.yEast.a)||0,Number(tr.yEast&&tr.yEast.b)||0);
+    if(xScale>1e-12&&yScale>1e-12)return Math.sqrt(xScale*yScale);
+  }
+  const xScale=Math.abs(Number(tr.xNorth&&tr.xNorth.slope));
+  const yScale=Math.abs(Number(tr.yEast&&tr.yEast.slope));
+  if(xScale>1e-12&&yScale>1e-12)return Math.sqrt(xScale*yScale);
+  return 1;
+}
+function getMemoWorldUnitsPerPaperMm(){
+  const denominator=Math.max(1e-9,getDrawingScaleDenominator());
+  const realMmPerWorldUnit=Math.max(1e-9,getCoordinateMeshRealMmPerWorldUnit());
+  return denominator/realMmPerWorldUnit;
+}
 function buildMemoWidthDefinitions(baseText,startId,strokes){
   const defs=parseWidthFeatureDefsFlat(getFlatSxfText(baseText));
   const parts=[],codes={};
@@ -6905,6 +6937,8 @@ function buildMemoMetaComment(){
       worldWidthMm: getStrokeWidthMm(s),
       width: +(s.width || 1),
       isCircleMemo: !!s.isCircleMemo,
+      paperDiameterMm: Number.isFinite(+s.paperDiameterMm) ? +s.paperDiameterMm : null,
+      circleSizeLevel: Number.isFinite(+s.circleSizeLevel) ? +s.circleSizeLevel : null,
       points: s.points.map(p => ({x:+p.x||0, y:+p.y||0}))
     }));
     const payload = { version:1, strokes };
@@ -7335,11 +7369,29 @@ function scheduleRecoverySnapshot(delayMs=AUTO_SAVE_DEBOUNCE_MS){
 function migrateLegacyCircleMemoStroke(stroke){
   if (!stroke || stroke.eraser) return stroke;
 
-  if (stroke.type === "circle_polyline_screen") {
-    const cx = +stroke.cx || 0;
-    const cy = +stroke.cy || 0;
-    const radiusAtFitPx=Math.max(4,+stroke.screenRadiusPx||14);
-    const radiusWorld=radiusAtFitPx/Math.max(baseFitScale||view.scale||1,0.000001);
+  if (stroke.type === "circle_polyline_screen" || (stroke.isCircleMemo && (!Number.isFinite(+stroke.paperDiameterMm) || Number.isFinite(+stroke.radiusAtFitPx)))) {
+    let cx=+stroke.cx||0,cy=+stroke.cy||0;
+    let observedRadiusWorld=NaN;
+    if(stroke.type!=="circle_polyline_screen"&&Array.isArray(stroke.points)&&stroke.points.length){
+      let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+      for(const p of stroke.points){
+        if(!Number.isFinite(+p.x)||!Number.isFinite(+p.y))continue;
+        minx=Math.min(minx,+p.x);miny=Math.min(miny,+p.y);maxx=Math.max(maxx,+p.x);maxy=Math.max(maxy,+p.y);
+      }
+      if(Number.isFinite(minx)){cx=(minx+maxx)/2;cy=(miny+maxy)/2;observedRadiusWorld=(Math.abs(maxx-minx)+Math.abs(maxy-miny))/4;}
+    }
+    const legacyRadiusPx=Math.max(CIRCLE_SIZE_MIN_PX,+stroke.screenRadiusPx||+stroke.radiusAtFitPx||14);
+    let circleSizeLevel=Number.isFinite(+stroke.circleSizeLevel)
+      ? normalizeCircleSizeLevel(stroke.circleSizeLevel)
+      : circleSizeLevelFromPx(legacyRadiusPx);
+    let paperDiameterMm=Number.isFinite(+stroke.paperDiameterMm)
+      ? Math.max(CIRCLE_DIAMETER_MIN_MM,Math.min(CIRCLE_DIAMETER_MAX_MM,+stroke.paperDiameterMm))
+      : (Number.isFinite(+stroke.radiusAtFitPx)||stroke.type==="circle_polyline_screen"
+          ? circleDiameterMmFromLevel(circleSizeLevel)
+          : (2*observedRadiusWorld/Math.max(1e-9,getMemoWorldUnitsPerPaperMm())));
+    paperDiameterMm=Math.max(CIRCLE_DIAMETER_MIN_MM,Math.min(CIRCLE_DIAMETER_MAX_MM,Number.isFinite(paperDiameterMm)?paperDiameterMm:circleDiameterMmFromLevel(circleSizeLevel)));
+    circleSizeLevel=circleSizeLevelFromDiameterMm(paperDiameterMm);
+    const radiusWorld=(paperDiameterMm*0.5)*getMemoWorldUnitsPerPaperMm();
     const segs = 48;
     const pts = [];
     for (let i = 0; i <= segs; i++) {
@@ -7358,7 +7410,8 @@ function migrateLegacyCircleMemoStroke(stroke){
       worldWidthMm: stroke.worldWidthMm != null ? +stroke.worldWidthMm : penWidthMmFromLevel(stroke.width || inkWidth || 15),
       width: +(stroke.width || 1),
       isCircleMemo: true,
-      radiusAtFitPx,
+      paperDiameterMm,
+      circleSizeLevel,
       anchorMode: stroke.anchorMode || "center",
       points: pts
     };
@@ -7747,8 +7800,10 @@ function restoreInkStrokesFromSourceText(srcText){
       opacity: s.opacity == null ? 1 : +s.opacity,
       eraser: false,
       isCircleMemo: !!s.isCircleMemo,
+      paperDiameterMm: Number.isFinite(+s.paperDiameterMm) ? +s.paperDiameterMm : null,
+      circleSizeLevel: Number.isFinite(+s.circleSizeLevel) ? +s.circleSizeLevel : null,
       points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y)) : []
-    })).filter(s => s.points.length >= 2);
+    })).map(migrateLegacyCircleMemoStroke).filter(s => s.points.length >= 2);
   }
 
   const memoLayerInfo = getMemoLayerInfo(srcText);
@@ -8342,12 +8397,6 @@ function setSaveMenuOpen(open){
   document.body.classList.toggle("file-menu-open",!!open);
   updateToolbarActivationUI();
 }
-document.getElementById("topbarMain")?.addEventListener("click",event=>{
-  const button=event.target instanceof Element?event.target.closest("button"):null;
-  if(!button||button.id==="openIconBtn"||!isSaveMenuOpen())return;
-  // ファイル画面を閉じた後、押されたツールの通常処理をそのまま続ける。
-  setSaveMenuOpen(false);
-},true);
 document.getElementById("saveMenuOverwriteBtn").addEventListener("click", ()=>{
   setSaveMenuOpen(false);
   saveRecoverySnapshot();
@@ -8487,7 +8536,10 @@ function updateToolbarActivationUI(){
     profileBtn:!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||visible(profileModal)),
     drawBtn:!!(inkEnabled||visible(drawPanel)),
     textSearchOpenBtn:!!textSearchPopupOpen,
-    helpBtn:!!helpModalOpen
+    helpBtn:!!helpModalOpen,
+    layerFab:visible(layerPanel),
+    gpsDetailFab:!!gpsDetailOpen,
+    supportBtn:visible(supportPanel)
   };
   Object.entries(states).forEach(([id,active])=>{
     const btn=document.getElementById(id);
@@ -8502,27 +8554,37 @@ function updateHomeButtonUI(){
   btn.setAttribute("aria-label",label);
   btn.title="最初の全体表示へ戻る";
 }
-function getActiveToolbarCommandId(){
-  const hasProfileWork=!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||(profileModal&&profileModal.classList.contains("open")));
-  if(hasProfileWork) return "profileBtn";
-  if(measureMode||(measureModePanel&&measureModePanel.style.display==="block")) return "measureBtn";
-  if(inkEnabled) return "drawBtn";
-  if(textSearchPopupOpen) return "textSearchOpenBtn";
-  return "";
-}
 const toolbarCommandIds=new Set([
   "openIconBtn","fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn",
   "textSearchOpenBtn","helpBtn","layerFab","bgBtn",
   "gpsDetailFab","supportBtn"
 ]);
+function closeToolbarSurfacesExcept(commandId){
+  const transientByCommand={
+    measureBtn:"measure",
+    profileBtn:"profile",
+    drawBtn:"draw",
+    textSearchOpenBtn:"search"
+  };
+  cancelTransientOperations(transientByCommand[commandId]||"");
+
+  if(commandId!=="openIconBtn"&&isSaveMenuOpen())setSaveMenuOpen(false);
+  if(commandId!=="bgBtn"){
+    if(aerialPhotoPanel)aerialPhotoPanel.style.display="none";
+    if(terrainPanel)terrainPanel.style.display="none";
+  }
+  if(commandId!=="layerFab"&&layerPanel)layerPanel.style.display="none";
+  if(commandId!=="supportBtn"&&supportPanel)supportPanel.style.display="none";
+  if(commandId!=="helpBtn"&&helpModalOpen)closeHelpModal();
+  if(commandId!=="gpsDetailFab"&&gpsDetailOpen){gpsDetailOpen=false;updateGpsUi();}
+  if(viewerSupportModal&&getComputedStyle(viewerSupportModal).display!=="none")closeViewerSupportModal();
+  updateToolbarActivationUI();
+}
 document.addEventListener("click",e=>{
   const command=e.target&&e.target.closest?e.target.closest("button,label.fileBtn"):null;
   if(!command||!toolbarCommandIds.has(command.id)) return;
   if(command.id==="fitBtn")return;
-  if(helpModalOpen&&command.id!=="helpBtn")closeHelpModal();
-  if(viewerSupportModal&&getComputedStyle(viewerSupportModal).display!=="none")closeViewerSupportModal();
-  const activeCommandId=getActiveToolbarCommandId();
-  if(activeCommandId&&command.id!==activeCommandId) cancelTransientOperations();
+  closeToolbarSurfacesExcept(command.id);
 },true);
 const homePanelObserver=new MutationObserver(()=>{updateHomeButtonUI();updateToolbarActivationUI();});
 [measureModePanel,measureBox,drawPanel,layerPanel,aerialPhotoPanel,terrainPanel,supportPanel,helpModal,viewerSupportModal,profileModal,document.getElementById("saveMenuModal"),document.getElementById("saveAsChoiceModal")].forEach(el=>{
@@ -8774,6 +8836,8 @@ const CIRCLE_SIZE_MIN_PX = 1.6;
 const CIRCLE_SIZE_MAX_PX = 80;
 const CIRCLE_SIZE_MIN_LEVEL = 1;
 const CIRCLE_SIZE_MAX_LEVEL = 100;
+const CIRCLE_DIAMETER_MIN_MM = 0.2;
+const CIRCLE_DIAMETER_MAX_MM = 10;
 const PEN_WIDTH_MIN_LEVEL = 1;
 const PEN_WIDTH_MAX_LEVEL = 100;
 
@@ -9399,6 +9463,16 @@ if (compassFab) {
     scheduleDraw();
     scheduleRecoverySnapshot();
   });
+}
+function circleDiameterMmFromLevel(v){
+  const level=normalizeCircleSizeLevel(v);
+  const t=(level-CIRCLE_SIZE_MIN_LEVEL)/(CIRCLE_SIZE_MAX_LEVEL-CIRCLE_SIZE_MIN_LEVEL);
+  return CIRCLE_DIAMETER_MIN_MM+t*(CIRCLE_DIAMETER_MAX_MM-CIRCLE_DIAMETER_MIN_MM);
+}
+function circleSizeLevelFromDiameterMm(v){
+  const diameter=Math.max(CIRCLE_DIAMETER_MIN_MM,Math.min(CIRCLE_DIAMETER_MAX_MM,Number(v)||CIRCLE_DIAMETER_MIN_MM));
+  const t=(diameter-CIRCLE_DIAMETER_MIN_MM)/(CIRCLE_DIAMETER_MAX_MM-CIRCLE_DIAMETER_MIN_MM);
+  return normalizeCircleSizeLevel(CIRCLE_SIZE_MIN_LEVEL+t*(CIRCLE_SIZE_MAX_LEVEL-CIRCLE_SIZE_MIN_LEVEL));
 }
 
 document.addEventListener("visibilitychange",()=>{
