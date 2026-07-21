@@ -4756,8 +4756,22 @@ function rotateDrawingBy(deltaDeg){
   setViewFromWorldAnchor(anchorWx, anchorWy, cx, cy, view.scale);
   scheduleDraw();
 }
+function getNorthUpRotationDeg(){
+  // 測量座標の北は、平面直角座標 X（northing）が増える方向。
+  // 座標メッシュ補正を使う図面でも、X=0→X=1m の実ベクトルから
+  // 北を求めるため、文字方向や部分図の角度には依存しない。
+  try{
+    const origin=planeToSfcWorld(0,0);
+    const north=planeToSfcWorld(1,0);
+    const dx=(+north.x||0)-(+origin.x||0),dy=(+north.y||0)-(+origin.y||0);
+    if(Number.isFinite(dx)&&Number.isFinite(dy)&&Math.hypot(dx,dy)>1e-9){
+      return normalizeRotation360(90-Math.atan2(dy,dx)*180/Math.PI);
+    }
+  }catch(e){ console.error(e); }
+  return 0;
+}
 function updateCompassUi(){
-  const deg = normalizeRotation360(-rotationDeg);
+  const deg = normalizeRotation360(getNorthUpRotationDeg()-rotationDeg);
   if (compassNeedle) compassNeedle.style.transform = `translate(-50%,-50%) rotate(${deg}deg)`;
   if (compassN) compassN.style.transform = `translate(-50%,-50%) rotate(${deg}deg) translateY(-16px)`;
 }
@@ -9590,12 +9604,13 @@ canvas.addEventListener("touchcancel", ()=>{
 
 if (compassFab) {
   compassFab.addEventListener("click", ()=>{
-    if (Math.abs(normalizeRotation360(rotationDeg)) < 0.01) return;
+    const northUpRotation=getNorthUpRotationDeg();
+    if (Math.abs(normalizeAngleDeltaDeg(rotationDeg-northUpRotation)) < 0.01) return;
     const w = canvas.clientWidth || window.innerWidth || 1000;
     const h = canvas.clientHeight || window.innerHeight || 700;
     const cx = w / 2, cy = h / 2;
     const anchor = screenToWorld(cx, cy);
-    rotationDeg = 0;
+    rotationDeg = northUpRotation;
     setViewFromWorldAnchor(anchor[0], anchor[1], cx, cy, view.scale);
     updateCompassUi();
     scheduleDraw();

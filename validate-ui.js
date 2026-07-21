@@ -73,7 +73,10 @@ const required=[
   'textUprightScore(d,baseRotation)',
   'dominantTextAxisRotation(d)',
   'trustedMainFigures=transformedFigures.filter',
-  '元図より|拡大図|座標一覧'
+  '元図より|拡大図|座標一覧',
+  'function getNorthUpRotationDeg()',
+  'planeToSfcWorld(1,0)',
+  'getNorthUpRotationDeg()-rotationDeg'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`missing implementation: ${token}`);
 console.log(`OK: ${scripts.length} inline scripts; ${scales.length*2*levels.length} circle-scale cases; ${commands.length**2} toolbar transitions`);
