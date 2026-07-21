@@ -1190,7 +1190,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">開始・終了</div>図面右上の方位マーク横にある <b>現在地</b> を押すとGPSを開始し、現在位置を図面上へ表示します。もう一度押すと終了し、図面を全体表示へ戻します。</div>
               <div class="helpBlock"><div class="helpHead">現在地への追従</div>GPS開始中は現在地を画面中央へ追従します。指で図面を移動・拡大縮小・回転すると追従だけを解除し、GPSの青い点は更新を続けます。画面左下の「現在地に戻る」を押すと中央へ戻り、追従を再開します。</div>
               <div class="helpBlock"><div class="helpHead">詳細</div>GPS開始中は左側の <b>詳細</b> から座標・誤差などを確認できます。詳細画面は同じボタンで閉じられます。</div>
-              <div class="helpBlock"><div class="helpHead">図面との距離</div>現在地が図面の外形から1km以上離れている場合は、図面までのおよその距離を表示します。測地系や座標系が違う場合も大きく離れて表示されます。</div>
+              <div class="helpBlock"><div class="helpHead">図面との距離</div>現在地が図面の外形から500m以上離れている場合は、図面までのおよその距離を表示します。測地系や座標系が違う場合も大きく離れて表示されます。</div>
               <div class="helpBlock"><div class="helpHead">誤差</div>表示される誤差は端末GPSの推定値です。屋外の開けた場所で少し待つと小さくなる場合がありますが、測量成果には使用しないでください。</div>
               <div class="helpBlock"><div class="helpHead">使えない時</div>位置情報を許可し、HTTPSの公開ページで使用してください。iPhoneでローカルHTMLを直接開いた場合はGPSが動かないことがあります。</div>
             </div>
@@ -3417,10 +3417,12 @@ function maybeShowGpsFarMessage(xMeters, yMeters){
     gpsIsFarFromDrawing = false;
     return;
   }
-  const isFar = distMeters >= 1000;
+  const isFar = distMeters >= 500;
   if (isFar && !gpsIsFarFromDrawing){
-    const km = Math.round(distMeters / 1000);
-    showToast(`離れすぎています 約${km}kmです`, 3000);
+    const distanceText=distMeters<1000
+      ? `${Math.round(distMeters)}m`
+      : `${(Math.round(distMeters/100)/10).toFixed(1)}km`;
+    showToast(`離れすぎています 約${distanceText}です`, 3000);
   }
   gpsIsFarFromDrawing = isFar;
 }
