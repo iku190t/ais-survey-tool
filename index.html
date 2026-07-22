@@ -6260,7 +6260,10 @@ function terrainContourWorldPoint(a,b,level){
   return [a.worldX+(b.worldX-a.worldX)*t,a.worldY+(b.worldY-a.worldY)*t];
 }
 function terrainContourPointKey(point){
-  return `${Math.round(point[0]*1e5)},${Math.round(point[1]*1e5)}`;
+  // World coordinates are millimetres. A 0.01 mm key joins endpoints that
+  // were calculated from the same bilinear edge in neighbouring cells while
+  // remaining far below the accuracy represented by DEM1A.
+  return `${Math.round(point[0]*100)},${Math.round(point[1]*100)}`;
 }
 function joinTerrainContourSegments(segments){
   if(!segments.length)return [];
@@ -6310,6 +6313,35 @@ function smoothTerrainContour(points,passes,closed){
   if(closed)result.push([result[0][0],result[0][1]]);
   return result;
 }
+function bilinearTerrainPoint(corners,u,v){
+  const a=(1-u)*(1-v),b=u*(1-v),c=u*v,d=(1-u)*v;
+  const blend=key=>corners[0][key]*a+corners[1][key]*b+corners[2][key]*c+corners[3][key]*d;
+  return {
+    elevation:blend("elevation"),worldX:blend("worldX"),worldY:blend("worldY"),
+    plane:{xNorth:corners[0].plane.xNorth*a+corners[1].plane.xNorth*b+corners[2].plane.xNorth*c+corners[3].plane.xNorth*d},
+    source:corners.every(point=>point.source===corners[0].source)?corners[0].source:null
+  };
+}
+function addBilinearContourSegments(points,level,addSegment,passes,isIndex){
+  const edges=[[0,1],[1,2],[2,3],[3,0]],intersections=[];
+  for(let edgeIndex=0;edgeIndex<edges.length;edgeIndex++){
+    const [ia,ib]=edges[edgeIndex],a=points[ia],b=points[ib];
+    if((a.elevation<level&&b.elevation>=level)||(b.elevation<level&&a.elevation>=level)){
+      intersections.push({edge:edgeIndex,point:terrainContourWorldPoint(a,b,level)});
+    }
+  }
+  if(intersections.length===2){
+    addSegment(level,intersections[0].point,intersections[1].point,passes,isIndex);return;
+  }
+  if(intersections.length!==4)return;
+  // Marching-squares has two valid connections for diagonal high/low
+  // corners. The bilinear centre value (asymptotic-decider equivalent for
+  // this display grid) selects the topology instead of using a fixed pairing.
+  const centre=(points[0].elevation+points[1].elevation+points[2].elevation+points[3].elevation)/4;
+  const high0=points[0].elevation>=level,connectAdjacent=(high0&&centre>=level)||(!high0&&centre<level);
+  const pairs=connectAdjacent?[[0,1],[2,3]]:[[3,0],[1,2]];
+  for(const [first,second] of pairs)addSegment(level,intersections[first].point,intersections[second].point,passes,isIndex);
+}
 function buildTerrainContourGeometry(grid,interval,indexInterval){
   const cacheKey=`${interval.toPrecision(12)}:${indexInterval.toPrecision(12)}`;
   if(grid._contourGeometryCache?.key===cacheKey)return grid._contourGeometryCache.value;
@@ -6321,17 +6353,16 @@ function buildTerrainContourGeometry(grid,interval,indexInterval){
   for(let r=0;r<grid.rows-1;r++)for(let c=0;c<grid.cols-1;c++){
     const ps=[getTerrainPoint(grid,r,c),getTerrainPoint(grid,r,c+1),getTerrainPoint(grid,r+1,c+1),getTerrainPoint(grid,r+1,c)];
     if(ps.some(point=>!point||!Number.isFinite(point.elevation)))continue;
-    const cellMin=Math.min(...ps.map(point=>point.elevation)),cellMax=Math.max(...ps.map(point=>point.elevation));
     const passes=ps.some(point=>point.source==="DEM5A")?2:1;
-    for(let level=Math.ceil(cellMin/interval)*interval;level<=cellMax+1e-9;level+=interval){
-      const intersections=[],edges=[[0,1],[1,2],[2,3],[3,0]];
-      for(const [ia,ib]of edges){
-        const a=ps[ia],b=ps[ib];
-        if((a.elevation<level&&b.elevation>=level)||(b.elevation<level&&a.elevation>=level))intersections.push(terrainContourWorldPoint(a,b,level));
+    const subdivisions=2;
+    for(let subRow=0;subRow<subdivisions;subRow++)for(let subCol=0;subCol<subdivisions;subCol++){
+      const u0=subCol/subdivisions,u1=(subCol+1)/subdivisions,v0=subRow/subdivisions,v1=(subRow+1)/subdivisions;
+      const sub=[bilinearTerrainPoint(ps,u0,v0),bilinearTerrainPoint(ps,u1,v0),bilinearTerrainPoint(ps,u1,v1),bilinearTerrainPoint(ps,u0,v1)];
+      const cellMin=Math.min(...sub.map(point=>point.elevation)),cellMax=Math.max(...sub.map(point=>point.elevation));
+      for(let level=Math.ceil(cellMin/interval)*interval;level<=cellMax+1e-9;level+=interval){
+        const isIndex=Math.abs(level/indexInterval-Math.round(level/indexInterval))<1e-7;
+        addBilinearContourSegments(sub,level,addSegment,passes,isIndex);
       }
-      const isIndex=Math.abs(level/indexInterval-Math.round(level/indexInterval))<1e-7;
-      if(intersections.length===2)addSegment(level,intersections[0],intersections[1],passes,isIndex);
-      else if(intersections.length===4){addSegment(level,intersections[0],intersections[1],passes,isIndex);addSegment(level,intersections[2],intersections[3],passes,isIndex);}
     }
   }
   const value=[];
