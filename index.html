@@ -338,7 +338,8 @@ label.fileBtn{
 .layerItem{position:relative;overflow:hidden;margin:0;border-bottom:1px solid rgba(128,128,128,.24);font-size:15px;touch-action:pan-y;}
 .layerItemContent{position:relative;z-index:1;display:grid;grid-template-columns:30px minmax(0,1fr) 42px;align-items:center;gap:8px;padding:8px 2px;background:var(--panel2);transition:transform .18s ease;}
 .layerItem.swiped .layerItemContent{transform:translateX(-76px);}
-.layerItemDelete{position:absolute;right:0;top:0;bottom:0;width:76px;border:0;border-radius:0;background:#d93636;color:#fff;font-size:13px;font-weight:800;z-index:0;}
+.layerItemDelete{position:absolute;right:0;top:0;bottom:0;width:76px;border:0;border-radius:0;background:#d93636;color:#fff;font-size:13px;font-weight:800;z-index:0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease;}
+.layerItem.swiped .layerItemDelete{opacity:1;visibility:visible;pointer-events:auto;}
 .layerItem input[type="checkbox"]{width:24px;height:24px;margin:0;justify-self:center;cursor:pointer;}
 .layerItemName{overflow-wrap:anywhere;line-height:1.35;min-height:34px;display:flex;align-items:center;cursor:pointer;border-radius:7px;padding:0 4px;user-select:none;-webkit-user-select:none;}
 .layerItemName:active{background:rgba(47,125,255,.16);}
@@ -5695,7 +5696,7 @@ function getMainViewBounds(visibleOnly=true){
     x=+x; y=+y;
     if(!Number.isFinite(x)||!Number.isFinite(y)) return;
     const p=rotatePoint(x,y,rotationDeg);
-    if(Number.isFinite(p[0])&&Number.isFinite(p[1])) pts.push(p);
+    if(Number.isFinite(p[0])&&Number.isFinite(p[1])) pts.push([p[0],p[1],x,y]);
   };
   const pushBox=(minx,miny,maxx,maxy)=>{
     push(minx,miny); push(minx,maxy); push(maxx,miny); push(maxx,maxy);
@@ -5739,17 +5740,41 @@ function getMainViewBounds(visibleOnly=true){
   };
   const fw=full.maxx-full.minx, fh=full.maxy-full.miny;
   const candidates=[];
-  const addCandidate=list=>{
-    if(!list||list.length<Math.max(20,pts.length*0.55)) return;
+  const addCandidate=(list,options={})=>{
+    const authoritative=options.authoritative===true;
+    const minimum=authoritative?Math.max(8,pts.length*0.002):Math.max(20,pts.length*0.55);
+    if(!list||list.length<minimum) return;
     const b=boundsOf(list), bw=b.maxx-b.minx, bh=b.maxy-b.miny;
     if(!(bw>0&&bh>0)) return;
     const spanReduction=Math.max(fw/bw,fh/bh);
     const areaReduction=(fw*fh)/Math.max(1e-12,bw*bh);
     // Only override the normal full view when a remote entity has a strong,
     // unambiguous effect on the extents.
-    if(spanReduction<3 || areaReduction<4) return;
-    candidates.push({b,retained:list.length/pts.length,area:bw*bh});
+    if(authoritative){
+      if(spanReduction<1.15&&areaReduction<1.3) return;
+    }else if(spanReduction<3 || areaReduction<4) return;
+    candidates.push({b,retained:list.length/pts.length,area:bw*bh,priority:authoritative?2:1});
   };
+
+  // SXF explicitly places the main partial figure on the drawing sheet.  This
+  // is more reliable than assuming that coordinates near (0,0) are the main
+  // drawing: symbols and reusable parts commonly have their own zero origin.
+  const placement=data&&data._mainDrawingPlacement;
+  const sheet=data&&data._drawingSheet;
+  const ox=Number(placement&&placement.originX),oy=Number(placement&&placement.originY);
+  const sx=Number(placement&&placement.sx),sy=Number(placement&&placement.sy);
+  const angle=Number(placement&&placement.angle),sw=Number(sheet&&sheet.width),sh=Number(sheet&&sheet.height);
+  if(Number.isFinite(ox)&&Number.isFinite(oy)&&Number.isFinite(sx)&&Number.isFinite(sy)&&
+     Math.abs(sx)>1e-12&&Math.abs(sy)>1e-12&&Number.isFinite(angle)&&sw>0&&sh>0){
+    const rad=angle*Math.PI/180,c=Math.cos(rad),s=Math.sin(rad);
+    const marginX=sw*0.035,marginY=sh*0.035;
+    const onMainSheet=pts.filter(p=>{
+      const x=p[2],y=p[3];
+      const paperX=ox+sx*(x*c-y*s),paperY=oy+sy*(x*s+y*c);
+      return paperX>=-marginX&&paperX<=sw+marginX&&paperY>=-marginY&&paperY<=sh+marginY;
+    });
+    addCandidate(onMainSheet,{authoritative:true});
+  }
 
   // A large empty coordinate gap is the clearest sign of a detached drawing.
   for(const axis of [0,1]){
@@ -5787,7 +5812,7 @@ function getMainViewBounds(visibleOnly=true){
   if(!candidates.length) return full;
   // Prefer the candidate that preserves the most geometry; area is only the
   // tie breaker.  This avoids cutting a legitimate long or sparse drawing.
-  candidates.sort((a,b)=>b.retained-a.retained||b.area-a.area);
+  candidates.sort((a,b)=>b.priority-a.priority||b.retained-a.retained||b.area-a.area);
   return candidates[0].b;
 }
 function fitToScreen(){
