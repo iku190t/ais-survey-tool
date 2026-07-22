@@ -1243,7 +1243,8 @@ gtag('config', 'G-88B9YPJXWP');
             <button type="button" class="helpMenuBtn" data-help-section="move">画面移動</button>
             <button type="button" class="helpMenuBtn" data-help-section="display">表示設定</button>
             <button type="button" class="helpMenuBtn" data-help-section="recovery">復元保存</button>
-                      </div>
+          </div>
+          <button id="resetFirstUseHintsBtn" type="button" class="helpMenuBtn" style="width:100%;margin-bottom:10px;text-align:center;">操作案内をもう一度表示</button>
           <div class="helpNote">見たい説明だけ押してください。</div>
         </div>
         <div id="helpSectionWrap" style="display:none;">
@@ -1707,6 +1708,12 @@ let helpModalOpen = false;
 let toolbarHelpLabelsOpen = false;
 let uiPreferencesLoaded = false;
 const UI_PREFERENCES_KEY = "sfcviewer-ui-preferences-v1";
+const FIRST_USE_HINT_LIMIT = 2;
+const FIRST_USE_HINT_KEYS = Object.freeze({
+  drawing:"sfcviewer-first-use-drawing-v1",
+  layers:"sfcviewer-first-use-layers-v1",
+  profile:"sfcviewer-first-use-profile-v1"
+});
 let profileMode = false;
 let profileStartWorld = null;
 let profileEndWorld = null;
@@ -3830,6 +3837,7 @@ async function beginProfileMode(){
   }
   profileMode=true;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;
   updateProfileUi();updateStopBtnUI();setProfilePrompt("断面の起点をタップしてください");scheduleDraw();
+  showFirstUseHint("profile","図面上で断面の起点と終点を順に選んでください",3600,120);
 }
 function getGpsEnvironmentMessage(){
   const secure = window.isSecureContext || location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
@@ -4069,6 +4077,21 @@ function showToast(msg, durationMs=1400){
   toastEl.style.display = "block";
   clearTimeout(showToast.t);
   showToast.t = setTimeout(()=>toastEl.style.display="none", Math.max(400, durationMs || 1400));
+}
+function showFirstUseHint(kind,message,durationMs=3600,delayMs=0){
+  const key=FIRST_USE_HINT_KEYS[kind];
+  if(!key)return false;
+  let count=0;
+  try{count=Math.max(0,Number.parseInt(localStorage.getItem(key)||"0",10)||0);}catch(_e){}
+  if(count>=FIRST_USE_HINT_LIMIT)return false;
+  try{localStorage.setItem(key,String(count+1));}catch(_e){}
+  const display=()=>showToast(message,durationMs);
+  if(delayMs>0)setTimeout(display,delayMs);else display();
+  return true;
+}
+function resetFirstUseHints(){
+  Object.values(FIRST_USE_HINT_KEYS).forEach(key=>{try{localStorage.removeItem(key);}catch(_e){}});
+  showToast("操作案内をリセットしました",1800);
 }
 function showBusy(message="処理中…"){
   if(busyMessage) busyMessage.textContent=String(message||"処理中…");
@@ -5849,6 +5872,7 @@ function applyDefaultFullViewAfterLoad(){
     updateWrapLayout();
     resize(false);
     fitToScreen();
+    showFirstUseHint("drawing","2本指で移動・拡大・回転できます。1本指で2回タップし、2回目を離さず上下に動かすと拡大・縮小できます。",4800,900);
   }));
 }
 function getLayerLabel(layer){
@@ -9626,11 +9650,12 @@ if (viewerSupportModal) viewerSupportModal.addEventListener("click", (e)=>{
   if (e.target === viewerSupportModal) closeViewerSupportModal();
 });
 
-document.querySelectorAll(".helpMenuBtn").forEach(btn=>{
+document.querySelectorAll(".helpMenuBtn[data-help-section]").forEach(btn=>{
   btn.addEventListener("click", ()=> openHelpSection(btn.getAttribute("data-help-section")));
 });
 if (helpBackBtn) helpBackBtn.addEventListener("click", ()=>{ showHelpMenu(); });
 if (helpCloseBtn) helpCloseBtn.addEventListener("click", ()=>{ closeHelpModal(); });
+document.getElementById("resetFirstUseHintsBtn")?.addEventListener("click",resetFirstUseHints);
 if (textSearchBtn) textSearchBtn.addEventListener("click", runTextSearch);
 if (textSearchCancelBtn) textSearchCancelBtn.addEventListener("click", ()=>{ closeTextSearchPopup(); });
 if (textSearchPrevBtn) textSearchPrevBtn.addEventListener("click", ()=>{ moveTextSearchResult(-1); });
@@ -9804,8 +9829,10 @@ document.getElementById("layerDeleteConfirmModal")?.addEventListener("click",eve
 layerFab.addEventListener("click", (e)=>{
   e.stopPropagation();
   if (!hasLoadedDrawing()) return;
+  const opening=getComputedStyle(layerPanel).display==="none";
   closePanelsExcept('layer');
-  layerPanel.style.display = layerPanel.style.display==='flex' ? 'none' : 'flex';
+  layerPanel.style.display = opening ? 'flex' : 'none';
+  if(opening)showFirstUseHint("layers","レイヤーは左へスワイプ、または長押しすると削除できます",3600,120);
 });
 document.getElementById("layerCloseBtn").addEventListener("click",()=>{layerPanel.style.display='none';});
 document.getElementById("layersAllOn").addEventListener("click", ()=>{
