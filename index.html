@@ -1700,7 +1700,7 @@ let terrainHoverInfoTimer = 0;
 const PROFILE_TILE_CACHE = "sfc-dem-tiles-v1";
 // v2 limits every elevation-dependent feature to laser-survey DEM1A/DEM5A.
 // Do not reuse older profiles that may contain DEM5B/DEM5C/DEM10B samples.
-const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v2-laser-only";
+const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v3-exclusive-source";
 // v2 invalidates zone numbers remembered before GPS-first validation was added.
 const PROFILE_ZONE_CACHE_KEY = "sfc-dem-zones-v2";
 const PROFILE_DEM_SOURCES = [
@@ -2703,6 +2703,34 @@ async function decodeProfileDemTile(url){
   if (!pixels) profileTileMemoryCache.delete(url);
   return pixels;
 }
+async function samplePointsFromDemSource(points,source,refProperty,maxTiles=Infinity){
+  const refs=new Map();
+  for(const point of points){
+    const ref=profileTileRef(point.lat,point.lon,source.z),url=profileDemUrl(source,ref);
+    point[refProperty]={ref,url};
+    if(!refs.has(url))refs.set(url,null);
+  }
+  if(refs.size>maxTiles){
+    for(const point of points)delete point[refProperty];
+    return {source,values:[],validCount:0,complete:false,tooWide:true};
+  }
+  const urls=[...refs.keys()];
+  // Temporary communication failures must not cause DEM1A and DEM5A to be
+  // mixed in one drawing. Retry missing tiles once before choosing a source.
+  for(let attempt=0;attempt<2;attempt++){
+    const pending=urls.filter(url=>!refs.get(url));
+    if(!pending.length)break;
+    await profileMapLimit(pending,5,async url=>refs.set(url,await decodeProfileDemTile(url)));
+  }
+  const values=points.map(point=>{
+    const entry=point[refProperty];delete point[refProperty];
+    if(!entry)return null;
+    const value=decodeProfileElevation(refs.get(entry.url),entry.ref.px,entry.ref.py);
+    return value!=null&&Number.isFinite(value)?value:null;
+  });
+  const validCount=values.reduce((count,value)=>count+(value!=null?1:0),0);
+  return {source,values,validCount,complete:validCount===points.length,tooWide:false};
+}
 function decodeProfileElevation(pixels, px, py){
   if (!pixels) return null;
   const i = (py * 256 + px) * 4;
@@ -2757,28 +2785,17 @@ async function buildProfileData(start,end,zone){
     const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
     samples.push({t,distance:length*t,worldX,worldY,lat:ll.lat,lon:ll.lon,elevation:null,source:null});
   }
+  let selected=null;
   for(const source of PROFILE_DEM_SOURCES){
-    const refs=new Map();
-    for(const sample of samples){
-      if(sample.elevation!=null) continue;
-      const ref=profileTileRef(sample.lat,sample.lon,source.z);
-      const url=profileDemUrl(source,ref);
-      sample._profileRef={ref,url};
-      if(!refs.has(url)) refs.set(url,null);
-    }
-    const urls=[...refs.keys()];
-    await profileMapLimit(urls,5,async url=>{ refs.set(url,await decodeProfileDemTile(url)); });
-    for(const sample of samples){
-      if(sample.elevation!=null||!sample._profileRef) continue;
-      const {ref,url}=sample._profileRef;
-      const elevation=decodeProfileElevation(refs.get(url),ref.px,ref.py);
-      if(elevation!=null&&Number.isFinite(elevation)){
-        sample.elevation=elevation;
-        sample.source=source.id;
-      }
-      delete sample._profileRef;
-    }
-    if(samples.every(s=>s.elevation!=null)) break;
+    const candidate=await samplePointsFromDemSource(samples,source,"_profileRef");
+    if(candidate.complete){selected=candidate;break;}
+    // A partial high-resolution source is discarded as a whole. This avoids
+    // a DEM1A/DEM5A seam within the same profile or contour calculation.
+    if(source.id==="DEM5A"&&candidate.validCount>=2)selected=candidate;
+  }
+  if(selected)for(let i=0;i<samples.length;i++){
+    const elevation=selected.values[i];
+    if(elevation!=null){samples[i].elevation=elevation;samples[i].source=selected.source.id;}
   }
   if(samples.filter(s=>s.elevation!=null).length<2) return null;
   const result={start:{...start},end:{...end},zone,length,samples};
@@ -2854,31 +2871,18 @@ async function buildTerrainGrid(){
       points.push({row,col,sx,sy,worldX:world[0],worldY:world[1],plane,lat:ll.lat,lon:ll.lon,elevation:null,source:null});
     }
   }
-  let skippedWideSource=false;
+  let skippedWideSource=false,selected=null;
   for(const source of PROFILE_DEM_SOURCES){
-    const refs=new Map();
-    for(const point of points){
-      if(point.elevation!=null) continue;
-      const ref=profileTileRef(point.lat,point.lon,source.z),url=profileDemUrl(source,ref);
-      point._terrainRef={ref,url};
-      if(!refs.has(url)) refs.set(url,null);
-    }
-    // A wide fit view can span hundreds of high-resolution tiles. Skip that
-    // source and fall back to a coarser DEM rather than freezing the viewer.
-    if(refs.size>120){
-      skippedWideSource=true;
-      for(const point of points)delete point._terrainRef;
-      continue;
-    }
-    await profileMapLimit([...refs.keys()],5,async url=>refs.set(url,await decodeProfileDemTile(url)));
-    for(const point of points){
-      if(point.elevation!=null||!point._terrainRef) continue;
-      const {ref,url}=point._terrainRef;
-      const value=decodeProfileElevation(refs.get(url),ref.px,ref.py);
-      if(value!=null&&Number.isFinite(value)){point.elevation=value;point.source=source.id;}
-      delete point._terrainRef;
-    }
-    if(points.every(p=>p.elevation!=null)) break;
+    const candidate=await samplePointsFromDemSource(points,source,"_terrainRef",120);
+    if(candidate.tooWide){skippedWideSource=true;continue;}
+    if(candidate.complete){selected=candidate;break;}
+    // Never fill holes in DEM1A with DEM5A. If DEM1A does not cover the
+    // complete viewport, discard it and evaluate DEM5A for the whole area.
+    if(source.id==="DEM5A"&&candidate.validCount>=Math.ceil(points.length*.45))selected=candidate;
+  }
+  if(selected)for(let i=0;i<points.length;i++){
+    const elevation=selected.values[i];
+    if(elevation!=null){points[i].elevation=elevation;points[i].source=selected.source.id;}
   }
   const valid=points.filter(p=>p.elevation!=null);
   if(!valid.length&&skippedWideSource)throw new Error("範囲が広すぎます。少し拡大してから実行してください");
