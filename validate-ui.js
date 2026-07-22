@@ -96,6 +96,12 @@ const required=[
   'splitTerrainCadPolyline(points,500)',
   'isTerrainContour: !!s.isTerrainContour',
   's.isTerrainContour ? MEMO_FILE_TYPE_CODE'
+  ,'showToast("CAD化しました",1800)'
+  ,'recordEditAction({type:"ink-add",strokes:list,revivedLayerNames,label})'
+  ,'type:"layer-delete"'
+  ,'className="layerItemDelete"'
+  ,'function stripDeletedLayersFromSfc'
+  ,'stripDeletedLayersFromSfc(stripEmbeddedAnnotations'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`missing implementation: ${token}`);
 for(const obsolete of ['傾斜角を4段階で色分け','を5段階で色分け（','表示範囲を自動更新','細かいDEMで計算・矢印は見やすく間引いて表示']){

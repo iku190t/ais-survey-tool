@@ -335,7 +335,10 @@ label.fileBtn{
 .layerActions{display:flex;gap:6px;flex-wrap:wrap;}
 .layerActions button,.layerActions .layerActionLabel{font-size:13px;min-height:34px;box-sizing:border-box;}
 .layerActions .layerActionLabel{display:inline-flex;align-items:center;justify-content:center;background:var(--button);color:var(--buttonText);border:1px solid var(--border);border-radius:8px;padding:6px 8px;cursor:pointer;}
-.layerItem{display:grid;grid-template-columns:30px minmax(0,1fr) 42px;align-items:center;gap:8px;margin:0;padding:8px 2px;border-bottom:1px solid rgba(128,128,128,.24);font-size:15px;}
+.layerItem{position:relative;overflow:hidden;margin:0;border-bottom:1px solid rgba(128,128,128,.24);font-size:15px;touch-action:pan-y;}
+.layerItemContent{position:relative;z-index:1;display:grid;grid-template-columns:30px minmax(0,1fr) 42px;align-items:center;gap:8px;padding:8px 2px;background:var(--panel2);transition:transform .18s ease;}
+.layerItem.swiped .layerItemContent{transform:translateX(-76px);}
+.layerItemDelete{position:absolute;right:0;top:0;bottom:0;width:76px;border:0;border-radius:0;background:#d93636;color:#fff;font-size:13px;font-weight:800;z-index:0;}
 .layerItem input[type="checkbox"]{width:24px;height:24px;margin:0;justify-self:center;cursor:pointer;}
 .layerItemName{overflow-wrap:anywhere;line-height:1.35;min-height:34px;display:flex;align-items:center;cursor:pointer;border-radius:7px;padding:0 4px;user-select:none;-webkit-user-select:none;}
 .layerItemName:active{background:rgba(47,125,255,.16);}
@@ -350,6 +353,7 @@ label.fileBtn{
 .layerPaletteSwatch::after{content:"";display:block;width:100%;height:100%;border-radius:3px;background:var(--swatch-color);box-shadow:inset 0 0 0 1px rgba(127,127,127,.55);}
 .layerPaletteSwatch.selected{border-color:#1677ff;box-shadow:0 0 0 2px rgba(22,119,255,.28);}
 body.light #layerPanel, body.light #layerPanel *{color:#000 !important;}
+body.light #layerPanel .layerItemDelete{color:#fff!important;}
 body.light #layerHeader .layerActions button,body.light #layerHeader .layerActions .layerActionLabel{background:#fff;color:#000;}
 #measureModePanel,#measureBox,#drawPanel,#supportPanel,#aerialPhotoPanel,#terrainPanel{display:none;padding:10px;}
 #supportPanel .supportActions{display:flex;gap:8px;margin-top:10px;}
@@ -465,7 +469,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #saveMenuActions .saveMenuNativeOpen{display:flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:36px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--button);color:var(--buttonText);font-size:13px;font-weight:700;cursor:pointer;}
 #saveMenuOverwriteBtn,#saveMenuSaveAsBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #saveAsChoiceActions button{min-height:36px;font-size:13px;font-weight:700;}
-#helpModalBox button,#profileBox button,#textSearchModalBox button,#measureModePanel button,#measureBox button,#drawPanel button,#aerialPhotoPanel button,#terrainPanel button,#supportPanel button,#viewerSupportBox button,#confirmModal button,#recoveryDeleteConfirmModal button{min-height:36px;font-size:13px;}
+#helpModalBox button,#profileBox button,#textSearchModalBox button,#measureModePanel button,#measureBox button,#drawPanel button,#aerialPhotoPanel button,#terrainPanel button,#supportPanel button,#viewerSupportBox button,#confirmModal button,#recoveryDeleteConfirmModal button,#layerDeleteConfirmModal button{min-height:36px;font-size:13px;}
 #confirmModal>div,#recoveryDeleteConfirmBox{background:var(--panel2)!important;color:var(--fg)!important;border:1px solid var(--border);border-radius:12px!important;padding:12px!important;box-sizing:border-box;}
 #confirmModal>div>div:first-child,#recoveryDeleteConfirmTitle{font-size:15px;font-weight:800;margin-bottom:10px;}
 #miniHint{display:none !important;}
@@ -1149,6 +1153,16 @@ gtag('config', 'G-88B9YPJXWP');
     </div>
   </div>
 
+  <div id="layerDeleteConfirmModal" role="dialog" aria-modal="true" style="display:none;position:fixed;inset:0;z-index:226;background:rgba(0,0,0,.35);align-items:center;justify-content:center;">
+    <div style="background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:14px;width:min(300px,86vw);box-shadow:0 10px 28px rgba(0,0,0,.35);">
+      <div id="layerDeleteConfirmTitle" style="font-size:15px;font-weight:800;margin-bottom:10px;">このレイヤーを削除しますか？</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="layerDeleteNoBtn" type="button">いいえ</button>
+        <button id="layerDeleteYesBtn" type="button" style="background:#d93636;color:#fff;border-color:#b62d2d;">はい</button>
+      </div>
+    </div>
+  </div>
+
   <div id="saveAsChoiceModal" role="dialog" aria-modal="true" aria-labelledby="saveAsChoiceTitle">
     <div id="saveAsChoiceBox">
       <div id="saveAsChoiceTitle">Gmailで送信</div>
@@ -1256,6 +1270,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">個別の色変更</div>各行の右側にある色の四角を押し、そのレイヤーの表示色を選びます。元のSFC色そのものではなく、画面上の表示色を変更します。</div>
               <div class="helpBlock"><div class="helpHead">色を一括で変更</div><b>色を一括で変更</b> を押して色を選ぶと、全レイヤーを同じ表示色に変更します。</div>
               <div class="helpBlock"><div class="helpHead">手書きメモのレイヤー</div>描いた線と丸は、赤・青・緑・黄・黒の色別レイヤーとして一覧へ自動追加されます。レイヤー名を押して、手書きメモも表示・非表示にできます。</div>
+              <div class="helpBlock"><div class="helpHead">レイヤー削除</div>行を長押しするか左へスワイプして<b>削除</b>を押すと、確認後にレイヤーとその図形・文字を削除します。削除直後は<b>もどす</b>で復元し、<b>やりなおし</b>で再び削除できます。SFC保存時にも削除結果を反映します。</div>
             </div>
           </div>
 
@@ -1612,6 +1627,9 @@ let twoFingerGestureState = null;
 
 let layerVisibility = {};
 let layerColorOverrides = {};
+let deletedLayerNames = new Set();
+let editUndoActions = [];
+let pendingLayerDelete = null;
 
 let measureMode = false;
 let measureType = "2point";
@@ -4297,8 +4315,56 @@ function mutedColor(){ return darkTheme ? "#888" : "#666"; }
 function updateUndoRedoUI(){
   const u = document.getElementById("undoFab");
   const r = document.getElementById("redoFab");
-  if (u) u.classList.toggle("dimmed", inkStrokes.length === 0);
+  if (u) u.classList.toggle("dimmed", editUndoActions.length === 0);
   if (r) r.classList.toggle("dimmed", redoStrokes.length === 0);
+}
+function recordEditAction(action){
+  if(!action)return;
+  editUndoActions.push(action);
+  redoStrokes=[];
+  updateUndoRedoUI();
+}
+function addInkStrokeOperation(strokes,label="手書き"){
+  const list=(Array.isArray(strokes)?strokes:[strokes]).filter(Boolean);
+  if(!list.length)return;
+  const revivedLayerNames=[...new Set(list.map(stroke=>getMemoLayerSpecForStroke(stroke)?.name).filter(name=>name&&deletedLayerNames.has(name)))];
+  for(const name of revivedLayerNames)deletedLayerNames.delete(name);
+  inkStrokes.push(...list);
+  recordEditAction({type:"ink-add",strokes:list,revivedLayerNames,label});
+}
+function removeInkStrokeOperation(index){
+  if(index<0||index>=inkStrokes.length)return false;
+  const stroke=inkStrokes[index];
+  inkStrokes.splice(index,1);
+  recordEditAction({type:"ink-remove",entries:[{stroke,index}],label:"消去"});
+  return true;
+}
+function applyEditAction(action,undo){
+  if(!action)return;
+  if(action.type==="ink-add"){
+    if(undo){const remove=new Set(action.strokes);inkStrokes=inkStrokes.filter(stroke=>!remove.has(stroke));for(const name of action.revivedLayerNames||[])deletedLayerNames.add(name);}
+    else{for(const name of action.revivedLayerNames||[])deletedLayerNames.delete(name);inkStrokes.push(...action.strokes);}
+  }else if(action.type==="ink-remove"){
+    if(undo){for(const entry of [...action.entries].sort((a,b)=>a.index-b.index))inkStrokes.splice(Math.min(entry.index,inkStrokes.length),0,entry.stroke);}
+    else{const remove=new Set(action.entries.map(entry=>entry.stroke));inkStrokes=inkStrokes.filter(stroke=>!remove.has(stroke));}
+  }else if(action.type==="layer-delete"){
+    if(undo){
+      deletedLayerNames.delete(action.name);
+      for(const entry of [...(action.entries||[])].sort((a,b)=>a.index-b.index))inkStrokes.splice(Math.min(entry.index,inkStrokes.length),0,entry.stroke);
+    }else{
+      deletedLayerNames.add(action.name);
+      const remove=new Set((action.entries||[]).map(entry=>entry.stroke));inkStrokes=inkStrokes.filter(stroke=>!remove.has(stroke));
+    }
+  }
+  cachedMeasurePointsDirty=true;ensureLayerVisibility();renderLayerList();scheduleDraw();markMemoChanged();
+}
+function undoLastEdit(){
+  const action=editUndoActions.pop();if(!action)return;
+  applyEditAction(action,true);redoStrokes.push(action);updateUndoRedoUI();
+}
+function redoLastEdit(){
+  const action=redoStrokes.pop();if(!action)return;
+  applyEditAction(action,false);editUndoActions.push(action);updateUndoRedoUI();
 }
 
 
@@ -5606,7 +5672,7 @@ function getAllLayers(){
     const layer=getInkStrokeLayerId(stroke);
     if(layer!=null)set.add(layer);
   }
-  return Array.from(set).sort((a,b)=>{
+  return Array.from(set).filter(layer=>!deletedLayerNames.has(String(getLayerLabel(layer)||""))).sort((a,b)=>{
     const an=Number(a),bn=Number(b),af=Number.isFinite(an),bf=Number.isFinite(bn);
     if(af&&bf)return an-bn;
     if(af!==bf)return af?-1:1;
@@ -5616,7 +5682,7 @@ function getAllLayers(){
 function ensureLayerVisibility(){
   for(const layer of getAllLayers()) if(!(layer in layerVisibility)) layerVisibility[layer]=data._layerVisibleByDefault ? data._layerVisibleByDefault[String(layer)]!==false : true;
 }
-function isLayerVisible(layer){ return layerVisibility[layer]===true; }
+function isLayerVisible(layer){ return !deletedLayerNames.has(String(getLayerLabel(layer)||""))&&layerVisibility[layer]===true; }
 function getLayerBaseColor(layer){
   const memoSpec=getMemoLayerSpecByLayer(layer);
   if(memoSpec)return memoSpec.color;
@@ -5676,12 +5742,36 @@ function openLayerColorPalette(target,currentColor){
   });
   modal.style.display="flex";
 }
+function closeLayerDeleteConfirm(){
+  const modal=document.getElementById("layerDeleteConfirmModal");if(modal)modal.style.display="none";
+  pendingLayerDelete=null;
+}
+function openLayerDeleteConfirm(layer){
+  const name=String(getLayerLabel(layer)||layer||"");if(!name)return;
+  pendingLayerDelete={layer,name};
+  const title=document.getElementById("layerDeleteConfirmTitle");if(title)title.textContent=`「${name}」を削除しますか？`;
+  const modal=document.getElementById("layerDeleteConfirmModal");if(modal)modal.style.display="flex";
+}
+function deletePendingLayer(){
+  if(!pendingLayerDelete)return;
+  const name=pendingLayerDelete.name;closeLayerDeleteConfirm();
+  const entries=[];
+  for(let index=0;index<inkStrokes.length;index++)if(getMemoLayerSpecForStroke(inkStrokes[index])?.name===name)entries.push({stroke:inkStrokes[index],index});
+  if(entries.length){const remove=new Set(entries.map(entry=>entry.stroke));inkStrokes=inkStrokes.filter(stroke=>!remove.has(stroke));}
+  deletedLayerNames.add(name);
+  recordEditAction({type:"layer-delete",name,entries,label:"レイヤー削除"});
+  cachedMeasurePointsDirty=true;ensureLayerVisibility();renderLayerList();scheduleDraw();markMemoChanged();
+  showToast("レイヤーを削除しました",1600);
+}
 function renderLayerList(){
   ensureLayerVisibility();
   layerList.innerHTML="";
   for(const layer of getAllLayers()){
     const row=document.createElement("div");
     row.className="layerItem";
+    const content=document.createElement("div");content.className="layerItemContent";
+    const deleteBtn=document.createElement("button");deleteBtn.type="button";deleteBtn.className="layerItemDelete";deleteBtn.textContent="削除";
+    deleteBtn.addEventListener("click",()=>openLayerDeleteConfirm(layer));
     const cb=document.createElement("input");
     cb.type="checkbox"; cb.checked=!!layerVisibility[layer];
     const sp=document.createElement("span"); sp.className="layerItemName";sp.textContent=getLayerLabel(layer);
@@ -5706,7 +5796,21 @@ function renderLayerList(){
     color.style.setProperty("--layer-color",currentColor);
     color.setAttribute("aria-label",`${getLayerLabel(layer)}の表示色を変更`);
     color.addEventListener("click",()=>openLayerColorPalette({type:"layer",layer},currentColor));
-    row.appendChild(cb);row.appendChild(sp);row.appendChild(color);layerList.appendChild(row);
+    content.appendChild(cb);content.appendChild(sp);content.appendChild(color);row.appendChild(deleteBtn);row.appendChild(content);layerList.appendChild(row);
+    let startX=0,startY=0,longTimer=0,moved=false,longPressed=false;
+    const cancelLong=()=>{if(longTimer){clearTimeout(longTimer);longTimer=0;}};
+    content.addEventListener("pointerdown",event=>{
+      startX=event.clientX;startY=event.clientY;moved=false;longPressed=false;cancelLong();
+      longTimer=setTimeout(()=>{longTimer=0;if(!moved){longPressed=true;openLayerDeleteConfirm(layer);}},650);
+    });
+    content.addEventListener("pointermove",event=>{
+      const dx=event.clientX-startX,dy=event.clientY-startY;
+      if(Math.hypot(dx,dy)>8){moved=true;cancelLong();}
+      if(Math.abs(dx)>Math.abs(dy)&&dx<-18)row.classList.add("swiped");
+      else if(Math.abs(dx)>Math.abs(dy)&&dx>18)row.classList.remove("swiped");
+    });
+    content.addEventListener("pointerup",cancelLong);content.addEventListener("pointercancel",cancelLong);content.addEventListener("pointerleave",cancelLong);
+    content.addEventListener("click",event=>{if(longPressed){event.preventDefault();event.stopImmediatePropagation();longPressed=false;}},true);
   }
 }
 let saveAsChoiceResolver=null;
@@ -6599,9 +6703,9 @@ async function finishTerrainCadSelection(){
       }
     }
     if(!created.length)throw new Error("指定範囲に等高線がありません");
-    inkStrokes.push(...created);redoStrokes=[];ensureLayerVisibility();renderLayerList();markMemoChanged();scheduleDraw();hideBusy();
+    addInkStrokeOperation(created,"等高線CAD化");ensureLayerVisibility();renderLayerList();markMemoChanged();scheduleDraw();hideBusy();
     if(terrainPanel)terrainPanel.style.display="block";
-    updateTerrainUi();showToast(`1m等高線を${created.length}本CAD化しました`,2600);
+    updateTerrainUi();showToast("CAD化しました",1800);
   }catch(error){hideBusy();if(terrainPanel)terrainPanel.style.display="block";updateTerrainUi();showToast(formatTerrainError(error),3000);}
 }
 function drawTerrainContours(grid,staleViewport){
@@ -6976,6 +7080,8 @@ function clearLoadedState(){
   loadedSfcText = "";
   inkStrokes = [];
   redoStrokes = [];
+  editUndoActions = [];
+  deletedLayerNames = new Set();
   currentStroke = null;
   inkDrawing = false;
   currentLoadedKind = "sfc";
@@ -7000,6 +7106,7 @@ function getSessionPayload(){
     showText,
     layerVisibility,
     layerColorOverrides,
+    deletedLayerNames:[...deletedLayerNames],
     inkStrokes,
     view,
     rotationDeg
@@ -7803,7 +7910,7 @@ function getNearestSourceSegmentStyleForPoints(points, sourceSegs){
 }
 
 function buildInkPolylineFeatureText(baseText){
-  const normalized = inkStrokes.map(strokeToWorldPolyline).filter(s => s && Array.isArray(s.points) && s.points.length >= 2);
+  const normalized = inkStrokes.map(strokeToWorldPolyline).filter(s => s && Array.isArray(s.points) && s.points.length >= 2 && !deletedLayerNames.has(getMemoLayerSpecForStroke(s).name));
   if (!normalized.length) return { colorText: "", layerText: "", widthText:"", lineText: "", expectedFeatureCount:0, exportPoints:[] };
 
   let id = getNextSfcFeatureId(baseText);
@@ -7895,9 +8002,13 @@ function parseMemoMetaPayload(srcText){
     return null;
   }
 }
+function restoreDeletedLayerNamesFromSourceText(srcText){
+  const payload=parseMemoMetaPayload(srcText);
+  return new Set(Array.isArray(payload&&payload.deletedLayerNames)?payload.deletedLayerNames.map(String):[]);
+}
 function buildMemoMetaComment(){
   try{
-    const strokes = inkStrokes.map(strokeToWorldPolyline).filter(s => s && Array.isArray(s.points) && s.points.length >= 2).map(s => ({
+    const strokes = inkStrokes.map(strokeToWorldPolyline).filter(s => s && Array.isArray(s.points) && s.points.length >= 2 && !deletedLayerNames.has(getMemoLayerSpecForStroke(s).name)).map(s => ({
       type: "freehand",
       color: s.color || "#ff3030",
       opacity: s.opacity == null ? 1 : s.opacity,
@@ -7914,7 +8025,7 @@ function buildMemoMetaComment(){
       terrainLabel: s.terrainLabel || null,
       points: s.points.map(p => ({x:+p.x||0, y:+p.y||0}))
     }));
-    const payload = { version:1, strokes };
+    const payload = { version:2, strokes, deletedLayerNames:[...deletedLayerNames] };
     const json = JSON.stringify(payload);
     const b64 = btoa(unescape(encodeURIComponent(json)));
     return `/* SFCVIEWER_MEMO_META_V1:${b64} */`;
@@ -8102,8 +8213,37 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   }
   return {ok:true};
 }
+const SFC_LAYER_DRAWABLE_FEATURES=new Set(["line_feature","polyline_feature","spline_feature","circle_feature","arc_feature","ellipse_feature","ellipse_arc_feature","point_marker_feature","text_string_feature"]);
+function stripDeletedLayersFromSfc(srcText){
+  let text=String(srcText||"");
+  if(!deletedLayerNames.size)return text;
+  const defs=parseLayerFeatureDefsFlat(getFlatSxfText(text));
+  const deletedCodes=[];
+  defs.forEach((def,index)=>{if(deletedLayerNames.has(String(def.name||""))||deletedLayerNames.has(String(def.rawName||"")))deletedCodes.push(index+1);});
+  if(!deletedCodes.length)return text;
+  const deleted=new Set(deletedCodes),removedLayerFeatureIds=new Set(deletedCodes.map(code=>defs[code-1]?.featureId).filter(Number.isFinite));
+  const remap=code=>code-deletedCodes.filter(value=>value<code).length;
+  return text.replace(/\/\*SXF(?:3(?:\.1)?)?\r?\n([\s\S]*?)\r?\nSXF(?:3(?:\.1)?)?\*\//g,(block,inner)=>{
+    const records=parseSxfFeatureRecords(inner);
+    if(records.length!==1)return block;
+    const record=records[0];
+    if(record.name==="layer_feature"&&removedLayerFeatureIds.has(record.id))return "";
+    if(!SFC_LAYER_DRAWABLE_FEATURES.has(record.name))return block;
+    const oldCode=Number(unquoteSxfValue(record.args[0]));
+    if(!Number.isInteger(oldCode))return block;
+    if(deleted.has(oldCode))return "";
+    const newCode=remap(oldCode);if(newCode===oldCode)return block;
+    const open=inner.toLowerCase().indexOf(record.name)+record.name.length;
+    const paren=inner.indexOf("(",open);if(paren<0)return block;
+    const tail=inner.slice(paren+1),match=tail.match(/^(\s*(?:\\?'|"))?(\d+)((?:\\?'|"))?/);
+    if(!match)return block;
+    const replacedTail=tail.slice(0,match.index)+(match[1]||"")+String(newCode)+(match[3]||"")+tail.slice(match[0].length);
+    const replaced=inner.slice(0,paren+1)+replacedTail;
+    return block.replace(inner,replaced);
+  });
+}
 function buildSfcExportBlobAndName(){
-  let base = stripEmbeddedAnnotations(String(loadedSfcText || "")).replace(/[\s\r\n]+$/, "");
+  let base = stripDeletedLayersFromSfc(stripEmbeddedAnnotations(String(loadedSfcText || ""))).replace(/[\s\r\n]+$/, "");
   const ann = buildSfcAnnotations(base);
   const validation = validateSfcExportAgainstSource(base, ann);
   if (!validation.ok) return { ok:false, reason: validation.reason || 'SFC保存を中止しました' };
@@ -8304,6 +8444,7 @@ function buildRecoveryPayload(){
     showText: !!showText,
     layerVisibility: layerVisibility || {},
     layerColorOverrides: layerColorOverrides || {},
+    deletedLayerNames: [...deletedLayerNames],
     inkStrokes: Array.isArray(inkStrokes) ? inkStrokes : [],
     view: view || null,
     rotationDeg: Number.isFinite(+rotationDeg) ? +rotationDeg : 0
@@ -8467,10 +8608,12 @@ function applyRecoveryPayload(payload){
   if(!payload||payload.fingerprint!==computeRecoveryFingerprint())return false;
   if(Array.isArray(payload.inkStrokes))inkStrokes=migrateInkStrokesToSingleFormat(payload.inkStrokes);
   redoStrokes=[];
+  editUndoActions=[];
   darkTheme=!!payload.darkTheme;
   showText=payload.showText!==false;
   layerVisibility=payload.layerVisibility&&typeof payload.layerVisibility==="object"?payload.layerVisibility:{};
   layerColorOverrides=payload.layerColorOverrides&&typeof payload.layerColorOverrides==="object"?payload.layerColorOverrides:{};
+  deletedLayerNames=new Set(Array.isArray(payload.deletedLayerNames)?payload.deletedLayerNames.map(String):[]);
   if(payload.view&&typeof payload.view==="object")view=payload.view;
   if(Number.isFinite(+payload.rotationDeg))rotationDeg=+payload.rotationDeg;
   updateThemeUI();
@@ -8889,6 +9032,7 @@ function handleLoadedHtmlPayload(payload, fileName, handleOverride){
   showText = !payload || payload.showText !== false;
   layerVisibility = payload && payload.layerVisibility ? payload.layerVisibility : {};
   layerColorOverrides = payload && payload.layerColorOverrides ? payload.layerColorOverrides : {};
+  deletedLayerNames = new Set(Array.isArray(payload&&payload.deletedLayerNames)?payload.deletedLayerNames.map(String):[]);
   if (!count){ showToast("このHTML図面は読めません"); draw(); return; }
   resetInkToolForNewDrawing();
   rotationDeg = Number.isFinite(+(payload && payload.rotationDeg)) ? +(payload && payload.rotationDeg) : determineBestRotation(data);
@@ -8929,6 +9073,7 @@ async function handleLoadedSource(srcText, fileName, handleOverride){
     (data.ellipseArcs?.length||0) + (data.markers?.length||0);
   resetSessionFromLoad();
   inkStrokes = restoreInkStrokesFromSourceText(srcText);
+  deletedLayerNames = restoreDeletedLayerNamesFromSourceText(srcText);
   redoStrokes = [];
   updateUndoRedoUI();
   updateStopBtnUI();
@@ -9366,6 +9511,7 @@ if (recoveryDeleteConfirmYesBtn) recoveryDeleteConfirmYesBtn.addEventListener("c
   if (deleteCurrentRecoverySnapshot()){
     inkStrokes = [];
     redoStrokes = [];
+    editUndoActions = [];
     updateUndoRedoUI();
     scheduleDraw();
     showToast("この図面の復元メモを削除しました", 1700);
@@ -9442,8 +9588,11 @@ document.getElementById("saveAsRawShareBtn").addEventListener("click",()=>resolv
 document.getElementById("saveAsZipShareBtn").addEventListener("click",()=>resolveGmailSaveChoice("zip"));
 document.getElementById("saveAsChoiceCancelBtn").addEventListener("click",()=>resolveSaveAsChoice(null));
 document.getElementById("saveAsChoiceModal").addEventListener("click",e=>{if(e.target.id==="saveAsChoiceModal")resolveSaveAsChoice(null);});
-document.getElementById("undoFab").addEventListener("click", ()=>{ if (inkStrokes.length){ redoStrokes.push(inkStrokes.pop()); updateUndoRedoUI(); scheduleDraw(); markMemoChanged(); } });
-document.getElementById("redoFab").addEventListener("click", ()=>{ if (redoStrokes.length){ inkStrokes.push(redoStrokes.pop()); updateUndoRedoUI(); scheduleDraw(); markMemoChanged(); } });
+document.getElementById("undoFab").addEventListener("click",undoLastEdit);
+document.getElementById("redoFab").addEventListener("click",redoLastEdit);
+document.getElementById("layerDeleteNoBtn")?.addEventListener("click",closeLayerDeleteConfirm);
+document.getElementById("layerDeleteYesBtn")?.addEventListener("click",deletePendingLayer);
+document.getElementById("layerDeleteConfirmModal")?.addEventListener("click",event=>{if(event.target===event.currentTarget)closeLayerDeleteConfirm();});
 
 layerFab.addEventListener("click", (e)=>{
   e.stopPropagation();
@@ -9997,7 +10146,7 @@ document.querySelectorAll(".colorBtn").forEach(btn=>btn.addEventListener("click"
 }));
 
 document.getElementById("confirmNoBtn").addEventListener("click", ()=>{ document.getElementById("confirmModal").style.display = "none"; });
-document.getElementById("confirmYesBtn").addEventListener("click", ()=>{ inkStrokes=[]; redoStrokes=[]; currentStroke=null; updateUndoRedoUI(); document.getElementById("confirmModal").style.display = "none"; scheduleDraw(); updateUndoRedoUI(); markMemoChanged(); });
+document.getElementById("confirmYesBtn").addEventListener("click", ()=>{ inkStrokes=[]; redoStrokes=[]; editUndoActions=[]; currentStroke=null; updateUndoRedoUI(); document.getElementById("confirmModal").style.display = "none"; scheduleDraw(); updateUndoRedoUI(); markMemoChanged(); });
 
 document.addEventListener("click", (e)=>{
   if(!layerPanel.contains(e.target) && e.target!==layerFab) layerPanel.style.display='none';
@@ -10039,7 +10188,7 @@ canvas.addEventListener("mousedown", e=>{
     if (inkEraser) {
       const hit = hitTestInkObject({x:snapped.x, y:snapped.y});
       if (hit >= 0) {
-        inkStrokes.splice(hit, 1);
+        removeInkStrokeOperation(hit);
         drawPanel.style.display = "none";
         scheduleDraw();
         markMemoChanged();
@@ -10048,7 +10197,7 @@ canvas.addEventListener("mousedown", e=>{
     }
     if (inkTool === "circle") {
       const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
-      redoStrokes=[]; inkStrokes.push(buildCircleStrokeFromScreenPoint(local.x, local.y)); redoStrokes=[];
+      addInkStrokeOperation(buildCircleStrokeFromScreenPoint(local.x, local.y));
       updateUndoRedoUI(); drawPanel.style.display = "none"; scheduleDraw(); markMemoChanged();
       return;
     }
@@ -10066,7 +10215,7 @@ window.addEventListener("mouseup", ()=>{
   dragging=false;
   if(inkDrawing && currentStroke){
     if (currentStroke.points && currentStroke.points.length>=2) {
-      inkStrokes.push(currentStroke); redoStrokes=[]; updateUndoRedoUI();
+      addInkStrokeOperation(currentStroke); updateUndoRedoUI();
       markMemoChanged();
     }
     currentStroke=null; inkDrawing=false; scheduleDraw();
@@ -10176,7 +10325,7 @@ canvas.addEventListener("touchstart", e=>{
     pendingTouchInk = null;
     suppressTouchInkUntil = now + 420;
     if(inkDrawing && currentStroke){
-      if(currentStroke.points.length>=2) { inkStrokes.push(currentStroke); redoStrokes=[]; updateUndoRedoUI(); markMemoChanged(); }
+      if(currentStroke.points.length>=2) { addInkStrokeOperation(currentStroke); updateUndoRedoUI(); markMemoChanged(); }
       currentStroke=null; inkDrawing=false;
     }
     touchTapCandidate = null;
@@ -10431,7 +10580,7 @@ canvas.addEventListener("touchend", e=>{
   }
   if(inkDrawing && currentStroke){
     if (currentStroke.points && currentStroke.points.length>=2) {
-      inkStrokes.push(currentStroke); redoStrokes=[]; updateUndoRedoUI();
+      addInkStrokeOperation(currentStroke); updateUndoRedoUI();
       markMemoChanged();
     }
     currentStroke=null; inkDrawing=false; scheduleDraw();
@@ -10441,8 +10590,7 @@ canvas.addEventListener("touchend", e=>{
     const changed=e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : null;
     const move = changed ? Math.hypot(changed.clientX-pendingTouchInk.startClientX, changed.clientY-pendingTouchInk.startClientY) : 999;
     if(Date.now() >= suppressTouchInkUntil && pendingTouchInk.tool === "circle" && move <= 10){
-      redoStrokes=[];
-      inkStrokes.push(buildCircleStrokeFromScreenPoint(pendingTouchInk.startScreenX, pendingTouchInk.startScreenY));
+      addInkStrokeOperation(buildCircleStrokeFromScreenPoint(pendingTouchInk.startScreenX, pendingTouchInk.startScreenY));
       updateUndoRedoUI();
       scheduleDraw();
       markMemoChanged();
@@ -10494,7 +10642,7 @@ canvas.addEventListener("touchcancel", ()=>{
   if(profileLineDrag&&profileLineDrag.pointerType==="touch") finishProfileLineDrag();
   if(inkDrawing && currentStroke){
     if (currentStroke.points && currentStroke.points.length>=2) {
-      inkStrokes.push(currentStroke); redoStrokes=[]; updateUndoRedoUI();
+      addInkStrokeOperation(currentStroke); updateUndoRedoUI();
       markMemoChanged();
     }
   }
