@@ -1743,7 +1743,9 @@ let terrainCadTouchCandidate = null;
 const PROFILE_TILE_CACHE = "sfc-dem-tiles-v1";
 // v2 limits every elevation-dependent feature to laser-survey DEM1A/DEM5A.
 // Do not reuse older profiles that may contain DEM5B/DEM5C/DEM10B samples.
-const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v3-exclusive-source";
+// v4 keeps every valid DEM1A sample and uses DEM5A only for DEM1A gaps.
+// The key change prevents older all-DEM5A fallbacks from being reused.
+const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v4-dem1a-priority";
 // v2 invalidates zone numbers remembered before GPS-first validation was added.
 const PROFILE_ZONE_CACHE_KEY = "sfc-dem-zones-v2";
 const PROFILE_DEM_SOURCES = [
@@ -2765,8 +2767,8 @@ async function samplePointsFromDemSource(points,source,refProperty,maxTiles=Infi
     return {source,values:[],validCount:0,complete:false,tooWide:true};
   }
   const urls=[...refs.keys()];
-  // Temporary communication failures must not cause DEM1A and DEM5A to be
-  // mixed in one drawing. Retry missing tiles once before choosing a source.
+  // Retry missing tiles once before falling back. Valid DEM1A samples are
+  // retained; only points still missing after the retry may use DEM5A.
   for(let attempt=0;attempt<2;attempt++){
     const pending=urls.filter(url=>!refs.get(url));
     if(!pending.length)break;
@@ -2835,19 +2837,23 @@ async function buildProfileData(start,end,zone){
     const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
     samples.push({t,distance:length*t,worldX,worldY,lat:ll.lat,lon:ll.lon,elevation:null,source:null});
   }
-  let selected=null;
+  let validElevationCount=0;
   for(const source of PROFILE_DEM_SOURCES){
     const candidate=await samplePointsFromDemSource(samples,source,"_profileRef");
-    if(candidate.complete){selected=candidate;break;}
-    // A partial high-resolution source is discarded as a whole. This avoids
-    // a DEM1A/DEM5A seam within the same profile or contour calculation.
-    if(source.id==="DEM5A"&&candidate.validCount>=2)selected=candidate;
+    for(let i=0;i<samples.length;i++){
+      // Sources are ordered by priority. Never overwrite a valid DEM1A value;
+      // DEM5A is only a gap filler for points that DEM1A could not provide.
+      if(samples[i].elevation!=null)continue;
+      const elevation=candidate.values[i];
+      if(elevation!=null){
+        samples[i].elevation=elevation;
+        samples[i].source=source.id;
+        validElevationCount++;
+      }
+    }
+    if(validElevationCount===samples.length)break;
   }
-  if(selected)for(let i=0;i<samples.length;i++){
-    const elevation=selected.values[i];
-    if(elevation!=null){samples[i].elevation=elevation;samples[i].source=selected.source.id;}
-  }
-  if(samples.filter(s=>s.elevation!=null).length<2) return null;
+  if(validElevationCount<2) return null;
   const result={start:{...start},end:{...end},zone,length,samples};
   rememberProfileData(result);
   return result;
