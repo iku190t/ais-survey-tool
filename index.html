@@ -2200,6 +2200,13 @@ function aerialPhotoTileFloat(lat,lon,z){
   const latRad=clampedLat*Math.PI/180;
   return {x:(lon+180)/360*n,y:(1-Math.log(Math.tan(latRad)+1/Math.cos(latRad))/Math.PI)/2*n};
 }
+function profileGlobalPixel(lat,lon,z){
+  const tile=aerialPhotoTileFloat(lat,lon,z);
+  return {x:tile.x*256,y:tile.y*256};
+}
+function profileGlobalPixelLatLon(x,y,z){
+  return aerialPhotoTileLatLon(x/256,y/256,z);
+}
 function aerialPhotoTileLatLon(x,y,z){
   const n=Math.pow(2,z);
   const lon=x/n*360-180;
@@ -2855,17 +2862,19 @@ function chooseTerrainContourGrid(viewport){
   return {minX,maxX,minY,maxY,spacing,rows,cols};
 }
 function terrainContourGridCoversViewport(grid){
-  const native=grid&&grid.nativePlaneGrid;
+  const native=grid&&grid.nativeDemGrid;
   if(!native)return false;
   const corners=[[0,0],[canvas.clientWidth,0],[canvas.clientWidth,canvas.clientHeight],[0,canvas.clientHeight]];
   return corners.every(([sx,sy])=>{
     const world=screenToWorld(sx,sy),plane=sfcWorldToPlane(world[0],world[1]);
-    return plane.xNorth>=native.minX&&plane.xNorth<=native.maxX&&plane.yEast>=native.minY&&plane.yEast<=native.maxY;
+    const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,grid.zone);
+    const pixel=profileGlobalPixel(ll.lat,ll.lon,native.z);
+    return pixel.x>=native.minGlobalX&&pixel.x<=native.maxGlobalX&&pixel.y>=native.minGlobalY&&pixel.y<=native.maxGlobalY;
   });
 }
 function terrainViewportNeedsRefresh(grid){
   if(!grid||!grid.viewport)return true;
-  if(grid.gridPurpose==="contour"&&grid.nativePlaneGrid)return !terrainContourGridCoversViewport(grid);
+  if(grid.gridPurpose==="contour"&&grid.nativeDemGrid)return !terrainContourGridCoversViewport(grid);
   const now=getTerrainViewportState(),old=grid.viewport;
   const centerShiftPx=Math.hypot(now.cx-old.cx,now.cy-old.cy)*now.scale;
   const scaleRatio=Math.max(now.scale/old.scale,old.scale/now.scale);
@@ -2879,30 +2888,83 @@ function queueTerrainViewportRefresh(){
     if(terrainMode&&!terrainLoading&&terrainViewportNeedsRefresh(terrainGrid))activateTerrainMode(terrainMode,true);
   },260);
 }
+function terrainNativePixelBounds(source,zone,viewport){
+  const pixels=[[0,0],[viewport.w,0],[viewport.w,viewport.h],[0,viewport.h]].map(([sx,sy])=>{
+    const world=screenToWorld(sx,sy),plane=sfcWorldToPlane(world[0],world[1]);
+    const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
+    return profileGlobalPixel(ll.lat,ll.lon,source.z);
+  });
+  const padding=2;
+  const minGlobalX=Math.floor(Math.min(...pixels.map(point=>point.x)))-padding;
+  const maxGlobalX=Math.ceil(Math.max(...pixels.map(point=>point.x)))+padding;
+  const minGlobalY=Math.floor(Math.min(...pixels.map(point=>point.y)))-padding;
+  const maxGlobalY=Math.ceil(Math.max(...pixels.map(point=>point.y)))+padding;
+  return {
+    z:source.z,minGlobalX,maxGlobalX,minGlobalY,maxGlobalY,
+    cols:maxGlobalX-minGlobalX+1,rows:maxGlobalY-minGlobalY+1
+  };
+}
+async function buildNativeTerrainContourGrid(zone,viewport){
+  let skippedWideSource=false;
+  for(const source of PROFILE_DEM_SOURCES){
+    const bounds=terrainNativePixelBounds(source,zone,viewport);
+    if(bounds.cols<3||bounds.rows<3)continue;
+    if(bounds.cols*bounds.rows>180000){skippedWideSource=true;continue;}
+    const tileRefs=[],tileMap=new Map();
+    const minTileX=Math.floor(bounds.minGlobalX/256),maxTileX=Math.floor(bounds.maxGlobalX/256);
+    const minTileY=Math.floor(bounds.minGlobalY/256),maxTileY=Math.floor(bounds.maxGlobalY/256);
+    for(let tileY=minTileY;tileY<=maxTileY;tileY++)for(let tileX=minTileX;tileX<=maxTileX;tileX++){
+      const ref={x:tileX,y:tileY},url=profileDemUrl(source,ref);
+      tileRefs.push({tileX,tileY,url});tileMap.set(`${tileX},${tileY}`,null);
+    }
+    if(tileRefs.length>120){skippedWideSource=true;continue;}
+    for(let attempt=0;attempt<2;attempt++){
+      const pending=tileRefs.filter(ref=>!tileMap.get(`${ref.tileX},${ref.tileY}`));
+      if(!pending.length)break;
+      await profileMapLimit(pending,5,async ref=>tileMap.set(`${ref.tileX},${ref.tileY}`,await decodeProfileDemTile(ref.url)));
+    }
+    const points=new Array(bounds.rows*bounds.cols);let validCount=0;
+    for(let row=0;row<bounds.rows;row++){
+      const globalY=bounds.minGlobalY+row,tileY=Math.floor(globalY/256),py=((globalY%256)+256)%256;
+      for(let col=0;col<bounds.cols;col++){
+        const globalX=bounds.minGlobalX+col,tileX=Math.floor(globalX/256),px=((globalX%256)+256)%256;
+        const elevation=decodeProfileElevation(tileMap.get(`${tileX},${tileY}`),px,py);
+        const ll=profileGlobalPixelLatLon(globalX,globalY,source.z);
+        const projected=latLonToJgd2024XY(ll.lat,ll.lon,zone);
+        const plane={xNorth:projected.x,yEast:projected.y};
+        const mapped=planeToSfcWorld(plane.xNorth,plane.yEast);
+        const point={row,col,globalX,globalY,worldX:mapped.x*1000,worldY:mapped.y*1000,plane,lat:ll.lat,lon:ll.lon,elevation:null,source:null};
+        if(elevation!=null&&Number.isFinite(elevation)){point.elevation=elevation;point.source=source.id;validCount++;}
+        points[row*bounds.cols+col]=point;
+      }
+    }
+    const minimum=source.id==="DEM1A"?Math.ceil(points.length*.98):Math.ceil(points.length*.45);
+    if(validCount<minimum)continue;
+    return {
+      cols:bounds.cols,rows:bounds.rows,zone,points,createdAt:Date.now(),
+      width:viewport.w,height:viewport.h,viewport,gridPurpose:"contour",
+      nativeDemGrid:{...bounds,sourceId:source.id}
+    };
+  }
+  if(skippedWideSource)throw new Error("Contour area is too wide. Zoom in and try again.");
+  throw new Error("Elevation data could not be obtained.");
+}
 async function buildTerrainGrid(purpose="surface"){
   if(!hasLoadedDrawing()) return null;
   const zone=await resolveProfileZone();
   if(!zone) throw new Error("このSFC図面の座標系を確認できません");
   const viewport=getTerrainViewportState();
-  const contourGrid=purpose==="contour"?chooseTerrainContourGrid(viewport):null;
-  const {cols,rows}=contourGrid||chooseTerrainGridSize(viewport);
+  if(purpose==="contour")return buildNativeTerrainContourGrid(zone,viewport);
+  const {cols,rows}=chooseTerrainGridSize(viewport);
   const w=viewport.w,h=viewport.h;
   const inset=8;
   const points=[];
   for(let row=0;row<rows;row++){
     for(let col=0;col<cols;col++){
-      let sx,sy,world,plane;
-      if(contourGrid){
-        plane={xNorth:contourGrid.minX+row*contourGrid.spacing,yEast:contourGrid.minY+col*contourGrid.spacing};
-        const mapped=planeToSfcWorld(plane.xNorth,plane.yEast);
-        world=[mapped.x*1000,mapped.y*1000];
-        [sx,sy]=worldToScreen(world[0],world[1]);
-      }else{
-        sy=inset+(h-inset*2)*row/(rows-1);
-        sx=inset+(w-inset*2)*col/(cols-1);
-        world=screenToWorld(sx,sy);
-        plane=sfcWorldToPlane(world[0],world[1]);
-      }
+      const sy=inset+(h-inset*2)*row/(rows-1);
+      const sx=inset+(w-inset*2)*col/(cols-1);
+      const world=screenToWorld(sx,sy);
+      const plane=sfcWorldToPlane(world[0],world[1]);
       const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
       points.push({row,col,sx,sy,worldX:world[0],worldY:world[1],plane,lat:ll.lat,lon:ll.lon,elevation:null,source:null});
     }
@@ -2923,7 +2985,7 @@ async function buildTerrainGrid(purpose="surface"){
   const valid=points.filter(p=>p.elevation!=null);
   if(!valid.length&&skippedWideSource)throw new Error("範囲が広すぎます。少し拡大してから実行してください");
   if(valid.length<Math.ceil(points.length*.45)) throw new Error("標高データを取得できません");
-  return {cols,rows,zone,points,createdAt:Date.now(),width:w,height:h,viewport,gridPurpose:purpose,nativePlaneGrid:contourGrid};
+  return {cols,rows,zone,points,createdAt:Date.now(),width:w,height:h,viewport,gridPurpose:purpose};
 }
 const TERRAIN_ELEVATION_COLORS=[
   [38,103,255],[35,145,232],[34,181,188],[46,177,100],[139,190,62],
@@ -3019,10 +3081,11 @@ function terrainDemInfoHtml(grid){
 }
 function terrainPointAtScreen(grid,screenX,screenY){
   if(!grid||terrainViewportNeedsRefresh(grid)||!Number.isFinite(screenX)||!Number.isFinite(screenY))return null;
-  if(grid.nativePlaneGrid){
-    const world=screenToWorld(screenX,screenY),plane=sfcWorldToPlane(world[0],world[1]),native=grid.nativePlaneGrid;
-    const row=Math.max(0,Math.min(grid.rows-1,Math.round((plane.xNorth-native.minX)/native.spacing)));
-    const col=Math.max(0,Math.min(grid.cols-1,Math.round((plane.yEast-native.minY)/native.spacing)));
+  if(grid.nativeDemGrid){
+    const world=screenToWorld(screenX,screenY),plane=sfcWorldToPlane(world[0],world[1]),native=grid.nativeDemGrid;
+    const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,grid.zone),pixel=profileGlobalPixel(ll.lat,ll.lon,native.z);
+    const row=Math.max(0,Math.min(grid.rows-1,Math.round(pixel.y-native.minGlobalY)));
+    const col=Math.max(0,Math.min(grid.cols-1,Math.round(pixel.x-native.minGlobalX)));
     return getTerrainPoint(grid,row,col);
   }
   const first=getTerrainPoint(grid,0,0),last=getTerrainPoint(grid,grid.rows-1,grid.cols-1);
