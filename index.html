@@ -2929,7 +2929,11 @@ async function buildNativeTerrainContourGrid(zone,viewport){
       for(let col=0;col<bounds.cols;col++){
         const globalX=bounds.minGlobalX+col,tileX=Math.floor(globalX/256),px=((globalX%256)+256)%256;
         const elevation=decodeProfileElevation(tileMap.get(`${tileX},${tileY}`),px,py);
-        const ll=profileGlobalPixelLatLon(globalX,globalY,source.z);
+        // A DEM PNG value represents the centre of its raster pixel, not the
+        // north-west pixel boundary. Placing it on the boundary shifts the
+        // contour horizontally and can look several metres wrong in height
+        // when it is compared with survey contours on steep ground.
+        const ll=profileGlobalPixelLatLon(globalX+.5,globalY+.5,source.z);
         const projected=latLonToJgd2024XY(ll.lat,ll.lon,zone);
         const plane={xNorth:projected.x,yEast:projected.y};
         const mapped=planeToSfcWorld(plane.xNorth,plane.yEast);
@@ -2938,7 +2942,9 @@ async function buildNativeTerrainContourGrid(zone,viewport){
         points[row*bounds.cols+col]=point;
       }
     }
-    const minimum=source.id==="DEM1A"?Math.ceil(points.length*.98):Math.ceil(points.length*.45);
+    // Keep a substantially covered DEM1A area on DEM1A. Padding and isolated
+    // no-data pixels must not switch the entire calculation to DEM5A.
+    const minimum=source.id==="DEM1A"?Math.ceil(points.length*.90):Math.ceil(points.length*.45);
     if(validCount<minimum)continue;
     return {
       cols:bounds.cols,rows:bounds.rows,zone,points,createdAt:Date.now(),
@@ -3089,8 +3095,8 @@ function terrainPointAtScreen(grid,screenX,screenY){
   if(grid.nativeDemGrid){
     const world=screenToWorld(screenX,screenY),plane=sfcWorldToPlane(world[0],world[1]),native=grid.nativeDemGrid;
     const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,grid.zone),pixel=profileGlobalPixel(ll.lat,ll.lon,native.z);
-    const row=Math.max(0,Math.min(grid.rows-1,Math.round(pixel.y-native.minGlobalY)));
-    const col=Math.max(0,Math.min(grid.cols-1,Math.round(pixel.x-native.minGlobalX)));
+    const row=Math.max(0,Math.min(grid.rows-1,Math.round(pixel.y-native.minGlobalY-.5)));
+    const col=Math.max(0,Math.min(grid.cols-1,Math.round(pixel.x-native.minGlobalX-.5)));
     return getTerrainPoint(grid,row,col);
   }
   const first=getTerrainPoint(grid,0,0),last=getTerrainPoint(grid,grid.rows-1,grid.cols-1);
