@@ -3051,6 +3051,8 @@ function chooseTerrainContourInterval(range){
 function terrainModeLabel(mode){
   return mode==="elevation"?"標高":mode==="slope"?"傾斜角":mode==="contour"?"等高線":mode==="flow"?"水の流れ":mode==="volume"?"概算土量":"";
 }
+function terrainContourRegularColor(){return darkTheme?"#ffd24a":"#4aaeff";}
+function terrainContourIndexColor(){return "#ff6b35";}
 function calculateTerrainVolume(grid){
   const valid=grid.points.filter(p=>p.elevation!=null);
   const reference=valid.reduce((sum,p)=>sum+p.elevation,0)/Math.max(1,valid.length);
@@ -3122,6 +3124,9 @@ function setTerrainLegend(mode){
     el.style.display="flex";el.innerHTML=TERRAIN_SLOPE_BANDS.map(item=>`<span class="terrainSwatch" style="background:rgb(${item.color.join(",")})"></span>${item.label}`).join(" ");
   }else if(mode==="contour"&&terrainElevationRange){
     el.style.display="flex";el.innerHTML='<span style="display:inline-block;width:24px;border-top:1px solid #ffd24a"></span> 等高線 <span style="display:inline-block;width:24px;border-top:2px solid #ff6b35"></span> 計曲線'+terrainDemInfoHtml(terrainGrid);
+    const contourSwatches=el.querySelectorAll('span[style*="border-top"]');
+    if(contourSwatches[0])contourSwatches[0].style.borderTopColor=terrainContourRegularColor();
+    if(contourSwatches[1])contourSwatches[1].style.borderTopColor=terrainContourIndexColor();
     requestAnimationFrame(()=>{
       if(isTouchMobileLike())updateTerrainDemPositionInfo(canvas.clientWidth/2,canvas.clientHeight/2,"画面中央");
       else{const position=document.getElementById("terrainDemPositionInfo");if(position)position.innerHTML="<b>マウス位置：</b>図面上にマウスを移動してください";}
@@ -6466,13 +6471,14 @@ function drawTerrainContours(grid,staleViewport){
     for(let i=1;i<screen.length;i++)considerLabel(line.level,screen[i-1],screen[i]);
   }
   const strokeLines=(lines,color,width)=>{if(!lines.length)return;ctx.beginPath();for(const points of lines){if(points.length<2)continue;ctx.moveTo(points[0][0],points[0][1]);for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);}ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap="round";ctx.lineJoin="round";ctx.stroke();};
-  strokeLines(regularLines,"#ffd24a",.65);
-  strokeLines(indexLines,"#ff6b35",1.15);
+  const regularColor=terrainContourRegularColor(),indexColor=terrainContourIndexColor();
+  strokeLines(regularLines,regularColor,.65);
+  strokeLines(indexLines,indexColor,1.15);
   const placed=[];ctx.font="700 13px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
   for(const item of [...labelCandidates.values()].sort((a,b)=>a.level-b.level)){
     const text=String(Math.round(item.level)),width=ctx.measureText(text).width+12,height=18,box={l:item.x-width/2,r:item.x+width/2,t:item.y-height/2,b:item.y+height/2};
     if(placed.some(p=>!(box.r+8<p.l||box.l-8>p.r||box.b+6<p.t||box.t-6>p.b)))continue;
-    placed.push(box);ctx.save();ctx.translate(item.x,item.y);ctx.rotate(item.angle);ctx.lineWidth=3.2;ctx.strokeStyle="rgba(0,0,0,.92)";ctx.strokeText(text,0,0);ctx.fillStyle="#ffd24a";ctx.fillText(text,0,0);ctx.restore();
+    placed.push(box);ctx.save();ctx.translate(item.x,item.y);ctx.rotate(item.angle);ctx.lineWidth=3.2;ctx.strokeStyle="rgba(0,0,0,.92)";ctx.strokeText(text,0,0);ctx.fillStyle=regularColor;ctx.fillText(text,0,0);ctx.restore();
   }
 }
 function drawTerrainOverlay(){
@@ -8954,10 +8960,10 @@ document.getElementById("bgBtn").addEventListener("click", ()=>{
 });
 document.getElementById("photoPanelCloseBtn")?.addEventListener("click",()=>{if(aerialPhotoPanel)aerialPhotoPanel.style.display="none";updateToolbarActivationUI();});
 document.getElementById("backgroundBlackBtn")?.addEventListener("click",()=>{
-  darkTheme=true;updateThemeUI();updateAerialPhotoUi();scheduleDraw();scheduleRecoverySnapshot(180);
+  darkTheme=true;updateThemeUI();updateAerialPhotoUi();if(terrainMode)setTerrainLegend(terrainMode);scheduleDraw();scheduleRecoverySnapshot(180);
 });
 document.getElementById("backgroundWhiteBtn")?.addEventListener("click",()=>{
-  darkTheme=false;updateThemeUI();updateAerialPhotoUi();scheduleDraw();scheduleRecoverySnapshot(180);
+  darkTheme=false;updateThemeUI();updateAerialPhotoUi();if(terrainMode)setTerrainLegend(terrainMode);scheduleDraw();scheduleRecoverySnapshot(180);
 });
 photoToggleSwitch?.addEventListener("change",async()=>{
   if(photoToggleSwitch.checked){
