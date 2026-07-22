@@ -6212,15 +6212,96 @@ function drawTerrainArrow(from,to,minimumLength=12){
   const ux=dx/len,uy=dy/len,drawLength=Math.max(len,minimumLength),ex=a[0]+ux*drawLength*.74,ey=a[1]+uy*drawLength*.74,head=4.2;
   ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(ex,ey);ctx.moveTo(ex,ey);ctx.lineTo(ex-ux*head-uy*head*.65,ey-uy*head+ux*head*.65);ctx.moveTo(ex,ey);ctx.lineTo(ex-ux*head+uy*head*.65,ey-uy*head-ux*head*.65);ctx.stroke();
 }
-function terrainContourScreenPoint(a,b,level,staleViewport){
+function terrainContourWorldPoint(a,b,level){
   const d=b.elevation-a.elevation,t=Math.abs(d)<1e-9?.5:Math.max(0,Math.min(1,(level-a.elevation)/d));
-  if(!staleViewport&&Number.isFinite(a.sx)&&Number.isFinite(a.sy)&&Number.isFinite(b.sx)&&Number.isFinite(b.sy))return [a.sx+(b.sx-a.sx)*t,a.sy+(b.sy-a.sy)*t];
-  return worldToScreen(a.worldX+(b.worldX-a.worldX)*t,a.worldY+(b.worldY-a.worldY)*t);
+  return [a.worldX+(b.worldX-a.worldX)*t,a.worldY+(b.worldY-a.worldY)*t];
+}
+function terrainContourPointKey(point){
+  return `${Math.round(point[0]*1e5)},${Math.round(point[1]*1e5)}`;
+}
+function joinTerrainContourSegments(segments){
+  if(!segments.length)return [];
+  const endpointMap=new Map(),unused=new Set(segments.map((_,index)=>index));
+  const addEndpoint=(point,index)=>{const key=terrainContourPointKey(point),list=endpointMap.get(key)||[];list.push(index);endpointMap.set(key,list);};
+  segments.forEach((segment,index)=>{addEndpoint(segment.a,index);addEndpoint(segment.b,index);});
+  const takeConnected=(point)=>{
+    const list=endpointMap.get(terrainContourPointKey(point));
+    if(!list)return -1;
+    while(list.length){const index=list.pop();if(unused.has(index))return index;}
+    return -1;
+  };
+  const polylines=[];
+  while(unused.size){
+    const firstIndex=unused.values().next().value,first=segments[firstIndex];unused.delete(firstIndex);
+    const points=[first.a,first.b];let passes=first.passes;
+    while(true){
+      const index=takeConnected(points[points.length-1]);if(index<0)break;
+      const segment=segments[index];unused.delete(index);passes=Math.max(passes,segment.passes);
+      const tailKey=terrainContourPointKey(points[points.length-1]);
+      points.push(terrainContourPointKey(segment.a)===tailKey?segment.b:segment.a);
+    }
+    while(true){
+      const index=takeConnected(points[0]);if(index<0)break;
+      const segment=segments[index];unused.delete(index);passes=Math.max(passes,segment.passes);
+      const headKey=terrainContourPointKey(points[0]);
+      points.unshift(terrainContourPointKey(segment.a)===headKey?segment.b:segment.a);
+    }
+    polylines.push({points,passes,closed:points.length>2&&terrainContourPointKey(points[0])===terrainContourPointKey(points[points.length-1])});
+  }
+  return polylines;
+}
+function smoothTerrainContour(points,passes,closed){
+  let result=points.map(point=>[point[0],point[1]]);
+  if(closed&&result.length>1)result.pop();
+  const minimum=closed?4:3;if(result.length<minimum)return points;
+  for(let pass=0;pass<passes;pass++){
+    const next=closed?[]:[result[0]];
+    const count=closed?result.length:result.length-1;
+    for(let i=0;i<count;i++){
+      const a=result[i],b=result[(i+1)%result.length];
+      next.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75]);
+    }
+    if(!closed)next.push(result[result.length-1]);
+    result=next;
+  }
+  if(closed)result.push([result[0][0],result[0][1]]);
+  return result;
+}
+function buildTerrainContourGeometry(grid,interval,indexInterval){
+  const cacheKey=`${interval.toPrecision(12)}:${indexInterval.toPrecision(12)}`;
+  if(grid._contourGeometryCache?.key===cacheKey)return grid._contourGeometryCache.value;
+  const groups=new Map();
+  const addSegment=(level,a,b,passes,isIndex)=>{
+    const key=`${isIndex?1:0}:${level.toFixed(8)}`,group=groups.get(key)||{level,isIndex,segments:[]};
+    group.segments.push({a,b,passes});groups.set(key,group);
+  };
+  for(let r=0;r<grid.rows-1;r++)for(let c=0;c<grid.cols-1;c++){
+    const ps=[getTerrainPoint(grid,r,c),getTerrainPoint(grid,r,c+1),getTerrainPoint(grid,r+1,c+1),getTerrainPoint(grid,r+1,c)];
+    if(ps.some(point=>!point||!Number.isFinite(point.elevation)))continue;
+    const cellMin=Math.min(...ps.map(point=>point.elevation)),cellMax=Math.max(...ps.map(point=>point.elevation));
+    const passes=ps.some(point=>point.source==="DEM5A")?2:1;
+    for(let level=Math.ceil(cellMin/interval)*interval;level<=cellMax+1e-9;level+=interval){
+      const intersections=[],edges=[[0,1],[1,2],[2,3],[3,0]];
+      for(const [ia,ib]of edges){
+        const a=ps[ia],b=ps[ib];
+        if((a.elevation<level&&b.elevation>=level)||(b.elevation<level&&a.elevation>=level))intersections.push(terrainContourWorldPoint(a,b,level));
+      }
+      const isIndex=Math.abs(level/indexInterval-Math.round(level/indexInterval))<1e-7;
+      if(intersections.length===2)addSegment(level,intersections[0],intersections[1],passes,isIndex);
+      else if(intersections.length===4){addSegment(level,intersections[0],intersections[1],passes,isIndex);addSegment(level,intersections[2],intersections[3],passes,isIndex);}
+    }
+  }
+  const value=[];
+  for(const group of groups.values())for(const line of joinTerrainContourSegments(group.segments)){
+    value.push({level:group.level,isIndex:group.isIndex,points:smoothTerrainContour(line.points,line.passes,line.closed)});
+  }
+  grid._contourGeometryCache={key:cacheKey,value};
+  return value;
 }
 function drawTerrainContours(grid,staleViewport){
   const range=terrainElevationRange;if(!range)return;
   const interval=chooseTerrainContourInterval(range),indexInterval=interval*5,labelCandidates=new Map(),screenW=canvas.clientWidth||1,screenH=canvas.clientHeight||1;
-  const regularSegments=[],indexSegments=[];
+  const geometry=buildTerrainContourGeometry(grid,interval,indexInterval),regularLines=[],indexLines=[];
   const considerLabel=(level,a,b)=>{
     const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);
     if(mx<18||mx>screenW-18||my<18||my>screenH-18)return;
@@ -6228,24 +6309,14 @@ function drawTerrainContours(grid,staleViewport){
     const score=Math.min(mx,screenW-mx,my,screenH-my)+length*2,key=level.toFixed(6),current=labelCandidates.get(key);
     if(!current||score>current.score)labelCandidates.set(key,{level,x:mx,y:my,angle,score});
   };
-  for(let r=0;r<grid.rows-1;r++)for(let c=0;c<grid.cols-1;c++){
-    const ps=[getTerrainPoint(grid,r,c),getTerrainPoint(grid,r,c+1),getTerrainPoint(grid,r+1,c+1),getTerrainPoint(grid,r+1,c)];
-    if(ps.some(p=>!p||!Number.isFinite(p.elevation)))continue;
-    const cellMin=Math.min(...ps.map(p=>p.elevation)),cellMax=Math.max(...ps.map(p=>p.elevation));
-    for(let level=Math.ceil(cellMin/interval)*interval;level<=cellMax+1e-9;level+=interval){
-      const intersections=[],edges=[[0,1],[1,2],[2,3],[3,0]];
-      for(const [ia,ib]of edges){
-        const a=ps[ia],b=ps[ib];
-        if((a.elevation<level&&b.elevation>=level)||(b.elevation<level&&a.elevation>=level))intersections.push(terrainContourScreenPoint(a,b,level,staleViewport));
-      }
-      const target=Math.abs(level/indexInterval-Math.round(level/indexInterval))<1e-7?indexSegments:regularSegments;
-      if(intersections.length===2){target.push([intersections[0],intersections[1]]);considerLabel(level,intersections[0],intersections[1]);}
-      else if(intersections.length===4){target.push([intersections[0],intersections[1]],[intersections[2],intersections[3]]);considerLabel(level,intersections[0],intersections[1]);considerLabel(level,intersections[2],intersections[3]);}
-    }
+  for(const line of geometry){
+    const screen=line.points.map(point=>worldToScreen(point[0],point[1]));
+    (line.isIndex?indexLines:regularLines).push(screen);
+    for(let i=1;i<screen.length;i++)considerLabel(line.level,screen[i-1],screen[i]);
   }
-  const strokeSegments=(segments,color,width)=>{if(!segments.length)return;ctx.beginPath();for(const [a,b]of segments){ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);}ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap="round";ctx.lineJoin="round";ctx.stroke();};
-  strokeSegments(regularSegments,"#ffd24a",.65);
-  strokeSegments(indexSegments,"#ff6b35",1.15);
+  const strokeLines=(lines,color,width)=>{if(!lines.length)return;ctx.beginPath();for(const points of lines){if(points.length<2)continue;ctx.moveTo(points[0][0],points[0][1]);for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);}ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap="round";ctx.lineJoin="round";ctx.stroke();};
+  strokeLines(regularLines,"#ffd24a",.65);
+  strokeLines(indexLines,"#ff6b35",1.15);
   const placed=[];ctx.font="700 13px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
   for(const item of [...labelCandidates.values()].sort((a,b)=>a.level-b.level)){
     const text=String(Math.round(item.level)),width=ctx.measureText(text).width+12,height=18,box={l:item.x-width/2,r:item.x+width/2,t:item.y-height/2,b:item.y+height/2};
