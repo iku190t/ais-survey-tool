@@ -1603,6 +1603,9 @@ let compassFollowLastAppliedAt = 0;
 
 let data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [], ellipseArcs: [], markers: [], layerNames: {}, source_name: "" };
 /*__EMBED_PAYLOAD_START__*/ window.__EMBED_PAYLOAD_B64__ = ""; /*__EMBED_PAYLOAD_END__*/
+// Keep the opened SFC as the immutable edit base. Export always reapplies the
+// current annotations and deleted-layer state, so Undo can restore a layer
+// even after an intermediate save.
 let loadedSfcText = "";
 let lastSaveHandle = null;
 let lastHtmlSaveHandle = null;
@@ -8717,7 +8720,6 @@ async function saveSfcOverwrite(){
       await writeBlobToHandle(silentHandle, blob);
       if (savingSfc) {
         lastSaveHandle = silentHandle;
-        loadedSfcText = exportData.text;
       } else {
         lastHtmlSaveHandle = silentHandle;
       }
@@ -8750,7 +8752,6 @@ async function saveSfcOverwrite(){
       await writeBlobToHandle(handle, blob);
       if (savingSfc) {
         lastSaveHandle = handle;
-        loadedSfcText = exportData.text;
       } else {
         lastHtmlSaveHandle = handle;
       }
@@ -8866,7 +8867,6 @@ async function saveSfcWithAnnotations(){
       await writeBlobToHandle(handle, blob);
       if (savingSfc) {
         lastSaveHandle = handle;
-        loadedSfcText = exportData.text;
       } else {
         lastHtmlSaveHandle = handle;
       }
