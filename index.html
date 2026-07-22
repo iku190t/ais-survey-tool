@@ -3301,7 +3301,7 @@ function getProfileGraphGeometry(){
   const dpr=profileChart.width/Math.max(1,profileChart.getBoundingClientRect().width);
   const w=profileChart.width/dpr,h=profileChart.height/dpr;
   const compactMobile=isTouchMobileLike()&&profileModal&&!profileModal.classList.contains("expanded");
-  const margin=compactMobile?{left:48,right:10,top:6,bottom:24}:{left:48,right:14,top:15,bottom:32};
+  const margin=compactMobile?{left:48,right:48,top:6,bottom:24}:{left:48,right:48,top:15,bottom:32};
   const valid=profileData.samples.filter(s=>s.elevation!=null&&Number.isFinite(s.elevation));
   if(valid.length<2) return null;
   let minE=Math.min(...valid.map(s=>s.elevation)),maxE=Math.max(...valid.map(s=>s.elevation));
@@ -3333,9 +3333,9 @@ function drawProfileChartEndpointLabel(ctxp,sample,g,label,side,dark){
   ctxp.font="bold 11px system-ui,sans-serif";
   ctxp.textBaseline="middle";
   const boxW=ctxp.measureText(label).width+10,boxH=20;
-  let x=side==="start"?p.x+7:p.x-boxW-7;
+  let x=side==="start"?p.x-boxW-7:p.x+7;
   let y=p.y-boxH-7;
-  x=Math.max(g.margin.left+2,Math.min(g.margin.left+g.plotW-boxW-2,x));
+  x=Math.max(2,Math.min(g.w-boxW-2,x));
   y=Math.max(g.margin.top+2,Math.min(g.margin.top+g.plotH-boxH-2,y));
   ctxp.fillStyle=dark?"rgba(17,24,32,.88)":"rgba(248,250,252,.90)";
   ctxp.strokeStyle="#ff9800";
