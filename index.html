@@ -4805,7 +4805,10 @@ function rawColorFromIndex(idx){
 }
 function colorFromIndex(idx,layer){
   const override=layerColorOverrides&&layerColorOverrides[String(layer)];
-  return adaptContrastColor(override||rawColorFromIndex(idx));
+  if(override)return adaptContrastColor(override);
+  const layerSpec=getMemoLayerSpecByLayer(layer);
+  if(layerSpec?.id==="terrain:regular")return terrainContourRegularColor();
+  return adaptContrastColor(rawColorFromIndex(idx));
 }
 
 function textColorFromIndex(idx,layer){
@@ -6402,7 +6405,10 @@ function drawInkStroke(stroke){
   const inkLayer=getInkStrokeLayerId(stroke);
   if(inkLayer!=null && !isLayerVisible(inkLayer))return;
   const layerOverride=inkLayer==null?null:layerColorOverrides[String(inkLayer)];
-  const strokeColor=adaptContrastColor(layerOverride || getMemoExportColor(stroke));
+  const defaultColor=stroke?.isTerrainContour&&stroke.terrainContourKind==="regular"
+    ?terrainContourRegularColor()
+    :getMemoExportColor(stroke);
+  const strokeColor=adaptContrastColor(layerOverride || defaultColor);
   ctx.save();
   ctx.lineCap="round";
   ctx.lineJoin="round";
