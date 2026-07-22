@@ -87,7 +87,15 @@ const required=[
   'label:"60°以上"',
   'length:TERRAIN_ELEVATION_COLORS.length+1',
   '基準標高 ${formatTerrainElevation(v.reference)}',
-  'setDrawingRotationPreserveCenter(targetRotationDeg)'
+  'setDrawingRotationPreserveCenter(targetRotationDeg)',
+  'id="terrainCadBtn"',
+  'function clipTerrainContourToPolygon',
+  'buildTerrainContourGeometry(grid,1,5)',
+  'name:"等高線_主曲線"',
+  'name:"等高線_計曲線"',
+  'splitTerrainCadPolyline(points,500)',
+  'isTerrainContour: !!s.isTerrainContour',
+  's.isTerrainContour ? MEMO_FILE_TYPE_CODE'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`missing implementation: ${token}`);
 for(const obsolete of ['傾斜角を4段階で色分け','を5段階で色分け（','表示範囲を自動更新','細かいDEMで計算・矢印は見やすく間引いて表示']){
