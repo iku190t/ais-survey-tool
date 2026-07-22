@@ -5683,13 +5683,120 @@ function getDrawingReferenceSize(){
   const b = getRobustBounds();
   return Math.max(1, Math.min(Math.abs(b.maxx-b.minx), Math.abs(b.maxy-b.miny)));
 }
+// Determine the dominant drawing area for initial/Home view only.  Remote
+// entities remain in `data` and can still be reached by panning/zooming.
+function getMainViewBounds(visibleOnly=true){
+  const full=getBounds(visibleOnly);
+  if(full._empty||!(full.maxx>full.minx)||!(full.maxy>full.miny)) return full;
+
+  let pts=[];
+  const shown=layer=>!visibleOnly||isLayerVisible(layer);
+  const push=(x,y)=>{
+    x=+x; y=+y;
+    if(!Number.isFinite(x)||!Number.isFinite(y)) return;
+    const p=rotatePoint(x,y,rotationDeg);
+    if(Number.isFinite(p[0])&&Number.isFinite(p[1])) pts.push(p);
+  };
+  const pushBox=(minx,miny,maxx,maxy)=>{
+    push(minx,miny); push(minx,maxy); push(maxx,miny); push(maxx,maxy);
+  };
+  for(const v of data.lines||[]){ if(shown(v[4])){ push(v[0],v[1]); push(v[2],v[3]); } }
+  for(const v of data.polys||[]){ if(shown(v[1])) for(const p of v[0]||[]) push(p[0],p[1]); }
+  for(const v of data.splines||[]){ if(shown(v[1])) for(const p of v[0]||[]) push(p[0],p[1]); }
+  for(const v of data.circles||[]){
+    if(!shown(v[3])) continue;
+    const r=Math.abs(+v[2]||0); pushBox(v[0]-r,v[1]-r,v[0]+r,v[1]+r);
+  }
+  for(const a of data.arcs||[]){
+    if(!shown(a.layer)) continue;
+    const r=Math.abs(+a.r||0); pushBox(a.cx-r,a.cy-r,a.cx+r,a.cy+r);
+  }
+  for(const e of data.ellipses||[]){
+    if(!shown(e.layer)) continue;
+    const rx=Math.abs(+e.rx||0),ry=Math.abs(+e.ry||0);
+    pushBox(e.cx-rx,e.cy-ry,e.cx+rx,e.cy+ry);
+  }
+  for(const e of data.ellipseArcs||[]){
+    if(!shown(e.layer)) continue;
+    const rx=Math.abs(+e.rx||0),ry=Math.abs(+e.ry||0);
+    pushBox(e.cx-rx,e.cy-ry,e.cx+rx,e.cy+ry);
+  }
+  for(const t of data.texts||[]) if(shown(t.layer)) push(t.x,t.y);
+  for(const m of data.markers||[]) if(shown(m.layer)) push(m.x,m.y);
+  if(pts.length<30) return full;
+
+  // Limit sorting cost on very large drawings while sampling the entire file.
+  if(pts.length>40000){
+    const source=pts, sampled=[], step=source.length/40000;
+    for(let i=0;i<40000;i++) sampled.push(source[Math.min(source.length-1,Math.floor(i*step))]);
+    pts=sampled;
+  }
+
+  const boundsOf=list=>{
+    let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+    for(const p of list){ minx=Math.min(minx,p[0]); miny=Math.min(miny,p[1]); maxx=Math.max(maxx,p[0]); maxy=Math.max(maxy,p[1]); }
+    return {minx,miny,maxx,maxy};
+  };
+  const fw=full.maxx-full.minx, fh=full.maxy-full.miny;
+  const candidates=[];
+  const addCandidate=list=>{
+    if(!list||list.length<Math.max(20,pts.length*0.55)) return;
+    const b=boundsOf(list), bw=b.maxx-b.minx, bh=b.maxy-b.miny;
+    if(!(bw>0&&bh>0)) return;
+    const spanReduction=Math.max(fw/bw,fh/bh);
+    const areaReduction=(fw*fh)/Math.max(1e-12,bw*bh);
+    // Only override the normal full view when a remote entity has a strong,
+    // unambiguous effect on the extents.
+    if(spanReduction<3 || areaReduction<4) return;
+    candidates.push({b,retained:list.length/pts.length,area:bw*bh});
+  };
+
+  // A large empty coordinate gap is the clearest sign of a detached drawing.
+  for(const axis of [0,1]){
+    const sorted=pts.slice().sort((a,b)=>a[axis]-b[axis]);
+    const span=(axis===0?fw:fh);
+    let best=null;
+    for(let i=0;i<sorted.length-1;i++){
+      const left=(i+1)/sorted.length, right=1-left;
+      if(Math.max(left,right)<0.6) continue;
+      const gap=sorted[i+1][axis]-sorted[i][axis];
+      if(gap<=span*0.08) continue;
+      if(!best||gap>best.gap) best={i,gap,left,right};
+    }
+    if(best){
+      const split=(sorted[best.i][axis]+sorted[best.i+1][axis])/2;
+      addCandidate(best.left>=best.right
+        ? pts.filter(p=>p[axis]<=split)
+        : pts.filter(p=>p[axis]>=split));
+    }
+  }
+
+  // Dense drawings may not contain one perfectly empty gap.  Quantile cores
+  // provide a conservative fallback, with padding to retain the drawing frame.
+  const xs=pts.map(p=>p[0]).sort((a,b)=>a-b);
+  const ys=pts.map(p=>p[1]).sort((a,b)=>a-b);
+  for(const trim of [0.01,0.025,0.05,0.10,0.15,0.20]){
+    const lo=Math.floor((pts.length-1)*trim), hi=Math.ceil((pts.length-1)*(1-trim));
+    const minx=xs[lo],maxx=xs[hi],miny=ys[lo],maxy=ys[hi];
+    const cw=maxx-minx,ch=maxy-miny;
+    if(!(cw>0&&ch>0)) continue;
+    const padX=Math.max(cw*0.12,ch*0.015),padY=Math.max(ch*0.12,cw*0.015);
+    addCandidate(pts.filter(p=>p[0]>=minx-padX&&p[0]<=maxx+padX&&p[1]>=miny-padY&&p[1]<=maxy+padY));
+  }
+
+  if(!candidates.length) return full;
+  // Prefer the candidate that preserves the most geometry; area is only the
+  // tie breaker.  This avoids cutting a legitimate long or sparse drawing.
+  candidates.sort((a,b)=>b.retained-a.retained||b.area-a.area);
+  return candidates[0].b;
+}
 function fitToScreen(){
   rotationDeg = Number.isFinite(+initialLoadRotationDeg) ? +initialLoadRotationDeg : rotationDeg;
 
   // 非表示レイヤーや円弧の存在しない部分を外し、実際に見えている図形を
   // CAD表示領域の中央へ収める。固定px余白なのでスマホでも横幅を無駄にしない。
-  let b = getBounds(true);
-  if(b._empty||!(b.maxx>b.minx)||!(b.maxy>b.miny)) b=getBounds(false);
+  let b = getMainViewBounds(true);
+  if(b._empty||!(b.maxx>b.minx)||!(b.maxy>b.miny)) b=getMainViewBounds(false);
   const w = Math.max(1,canvas.clientWidth);
   const h = Math.max(1,canvas.clientHeight);
 
