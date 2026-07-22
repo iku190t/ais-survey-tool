@@ -2952,8 +2952,8 @@ async function buildNativeTerrainContourGrid(zone,viewport){
       nativeDemGrid:{...bounds,sourceId:source.id}
     };
   }
-  if(skippedWideSource)throw new Error("Contour area is too wide. Zoom in and try again.");
-  throw new Error("Elevation data could not be obtained.");
+  if(skippedWideSource)throw new Error("範囲が広すぎます。少し拡大してから再実行してください");
+  throw new Error("標高データを取得できません");
 }
 async function buildTerrainGrid(purpose="surface"){
   if(!hasLoadedDrawing()) return null;
