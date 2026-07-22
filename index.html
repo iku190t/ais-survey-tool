@@ -3316,6 +3316,28 @@ function profileGraphXY(sample,g){
     y:g.originY+baseY*profileGraphScaleY+profileGraphOffsetY
   };
 }
+function drawProfileChartEndpointLabel(ctxp,sample,g,label,side,dark){
+  if(!sample||!Number.isFinite(sample.distance)||!Number.isFinite(sample.elevation))return;
+  const p=profileGraphXY(sample,g);
+  ctxp.save();
+  ctxp.font="bold 11px system-ui,sans-serif";
+  ctxp.textBaseline="middle";
+  const boxW=ctxp.measureText(label).width+10,boxH=20;
+  let x=side==="start"?p.x+7:p.x-boxW-7;
+  let y=p.y-boxH-7;
+  x=Math.max(g.margin.left+2,Math.min(g.margin.left+g.plotW-boxW-2,x));
+  y=Math.max(g.margin.top+2,Math.min(g.margin.top+g.plotH-boxH-2,y));
+  ctxp.fillStyle=dark?"rgba(17,24,32,.88)":"rgba(248,250,252,.90)";
+  ctxp.strokeStyle="#ff9800";
+  ctxp.lineWidth=1;
+  ctxp.beginPath();
+  ctxp.roundRect(x,y,boxW,boxH,6);
+  ctxp.fill();ctxp.stroke();
+  ctxp.fillStyle="#ff9800";
+  ctxp.textAlign="center";
+  ctxp.fillText(label,x+boxW/2,y+boxH/2+.5);
+  ctxp.restore();
+}
 function getProfileDemSource(id){return PROFILE_DEM_SOURCES.find(source=>source.id===id)||null;}
 function getProfileUsedDemSources(samples=profileData?.samples||[]){
   const ids=new Set(samples.map(sample=>sample&&sample.source).filter(Boolean));
@@ -3401,6 +3423,11 @@ function drawProfileChart(){
   for(const run of getProfileSourceRuns()){
     const source=getProfileDemSource(run.sourceId);ctxp.strokeStyle=source?.screenColor||"#22a7f0";ctxp.beginPath();
     run.samples.forEach((sample,index)=>{const p=profileGraphXY(sample,g);if(index===0)ctxp.moveTo(p.x,p.y);else ctxp.lineTo(p.x,p.y);});ctxp.stroke();
+  }
+  const endpointSamples=profileData.samples.filter(sample=>sample&&Number.isFinite(sample.distance)&&Number.isFinite(sample.elevation));
+  if(endpointSamples.length){
+    drawProfileChartEndpointLabel(ctxp,endpointSamples[0],g,"起点","start",dark);
+    drawProfileChartEndpointLabel(ctxp,endpointSamples[endpointSamples.length-1],g,"終点","end",dark);
   }
   if(profileHoverWorld){
     const nearest=profileData.samples.reduce((best,s)=>{
@@ -3663,6 +3690,31 @@ function profileDistanceToSegment(px,py,ax,ay,bx,by){
   if(Math.abs(dx)+Math.abs(dy)<1e-7) return Math.hypot(px-ax,py-ay);
   const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy)));
   return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));
+}
+function drawProfilePlanEndpointLabel(drawCtx,point,other,label){
+  let dx=point[0]-other[0],dy=point[1]-other[1];
+  const length=Math.hypot(dx,dy)||1;
+  dx/=length;dy/=length;
+  drawCtx.save();
+  drawCtx.font="bold 13px system-ui,sans-serif";
+  drawCtx.textBaseline="middle";
+  const boxW=drawCtx.measureText(label).width+12,boxH=24;
+  const centerX=point[0]+dx*(boxW/2+10);
+  const centerY=point[1]+dy*(boxH/2+10);
+  const canvasW=drawCtx.canvas.clientWidth||drawCtx.canvas.width;
+  const canvasH=drawCtx.canvas.clientHeight||drawCtx.canvas.height;
+  const x=Math.max(3,Math.min(canvasW-boxW-3,centerX-boxW/2));
+  const y=Math.max(3,Math.min(canvasH-boxH-3,centerY-boxH/2));
+  drawCtx.fillStyle="rgba(20,20,20,.78)";
+  drawCtx.strokeStyle="#ff9800";
+  drawCtx.lineWidth=1.2;
+  drawCtx.beginPath();
+  drawCtx.roundRect(x,y,boxW,boxH,7);
+  drawCtx.fill();drawCtx.stroke();
+  drawCtx.fillStyle="#ff9800";
+  drawCtx.textAlign="center";
+  drawCtx.fillText(label,x+boxW/2,y+boxH/2+.5);
+  drawCtx.restore();
 }
 function profileLineHitAtScreen(screenX,screenY){
   if(profileMode||!profileStartWorld||!profileEndWorld) return "";
@@ -6865,9 +6917,10 @@ function draw(){
   if(profileStartWorld){
     const a=worldToScreen(profileStartWorld.x,profileStartWorld.y);
     const end=profileEndWorld||profileHoverWorld;
+    let b=null;
     ctx.save();
     if(end){
-      const b=worldToScreen(end.x,end.y);
+      b=worldToScreen(end.x,end.y);
       ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
       ctx.strokeStyle="#ff9800";ctx.lineWidth=2.5;ctx.setLineDash([]);ctx.stroke();
       ctx.fillStyle="#ff9800";ctx.beginPath();ctx.arc(b[0],b[1],6,0,Math.PI*2);ctx.fill();
@@ -6876,6 +6929,12 @@ function draw(){
     ctx.fillStyle="#ff9800";ctx.beginPath();ctx.arc(a[0],a[1],6,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke();
     ctx.restore();
+    if(profileEndWorld&&b){
+      drawProfilePlanEndpointLabel(ctx,a,b,"起点");
+      drawProfilePlanEndpointLabel(ctx,b,a,"終点");
+    }else{
+      drawProfilePlanEndpointLabel(ctx,a,[a[0]+1,a[1]],"起点");
+    }
   }
   if(profileHoverWorld&&profileData){
     const h=worldToScreen(profileHoverWorld.x,profileHoverWorld.y);
