@@ -2820,6 +2820,23 @@ function chooseTerrainGridSize(viewport){
   }
   return {cols,rows,targetPx};
 }
+function chooseTerrainContourGrid(viewport){
+  const corners=[[0,0],[viewport.w,0],[viewport.w,viewport.h],[0,viewport.h]].map(screen=>{
+    const world=screenToWorld(screen[0],screen[1]);return sfcWorldToPlane(world[0],world[1]);
+  });
+  const rawMinX=Math.min(...corners.map(point=>point.xNorth)),rawMaxX=Math.max(...corners.map(point=>point.xNorth));
+  const rawMinY=Math.min(...corners.map(point=>point.yEast)),rawMaxY=Math.max(...corners.map(point=>point.yEast));
+  const maxPoints=90000,spanX=Math.max(1,rawMaxX-rawMinX),spanY=Math.max(1,rawMaxY-rawMinY);
+  let spacing=1;
+  if((Math.ceil(spanX/spacing)+3)*(Math.ceil(spanY/spacing)+3)>maxPoints)spacing=5;
+  if((Math.ceil(spanX/spacing)+3)*(Math.ceil(spanY/spacing)+3)>maxPoints){
+    const required=Math.sqrt(spanX*spanY/maxPoints);
+    spacing=Math.max(5,Math.ceil(required/5)*5);
+  }
+  const minX=Math.floor(rawMinX/spacing)*spacing-spacing,maxX=Math.ceil(rawMaxX/spacing)*spacing+spacing;
+  const minY=Math.floor(rawMinY/spacing)*spacing-spacing,maxY=Math.ceil(rawMaxY/spacing)*spacing+spacing;
+  return {minX,minY,maxX,maxY,spacing,rows:Math.max(3,Math.round((maxX-minX)/spacing)+1),cols:Math.max(3,Math.round((maxY-minY)/spacing)+1)};
+}
 function terrainViewportNeedsRefresh(grid){
   if(!grid||!grid.viewport)return true;
   const now=getTerrainViewportState(),old=grid.viewport;
@@ -2835,21 +2852,26 @@ function queueTerrainViewportRefresh(){
     if(terrainMode&&!terrainLoading&&terrainViewportNeedsRefresh(terrainGrid))activateTerrainMode(terrainMode,true);
   },260);
 }
-async function buildTerrainGrid(){
+async function buildTerrainGrid(purpose="surface"){
   if(!hasLoadedDrawing()) return null;
   const zone=await resolveProfileZone();
   if(!zone) throw new Error("このSFC図面の座標系を確認できません");
   const viewport=getTerrainViewportState();
-  const {cols,rows}=chooseTerrainGridSize(viewport);
+  const contourGrid=purpose==="contour"?chooseTerrainContourGrid(viewport):null;
+  const {cols,rows}=contourGrid||chooseTerrainGridSize(viewport);
   const w=viewport.w,h=viewport.h;
   const inset=8;
   const points=[];
   for(let row=0;row<rows;row++){
-    const sy=inset+(h-inset*2)*row/(rows-1);
     for(let col=0;col<cols;col++){
-      const sx=inset+(w-inset*2)*col/(cols-1);
-      const world=screenToWorld(sx,sy);
-      const plane=sfcWorldToPlane(world[0],world[1]);
+      let sx,sy,world,plane;
+      if(contourGrid){
+        plane={xNorth:contourGrid.minX+row*contourGrid.spacing,yEast:contourGrid.minY+col*contourGrid.spacing};
+        const mapped=planeToSfcWorld(plane.xNorth,plane.yEast);world=[mapped.x*1000,mapped.y*1000];[sx,sy]=worldToScreen(world[0],world[1]);
+      }else{
+        sy=inset+(h-inset*2)*row/(rows-1);sx=inset+(w-inset*2)*col/(cols-1);
+        world=screenToWorld(sx,sy);plane=sfcWorldToPlane(world[0],world[1]);
+      }
       const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
       points.push({row,col,sx,sy,worldX:world[0],worldY:world[1],plane,lat:ll.lat,lon:ll.lon,elevation:null,source:null});
     }
@@ -2865,7 +2887,8 @@ async function buildTerrainGrid(){
     }
     // A wide fit view can span hundreds of high-resolution tiles. Skip that
     // source and fall back to a coarser DEM rather than freezing the viewer.
-    if(refs.size>120){
+    const tileLimit=purpose==="contour"&&source.id==="DEM1A"?48:120;
+    if(refs.size>tileLimit){
       skippedWideSource=true;
       for(const point of points)delete point._terrainRef;
       continue;
@@ -2883,7 +2906,7 @@ async function buildTerrainGrid(){
   const valid=points.filter(p=>p.elevation!=null);
   if(!valid.length&&skippedWideSource)throw new Error("範囲が広すぎます。少し拡大してから実行してください");
   if(valid.length<Math.ceil(points.length*.45)) throw new Error("標高データを取得できません");
-  return {cols,rows,zone,points,createdAt:Date.now(),width:w,height:h,viewport};
+  return {cols,rows,zone,points,createdAt:Date.now(),width:w,height:h,viewport,gridPurpose:purpose,nativePlaneGrid:contourGrid};
 }
 const TERRAIN_ELEVATION_COLORS=[
   [38,103,255],[35,145,232],[34,181,188],[46,177,100],[139,190,62],
@@ -2979,6 +3002,12 @@ function terrainDemInfoHtml(grid){
 }
 function terrainPointAtScreen(grid,screenX,screenY){
   if(!grid||terrainViewportNeedsRefresh(grid)||!Number.isFinite(screenX)||!Number.isFinite(screenY))return null;
+  if(grid.nativePlaneGrid){
+    const world=screenToWorld(screenX,screenY),plane=sfcWorldToPlane(world[0],world[1]),native=grid.nativePlaneGrid;
+    const row=Math.max(0,Math.min(grid.rows-1,Math.round((plane.xNorth-native.minX)/native.spacing)));
+    const col=Math.max(0,Math.min(grid.cols-1,Math.round((plane.yEast-native.minY)/native.spacing)));
+    return getTerrainPoint(grid,row,col);
+  }
   const first=getTerrainPoint(grid,0,0),last=getTerrainPoint(grid,grid.rows-1,grid.cols-1);
   if(!first||!last||!(last.sx>first.sx)||!(last.sy>first.sy))return null;
   const col=Math.max(0,Math.min(grid.cols-1,Math.round((screenX-first.sx)/(last.sx-first.sx)*(grid.cols-1))));
@@ -3014,10 +3043,11 @@ function setTerrainLegend(mode){
 }
 async function ensureTerrainGrid(force=false){
   if(terrainLoading)return terrainGrid;
-  if(terrainGrid&&!force)return terrainGrid;
+  const purpose=(terrainRequestedMode||terrainMode)==="contour"?"contour":"surface";
+  if(terrainGrid&&!force&&terrainGrid.gridPurpose===purpose)return terrainGrid;
   terrainLoading=true;const request=++terrainRequestVersion;setTerrainStatus("現在の表示範囲の標高を取得しています…");updateTerrainUi();
   try{
-    const grid=await buildTerrainGrid();
+    const grid=await buildTerrainGrid(purpose);
     if(request!==terrainRequestVersion)return null;
     terrainGrid=grid;return grid;
   }finally{terrainLoading=false;updateTerrainUi();}
@@ -6275,7 +6305,12 @@ function buildTerrainContourGeometry(grid,interval,indexInterval){
     const ps=[getTerrainPoint(grid,r,c),getTerrainPoint(grid,r,c+1),getTerrainPoint(grid,r+1,c+1),getTerrainPoint(grid,r+1,c)];
     if(ps.some(point=>!point||!Number.isFinite(point.elevation)))continue;
     const cellMin=Math.min(...ps.map(point=>point.elevation)),cellMax=Math.max(...ps.map(point=>point.elevation));
-    const passes=ps.some(point=>point.source==="DEM5A")?2:1;
+    const cellSpacing=Math.max(.01,Math.min(
+      Math.hypot(ps[1].plane.xNorth-ps[0].plane.xNorth,ps[1].plane.yEast-ps[0].plane.yEast),
+      Math.hypot(ps[3].plane.xNorth-ps[0].plane.xNorth,ps[3].plane.yEast-ps[0].plane.yEast)
+    ));
+    const steep=(cellMax-cellMin)/cellSpacing>.35;
+    const passes=ps.some(point=>point.source==="DEM5A")||steep?2:1;
     for(let level=Math.ceil(cellMin/interval)*interval;level<=cellMax+1e-9;level+=interval){
       const intersections=[],edges=[[0,1],[1,2],[2,3],[3,0]];
       for(const [ia,ib]of edges){
