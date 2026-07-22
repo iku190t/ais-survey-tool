@@ -2837,8 +2837,35 @@ function chooseTerrainGridSize(viewport){
   }
   return {cols,rows,targetPx};
 }
+function chooseTerrainContourGrid(viewport){
+  const corners=[[0,0],[viewport.w,0],[viewport.w,viewport.h],[0,viewport.h]].map(([sx,sy])=>{
+    const world=screenToWorld(sx,sy);return sfcWorldToPlane(world[0],world[1]);
+  });
+  const spacing=1,padding=2;
+  const minX=Math.floor(Math.min(...corners.map(point=>point.xNorth))/spacing)*spacing-padding;
+  const maxX=Math.ceil(Math.max(...corners.map(point=>point.xNorth))/spacing)*spacing+padding;
+  const minY=Math.floor(Math.min(...corners.map(point=>point.yEast))/spacing)*spacing-padding;
+  const maxY=Math.ceil(Math.max(...corners.map(point=>point.yEast))/spacing)*spacing+padding;
+  const rows=Math.max(3,Math.round((maxX-minX)/spacing)+1);
+  const cols=Math.max(3,Math.round((maxY-minY)/spacing)+1);
+  // Never change contour resolution according to the zoom level. Doing so
+  // changes the contour shape. Ask the user to narrow an exceptionally wide
+  // view instead of silently switching from the DEM1A 1 m grid to 5 m.
+  if(rows*cols>180000)throw new Error("等高線の範囲が広すぎます。少し拡大してから実行してください");
+  return {minX,maxX,minY,maxY,spacing,rows,cols};
+}
+function terrainContourGridCoversViewport(grid){
+  const native=grid&&grid.nativePlaneGrid;
+  if(!native)return false;
+  const corners=[[0,0],[canvas.clientWidth,0],[canvas.clientWidth,canvas.clientHeight],[0,canvas.clientHeight]];
+  return corners.every(([sx,sy])=>{
+    const world=screenToWorld(sx,sy),plane=sfcWorldToPlane(world[0],world[1]);
+    return plane.xNorth>=native.minX&&plane.xNorth<=native.maxX&&plane.yEast>=native.minY&&plane.yEast<=native.maxY;
+  });
+}
 function terrainViewportNeedsRefresh(grid){
   if(!grid||!grid.viewport)return true;
+  if(grid.gridPurpose==="contour"&&grid.nativePlaneGrid)return !terrainContourGridCoversViewport(grid);
   const now=getTerrainViewportState(),old=grid.viewport;
   const centerShiftPx=Math.hypot(now.cx-old.cx,now.cy-old.cy)*now.scale;
   const scaleRatio=Math.max(now.scale/old.scale,old.scale/now.scale);
@@ -2852,21 +2879,30 @@ function queueTerrainViewportRefresh(){
     if(terrainMode&&!terrainLoading&&terrainViewportNeedsRefresh(terrainGrid))activateTerrainMode(terrainMode,true);
   },260);
 }
-async function buildTerrainGrid(){
+async function buildTerrainGrid(purpose="surface"){
   if(!hasLoadedDrawing()) return null;
   const zone=await resolveProfileZone();
   if(!zone) throw new Error("このSFC図面の座標系を確認できません");
   const viewport=getTerrainViewportState();
-  const {cols,rows}=chooseTerrainGridSize(viewport);
+  const contourGrid=purpose==="contour"?chooseTerrainContourGrid(viewport):null;
+  const {cols,rows}=contourGrid||chooseTerrainGridSize(viewport);
   const w=viewport.w,h=viewport.h;
   const inset=8;
   const points=[];
   for(let row=0;row<rows;row++){
-    const sy=inset+(h-inset*2)*row/(rows-1);
     for(let col=0;col<cols;col++){
-      const sx=inset+(w-inset*2)*col/(cols-1);
-      const world=screenToWorld(sx,sy);
-      const plane=sfcWorldToPlane(world[0],world[1]);
+      let sx,sy,world,plane;
+      if(contourGrid){
+        plane={xNorth:contourGrid.minX+row*contourGrid.spacing,yEast:contourGrid.minY+col*contourGrid.spacing};
+        const mapped=planeToSfcWorld(plane.xNorth,plane.yEast);
+        world=[mapped.x*1000,mapped.y*1000];
+        [sx,sy]=worldToScreen(world[0],world[1]);
+      }else{
+        sy=inset+(h-inset*2)*row/(rows-1);
+        sx=inset+(w-inset*2)*col/(cols-1);
+        world=screenToWorld(sx,sy);
+        plane=sfcWorldToPlane(world[0],world[1]);
+      }
       const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
       points.push({row,col,sx,sy,worldX:world[0],worldY:world[1],plane,lat:ll.lat,lon:ll.lon,elevation:null,source:null});
     }
@@ -2887,7 +2923,7 @@ async function buildTerrainGrid(){
   const valid=points.filter(p=>p.elevation!=null);
   if(!valid.length&&skippedWideSource)throw new Error("範囲が広すぎます。少し拡大してから実行してください");
   if(valid.length<Math.ceil(points.length*.45)) throw new Error("標高データを取得できません");
-  return {cols,rows,zone,points,createdAt:Date.now(),width:w,height:h,viewport};
+  return {cols,rows,zone,points,createdAt:Date.now(),width:w,height:h,viewport,gridPurpose:purpose,nativePlaneGrid:contourGrid};
 }
 const TERRAIN_ELEVATION_COLORS=[
   [38,103,255],[35,145,232],[34,181,188],[46,177,100],[139,190,62],
@@ -2983,6 +3019,12 @@ function terrainDemInfoHtml(grid){
 }
 function terrainPointAtScreen(grid,screenX,screenY){
   if(!grid||terrainViewportNeedsRefresh(grid)||!Number.isFinite(screenX)||!Number.isFinite(screenY))return null;
+  if(grid.nativePlaneGrid){
+    const world=screenToWorld(screenX,screenY),plane=sfcWorldToPlane(world[0],world[1]),native=grid.nativePlaneGrid;
+    const row=Math.max(0,Math.min(grid.rows-1,Math.round((plane.xNorth-native.minX)/native.spacing)));
+    const col=Math.max(0,Math.min(grid.cols-1,Math.round((plane.yEast-native.minY)/native.spacing)));
+    return getTerrainPoint(grid,row,col);
+  }
   const first=getTerrainPoint(grid,0,0),last=getTerrainPoint(grid,grid.rows-1,grid.cols-1);
   if(!first||!last||!(last.sx>first.sx)||!(last.sy>first.sy))return null;
   const col=Math.max(0,Math.min(grid.cols-1,Math.round((screenX-first.sx)/(last.sx-first.sx)*(grid.cols-1))));
@@ -3018,10 +3060,11 @@ function setTerrainLegend(mode){
 }
 async function ensureTerrainGrid(force=false){
   if(terrainLoading)return terrainGrid;
-  if(terrainGrid&&!force)return terrainGrid;
+  const purpose=(terrainRequestedMode||terrainMode)==="contour"?"contour":"surface";
+  if(terrainGrid&&!force&&terrainGrid.gridPurpose===purpose)return terrainGrid;
   terrainLoading=true;const request=++terrainRequestVersion;setTerrainStatus("現在の表示範囲の標高を取得しています…");updateTerrainUi();
   try{
-    const grid=await buildTerrainGrid();
+    const grid=await buildTerrainGrid(purpose);
     if(request!==terrainRequestVersion)return null;
     terrainGrid=grid;return grid;
   }finally{terrainLoading=false;updateTerrainUi();}
