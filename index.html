@@ -10356,7 +10356,11 @@ document.getElementById("confirmNoBtn").addEventListener("click", ()=>{ document
 document.getElementById("confirmYesBtn").addEventListener("click", ()=>{ inkStrokes=[]; redoStrokes=[]; editUndoActions=[]; currentStroke=null; updateUndoRedoUI(); document.getElementById("confirmModal").style.display = "none"; scheduleDraw(); updateUndoRedoUI(); markMemoChanged(); });
 
 document.addEventListener("click", (e)=>{
-  if(!layerPanel.contains(e.target) && e.target!==layerFab) layerPanel.style.display='none';
+  const layerDeleteModal=document.getElementById("layerDeleteConfirmModal");
+  const layerPaletteModal=document.getElementById("layerColorPaletteModal");
+  const insideLayerOverlay=(layerDeleteModal&&layerDeleteModal.contains(e.target))||
+    (layerPaletteModal&&layerPaletteModal.contains(e.target));
+  if(!layerPanel.contains(e.target) && !insideLayerOverlay && e.target!==layerFab) layerPanel.style.display='none';
   const measureBtnEl = document.getElementById("measureBtn");
   if(
     measureModePanel &&
