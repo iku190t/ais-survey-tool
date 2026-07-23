@@ -7711,9 +7711,10 @@ function parsePredefinedColourFeatureDefsFlat(flat){
 }
 function buildMemoColorDefinitionText(baseText, startId, strokes){
   const flat = getFlatSxfText(baseText);
-  // Predefined SXF colours use fixed codes (black=1, red=2, blue=4,
-  // magenta=6, white=8, ...).  The definition list declares which fixed
-  // colours are used; its position is not the colour code.
+  // SXF feature colour codes are one-based references into the colour
+  // definition table of each file. They are not fixed RGB colour numbers.
+  // User-defined colours also occupy a slot, so preserve every existing
+  // definition when resolving or appending a colour.
   const defs = parsePredefinedColourFeatureDefsFlat(flat).slice();
   const needed = [];
   const codes = {};
@@ -7721,14 +7722,13 @@ function buildMemoColorDefinitionText(baseText, startId, strokes){
     const key = getMemoExportColor(s);
     const name = MEMO_COLOR_TO_PREDEFINED_NAME[key];
     if (!name) continue;
-    const fixedCode = String(memoStrokeColorToFileCode(key));
     const existingIndex = defs.findIndex(v => v.name === name);
     if (existingIndex >= 0) {
-      codes[key] = fixedCode;
+      codes[key] = String(existingIndex + 1);
       continue;
     }
-    const code = fixedCode;
     defs.push({featureId:null,name});
+    const code = String(defs.length);
     codes[key] = code;
     needed.push({ key, code, name });
   }
