@@ -3520,8 +3520,8 @@ function buildProfileSfcFile(){
   const firstSample=samples[0],lastSample=samples[samples.length-1];
   const dx=endPlane.xNorth-startPlane.xNorth,dy=endPlane.yEast-startPlane.yEast;
   const azimuth=(Math.atan2(dy,dx)*180/Math.PI+360)%360;
-  const sourceBase=String(data?.source_name||"drawing").replace(/\.[^.]+$/," ").trim().replace(/[\\/:*?"<>|]/g,"_")||"drawing";
-  const fileName=`${sourceBase}_断面_1-100.sfc`;
+  const sourceBase=normalizeExportFileName(String(data?.source_name||"drawing").replace(/\.[^.]+$/," ").trim(),"drawing");
+  const fileName=normalizeExportFileName(`${sourceBase}_断面_1-100.sfc`,"drawing_断面_1-100.sfc");
   const meta={version:1,kind:"terrain-profile",scale:100,zone:profileData.zone||profileZone||null,datum,leftMarginMeters,
     start:{x:startPlane.xNorth,y:startPlane.yEast,z:firstSample.elevation,worldX:profileStartWorld.x,worldY:profileStartWorld.y},
     end:{x:endPlane.xNorth,y:endPlane.yEast,z:lastSample.elevation,worldX:profileEndWorld.x,worldY:profileEndWorld.y},
@@ -4557,7 +4557,7 @@ async function shareBlobFile(blob, fileName){
   // Some Android browsers incorrectly return false from canShare() for ZIP
   // even though the native share sheet can accept the file.  Test the common
   // ZIP MIME types, but do not use canShare() alone as the final decision.
-  const name=String(fileName||"file");
+  const name=normalizeExportFileName(fileName,"file");
   const shareTypes=/\.sfc$/i.test(name)
     ? ["text/plain","application/octet-stream"]
     : (/\.zip$/i.test(name)
@@ -4670,7 +4670,7 @@ function wrapBase64(value){
 }
 async function createGmailRawMessage(blob,fileName,recipient){
   const boundary="sfcviewer_"+Date.now().toString(36)+Math.random().toString(36).slice(2);
-  const safeName=String(fileName||"drawing.sfc").replace(/[\r\n"]/g,"_");
+  const safeName=normalizeExportFileName(fileName,"drawing.sfc").replace(/[\r\n"]/g,"_");
   const subject="=?UTF-8?B?"+utf8ToBase64(safeName)+"?=";
   const body64=wrapBase64(utf8ToBase64("SFC図面を送信します。"));
   const attachment64=wrapBase64(bytesToBase64(new Uint8Array(await blob.arrayBuffer())));
@@ -6103,12 +6103,16 @@ async function deflateRawForZip(source){
     return new Uint8Array(await new Response(compressedStream).arrayBuffer());
   }catch(e){console.warn("ZIP compression fallback",e);return null;}
 }
+function normalizeExportFileName(fileName,fallback){
+  const normalized=String(fileName||fallback||"drawing.sfc").normalize("NFC");
+  return normalized.replace(/[\u0000-\u001f<>:"/\\|?*]/g,"_");
+}
 async function createSingleFileZip(blob,fileName){
   const source=new Uint8Array(await blob.arrayBuffer());
   const compressed=await deflateRawForZip(source);
   const body=compressed||source;
   const method=compressed?8:0;
-  const nameBytes=new TextEncoder().encode(String(fileName||"drawing.sfc"));
+  const nameBytes=new TextEncoder().encode(normalizeExportFileName(fileName,"drawing.sfc"));
   const crc=zipCrc32(source);
   const now=new Date();
   const dosTime=((now.getHours()&31)<<11)|((now.getMinutes()&63)<<5)|((Math.floor(now.getSeconds()/2))&31);
@@ -6122,7 +6126,7 @@ async function createSingleFileZip(blob,fileName){
   return new Blob([concatBytes([local,body,central,eocd])],{type:"application/zip"});
 }
 function downloadBlob(blob,fileName){
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fileName;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=normalizeExportFileName(fileName,"drawing.sfc");a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 function getAnchorOffset(align1,widthPx,heightPx){
   const a = Number(align1) || 1;
@@ -8492,7 +8496,7 @@ function buildSfcExportBlobAndName(){
   const newSfc = insertMemoGeneralFeatures(base, exportText, ann.exportPoints).replace(/[\s\r\n]*$/, "\r\n");
   const generatedValidation=validateGeneratedMemoSfc(newSfc,ann.expectedFeatureCount||0);
   if(!generatedValidation.ok)return {ok:false,reason:generatedValidation.reason||"手書き図形をSFCへ書き込めませんでした。"};
-  const overwriteName = data.source_name || "sfc_view.sfc";
+  const overwriteName = normalizeExportFileName(data.source_name,"sfc_view.sfc");
   const saveAsName = overwriteName.replace(/\.sfc$/i, "") + "_memo.sfc";
   const blob = new Blob([latin1StringToBytes(newSfc)], {type:"application/octet-stream"});
   return { ok:true, blob, overwriteName, saveAsName, text:newSfc };
@@ -8928,7 +8932,7 @@ function buildHtmlExportBlobAndName(){
   const markerRe = /\/\*__EMBED_PAYLOAD_START__\*\/[\s\S]*?\/\*__EMBED_PAYLOAD_END__\*\//;
   if (markerRe.test(html)) html = html.replace(markerRe, replacement);
   else html = html.replace(/window\.__EMBED_PAYLOAD_B64__\s*=\s*""\s*;/, replacement);
-  const currentName = String((data && data.source_name) || 'sfc_view');
+  const currentName = normalizeExportFileName((data && data.source_name) || 'sfc_view',"sfc_view");
   const isHtmlSource = /\.html?$/i.test(currentName) || currentLoadedKind === "html";
   const baseName = currentName.replace(/\.[^.]+$/,'');
   const overwriteName = isHtmlSource ? currentName : (baseName + '_memo.html');
