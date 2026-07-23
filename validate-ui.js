@@ -104,6 +104,9 @@ const required=[
   ,'stripDeletedLayersFromSfc(stripEmbeddedAnnotations'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`missing implementation: ${token}`);
+const colorBuilder=html.slice(html.indexOf('function buildMemoColorDefinitionText'),html.indexOf('function parseSourceFeatureSegmentsFlat'));
+if(!colorBuilder.includes('memoStrokeColorToFileCode(key)'))throw new Error('SXF predefined colour codes must use the fixed specification mapping');
+if(colorBuilder.includes('existingIndex + 1')||colorBuilder.includes('String(defs.length)'))throw new Error('SXF predefined colour codes must not use definition-table order');
 for(const obsolete of ['傾斜角を4段階で色分け','を5段階で色分け（','表示範囲を自動更新','細かいDEMで計算・矢印は見やすく間引いて表示']){
   if(html.includes(obsolete))throw new Error(`obsolete terrain description remains: ${obsolete}`);
 }
