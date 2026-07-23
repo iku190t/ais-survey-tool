@@ -1079,8 +1079,8 @@ gtag('config', 'G-88B9YPJXWP');
         <button class="colorBtn" data-color="#ffd400" id="yellowBtn" title="黄" aria-label="黄" style="width:26px;height:26px;padding:0;background:#ffd400;"></button>
         <button class="colorBtn" id="contrastColorBtn" data-color="#ffffff" title="白または黒" aria-label="白または黒" style="width:26px;height:26px;padding:0;background:#ffffff;border:1px solid #555;"></button>
       </div>
-      <div class="row controlRow"><span class="controlLabel">太さ</span><input class="controlRange" id="penWidth" type="range" min="1" max="100" step="1" value="10"><input class="controlNumber" id="penWidthNumber" type="number" min="1" max="100" step="1" value="10"></div>
-      <div class="row controlRow"><span class="controlLabel">大きさ</span><input class="controlRange" id="circleSize" type="range" min="1" max="100" step="1" value="10"><input class="controlNumber" id="circleSizeNumber" type="number" min="1" max="100" step="1" value="10"></div>
+      <div class="row controlRow"><span class="controlLabel">太さ</span><input class="controlRange" id="penWidth" type="range" min="1" max="100" step="1" value="50"><input class="controlNumber" id="penWidthNumber" type="number" min="1" max="100" step="1" value="50"></div>
+      <div class="row controlRow"><span class="controlLabel">大きさ</span><input class="controlRange" id="circleSize" type="range" min="1" max="100" step="1" value="25"><input class="controlNumber" id="circleSizeNumber" type="number" min="1" max="100" step="1" value="25"></div>
       <div class="row controlRow"><span class="controlLabel">透過率</span><input class="controlRange" id="opacityRange" type="range" min="0" max="100" step="5" value="0"><input class="controlNumber" id="opacityNumber" type="number" min="0" max="100" step="5" value="0"></div>
       <div class="row toolRow"><button id="lineToolBtn">線</button><button id="circleToolBtn">丸</button><button id="eraserBtn">消しゴム</button><button id="clearInkBtn">全消去</button></div>
     </div>
@@ -1667,8 +1667,8 @@ let cachedMeasurePointsDirty = true;
 let inkEnabled = false;
 let inkEraser = false;
 let inkColor = "#ff3030";
-let inkWidth = 10;
-let inkCircleSize = 14.5; // full-drawing-view radius in CSS pixels (UI level 1-100)
+let inkWidth = 50;
+let inkCircleSize = 20.6; // full-drawing-view radius in CSS pixels (UI level 25)
 // Internally opacity is stored in the Canvas range 0.0-1.0.
 // The control displays transparency: 0% is opaque and 100% is invisible.
 let inkOpacity = 1.0;
@@ -3338,17 +3338,17 @@ function profileGraphXY(sample,g){
     y:g.originY+baseY*profileGraphScaleY+profileGraphOffsetY
   };
 }
-function drawProfileChartEndpointLabel(ctxp,sample,g,label,side,dark){
-  if(!sample||!Number.isFinite(sample.distance)||!Number.isFinite(sample.elevation))return;
-  const p=profileGraphXY(sample,g);
+function drawProfileChartEndpointLabel(ctxp,g,label,side,dark){
   ctxp.save();
   ctxp.font="bold 11px system-ui,sans-serif";
   ctxp.textBaseline="middle";
   const boxW=ctxp.measureText(label).width+10,boxH=20;
-  let x=side==="start"?p.x-boxW-7:p.x+7;
-  let y=p.y-boxH-7;
+  let x=side==="start"
+    ? (g.margin.left-boxW)/2
+    : g.margin.left+g.plotW+(g.margin.right-boxW)/2;
+  let y=g.margin.top+(g.plotH-boxH)/2;
   x=Math.max(2,Math.min(g.w-boxW-2,x));
-  y=Math.max(g.margin.top+2,Math.min(g.margin.top+g.plotH-boxH-2,y));
+  y=Math.max(2,Math.min(g.h-boxH-2,y));
   ctxp.fillStyle=dark?"rgba(17,24,32,.88)":"rgba(248,250,252,.90)";
   ctxp.strokeStyle="#ff9800";
   ctxp.lineWidth=1;
@@ -3446,11 +3446,6 @@ function drawProfileChart(){
     const source=getProfileDemSource(run.sourceId);ctxp.strokeStyle=source?.screenColor||"#22a7f0";ctxp.beginPath();
     run.samples.forEach((sample,index)=>{const p=profileGraphXY(sample,g);if(index===0)ctxp.moveTo(p.x,p.y);else ctxp.lineTo(p.x,p.y);});ctxp.stroke();
   }
-  const endpointSamples=profileData.samples.filter(sample=>sample&&Number.isFinite(sample.distance)&&Number.isFinite(sample.elevation));
-  if(endpointSamples.length){
-    drawProfileChartEndpointLabel(ctxp,endpointSamples[0],g,"起点","start",dark);
-    drawProfileChartEndpointLabel(ctxp,endpointSamples[endpointSamples.length-1],g,"終点","end",dark);
-  }
   if(profileHoverWorld){
     const nearest=profileData.samples.reduce((best,s)=>{
       const d=Math.hypot(s.worldX-profileHoverWorld.x,s.worldY-profileHoverWorld.y);
@@ -3465,6 +3460,11 @@ function drawProfileChart(){
     }
   }
   ctxp.restore();
+  const endpointSamples=profileData.samples.filter(sample=>sample&&Number.isFinite(sample.distance)&&Number.isFinite(sample.elevation));
+  if(endpointSamples.length){
+    drawProfileChartEndpointLabel(ctxp,g,"起点","start",dark);
+    drawProfileChartEndpointLabel(ctxp,g,"終点","end",dark);
+  }
 }
 function updateProfileSummary(){
   if(!profileSummary||!profileData) return;
@@ -10970,6 +10970,10 @@ document.addEventListener("visibilitychange",()=>{
 window.addEventListener("pagehide",()=>{saveRecoverySnapshot({immediate:true});});
 
 loadUiPreferences();
+// Drawing controls intentionally start from the field-use defaults on every app launch.
+inkWidth = 50;
+inkCircleSize = circleSizePxFromLevel(25);
+inkOpacity = 1;
 updateThemeUI();
 syncInkControlNumbers();
 updateInkUI();
