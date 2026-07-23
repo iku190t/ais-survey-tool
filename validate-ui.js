@@ -95,7 +95,7 @@ const required=[
   'name:"等高線_計曲線"',
   'splitTerrainCadPolyline(points,500)',
   'isTerrainContour: !!s.isTerrainContour',
-  's.isTerrainContour ? MEMO_FILE_TYPE_CODE'
+  'const typeCode = MEMO_FILE_TYPE_CODE;'
   ,'showToast("CAD化しました",1800)'
   ,'recordEditAction({type:"ink-add",strokes:list,revivedLayerNames,label})'
   ,'type:"layer-delete"'
@@ -107,7 +107,22 @@ for(const token of required)if(!html.includes(token))throw new Error(`missing im
 const colorBuilder=html.slice(html.indexOf('function buildMemoColorDefinitionText'),html.indexOf('function parseSourceFeatureSegmentsFlat'));
 if(!colorBuilder.includes('memoStrokeColorToFileCode(key)'))throw new Error('SXF predefined colour codes must use the fixed specification mapping');
 if(colorBuilder.includes('existingIndex + 1')||colorBuilder.includes('String(defs.length)'))throw new Error('SXF predefined colour codes must not use definition-table order');
+const widthCodes={1:0.13,2:0.18,3:0.25,4:0.35,5:0.5,6:0.7,7:1.0,8:1.4,9:2.0};
+for(const [code,value] of Object.entries(widthCodes)){
+  if(!html.includes(`${code}:${value}`))throw new Error(`missing SXF fixed width ${code}=${value}`);
+}
+const widthBuilder=html.slice(html.indexOf('function buildMemoWidthDefinitions'),html.indexOf('function widthValueToScreenPx'));
+if(widthBuilder.includes('defs.length+1')||widthBuilder.includes('existingIndex+1'))throw new Error('SXF width codes must not use definition-table order');
+if(!widthBuilder.includes('state.customValues.length<6')||!widthBuilder.includes('10+state.customValues.length'))throw new Error('SXF custom width codes must be limited to 11..16');
+const sfcParser=html.slice(html.indexOf('function parseSfcText(srcText'),html.indexOf('function setRenderBounds'));
+if(!sfcParser.includes('resolveSxfWidthCode(ref,widthState)'))throw new Error('SFC reader must resolve fixed width codes');
+if(!sfcParser.includes('n>=1&&n<=layerDefs.length)return n'))throw new Error('SFC reader must treat layer references as table codes before feature IDs');
+if(!html.includes('if(Number.isInteger(n)&&n>=1&&n<=16)return sxfBaseColorFromIndex(n)'))throw new Error('SFC reader must preserve fixed predefined colour codes');
+if(!html.includes('const widthState=getSxfWidthDefinitionState(widthDefs)'))throw new Error('memo restoration must resolve SXF width codes');
 for(const obsolete of ['傾斜角を4段階で色分け','を5段階で色分け（','表示範囲を自動更新','細かいDEMで計算・矢印は見やすく間引いて表示']){
   if(html.includes(obsolete))throw new Error(`obsolete terrain description remains: ${obsolete}`);
 }
+if(!html.includes('const typeCode = MEMO_FILE_TYPE_CODE;'))throw new Error('generated annotations must always use continuous linetype code 1');
+if(html.includes('segStyle?.typeRef || MEMO_FILE_TYPE_CODE'))throw new Error('generated annotations must not inherit a source linetype');
+if(!html.includes('const zeroStyleManagementGeometry=rawLayer===0&&rawColor===0&&rawWidth===0'))throw new Error('SFC zero-style management geometry must not affect drawing bounds');
 console.log(`OK: ${scripts.length} inline scripts; ${scales.length*2*levels.length} circle-scale cases; ${commands.length**2} toolbar transitions`);

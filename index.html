@@ -3528,11 +3528,12 @@ function buildProfileSfcFile(){
     length,azimuth,sourceName:data?.source_name||"",demSources:usedDemSources.map(source=>source.id)};
 
   const entities=[];let id=10;
-  // SXF colour references are positions in the drawing colour table, not the
-  // names of the colours.  Always emit the complete canonical table so fixed
-  // references 1..8 remain valid in every DEM/source combination.
-  for(const colorName of ["black","red","green","blue","yellow","magenta","cyan","white"]){
-    entities.push(sfcProfileRecord(id+=10,`pre_defined_colour_feature('${colorName}')`));
+  // SXF predefined-colour references are fixed specification codes. Output
+  // only the definitions actually used by this profile.
+  const usedProfileColorCodes=new Set([1,6,...usedDemSources.map(source=>+source.sfcColorCode).filter(Number.isFinite)]);
+  for(const colorCode of [...usedProfileColorCodes].sort((a,b)=>a-b)){
+    const colorName=SXF_PREDEFINED_COLOR_NAMES_BY_CODE[colorCode];
+    if(colorName)entities.push(sfcProfileRecord(id+=10,`pre_defined_colour_feature('${colorName}')`));
   }
   entities.push(sfcProfileRecord(id+=10,"pre_defined_font_feature('continuous')"));
   entities.push(sfcProfileRecord(id+=10,"width_feature('0.130000')"));
@@ -4816,14 +4817,25 @@ function updateModeIcons(){
   if (mbtn) mbtn.classList.add("activeMeasureBtn");
 
 }
+const SXF_PREDEFINED_COLOR_NAMES_BY_CODE=Object.freeze({
+  1:"black",2:"red",3:"green",4:"blue",5:"yellow",6:"magenta",7:"cyan",8:"white",
+  9:"deeppink",10:"brown",11:"orange",12:"lightgreen",13:"lightblue",14:"lavender",15:"lightgray",16:"darkgray"
+});
+const SXF_PREDEFINED_COLOR_HEX_BY_CODE=Object.freeze({
+  1:"#000000",2:"#ff0000",3:"#00ff00",4:"#0000ff",
+  5:"#ffff00",6:"#ff00ff",7:"#00ffff",8:"#ffffff",
+  9:"#c00080",10:"#c08040",11:"#ff8000",12:"#80c080",
+  13:"#0080ff",14:"#8040ff",15:"#c0c0c0",16:"#808080"
+});
+function sxfPredefinedColorCodeFromName(name){
+  const wanted=String(name||"").trim().toLowerCase();
+  for(const [code,value] of Object.entries(SXF_PREDEFINED_COLOR_NAMES_BY_CODE)){
+    if(value===wanted)return +code;
+  }
+  return null;
+}
 function sxfBaseColorFromIndex(idx){
-  const map = {
-    1:"#000000", 2:"#ff0000", 3:"#00ff00", 4:"#0000ff",
-    5:"#ffff00", 6:"#ff00ff", 7:"#00ffff", 8:"#ffffff",
-    9:"#c000c0", 10:"#8b4513", 11:"#ffa500", 12:"#90ee90",
-    13:"#87cefa", 14:"#9370db", 15:"#d3d3d3", 16:"#808080"
-  };
-  return (map[Number(idx)] || "#000000").toLowerCase();
+  return (SXF_PREDEFINED_COLOR_HEX_BY_CODE[Number(idx)] || "#000000").toLowerCase();
 }
 function adaptContrastColor(c){
   const color = String(c || "#000000").toLowerCase();
@@ -4837,7 +4849,10 @@ function adaptContrastColor(c){
 }
 function rawColorFromIndex(idx){
   const n = Number(idx);
-  const resolved = data ? ((data._colorFeatureMap && data._colorFeatureMap[n]) || (data._colorCodeMap && data._colorCodeMap[n]) || null) : null;
+  // SXF colour references are colour codes. Codes 1..16 are fixed by the
+  // specification; only user-defined colours (17 and above) use table order.
+  if(Number.isInteger(n)&&n>=1&&n<=16)return sxfBaseColorFromIndex(n);
+  const resolved = data ? ((data._colorCodeMap && data._colorCodeMap[n]) || null) : null;
   return (resolved || sxfBaseColorFromIndex(idx)).toLowerCase();
 }
 function colorFromIndex(idx,layer){
@@ -4898,6 +4913,38 @@ function decodeShiftJisFromLatin1(str){
     return new TextDecoder("shift_jis").decode(bytes);
   } catch(e){ return str; }
 }
+const SXF_PREDEFINED_WIDTH_BY_CODE=Object.freeze({
+  1:0.13,2:0.18,3:0.25,4:0.35,5:0.5,6:0.7,7:1.0,8:1.4,9:2.0
+});
+function sxfWidthValuesEqual(a,b){
+  const x=Number(a),y=Number(b);
+  return Number.isFinite(x)&&Number.isFinite(y)&&Math.abs(x-y)<0.0000005;
+}
+function sxfPredefinedWidthCode(value){
+  for(const [code,width] of Object.entries(SXF_PREDEFINED_WIDTH_BY_CODE)){
+    if(sxfWidthValuesEqual(value,width))return +code;
+  }
+  return null;
+}
+function getSxfWidthDefinitionState(defs){
+  const list=Array.isArray(defs)?defs:[];
+  const codeToValue={...SXF_PREDEFINED_WIDTH_BY_CODE};
+  const customValues=[];
+  for(const def of list){
+    const value=Number(def&&def.value);
+    if(!Number.isFinite(value)||sxfPredefinedWidthCode(value)!=null)continue;
+    if(customValues.length<6){
+      customValues.push(value);
+      codeToValue[11+customValues.length-1]=value;
+    }
+  }
+  return {codeToValue,customValues};
+}
+function resolveSxfWidthCode(ref,widthState){
+  const code=Math.trunc(Number(unquoteSxfValue(ref)));
+  const value=widthState&&widthState.codeToValue?Number(widthState.codeToValue[code]):NaN;
+  return Number.isFinite(value)&&value>0?value:SXF_PREDEFINED_WIDTH_BY_CODE[1];
+}
 function parseSfcTextLegacyFallback(srcText, fileName){
   // /*SXF\n...\nSXF*/ 形式と 直接 #N=xxx 形式の両方に対応するため
   // ブロックを取り出してフラットなテキストに正規化する
@@ -4906,18 +4953,17 @@ function parseSfcTextLegacyFallback(srcText, fileName){
   // /*SXF...SXF*/ ブロックを中身だけ取り出す（\r\n両対応）
   flat = flat.replace(/\/\*SXF(?:3(?:\.1)?)?\r?\n([\s\S]*?)\r?\nSXF(?:3(?:\.1)?)?\*\//g, (_, inner) => inner + "\n");
 
-  // width_feature の参照番号→mm値マップを作る
-  // #N = width_feature('0.130000') → widthMap[N] = 0.13
-  const widthMap = {};
+  // 図形が参照するのはフィーチャIDではなく線幅コード。
+  // 1..9は固定、11..16はユーザ定義線幅の定義順である。
+  const legacyWidthDefs = [];
   const widthDefRe = /#(\d+)\s*=\s*width_feature\('([^']+)'\)/g;
   let wm;
   while((wm = widthDefRe.exec(flat)) !== null){
-    widthMap[+wm[1]] = parseFloat(wm[2]);
+    legacyWidthDefs.push({featureId:+wm[1],value:parseFloat(wm[2])});
   }
-  // widthをmm値に解決するヘルパー
+  const legacyWidthState=getSxfWidthDefinitionState(legacyWidthDefs);
   function resolveWidth(ref){
-    const v = widthMap[+ref];
-    return v != null ? v : +ref || 1;
+    return resolveSxfWidthCode(ref,legacyWidthState);
   }
 
   // layer_feature の参照番号→名前マップ
@@ -4936,7 +4982,11 @@ function parseSfcTextLegacyFallback(srcText, fileName){
   for(const k of Object.keys(layerMap).map(Number).sort((a,b)=>a-b)){
     layerRefToIdx[k] = i2++;
   }
-  function resolveLayer(ref){ return layerRefToIdx[+ref] != null ? layerRefToIdx[+ref] : +ref || 1; }
+  function resolveLayer(ref){
+    const code=+ref;
+    if(Number.isInteger(code)&&code>=1&&code<=Object.keys(layerMap).length)return code;
+    return layerRefToIdx[code] != null ? layerRefToIdx[code] : 1;
+  }
 
   // font_feature 系を定義順で拾い、文字フォントコード(1始まり)→フォント名にする
   const fontCodeMap = {};
@@ -5030,10 +5080,22 @@ function parseSfcText(srcText, fileName){
   }
   layerDefs.sort((a,b)=>a.featureId-b.featureId); widthDefs.sort((a,b)=>a.featureId-b.featureId); fontDefs.sort((a,b)=>a.featureId-b.featureId); colorDefs.sort((a,b)=>a.featureId-b.featureId); preLineDefs.sort((a,b)=>a.featureId-b.featureId); userLineDefs.sort((a,b)=>a.featureId-b.featureId);
   const layerMap={}, layerRefToIdx={}, layerNames={}, layerVisibleByDefault={}; layerDefs.forEach((d,idx)=>{layerMap[d.featureId]=d.name; layerRefToIdx[d.featureId]=idx+1; layerNames[String(idx+1)]=d.name; layerVisibleByDefault[String(idx+1)]=d.visible!==false;});
-  const widthFeatureMap={}, widthCodeMap={}; widthDefs.forEach((d,idx)=>{widthFeatureMap[d.featureId]=d.value; widthCodeMap[idx+1]=d.value;});
+  const widthState=getSxfWidthDefinitionState(widthDefs);
   const fontFeatureMap={}, fontCodeMap={}; fontDefs.forEach((d,idx)=>{fontFeatureMap[d.featureId]=d.name; fontCodeMap[idx+1]=d.name;});
-  const predefinedColorNameMap={black:'#000000',red:'#ff0000',green:'#00ff00',blue:'#0000ff',yellow:'#ffff00',magenta:'#ff00ff',cyan:'#00ffff',white:'#ffffff',brown:'#8b4513',orange:'#ffa500',lightgreen:'#90ee90',lightblue:'#87cefa',lavender:'#9370db',lightgray:'#d3d3d3',darkgray:'#808080',deeppink:'#ff1493'};
-  const colorFeatureMap={}, colorCodeMap={}; colorDefs.forEach((d,idx)=>{ let hex='#000000'; if(d.kind==='pre') hex=predefinedColorNameMap[d.value]||'#000000'; else hex=`#${Math.max(0,Math.min(255,d.r||0)).toString(16).padStart(2,'0')}${Math.max(0,Math.min(255,d.g||0)).toString(16).padStart(2,'0')}${Math.max(0,Math.min(255,d.b||0)).toString(16).padStart(2,'0')}`; colorFeatureMap[d.featureId]=hex.toLowerCase(); colorCodeMap[idx+1]=hex.toLowerCase(); });
+  const colorFeatureMap={}, colorCodeMap={};
+  for(let code=1;code<=16;code++)colorCodeMap[code]=sxfBaseColorFromIndex(code);
+  let userColorCode=17;
+  for(const d of colorDefs){
+    let hex="#000000";
+    if(d.kind==="pre"){
+      const fixedCode=sxfPredefinedColorCodeFromName(d.value);
+      if(fixedCode!=null)hex=sxfBaseColorFromIndex(fixedCode);
+    }else{
+      hex=`#${Math.max(0,Math.min(255,d.r||0)).toString(16).padStart(2,'0')}${Math.max(0,Math.min(255,d.g||0)).toString(16).padStart(2,'0')}${Math.max(0,Math.min(255,d.b||0)).toString(16).padStart(2,'0')}`;
+      colorCodeMap[userColorCode++]=hex.toLowerCase();
+    }
+    colorFeatureMap[d.featureId]=hex.toLowerCase();
+  }
   const predefinedLineTypeNames=['continuous','dashed','dashed spaced','long dashed dotted','long dashed double-dotted','long dashed triplicate-dotted','dotted','chain','chain double dash','dashed dotted','double-dashed dotted','dashed double-dotted','double-dashed double-dotted','dashed triplicate-dotted','double-dashed triplicate-dotted',''];
   const predefinedLinetypeDashMap={continuous:[],dashed:[6,4],'dashed spaced':[6,8],'long dashed dotted':[12,4,1.5,4],'long dashed double-dotted':[12,4,1.5,4,1.5,4],'long dashed triplicate-dotted':[12,4,1.5,4,1.5,4,1.5,4],dotted:[1.5,3],chain:[10,3,1.5,3],'chain double dash':[10,3,6,3],'dashed dotted':[6,3,1.5,3],'double-dashed dotted':[6,3,6,3,1.5,3],'dashed double-dotted':[6,3,1.5,3,1.5,3],'double-dashed double-dotted':[6,3,6,3,1.5,3,1.5,3],'dashed triplicate-dotted':[6,3,1.5,3,1.5,3,1.5,3],'double-dashed triplicate-dotted':[6,3,6,3,1.5,3,1.5,3,1.5,3]};
   const linetypeFeatureMap={}, linetypeCodeMap={};
@@ -5041,18 +5103,34 @@ function parseSfcText(srcText, fileName){
   for(const d of preLineDefs){const dash=predefinedLinetypeDashMap[d.name]||[]; linetypeFeatureMap[d.featureId]={name:d.name,dash}; const code=predefinedLineTypeNames.indexOf(d.name)+1; if(code>0) linetypeCodeMap[code]={name:d.name,dash};}
   let userLineCode=17;
   for(const d of userLineDefs){const dash=(d.pitches||[]).filter(v=>Number.isFinite(v)&&v>0); linetypeFeatureMap[d.featureId]={name:d.name,dash}; linetypeCodeMap[userLineCode++]={name:d.name,dash};}
-  const resolveWidth=ref=>{const n=+unquoteSxfValue(ref); return Number.isFinite(widthFeatureMap[n])?widthFeatureMap[n]:(Number.isFinite(widthCodeMap[n])?widthCodeMap[n]:(Number.isFinite(n)?n:1));};
-  const resolveFontName=ref=>{const n=+unquoteSxfValue(ref); return fontFeatureMap[n]||fontCodeMap[n]||'';};
+  const resolveWidth=ref=>resolveSxfWidthCode(ref,widthState);
+  const resolveFontName=ref=>{const n=+unquoteSxfValue(ref); return fontCodeMap[n]||fontFeatureMap[n]||'';};
   const resolveColor=ref=>{const n=+unquoteSxfValue(ref); return Number.isFinite(n)?n:1;};
   const resolveLineType=ref=>{const n=+unquoteSxfValue(ref); return Number.isFinite(n)?n:1;};
-  const resolveLineDash=ref=>{const n=+unquoteSxfValue(ref); return (linetypeFeatureMap[n]||linetypeCodeMap[n]||{dash:null}).dash;};
-  const resolveLayer=ref=>{const n=+unquoteSxfValue(ref); return layerRefToIdx[n]!=null?layerRefToIdx[n]:(Number.isFinite(n)?n:1);};
+  const resolveLineDash=ref=>{const n=+unquoteSxfValue(ref); return (linetypeCodeMap[n]||linetypeFeatureMap[n]||{dash:null}).dash;};
+  const resolveLayer=ref=>{
+    const n=+unquoteSxfValue(ref);
+    if(Number.isInteger(n)&&n>=1&&n<=layerDefs.length)return n;
+    return layerRefToIdx[n]!=null?layerRefToIdx[n]:1;
+  };
   const num=ref=>{const n=parseFloat(unquoteSxfValue(ref)); return Number.isFinite(n)?n:0;};
   const parseTupleNums=parseTupleNumbers;
   const lines=[], polys=[], splines=[], texts=[], circles=[], arcs=[], ellipses=[], ellipseArcs=[], markers=[];
   for(const rec of records){
     if(rec.name==='line_feature' && rec.args.length>=8) lines.push([num(rec.args[4]),num(rec.args[5]),num(rec.args[6]),num(rec.args[7]),resolveLayer(rec.args[0]),resolveColor(rec.args[1]),resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]);
-    else if(rec.name==='polyline_feature' && rec.args.length>=7){ const expected=Math.trunc(num(rec.args[4])); const xlist=parseTupleNums(rec.args[5]), ylist=parseTupleNums(rec.args[6]); const layer=resolveLayer(rec.args[0]), color=resolveColor(rec.args[1]); if(layer===0&&color===0) continue; if(expected>0&&xlist.length===expected&&xlist.length===ylist.length) polys.push([xlist.map((x,i)=>[x,ylist[i]]),layer,color,resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]); }
+    else if(rec.name==='polyline_feature' && rec.args.length>=7){
+      const expected=Math.trunc(num(rec.args[4])),xlist=parseTupleNums(rec.args[5]),ylist=parseTupleNums(rec.args[6]);
+      const rawLayer=Math.trunc(num(rec.args[0])),rawColor=Math.trunc(num(rec.args[1])),rawWidth=Math.trunc(num(rec.args[3]));
+      // Some CAD exporters place a paper-size management rectangle at
+      // coordinates such as 10..30 using zero style references. SXF drawing
+      // codes are 1-based, so this is not normal drawable geometry. Keeping it
+      // beside a survey drawing at large model coordinates corrupts fit/bounds.
+      const zeroStyleManagementGeometry=rawLayer===0&&rawColor===0&&rawWidth===0&&
+        Math.max(0,...xlist.map(v=>Math.abs(v)),...ylist.map(v=>Math.abs(v)))<1000;
+      if(zeroStyleManagementGeometry)continue;
+      const layer=resolveLayer(rec.args[0]),color=resolveColor(rec.args[1]);
+      if(expected>0&&xlist.length===expected&&xlist.length===ylist.length)polys.push([xlist.map((x,i)=>[x,ylist[i]]),layer,color,resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]);
+    }
     else if(rec.name==='spline_feature' && rec.args.length>=8){ const xlist=parseTupleNums(rec.args[6]), ylist=parseTupleNums(rec.args[7]); if(xlist.length&&xlist.length===ylist.length) splines.push([xlist.map((x,i)=>[x,ylist[i]]),resolveLayer(rec.args[0]),resolveColor(rec.args[1]),resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]); }
     else if(rec.name==='text_string_feature' && rec.args.length>=13) texts.push({text:decodeShiftJisFromLatin1(unquoteSxfValue(rec.args[3])),x:num(rec.args[4]),y:num(rec.args[5]),h:num(rec.args[6]),w:num(rec.args[7]),sp:num(rec.args[8]),angle:num(rec.args[9]),slant:num(rec.args[10]),align1:+unquoteSxfValue(rec.args[11])||1,align2:+unquoteSxfValue(rec.args[12])||1,layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),font_id:+unquoteSxfValue(rec.args[2])||1,font_name:resolveFontName(rec.args[2])});
     else if(rec.name==='circle_feature' && rec.args.length>=7) circles.push([num(rec.args[4]),num(rec.args[5]),num(rec.args[6]),resolveLayer(rec.args[0]),resolveColor(rec.args[1]),resolveWidth(rec.args[3]),resolveLineType(rec.args[2]),resolveLineDash(rec.args[2])]);
@@ -7820,7 +7898,7 @@ function getMemoWidthInfo(srcText){
   const flat = getFlatSxfText(srcText);
   const defs = parseWidthFeatureDefsFlat(flat);
   const idx = defs.findIndex(d => d.value === "0.130000");
-  return { flat, defs, index: idx, code: idx >= 0 ? (idx + 1) : 1, featureId: idx >= 0 ? defs[idx].featureId : null };
+  return { flat, defs, index: idx, code: 1, featureId: idx >= 0 ? defs[idx].featureId : null };
 }
 function getStrokeWidthMm(stroke){
   const stored=stroke==null||stroke.worldWidthMm==null?NaN:+stroke.worldWidthMm;
@@ -7915,20 +7993,53 @@ function getMemoWorldUnitsPerPaperMm(){
   return Math.max(1e-9,getDrawingCoordinateStorage().unitsPerPaperMm||1);
 }
 function buildMemoWidthDefinitions(baseText,startId,strokes){
-  const defs=parseWidthFeatureDefsFlat(getFlatSxfText(baseText));
+  const defs=parseWidthFeatureDefsFlat(getFlatSxfText(baseText)).slice();
+  const state=getSxfWidthDefinitionState(defs);
   const parts=[],codes={};
   let id=startId;
+  const hasDefinition=value=>defs.some(d=>sxfWidthValuesEqual(d.value,value));
+  const addDefinition=value=>{
+    const formatted=Number(value).toFixed(6);
+    defs.push({featureId:id,value:formatted});
+    parts.push(`/*SXF
+#${id} = width_feature('${formatted}')
+SXF*/`);
+    id+=1;
+  };
+  const nearestAvailableCode=value=>{
+    const candidates=[];
+    for(const [code,width] of Object.entries(SXF_PREDEFINED_WIDTH_BY_CODE))candidates.push({code:+code,width:+width});
+    state.customValues.forEach((width,index)=>candidates.push({code:11+index,width:+width}));
+    candidates.sort((a,b)=>Math.abs(a.width-value)-Math.abs(b.width-value)||a.code-b.code);
+    return candidates[0]?.code||1;
+  };
   for(const stroke of strokes||[]){
     const value=getStrokeWidthMm(stroke).toFixed(6);
     if(codes[value]!=null)continue;
-    const existingIndex=defs.findIndex(d=>Math.abs(parseFloat(d.value)-parseFloat(value))<0.0000005);
-    if(existingIndex>=0){codes[value]=existingIndex+1;continue;}
-    codes[value]=defs.length+1;
-    defs.push({featureId:id,value});
-    parts.push(`/*SXF
-#${id} = width_feature('${value}')
-SXF*/`);
-    id+=1;
+    const numeric=Number(value);
+    const fixedCode=sxfPredefinedWidthCode(numeric);
+    if(fixedCode!=null){
+      codes[value]=fixedCode;
+      if(!hasDefinition(numeric))addDefinition(numeric);
+      continue;
+    }
+    const existingCustomIndex=state.customValues.findIndex(v=>sxfWidthValuesEqual(v,numeric));
+    if(existingCustomIndex>=0){
+      codes[value]=11+existingCustomIndex;
+      continue;
+    }
+    if(state.customValues.length<6){
+      state.customValues.push(numeric);
+      const code=10+state.customValues.length;
+      state.codeToValue[code]=numeric;
+      codes[value]=code;
+      addDefinition(numeric);
+      continue;
+    }
+    // SXF permits only six user-defined widths (codes 11..16). If the source
+    // already uses all six, use the nearest valid width instead of emitting an
+    // invalid code 17 or greater.
+    codes[value]=nearestAvailableCode(numeric);
   }
   return {widthText:parts.join("\r\n"),nextId:id,codes};
 }
@@ -8158,7 +8269,6 @@ function buildInkPolylineFeatureText(baseText){
   id=widthBuild.nextId;
 
   const lineParts = [];
-  const sourceSegs = getSourceFeatureSegments(baseText);
   const allExportPoints=[];
 
   for (const s of normalized) {
@@ -8168,13 +8278,15 @@ function buildInkPolylineFeatureText(baseText){
     if (exportPts.length < 2) continue;
     allExportPoints.push(...exportPts);
 
-    const segStyle = s.isTerrainContour ? null : getNearestSourceSegmentStyleForPoints(exportPts, sourceSegs);
     const memoSpec = getMemoLayerSpecForStroke(s);
     const resolvedLayerCode=layerBuild.codes[memoSpec.id];
     const layerCode = String(resolvedLayerCode == null ? getAnnotationLayer() : resolvedLayerCode);
     const exportColor = getMemoExportColor(s);
     const colorCode = String(colorBuild.codes[exportColor] || "1");
-    const typeCode = s.isTerrainContour ? MEMO_FILE_TYPE_CODE : (segStyle?.typeRef || MEMO_FILE_TYPE_CODE);
+    // These generated objects have no linetype selector in the UI. Export them
+    // as the SXF predefined continuous linetype (code 1). Inheriting a nearby
+    // source feature could otherwise leak an unrelated custom/dashed code.
+    const typeCode = MEMO_FILE_TYPE_CODE;
     const widthCode = String(widthBuild.codes[getStrokeWidthMm(s).toFixed(6)] || getMemoWidthInfo(baseText).code || "1");
 
     if (s.isCircleMemo) {
@@ -8434,14 +8546,32 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
     return {ok:false,reason:`手書き図形の書出し件数が不足しています（${geometries.length}/${expectedFeatureCount}）。`};
   }
   const layerCount=parseLayerFeatureDefsFlat(getFlatSxfText(text)).length;
+  const flat=getFlatSxfText(text);
+  const widthDefs=parseWidthFeatureDefsFlat(flat);
+  const widthState=getSxfWidthDefinitionState(widthDefs);
+  const predefinedColorNames=new Set(parsePredefinedColourFeatureDefsFlat(flat).map(d=>d.name));
   for(const rec of geometries){
     const layer=Number(unquoteSxfValue(rec.args[0]));
     const color=Number(unquoteSxfValue(rec.args[1]));
+    const width=Number(unquoteSxfValue(rec.args[3]));
     if(!Number.isInteger(layer)||layer<1||layer>layerCount){
       return {ok:false,reason:`手書き図形のレイヤー参照が不正です（${layer}）。`};
     }
     if(!Number.isInteger(color)||color<1||color>16){
       return {ok:false,reason:`手書き図形の色コードが不正です（${color}）。`};
+    }
+    const expectedColorName=SXF_PREDEFINED_COLOR_NAMES_BY_CODE[color];
+    if(expectedColorName&&!predefinedColorNames.has(expectedColorName)){
+      return {ok:false,reason:`手書き図形の色定義が不足しています（${expectedColorName}）。`};
+    }
+    const fixedWidth=Number.isInteger(width)&&width>=1&&width<=9;
+    const customWidth=Number.isInteger(width)&&width>=11&&width<=16&&Number.isFinite(widthState.codeToValue[width]);
+    if(!fixedWidth&&!customWidth){
+      return {ok:false,reason:`手書き図形の線幅コードが不正です（${width}）。`};
+    }
+    const widthValue=widthState.codeToValue[width];
+    if(!widthDefs.some(d=>sxfWidthValuesEqual(d.value,widthValue))){
+      return {ok:false,reason:`手書き図形の線幅定義が不足しています（コード${width}）。`};
     }
   }
   return {ok:true};
@@ -9178,9 +9308,10 @@ function restoreInkStrokesFromSourceText(srcText){
   const memoLayerInfo = getMemoLayerInfo(srcText);
   const flat = memoLayerInfo.flat;
   const widthDefs = parseWidthFeatureDefsFlat(flat);
+  const widthState=getSxfWidthDefinitionState(widthDefs);
   const restored = [];
   if(memoLayerInfo.featureId != null){
-    const candidateLayerValues = new Set([String(memoLayerInfo.code), String(memoLayerInfo.featureId)]);
+    const candidateLayerValues = new Set([String(memoLayerInfo.code)]);
     const colorMapFromIdx = FILE_CODE_TO_DRAW_COLOR;
 
     const memoLineRe = /#\d+\s*=\s*line_feature\('([^']*)','(\d+)','[^']*','([^']*)','([^']*)','([^']*)','([^']*)','([^']*)'\)/g;
@@ -9191,8 +9322,7 @@ function restoreInkStrokesFromSourceText(srcText){
       const pts = [{x:+x1, y:+y1}, {x:+x2, y:+y2}];
       if (!pts.every(p => Number.isFinite(p.x) && Number.isFinite(p.y))) continue;
       const color = colorMapFromIdx[+colorIdx] || "#000000";
-      const widthDef = widthDefs[(+widthCode || 1) - 1];
-      const widthMm = widthDef && Number.isFinite(+widthDef.value) ? Math.max(0.006,Math.min(1,+widthDef.value)) : 0.13;
+      const widthMm = Math.max(0.006,Math.min(1,resolveSxfWidthCode(widthCode,widthState)));
       restored.push({
         type:"freehand",
         color,
@@ -9215,8 +9345,7 @@ function restoreInkStrokesFromSourceText(srcText){
       if(xlist.length < 2 || xlist.length !== ylist.length) continue;
       const pts = xlist.map((x,i) => ({x, y:ylist[i]}));
       const color = colorMapFromIdx[+colorIdx] || "#ff3030";
-      const widthDef = widthDefs[(+widthCode || 1) - 1];
-      const widthMm = widthDef && Number.isFinite(+widthDef.value) ? Math.max(0.006,Math.min(1,+widthDef.value)) : 0.13;
+      const widthMm = Math.max(0.006,Math.min(1,resolveSxfWidthCode(widthCode,widthState)));
       restored.push({
         type:"freehand",
         color,
