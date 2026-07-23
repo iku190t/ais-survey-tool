@@ -1757,7 +1757,7 @@ const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v4-dem1a-priority";
 // v2 invalidates zone numbers remembered before GPS-first validation was added.
 const PROFILE_ZONE_CACHE_KEY = "sfc-dem-zones-v2";
 const PROFILE_DEM_SOURCES = [
-  {id:"DEM1A", method:"航空レーザ測量", standardDeviation:0.3, screenColor:"#27c7ff", sfcColorCode:"5", sfcColorName:"cyan", url:"https://cyberjapandata.gsi.go.jp/xyz/dem1a_png/{z}/{x}/{y}.png", z:17},
+  {id:"DEM1A", method:"航空レーザ測量", standardDeviation:0.3, screenColor:"#27c7ff", sfcColorCode:"7", sfcColorName:"cyan", url:"https://cyberjapandata.gsi.go.jp/xyz/dem1a_png/{z}/{x}/{y}.png", z:17},
   {id:"DEM5A", method:"航空レーザ測量", standardDeviation:0.3, screenColor:"#35c96f", sfcColorCode:"3", sfcColorName:"green", url:"https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/{z}/{x}/{y}.png", z:15}
 ];
 
@@ -3524,11 +3524,10 @@ function buildProfileSfcFile(){
     length,azimuth,sourceName:data?.source_name||"",demSources:usedDemSources.map(source=>source.id)};
 
   const entities=[];let id=10;
-  entities.push(sfcProfileRecord(id+=10,"pre_defined_colour_feature('black')"));
-  // PROFILE_INFO uses colour reference 2.  Magenta is the most portable SXF
-  // predefined colour corresponding to the requested pink display.
-  entities.push(sfcProfileRecord(id+=10,"pre_defined_colour_feature('magenta')"));
-  for(const colorName of [...new Set(usedDemSources.map(source=>source.sfcColorName))].filter(name=>name!=="magenta"&&name!=="black")){
+  // SXF colour references are positions in the drawing colour table, not the
+  // names of the colours.  Always emit the complete canonical table so fixed
+  // references 1..8 remain valid in every DEM/source combination.
+  for(const colorName of ["black","red","green","blue","yellow","magenta","cyan","white"]){
     entities.push(sfcProfileRecord(id+=10,`pre_defined_colour_feature('${colorName}')`));
   }
   entities.push(sfcProfileRecord(id+=10,"pre_defined_font_feature('continuous')"));
