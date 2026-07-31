@@ -68,7 +68,7 @@ const required=[
   '第4系（徳島・香川・高知・愛媛）',
   'id="lineDisplayScaleRange" type="range" min="1" max="10"',
   '#desktopCadCrosshair{display:none;position:absolute;left:0;top:0;width:72px;height:72px',
-  '#photoListTable td:nth-child(1),#photoListTable td:nth-child(2){-webkit-user-select:text;user-select:text',
+  '#photoListTable td{-webkit-user-select:text;user-select:text',
   'const manualZone=getManualCoordinateZone()',
   'scaledDisplayLineWidthPx(styleItem[6],0.20,2.2)',
   'paperDiameterMm=circleDiameterMmFromLevel(circleSizeLevel)',
@@ -200,6 +200,9 @@ const required=[
   ,'id="photoArrowLength"'
   ,'id="photoArrowHeadWidth"'
   ,'function isDesktopPhotoTool()'
+  ,'overwriteBtn.hidden=false;'
+  ,'const overwriteHandle=overwrite&&currentOpenHandle&&typeof currentOpenHandle.createWritable==="function"'
+  ,'directoryHandle=await window.showDirectoryPicker({id:"sfcviewer-sfc-sidecars",mode:"readwrite"})'
   ,'function buildPhotoListXlsx()'
   ,'function formatPhotoCapturedAt(value)'
   ,'["番号","ファイル名","撮影時間","X座標","Y座標","DEM標高","使用DEM"]'

@@ -643,9 +643,9 @@ body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
 #photoListTable th:nth-child(6),#photoListTable td:nth-child(6){width:108px;}
 #photoListTable th:nth-child(7),#photoListTable td:nth-child(7){width:78px;}
 #photoListTable th:nth-child(n+4),#photoListTable td:nth-child(n+4){white-space:nowrap;font-variant-numeric:tabular-nums;}
-#photoListTable td:nth-child(1),#photoListTable td:nth-child(2){-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
+#photoListTable td{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
 @media (hover:hover) and (pointer:fine){
-  #photoListTable td:nth-child(1),#photoListTable td:nth-child(2){cursor:text;}
+  #photoListTable td{cursor:text;}
 }
 #photoListEmpty{padding:16px 4px;color:var(--muted);font-size:13px;text-align:center;}
 @media (min-width:821px){
@@ -13793,6 +13793,23 @@ async function saveSfcAsDesktop({overwrite=false}={}){
   if(currentLoadedKind!=="sfc"){
     const exportData=buildHtmlExportBlobAndName();
     if(!exportData.ok){showToast(exportData.reason);return;}
+    const overwriteHandle=overwrite&&currentOpenHandle&&typeof currentOpenHandle.createWritable==="function"
+      ? currentOpenHandle
+      : null;
+    if(overwriteHandle){
+      try{
+        showBusy("HTMLを上書き保存中…");
+        await writeBlobToHandle(overwriteHandle,exportData.blob);
+        lastHtmlSaveHandle=overwriteHandle;lastPickerHandle=overwriteHandle;
+        data.source_name=overwriteHandle.name||exportData.overwriteName;
+        hideBusy();showToast("HTMLを上書き保存しました");
+      }catch(error){
+        hideBusy();
+        console.error(error);
+        showToast("上書き保存できませんでした");
+      }
+      return;
+    }
     if(!window.showSaveFilePicker){showToast("このブラウザーでは名前を付けて保存できません");return;}
     try{
       const handle=await window.showSaveFilePicker({
@@ -13815,6 +13832,17 @@ async function saveSfcAsDesktop({overwrite=false}={}){
     }
     const sourceName=normalizeExportFileName((data&&data.source_name)||"drawing.sfc","drawing.sfc");
     const defaultName=overwrite?sourceName:sourceName.replace(/\.sfc$/i,"")+"_memo.sfc";
+    let directoryHandle=overwrite?lastSfcSidecarDirectoryHandle:null;
+    if(!directoryHandle){
+      try{
+        directoryHandle=await window.showDirectoryPicker({id:"sfcviewer-sfc-sidecars",mode:"readwrite"});
+      }catch(error){
+        if(error&&error.name==="AbortError")return;
+        console.error(error);
+        showToast("保存先を選択できませんでした");
+        return;
+      }
+    }
     const entered=window.prompt("保存するSFCファイル名",defaultName);
     if(entered==null)return;
     let requestedName=normalizeExportFileName(String(entered).trim(),defaultName);
@@ -13825,11 +13853,6 @@ async function saveSfcAsDesktop({overwrite=false}={}){
     try{
       const exportData=await buildAerialSfcSidecarExport(requestedName);
       if(!exportData.ok)throw new Error(exportData.reason||"保存データを作成できませんでした");
-      hideBusy();
-      let directoryHandle=overwrite?lastSfcSidecarDirectoryHandle:null;
-      if(!directoryHandle){
-        directoryHandle=await window.showDirectoryPicker({id:"sfcviewer-sfc-sidecars",mode:"readwrite"});
-      }
       showBusy("SFCと画像を同じフォルダーへ保存中…");
       const sfcHandle=await directoryHandle.getFileHandle(exportData.sfcFileName,{create:true});
       await writeBlobToHandle(sfcHandle,exportData.sfcBlob);
@@ -13860,6 +13883,17 @@ async function saveSfcAsDesktop({overwrite=false}={}){
     const exportData=await buildSfcExportBlobAndNameAsync();
     if(!exportData.ok)throw new Error(exportData.reason||"保存データを作成できませんでした");
     hideBusy();
+    const overwriteHandle=overwrite&&currentOpenHandle&&typeof currentOpenHandle.createWritable==="function"
+      ? currentOpenHandle
+      : null;
+    if(overwriteHandle){
+      showBusy("SFCを上書き保存中…");
+      await writeBlobToHandle(overwriteHandle,exportData.blob);
+      lastSaveHandle=overwriteHandle;lastPickerHandle=overwriteHandle;
+      data.source_name=overwriteHandle.name||exportData.overwriteName;
+      hideBusy();showToast("SFCを上書き保存しました");
+      return;
+    }
     const handle=await window.showSaveFilePicker({
       id:"sfcviewer-workspace",
       suggestedName:overwrite?exportData.overwriteName:exportData.saveAsName,
@@ -14718,8 +14752,8 @@ function setSaveMenuOpen(open){
   const desktop=isDesktopPhotoTool();
   if(overwriteBtn){
     overwriteBtn.disabled=!hasDrawing;
-    overwriteBtn.hidden=desktop;
-    overwriteBtn.style.display=desktop?"none":"";
+    overwriteBtn.hidden=false;
+    overwriteBtn.style.display="";
   }
   if(saveAsBtn){
     saveAsBtn.disabled=!hasDrawing;
