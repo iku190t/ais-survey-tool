@@ -69,6 +69,8 @@ const required=[
   'id="lineDisplayScaleRange" type="range" min="1" max="10"',
   '#desktopCadCrosshair{display:none;position:absolute;left:0;top:0;width:72px;height:72px',
   '#photoListTable td{-webkit-user-select:text;user-select:text',
+  'event.clipboardData.setData("text/plain",plainText)',
+  '`${rasterBaseName}_ラスター_${sourceId}_${String(index+1).padStart(2,"0")}.JPG`',
   'const manualZone=getManualCoordinateZone()',
   'scaledDisplayLineWidthPx(styleItem[6],0.20,2.2)',
   'paperDiameterMm=circleDiameterMmFromLevel(circleSizeLevel)',
@@ -251,6 +253,21 @@ const required=[
   ,'_sxfFeatureId:rec.id'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`missing implementation: ${token}`);
+
+const backgroundPanelStart=html.indexOf('<div id="aerialPhotoPanel"');
+const backgroundPanelEnd=html.indexOf('</div>',html.indexOf('id="hazardMapOpenBtn"',backgroundPanelStart));
+const backgroundPanelHtml=html.slice(backgroundPanelStart,backgroundPanelEnd);
+const backgroundOrder=[
+  'id="terrainPanelOpenBtn"',
+  'id="registryMapOpenBtn"',
+  'id="controlPointOpenBtn"',
+  'id="hazardMapOpenBtn"'
+].map(token=>backgroundPanelHtml.indexOf(token));
+if(backgroundOrder.some(index=>index<0)||backgroundOrder.some((index,i)=>i&&index<=backgroundOrder[i-1])){
+  throw new Error('background menu order is incorrect');
+}
+if(/id="fileInput"[^>]*(?:\.html|text\/html)/i.test(html))throw new Error('HTML remains in the drawing file picker');
+if(/SFC・HTML・写真|SFC、SFZ、HTML/.test(html))throw new Error('HTML remains in drag-and-drop guidance');
 
 const splitArgsStart=html.indexOf('function splitSxfArgs(body)');
 const splitArgsEnd=html.indexOf('function unquoteSxfValue',splitArgsStart);

@@ -1066,7 +1066,7 @@ gtag('config', 'G-88B9YPJXWP');
         <path d="M3.5 8.5V7a2 2 0 0 1 2-2h3.2l1.8 2h7.9a2 2 0 0 1 2 2v1.5"></path>
       </svg>
     </button>
-    <input type="file" id="fileInput" accept=".sfc,.sfz,.html,application/octet-stream,application/zip,text/plain,text/html" />
+    <input type="file" id="fileInput" accept=".sfc,.sfz,application/octet-stream,application/zip,text/plain" />
     <input type="file" id="photoInput" accept=".jpg,.jpeg,image/jpeg" multiple />
     <script>
     (()=>{
@@ -1162,7 +1162,7 @@ gtag('config', 'G-88B9YPJXWP');
 </div>
 
 <div id="envNotice" style="display:none;padding:8px 12px;background:#fff3cd;color:#664d03;border-bottom:1px solid #e0c36c;font-size:13px;line-height:1.5;">
-  現在地表示は、HTTPSで開いたページで動かしてください。iPhoneでローカルHTMLを直接開くと、位置情報が使えないことがあります。
+  現在地表示は、HTTPSで開いたページで動かしてください。iPhoneで端末内のファイルを直接開くと、位置情報が使えないことがあります。
 </div>
 
 
@@ -1201,7 +1201,7 @@ gtag('config', 'G-88B9YPJXWP');
     </button>
   <div id="profilePrompt" role="status" aria-live="polite"></div>
   <div id="modeStatus" role="status" aria-live="polite"></div>
-  <div id="fileDropOverlay" role="status" aria-live="polite"><span>SFC・HTML・写真をここへドロップ</span></div>
+  <div id="fileDropOverlay" role="status" aria-live="polite"><span>SFC・SFZ・写真をここへドロップ</span></div>
   <div id="layerPanel" class="panel">
     <div id="layerHeader">
       <div id="layerHeaderTop"><h3>レイヤー表示・色変更</h3><button id="layerCloseBtn" class="panelCloseBtn">閉じる</button></div>
@@ -1409,8 +1409,8 @@ gtag('config', 'G-88B9YPJXWP');
     <div id="photoStatus">スライダーを右へ動かすほど古い航空写真になります。</div>
     <button id="aerialPhotoSfcBtn" type="button" disabled>範囲を選んでCAD化</button>
     <button id="terrainPanelOpenBtn" type="button"><span>地形解析</span><span id="terrainPanelOpenState">開く</span></button>
+    <button id="registryMapOpenBtn" type="button"><span>法務地図・境界</span><span id="registryMapOpenState">開く</span></button>
     <button id="controlPointOpenBtn" type="button"><span>基準点・水準点</span><span id="controlPointOpenState">開く</span></button>
-    <button id="registryMapOpenBtn" type="button"><span>法務局地図・境界</span><span id="registryMapOpenState">開く</span></button>
     <button id="hazardMapOpenBtn" type="button"><span>ハザードマップ</span><span id="hazardMapOpenState">開く</span></button>
   </div>
 
@@ -1691,7 +1691,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">詳細</div>GPS開始中は左側の <b>詳細</b> から座標・誤差などを確認できます。詳細画面は同じボタンで閉じられます。</div>
               <div class="helpBlock"><div class="helpHead">図面との距離</div>現在地が図面の外形から500m以上離れている場合は、図面までのおよその距離を表示します。測地系や座標系が違う場合も大きく離れて表示されます。</div>
               <div class="helpBlock"><div class="helpHead">誤差</div>表示される誤差は端末GPSの推定値です。屋外の開けた場所で少し待つと小さくなる場合がありますが、測量成果には使用しないでください。</div>
-              <div class="helpBlock"><div class="helpHead">使えない時</div>位置情報を許可し、HTTPSの公開ページで使用してください。iPhoneでローカルHTMLを直接開いた場合はGPSが動かないことがあります。</div>
+              <div class="helpBlock"><div class="helpHead">使えない時</div>位置情報を許可し、HTTPSの公開ページで使用してください。iPhoneで端末内のファイルを直接開いた場合はGPSが動かないことがあります。</div>
             </div>
           </div>
 
@@ -2029,7 +2029,6 @@ let data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [
 // annotations are reapplied during export, while Undo can restore prior state.
 let loadedSfcText = "";
 let lastSaveHandle = null;
-let lastHtmlSaveHandle = null;
 let lastSfcSidecarDirectoryHandle = null;
 let currentLoadedKind = "sfc";
 let currentOpenHandle = null;
@@ -5286,7 +5285,7 @@ async function beginProfileMode(){
 function getGpsEnvironmentMessage(){
   const secure = window.isSecureContext || location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
   if (!secure){
-    return "現在地表示はHTTPSで開いたページで使ってください。iPhoneでローカルHTMLを直接開くと位置情報が止まることがあります。";
+    return "現在地表示はHTTPSで開いたページで使ってください。iPhoneで端末内のファイルを直接開くと位置情報が止まることがあります。";
   }
   if (!navigator.geolocation){
     return "この端末またはブラウザは位置情報に対応していません。";
@@ -8385,8 +8384,7 @@ function chooseSaveAsShareMode(){
   const title=document.getElementById("saveAsChoiceTitle");
   if(title)title.textContent=directEnabled?"Gmailで送信":"別名保存・送信";
   if(rawBtn){
-    const kind=/^HTML/.test(rawBtn.textContent||"")?"HTML":"SFC";
-    rawBtn.textContent=kind+(directEnabled?"を直接送信":"を送信");
+    rawBtn.textContent="SFC"+(directEnabled?"を直接送信":"を送信");
   }
   if(zipBtn)zipBtn.textContent=directEnabled?"ZIP圧縮して直接送信":"ZIP圧縮して送信";
   modal.style.display="flex";
@@ -10933,7 +10931,6 @@ function clearLoadedState(){
   currentLoadedKind = "sfc";
   currentOpenHandle = null;
   lastSaveHandle = null;
-  lastHtmlSaveHandle = null;
   lastSfcSidecarDirectoryHandle = null;
   rotationDeg = 0;
   initialLoadRotationDeg = 0;
@@ -13044,6 +13041,7 @@ async function buildAerialSfcSidecarExport(requestedSfcFileName=""){
   const exportBase=normalizeExportFileName(`${baseName}_航空写真`,"drawing_aerial");
   let sfcFileName=normalizeExportFileName(requestedSfcFileName||`${exportBase}.sfc`,`${exportBase}.sfc`);
   if(!/\.sfc$/i.test(sfcFileName))sfcFileName+=".sfc";
+  const rasterBaseName=normalizeExportFileName(sfcFileName.replace(/\.sfc$/i,""),"drawing");
   const imageFiles=[];
   // Rebuild raster references instead of appending to stale references.
   // This prevents duplicate SFIG_LOCATE records and malformed ATRU IDs.
@@ -13055,7 +13053,7 @@ async function buildAerialSfcSidecarExport(requestedSfcFileName=""){
     const entry=images[index];
     const sourceId=String(entry.source&&entry.source.id||getAerialEraLabel(entry.source)||"photo")
       .replace(/[^A-Za-z0-9_-]/g,"_").slice(0,24)||"photo";
-    const jpegFileName=`AERIAL_${sourceId}_${String(index+1).padStart(2,"0")}.JPG`;
+    const jpegFileName=`${rasterBaseName}_ラスター_${sourceId}_${String(index+1).padStart(2,"0")}.JPG`;
     imageSpecs.push({
       jpegFileName,bounds:entry.bounds,planePolygon:entry.planePolygon,layerName:entry.layerName
     });
@@ -13118,7 +13116,7 @@ async function writeBlobToHandle(handle, blob){
   await writable.close();
 }
 function getPickerStartHandle(){
-  return currentOpenHandle || lastHtmlSaveHandle || lastSaveHandle || lastPickerHandle || null;
+  return currentOpenHandle || lastSaveHandle || lastPickerHandle || null;
 }
 function computeRecoveryFingerprint(){
   const src = String(loadedSfcText || "");
@@ -13537,67 +13535,36 @@ function markMemoChanged(){
   renderLayerList();
   saveRecoverySnapshot({immediate:true});
 }
-function buildHtmlExportBlobAndName(){
-  if (!loadedSfcText && !(data && ((data.lines&&data.lines.length)||(data.polylines&&data.polylines.length)||(data.texts&&data.texts.length)||(data.circles&&data.circles.length)))) {
-    return { ok:false, reason: "図面を読み込んでください" };
-  }
-  const payload = getSessionPayload();
-  const payloadB64 = utf8ToBase64(JSON.stringify(payload));
-  const replacement = `/*__EMBED_PAYLOAD_START__*/ window.__EMBED_PAYLOAD_B64__ = "${payloadB64}"; /*__EMBED_PAYLOAD_END__*/`;
-  let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-  const markerRe = /\/\*__EMBED_PAYLOAD_START__\*\/[\s\S]*?\/\*__EMBED_PAYLOAD_END__\*\//;
-  if (markerRe.test(html)) html = html.replace(markerRe, replacement);
-  else html = html.replace(/window\.__EMBED_PAYLOAD_B64__\s*=\s*""\s*;/, replacement);
-  const currentName = normalizeExportFileName((data && data.source_name) || 'sfc_view',"sfc_view");
-  const isHtmlSource = /\.html?$/i.test(currentName) || currentLoadedKind === "html";
-  const baseName = currentName.replace(/\.[^.]+$/,'');
-  const overwriteName = isHtmlSource ? currentName : (baseName + '_memo.html');
-  const saveAsName = baseName + '_memo.html';
-  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
-  return { ok:true, blob, overwriteName, saveAsName, text:html };
-}
 async function saveSfcOverwrite(){
-  const savingSfc = currentLoadedKind === "sfc";
+  if(currentLoadedKind!=="sfc"){showToast("SFC図面を開いてください");return;}
   let exportData;
-  if(savingSfc){
-    showBusy("SFC保存データを準備中…");
-    await waitForUiPaint();
-    try{
-      exportData=await buildSfcExportBlobAndNameAsync();
-    }catch(error){
-      hideBusy();
-      console.error(error);
-      showToast("SFC保存データを作成できませんでした");
-      return;
-    }
+  showBusy("SFC保存データを準備中…");
+  await waitForUiPaint();
+  try{
+    exportData=await buildSfcExportBlobAndNameAsync();
+  }catch(error){
     hideBusy();
-  }else{
-    exportData=buildHtmlExportBlobAndName();
+    console.error(error);
+    showToast("SFC保存データを作成できませんでした");
+    return;
   }
+  hideBusy();
   if (!exportData.ok) { showToast(exportData.reason); return; }
   const { blob, overwriteName } = exportData;
 
-  const silentHandle = savingSfc
-    ? ((lastSaveHandle && typeof lastSaveHandle.createWritable === "function") ? lastSaveHandle : null)
-    : ((currentOpenHandle && typeof currentOpenHandle.createWritable === "function")
-      ? currentOpenHandle
-      : (lastHtmlSaveHandle && typeof lastHtmlSaveHandle.createWritable === "function" ? lastHtmlSaveHandle : null));
+  const silentHandle=(lastSaveHandle&&typeof lastSaveHandle.createWritable==="function")?lastSaveHandle:null;
 
   if (silentHandle) {
-    showBusy(savingSfc ? "SFCを上書き保存中…" : "HTMLを上書き保存中…");
+    showBusy("SFCを上書き保存中…");
     try{
       await writeBlobToHandle(silentHandle, blob);
-      if (savingSfc) {
-        lastSaveHandle = silentHandle;
-      } else {
-        lastHtmlSaveHandle = silentHandle;
-      }
+      lastSaveHandle = silentHandle;
       currentOpenHandle = silentHandle;
       lastPickerHandle = silentHandle;
-      currentLoadedKind = savingSfc ? "sfc" : "html";
+      currentLoadedKind = "sfc";
       data.source_name = (silentHandle && silentHandle.name) ? silentHandle.name : overwriteName;
       hideBusy();
-      showToast(savingSfc ? "SFCを上書き保存しました" : "HTMLを上書き保存しました");
+      showToast("SFCを上書き保存しました");
       return;
     }catch(e){
       hideBusy();
@@ -13610,26 +13577,20 @@ async function saveSfcOverwrite(){
       const saveOpts = {
         id: "sfcviewer-workspace",
         suggestedName: overwriteName,
-        types: savingSfc
-          ? [{description:"SFC", accept:{"application/octet-stream":[".sfc"]}}]
-          : [{description:"HTML", accept:{"text/html":[".html"]}}]
+        types:[{description:"SFC", accept:{"application/octet-stream":[".sfc"]}}]
       };
       const startHandle = getPickerStartHandle();
       if (startHandle) saveOpts.startIn = startHandle;
       const handle = await window.showSaveFilePicker(saveOpts);
-      showBusy(savingSfc ? "SFCを保存中…" : "HTMLを保存中…");
+      showBusy("SFCを保存中…");
       await writeBlobToHandle(handle, blob);
-      if (savingSfc) {
-        lastSaveHandle = handle;
-      } else {
-        lastHtmlSaveHandle = handle;
-      }
+      lastSaveHandle = handle;
       currentOpenHandle = handle;
       lastPickerHandle = handle;
-      currentLoadedKind = savingSfc ? "sfc" : "html";
+      currentLoadedKind = "sfc";
       data.source_name = handle.name || overwriteName;
       hideBusy();
-      showToast(savingSfc ? "SFCを保存しました" : "HTMLを保存しました");
+      showToast("SFCを保存しました");
       return;
     }catch(e){
       hideBusy();
@@ -13653,16 +13614,16 @@ async function saveSfcOverwrite(){
   a.download = overwriteName;
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  showToast(savingSfc ? "SFCをダウンロード保存しました" : "HTMLをダウンロード保存しました");
+  showToast("SFCをダウンロード保存しました");
 }
 async function saveSfcWithAnnotations(){
-  const savingSfc = currentLoadedKind === "sfc";
+  if(currentLoadedKind!=="sfc"){showToast("SFC図面を開いてください");return;}
   showBusy("別名保存データを準備中…");
   await waitForUiPaint();
   let exportData;
   let preparedZip=null;
   try{
-    exportData = savingSfc ? await buildSfcExportBlobAndNameAsync() : buildHtmlExportBlobAndName();
+    exportData = await buildSfcExportBlobAndNameAsync();
     if (!exportData.ok) { showToast(exportData.reason); return; }
     updateBusy("ZIP送信用データを準備中…");
     // Prepare ZIP before showing the choice dialog. Web Share on iOS requires
@@ -13682,14 +13643,11 @@ async function saveSfcWithAnnotations(){
   const zipShareBtn=document.getElementById("saveAsZipShareBtn");
   const shareTitle=document.getElementById("saveAsChoiceTitle");
   const rawShareDisplay=rawShareBtn?rawShareBtn.style.display:"";
-  if(rawShareBtn)rawShareBtn.textContent=savingSfc?"SFCを直接送信":"HTMLを直接送信";
-  if(!savingSfc)showToast("送信方法を選んでください",1200);
+  if(rawShareBtn)rawShareBtn.textContent="SFCを直接送信";
   const shareChoicePromise=chooseSaveAsShareMode();
-  if(savingSfc){
-    if(shareTitle)shareTitle.textContent="SFCを送信";
-    if(rawShareBtn)rawShareBtn.style.display="none";
-    if(zipShareBtn)zipShareBtn.textContent="送信する";
-  }
+  if(shareTitle)shareTitle.textContent="SFCを送信";
+  if(rawShareBtn)rawShareBtn.style.display="none";
+  if(zipShareBtn)zipShareBtn.textContent="送信する";
   const shareMode=await shareChoicePromise;
   if(rawShareBtn)rawShareBtn.style.display=rawShareDisplay;
   if(!shareMode)return;
@@ -13725,26 +13683,20 @@ async function saveSfcWithAnnotations(){
       const saveOpts = {
         id: "sfcviewer-workspace",
         suggestedName: saveAsName,
-        types: savingSfc
-          ? [{description:"SFC", accept:{"application/octet-stream":[".sfc"]}}]
-          : [{description:"HTML", accept: {"text/html":[".html"]}}]
+        types:[{description:"SFC", accept:{"application/octet-stream":[".sfc"]}}]
       };
       const startHandle = getPickerStartHandle();
       if (startHandle) saveOpts.startIn = startHandle;
       const handle = await window.showSaveFilePicker(saveOpts);
-      showBusy(savingSfc ? "SFCを別名保存中…" : "HTMLを保存中…");
+      showBusy("SFCを別名保存中…");
       await writeBlobToHandle(handle, blob);
-      if (savingSfc) {
-        lastSaveHandle = handle;
-      } else {
-        lastHtmlSaveHandle = handle;
-      }
+      lastSaveHandle = handle;
       currentOpenHandle = handle;
       lastPickerHandle = handle;
-      currentLoadedKind = savingSfc ? "sfc" : "html";
+      currentLoadedKind = "sfc";
       data.source_name = handle.name || saveAsName;
       hideBusy();
-      showToast(savingSfc ? "SFCを別名保存しました" : "HTMLで保存しました");
+      showToast("SFCを別名保存しました");
       return;
     }catch(e){
       hideBusy();
@@ -13756,7 +13708,7 @@ async function saveSfcWithAnnotations(){
   a.download = saveAsName;
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  showToast(savingSfc ? "SFCを別名保存しました" : "HTMLで保存しました");
+  showToast("SFCを別名保存しました");
 }
 
 function bytesToLatin1String(bytes){
@@ -13791,37 +13743,7 @@ async function readFileAsLatin1Text(file){
 }
 async function saveSfcAsDesktop({overwrite=false}={}){
   if(currentLoadedKind!=="sfc"){
-    const exportData=buildHtmlExportBlobAndName();
-    if(!exportData.ok){showToast(exportData.reason);return;}
-    const overwriteHandle=overwrite&&currentOpenHandle&&typeof currentOpenHandle.createWritable==="function"
-      ? currentOpenHandle
-      : null;
-    if(overwriteHandle){
-      try{
-        showBusy("HTMLを上書き保存中…");
-        await writeBlobToHandle(overwriteHandle,exportData.blob);
-        lastHtmlSaveHandle=overwriteHandle;lastPickerHandle=overwriteHandle;
-        data.source_name=overwriteHandle.name||exportData.overwriteName;
-        hideBusy();showToast("HTMLを上書き保存しました");
-      }catch(error){
-        hideBusy();
-        console.error(error);
-        showToast("上書き保存できませんでした");
-      }
-      return;
-    }
-    if(!window.showSaveFilePicker){showToast("このブラウザーでは名前を付けて保存できません");return;}
-    try{
-      const handle=await window.showSaveFilePicker({
-        id:"sfcviewer-workspace",suggestedName:overwrite?exportData.overwriteName:exportData.saveAsName,
-        types:[{description:"HTML",accept:{"text/html":[".html"]}}]
-      });
-      showBusy("HTMLを保存中…");
-      await writeBlobToHandle(handle,exportData.blob);
-      lastHtmlSaveHandle=handle;currentOpenHandle=handle;lastPickerHandle=handle;
-      data.source_name=handle.name||exportData.saveAsName;
-      hideBusy();showToast("HTMLを保存しました");
-    }catch(error){hideBusy();if(!(error&&error.name==="AbortError")){console.error(error);showToast("保存できませんでした");}}
+    showToast("SFC図面を開いてください");
     return;
   }
   const hasAerial=getExportableAerialCadImages().length>0;
@@ -14088,55 +14010,6 @@ function restoreInkStrokesFromSourceText(srcText){
   }
   return restored;
 }
-function extractEmbedPayloadFromHtmlText(srcText){
-  const m = String(srcText || "").match(/window\.__EMBED_PAYLOAD_B64__\s*=\s*"([^"]*)"/);
-  if (!m || !m[1]) return null;
-  try{
-    return JSON.parse(base64ToUtf8(m[1]));
-  }catch(e){
-    console.error(e);
-    return null;
-  }
-}
-function handleLoadedHtmlPayload(payload, fileName, handleOverride){
-  window.__EMBED_PAYLOAD_B64__ = "";
-  clearLoadedState();
-  currentLoadedKind = "html";
-  currentOpenHandle = handleOverride || null;
-  lastSaveHandle = null;
-  if (handleOverride) lastPickerHandle = handleOverride;
-  lastHtmlSaveHandle = handleOverride || null;
-  loadedSfcText = payload && payload.sfcText ? payload.sfcText : "";
-  data = prepareRenderMetadata(parseSfcText(loadedSfcText, fileName || (payload && payload.sourceName) || "embedded.html"),loadedSfcText.length);
-  if (fileName) data.source_name = fileName;
-  const count = data.lines.length + data.polys.length + data.texts.length + data.circles.length + (data.arcs?.length||0) + (data.ellipses?.length||0) + (data.ellipseArcs?.length||0);
-  resetSessionFromLoad();
-  inkStrokes = Array.isArray(payload && payload.inkStrokes) ? migrateInkStrokesToSingleFormat(payload.inkStrokes) : [];
-  aerialCadImages=(Array.isArray(payload&&payload.aerialCadImages)?payload.aerialCadImages:[]).map(normalizeAerialCadImageEntry).filter(Boolean);
-  restorePhotoAnnotations(payload&&payload.photoAnnotations);
-  aerialCadImageRuntime.clear();
-  redoStrokes = [];
-  updateUndoRedoUI();
-  updateStopBtnUI();
-  darkTheme = !!(payload && payload.darkTheme);
-  showText = !payload || payload.showText !== false;
-  layerVisibility = payload && payload.layerVisibility ? payload.layerVisibility : {};
-  layerColorOverrides = payload && payload.layerColorOverrides ? payload.layerColorOverrides : {};
-  deletedLayerNames = new Set(Array.isArray(payload&&payload.deletedLayerNames)?payload.deletedLayerNames.map(String):[]);
-  if (!count){ showToast("このHTML図面は読めません"); draw(); return; }
-  resetInkToolForNewDrawing();
-  rotationDeg = Number.isFinite(+(payload && payload.rotationDeg)) ? +(payload && payload.rotationDeg) : determineBestRotation(data);
-  initialLoadRotationDeg = rotationDeg;
-  updateThemeUI();
-  document.getElementById("startupModal").style.display="none";
-  migrateMemoLayerCirclesFromDataToInk();
-  renderLayerList();
-  restoreRecoverySnapshotIfAvailable();
-  applyDefaultFullViewAfterLoad();
-  gaTrackOpenSfc("html");
-  return true;
-}
-
 async function handleLoadedSource(srcText, fileName, handleOverride, options={}){
   showBusy("SFCを解析中…");
   await waitForUiPaint();
@@ -14148,7 +14021,6 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   loadedSfcText = srcText;
   lastSaveHandle = handleOverride || null;
   if (handleOverride) lastPickerHandle = handleOverride;
-  lastHtmlSaveHandle = null;
   const parseStarted=performance.now();
   try{
     data = prepareRenderMetadata(parseSfcText(srcText, fileName || "loaded.sfc"),srcText.length);
@@ -14194,7 +14066,7 @@ async function openSfcViaPickerOrInput(){
         id: "sfcviewer-workspace",
         multiple:false,
         types:[
-          {description:"図面ファイル", accept:{"text/plain":[".sfc",".html"], "application/octet-stream":[".sfc"], "application/zip":[".sfz"], "text/html":[".html"]}}
+          {description:"SFC図面", accept:{"text/plain":[".sfc"], "application/octet-stream":[".sfc"], "application/zip":[".sfz"]}}
         ]
       };
       const startHandle = getPickerStartHandle();
@@ -14208,16 +14080,6 @@ async function openSfcViaPickerOrInput(){
           return;
         }
         const srcText = await readFileAsLatin1Text(file);
-        if (/\.html?$/i.test(file.name)) {
-          const payload = extractEmbedPayloadFromHtmlText(srcText);
-          if (payload) {
-            updateBusy("HTML図面を解析中…");
-            await waitForUiPaint();
-            try{ handleLoadedHtmlPayload(payload, file.name, handle); }
-            finally{ hideBusy(); }
-            return;
-          }
-        }
         await handleLoadedSource(srcText, file.name, handle);
         return;
       }
@@ -14235,7 +14097,7 @@ async function openSfcViaPickerOrInput(){
 }
 async function handleSelectedDrawingFile(file){
   if(!file) return;
-  if(!/\.(?:sfc|sfz|html?)$/i.test(String(file.name||""))){
+  if(!/\.(?:sfc|sfz)$/i.test(String(file.name||""))){
     return;
   }
   if(/\.sfz$/i.test(String(file.name||""))){
@@ -14246,16 +14108,6 @@ async function handleSelectedDrawingFile(file){
   showBusy("ファイルを読み込み中…");
   try{
     const srcText = await readFileAsLatin1Text(file);
-    if (/\.html?$/i.test(file.name)) {
-      const payload = extractEmbedPayloadFromHtmlText(srcText);
-      if (payload) {
-        updateBusy("HTML図面を解析中…");
-        await waitForUiPaint();
-        try{ handleLoadedHtmlPayload(payload, file.name, null); }
-        finally{ hideBusy(); }
-        return;
-      }
-    }
     await handleLoadedSource(srcText, file.name, null);
   }catch(err){
     hideBusy();
@@ -14347,8 +14199,8 @@ window.addEventListener("drop",event=>{
     importGeotaggedPhotos(photos).catch(err=>{console.error(err);hideBusy();showToast("写真を読み込めませんでした",2400);});
     return;
   }
-  if(!/\.(?:sfc|sfz|html?)$/i.test(String(file.name||""))){
-    showToast("SFC、SFZ、HTML、またはJPEG写真をドロップしてください",2400);
+  if(!/\.(?:sfc|sfz)$/i.test(String(file.name||""))){
+    showToast("SFC、SFZ、またはJPEG写真をドロップしてください",2400);
     return;
   }
   saveRecoverySnapshot({immediate:true});
@@ -14839,6 +14691,14 @@ document.getElementById("photoOpenBtn")?.addEventListener("click",()=>{
   if(input){input.value="";input.click();}
 });
 document.getElementById("photoExcelBtn")?.addEventListener("click",()=>{exportPhotoListExcel();});
+document.getElementById("photoListTable")?.addEventListener("copy",event=>{
+  const selection=window.getSelection();
+  const plainText=selection?selection.toString().replace(/\u00a0/g," "):"";
+  if(!plainText||!event.clipboardData)return;
+  event.preventDefault();
+  event.clipboardData.clearData();
+  event.clipboardData.setData("text/plain",plainText);
+});
 [
   ["photoCircleSize","circleDiameterMm"],
   ["photoTextSize","textHeightMm"],
@@ -16209,11 +16069,11 @@ if (window.__EMBED_PAYLOAD_B64__) {
     const payload = JSON.parse(base64ToUtf8(window.__EMBED_PAYLOAD_B64__));
     if (payload && payload.sfcText) {
       clearLoadedState();
-      currentLoadedKind = "html";
+      currentLoadedKind = "sfc";
       currentOpenHandle = null;
       loadedSfcText = payload.sfcText || "";
-      data = prepareRenderMetadata(parseSfcText(loadedSfcText, payload.sourceName || "embedded.html"),loadedSfcText.length);
-      data.source_name = payload.sourceName || "embedded.html";
+      data = prepareRenderMetadata(parseSfcText(loadedSfcText, payload.sourceName || "embedded.sfc"),loadedSfcText.length);
+      data.source_name = payload.sourceName || "embedded.sfc";
       darkTheme = !!payload.darkTheme;
       showText = payload.showText !== false;
       layerVisibility = payload.layerVisibility || {};
