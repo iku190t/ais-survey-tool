@@ -3683,7 +3683,7 @@ async function renderVisibleAerialPhotoForSfc(worldPolygon){
 }
 function getNextAerialImageSerial(srcText){
   const used=new Set();
-  const re=/\$\$ATRU\$\$(\d+)\$\$(?:jpg|\x92\x6e\x8c\x60\x90\x7d)\$\$/gi;
+  const re=/\$\$ATRU\$\$(\d+)\$\$(?:RASTER|JPG|\x92\x6e\x8c\x60\x90\x7d)\$\$/gi;
   let match;
   while((match=re.exec(String(srcText||"")))!==null){
     const serial=Number(match[1]);
@@ -3711,8 +3711,8 @@ function addAerialImageReferenceToSfc(srcText,jpegFileName,bounds,planePolygon,l
   // OCF CADs resolve the sfig_org/sfig_locate pair by this compound name.
   const graphicId=String(getNextAerialImageSerial(text));
   const imageWordSjis="\x89\xe6\x91\x9c";
-  // SXF Ver.3.x の属性付き画像で用いられる標準 ATRU 名。
-  const imageFeatureName=`$$ATRU$$${graphicId}$$jpg$$${imageWordSjis}$$${jpegFileName}`;
+  // OCF準拠CADが出力する画像付きSFZと同じRASTER複合図形名。
+  const imageFeatureName=`$$ATRU$$${graphicId}$$RASTER$$${imageWordSjis}$$${jpegFileName}`;
   if(!bounds)throw new Error("SFCへ配置する航空写真の範囲がありません");
   const selectedCorners=Array.isArray(planePolygon)&&planePolygon.length>=3
     ?planePolygon.map(point=>[point.xNorth,point.yEast])
@@ -3721,19 +3721,23 @@ function addAerialImageReferenceToSfc(srcText,jpegFileName,bounds,planePolygon,l
       [bounds.maxX,bounds.maxY],[bounds.maxX,bounds.minY]
     ];
   const planeCorners=[...selectedCorners,selectedCorners[0]];
-  const worldCorners=planeCorners.map(([xNorth,yEast])=>{
+  const records=parseSxfFeatureRecords(flat);
+  const num=ref=>{const value=parseFloat(unquoteSxfValue(ref));return Number.isFinite(value)?value:0;};
+  const assembly=buildSxfAssemblyExpansion(records,num);
+  const displayToPaper=assembly.displayToPaper||sxfAffineIdentity();
+  const paperCorners=planeCorners.map(([xNorth,yEast])=>{
     const p=planeToSfcWorld(xNorth,yEast);
-    return [p.x*1000,p.y*1000];
+    return sxfAffinePoint(displayToPaper,p.x*1000,p.y*1000);
   });
-  if(worldCorners.some(p=>!Number.isFinite(p[0])||!Number.isFinite(p[1])))throw new Error("航空写真の配置座標を作成できませんでした");
+  if(paperCorners.some(p=>!Number.isFinite(p[0])||!Number.isFinite(p[1])))throw new Error("航空写真の配置座標を作成できませんでした");
   // 外部図面の線属性を流用すると、色コード0など、その図面内だけで
   // 偶然成立していた参照を新規レイヤーへ持ち込むことがある。
   // 画像配置枠はSXFの定義済み属性だけで生成する。
   const style=[`'${layerCode}'`,"'1'","'1'","'1'"];
-  const xs=worldCorners.map(p=>p[0].toFixed(6)).join(",");
-  const ys=worldCorners.map(p=>p[1].toFixed(6)).join(",");
+  const xs=paperCorners.map(p=>p[0].toFixed(6)).join(",");
+  const ys=paperCorners.map(p=>p[1].toFixed(6)).join(",");
   const definition=[
-    `/*SXF\r\n#${id++} = polyline_feature(${style.join(",")},'${worldCorners.length}','(${xs})','(${ys})')\r\nSXF*/`,
+    `/*SXF\r\n#${id++} = polyline_feature(${style.join(",")},'${paperCorners.length}','(${xs})','(${ys})')\r\nSXF*/`,
     `/*SXF\r\n#${id++} = sfig_org_feature(\\'${imageFeatureName}\\','3')\r\nSXF*/`
   ].join("\r\n\r\n");
   const placement=`/*SXF\r\n#${id++} = sfig_locate_feature('0',\\'${imageFeatureName}\\','0.000000','0.000000','0.00000000000000','1.00000000000000','1.00000000000000')\r\nSXF*/`;
@@ -6564,6 +6568,14 @@ function sxfLocateTransform(rec,num){
 function sxfDecodedFigureName(rec){
   return decodeShiftJisFromLatin1(unquoteSxfValue(rec&&rec.args&&rec.args[1]||""));
 }
+function parseSxfRasterFigureName(value){
+  const name=String(value||"");
+  const match=name.match(/^\$\$ATRU\$\$(\d+)\$\$(RASTER|JPG|\x92\x6e\x8c\x60\x90\x7d)\$\$[^$]*\$\$(.+)$/i);
+  return match?{serial:Number(match[1])||0,kind:String(match[2]||"").toUpperCase(),fileName:String(match[3]||"")}:null;
+}
+function isSxfRasterFigureName(value){
+  return !!parseSxfRasterFigureName(value);
+}
 function buildSxfAssemblyExpansion(records,num){
   const sheetIndex=records.findIndex(r=>r.name==="drawing_sheet_feature");
   const geometryEnd=sheetIndex>=0?sheetIndex:records.length;
@@ -6576,6 +6588,7 @@ function buildSxfAssemblyExpansion(records,num){
     const name=decodeShiftJisFromLatin1(rawName);
     definitions.set(name,{
       name,rawName,type:Math.trunc(num(rec.args[1])),
+      isRaster:isSxfRasterFigureName(name)||isSxfRasterFigureName(rawName),
       members:records.slice(rangeStart,i).filter(v=>SXF_DRAWABLE_FEATURE_NAMES.has(v.name)||v.name==="sfig_locate_feature")
     });
     rangeStart=i+1;
@@ -6586,6 +6599,7 @@ function buildSxfAssemblyExpansion(records,num){
     if(stack.has(name))return 0;
     const def=definitions.get(name);
     if(!def)return 0;
+    if(def.isRaster)return 0;
     const next=new Set(stack);next.add(name);
     let count=0;
     for(const member of def.members){
@@ -6634,6 +6648,7 @@ function buildSxfAssemblyExpansion(records,num){
   })[0]||null;
   const paperToDisplay=sxfAffineInvert(mainRoot&&mainRoot.matrix||sxfAffineIdentity())||sxfAffineIdentity();
   const instances=[];
+  const rasterInstances=[];
   let instanceSerial=0;
   const walkMembers=(members,paperMatrix,currentPart,stack)=>{
     for(const member of members||[]){
@@ -6652,6 +6667,13 @@ function buildSxfAssemblyExpansion(records,num){
       const name=sxfDecodedFigureName(member),def=definitions.get(name);
       if(!def||stack.has(name))continue;
       const childPaper=sxfAffineCompose(paperMatrix,sxfLocateTransform(member,num));
+      if(def.isRaster){
+        rasterInstances.push({
+          rec:member,name,def,paperMatrix:childPaper,
+          matrix:sxfAffineCompose(paperToDisplay,childPaper)
+        });
+        continue;
+      }
       let childPart=currentPart;
       if(def.type===2){
         childPart={
@@ -6667,8 +6689,13 @@ function buildSxfAssemblyExpansion(records,num){
   // Level 1/legacy exporters occasionally omit a usable sheet placement.
   // Falling back to the original records is safer than returning an empty page.
   if(!instances.length&&rawDrawableCount){
+    const rasterMemberIds=new Set();
+    for(const def of definitions.values()){
+      if(!def.isRaster)continue;
+      for(const member of def.members)rasterMemberIds.add(String(member.id));
+    }
     for(const rec of records.slice(0,geometryEnd)){
-      if(SXF_DRAWABLE_FEATURE_NAMES.has(rec.name))instances.push({
+      if(SXF_DRAWABLE_FEATURE_NAMES.has(rec.name)&&!rasterMemberIds.has(String(rec.id)))instances.push({
         rec,matrix:sxfAffineIdentity(),partModelMatrix:null,partId:null,partName:"",partIsMain:false
       });
     }
@@ -6678,7 +6705,9 @@ function buildSxfAssemblyExpansion(records,num){
     angle:num(mainRoot.rec.args[4]),sx:num(mainRoot.rec.args[5]),sy:num(mainRoot.rec.args[6])
   }:null;
   return {
-    instances,definitions,sheetMembers,mainRoot,mainDrawingPlacement:placement,expanded:!!mainRoot,
+    instances,rasterInstances,definitions,sheetMembers,mainRoot,
+    paperToDisplay,displayToPaper:mainRoot&&mainRoot.matrix||sxfAffineIdentity(),
+    mainDrawingPlacement:placement,expanded:!!mainRoot,
     mainPlacementFrameSize:placementFrames[0]&&placementFrames[0].members.length||0
   };
 }
@@ -12938,8 +12967,9 @@ function stripAerialImageReferenceFeatures(srcText){
     const record=records[index];
     if(record.name!=="sfig_org_feature"||!record.args.length)continue;
     const featureName=String(unquoteSxfValue(record.args[0]||""));
-    const match=featureName.match(/\$\$ATRU\$\$(\d+)\$\$(?:jpg|\x92\x6e\x8c\x60\x90\x7d)\$\$/i);
-    if(!match)continue;
+    const rasterInfo=parseSxfRasterFigureName(featureName)||
+      parseSxfRasterFigureName(decodeShiftJisFromLatin1(featureName));
+    if(!rasterInfo)continue;
     imageNames.add(featureName);
     removalIds.add(String(record.id));
     // A compound figure is closed by sfig_org, so its boundary is immediately
@@ -12975,7 +13005,7 @@ function addAerialImageReferencesToSfc(srcText,imageSpecs){
   const newLayerBlocks=[];
   let nextLayerCode=layerDefs.length+1;
   const usedSerials=new Set();
-  const serialRe=/\$\$ATRU\$\$(\d+)\$\$(?:jpg|\x92\x6e\x8c\x60\x90\x7d)\$\$/gi;
+  const serialRe=/\$\$ATRU\$\$(\d+)\$\$(?:RASTER|JPG|\x92\x6e\x8c\x60\x90\x7d)\$\$/gi;
   let serialMatch;
   while((serialMatch=serialRe.exec(text))!==null){
     const value=Number(serialMatch[1]);
@@ -12988,6 +13018,10 @@ function addAerialImageReferencesToSfc(srcText,imageSpecs){
     return value;
   };
   const definitions=[],placements=[];
+  const sourceRecords=parseSxfFeatureRecords(getFlatSxfText(text));
+  const sourceNum=ref=>{const value=parseFloat(unquoteSxfValue(ref));return Number.isFinite(value)?value:0;};
+  const sourceAssembly=buildSxfAssemblyExpansion(sourceRecords,sourceNum);
+  const displayToPaper=sourceAssembly.displayToPaper||sxfAffineIdentity();
   for(const spec of specs){
     const layerName=String(spec.layerName||"");
     const rawLayerName=getAerialLayerRawName(layerName);
@@ -12999,28 +13033,27 @@ function addAerialImageReferencesToSfc(srcText,imageSpecs){
       newLayerBlocks.push(`/*SXF\r\n#${id++} = layer_feature(\\'${rawLayerName}\\',\\'1\\')\r\nSXF*/`);
     }
     const imageWordSjis="\x89\xe6\x91\x9c";
-    // SXF Ver.3.x の正常な画像付きSFCと同じ ATRU 名：
-    // $$ATRU$$番号$$jpg$$画像$$ファイル名
-    const featureName=`$$ATRU$$${nextSerial()}$$jpg$$${imageWordSjis}$$${spec.jpegFileName}`;
+    // OCF準拠CADが出力する画像付きSFZと同じRASTER複合図形名を使う。
+    const featureName=`$$ATRU$$${nextSerial()}$$RASTER$$${imageWordSjis}$$${spec.jpegFileName}`;
     const bounds=spec.bounds;
     if(!bounds)throw new Error("航空写真の配置範囲がありません");
     const selectedCorners=Array.isArray(spec.planePolygon)&&spec.planePolygon.length>=3
       ?spec.planePolygon.map(point=>[point.xNorth,point.yEast])
       :[[bounds.minX,bounds.minY],[bounds.minX,bounds.maxY],[bounds.maxX,bounds.maxY],[bounds.maxX,bounds.minY]];
     const closed=[...selectedCorners,selectedCorners[0]];
-    const worldCorners=closed.map(([xNorth,yEast])=>{
+    const paperCorners=closed.map(([xNorth,yEast])=>{
       const point=planeToSfcWorld(xNorth,yEast);
-      return [point.x*1000,point.y*1000];
+      return sxfAffinePoint(displayToPaper,point.x*1000,point.y*1000);
     });
-    if(worldCorners.some(point=>!Number.isFinite(point[0])||!Number.isFinite(point[1]))){
+    if(paperCorners.some(point=>!Number.isFinite(point[0])||!Number.isFinite(point[1]))){
       throw new Error("航空写真の配置座標を作成できませんでした");
     }
-    const xs=worldCorners.map(point=>point[0].toFixed(6)).join(",");
-    const ys=worldCorners.map(point=>point[1].toFixed(6)).join(",");
+    const xs=paperCorners.map(point=>point[0].toFixed(6)).join(",");
+    const ys=paperCorners.map(point=>point[1].toFixed(6)).join(",");
     // Members precede sfig_org.  All root placements follow all definitions
     // and remain before drawing_sheet_feature.
     definitions.push(
-      `/*SXF\r\n#${id++} = polyline_feature('${layerCode}','1','1','1','${worldCorners.length}','(${xs})','(${ys})')\r\nSXF*/`,
+      `/*SXF\r\n#${id++} = polyline_feature('${layerCode}','1','1','1','${paperCorners.length}','(${xs})','(${ys})')\r\nSXF*/`,
       `/*SXF\r\n#${id++} = sfig_org_feature(\\'${featureName}\\','3')\r\nSXF*/`
     );
     placements.push(`/*SXF\r\n#${id++} = sfig_locate_feature('0',\\'${featureName}\\','0.000000','0.000000','0.00000000000000','1.00000000000000','1.00000000000000')\r\nSXF*/`);
@@ -13041,7 +13074,6 @@ async function buildAerialSfcSidecarExport(requestedSfcFileName=""){
   const exportBase=normalizeExportFileName(`${baseName}_航空写真`,"drawing_aerial");
   let sfcFileName=normalizeExportFileName(requestedSfcFileName||`${exportBase}.sfc`,`${exportBase}.sfc`);
   if(!/\.sfc$/i.test(sfcFileName))sfcFileName+=".sfc";
-  const rasterBaseName=normalizeExportFileName(sfcFileName.replace(/\.sfc$/i,""),"drawing");
   const imageFiles=[];
   // Rebuild raster references instead of appending to stale references.
   // This prevents duplicate SFIG_LOCATE records and malformed ATRU IDs.
@@ -13051,9 +13083,9 @@ async function buildAerialSfcSidecarExport(requestedSfcFileName=""){
   const imageSpecs=[];
   for(let index=0;index<images.length;index++){
     const entry=images[index];
-    const sourceId=String(entry.source&&entry.source.id||getAerialEraLabel(entry.source)||"photo")
-      .replace(/[^A-Za-z0-9_-]/g,"_").slice(0,24)||"photo";
-    const jpegFileName=`${rasterBaseName}_ラスター_${sourceId}_${String(index+1).padStart(2,"0")}.JPG`;
+    // Raster file names inside SFZ are kept ASCII and short for maximum CAD
+    // interoperability. Their meaning is carried by the SXF layer name.
+    const jpegFileName=`${index+1}.jpg`;
     imageSpecs.push({
       jpegFileName,bounds:entry.bounds,planePolygon:entry.planePolygon,layerName:entry.layerName
     });
@@ -13066,10 +13098,13 @@ async function buildAerialSfcSidecarExport(requestedSfcFileName=""){
   const sfcBlob=new Blob([latin1StringToBytes(sfcText)],{type:"application/octet-stream"});
   return {ok:true,sfcBlob,sfcFileName,text:sfcText,imageFiles,imageCount:images.length};
 }
-async function buildAerialSfzExport(){
-  const sidecarExport=await buildAerialSfcSidecarExport();
+async function buildAerialSfzExport(requestedSfzFileName=""){
+  let requestedName=normalizeExportFileName(requestedSfzFileName||"","");
+  if(requestedName&&!/\.sfz$/i.test(requestedName))requestedName+=".sfz";
+  const requestedSfcName=requestedName?requestedName.replace(/\.sfz$/i,".sfc"):"";
+  const sidecarExport=await buildAerialSfcSidecarExport(requestedSfcName);
   if(!sidecarExport.ok)return sidecarExport;
-  const sfzFileName=sidecarExport.sfcFileName.replace(/\.sfc$/i,".sfz");
+  const sfzFileName=requestedName||sidecarExport.sfcFileName.replace(/\.sfc$/i,".sfz");
   const files=[{name:sidecarExport.sfcFileName,blob:sidecarExport.sfcBlob},...sidecarExport.imageFiles];
   updateBusy("SFZを圧縮中…");
   await waitForUiPaint();
@@ -13080,22 +13115,36 @@ async function buildAerialSfzExport(){
   };
 }
 async function saveAerialCadSfz(){
+  let handle=null;
+  let requestedName="";
+  const desktopPicker=!isTouchMobileLike()&&window.showSaveFilePicker;
+  if(desktopPicker){
+    const sourceName=normalizeExportFileName((data&&data.source_name)||"drawing.sfc","drawing.sfc");
+    const suggestedName=`${sourceName.replace(/\.(?:sfc|sfz)$/i,"")}_航空写真.sfz`;
+    try{
+      handle=await window.showSaveFilePicker({
+        id:"sfcviewer-aerial",suggestedName,
+        types:[{description:"SXF画像付き図面",accept:{"application/zip":[".sfz"]}}]
+      });
+      requestedName=handle.name||suggestedName;
+    }catch(error){
+      if(error&&error.name==="AbortError")return;
+      console.error(error);
+      showToast("保存先を選択できませんでした",2600);
+      return;
+    }
+  }
   showBusy("航空写真を含むSFZを作成中…");
   await waitForUiPaint();
   let exportData;
   try{
-    exportData=await buildAerialSfzExport();
+    exportData=await buildAerialSfzExport(requestedName);
     if(!exportData.ok){hideBusy();showToast(exportData.reason||"SFZを作成できませんでした");return;}
   }catch(error){
     hideBusy();console.error(error);showToast(error&&error.message?error.message:"SFZを作成できませんでした",3200);return;
   }
-  hideBusy();
-  if(!isTouchMobileLike()&&window.showSaveFilePicker){
+  if(handle){
     try{
-      const handle=await window.showSaveFilePicker({
-        id:"sfcviewer-aerial",suggestedName:exportData.saveAsName,
-        types:[{description:"SXF画像付き図面",accept:{"application/zip":[".sfz"]}}]
-      });
       showBusy("SFZを保存しています…");
       await writeBlobToHandle(handle,exportData.blob);
       hideBusy();showToast("航空写真を含むSFZを保存しました",2600);return;
@@ -13105,6 +13154,7 @@ async function saveAerialCadSfz(){
       console.error(error);
     }
   }
+  hideBusy();
   const recipient=getGmailOAuthClientId()?getSavedGmailRecipient():"";
   if(await sendBlobByGmailOrShare(exportData.blob,exportData.saveAsName,recipient))return;
   downloadBlob(exportData.blob,exportData.saveAsName);
@@ -13780,54 +13830,38 @@ async function saveSfcAsDesktop({overwrite=false}={}){
   }
   const hasAerial=getExportableAerialCadImages().length>0;
   if(hasAerial){
-    if(!window.showDirectoryPicker){
-      showToast("画像付きSFCの保存にはPC版ChromeまたはEdgeを使用してください",3600);
+    if(!window.showSaveFilePicker){
+      showToast("画像付き図面の保存にはPC版ChromeまたはEdgeを使用してください",3600);
       return;
     }
     const sourceName=normalizeExportFileName((data&&data.source_name)||"drawing.sfc","drawing.sfc");
-    const defaultName=overwrite?sourceName:sourceName.replace(/\.sfc$/i,"")+"_memo.sfc";
-    let directoryHandle=overwrite?lastSfcSidecarDirectoryHandle:null;
-    if(!directoryHandle){
-      try{
-        directoryHandle=await window.showDirectoryPicker({id:"sfcviewer-sfc-sidecars",mode:"readwrite"});
-      }catch(error){
-        if(error&&error.name==="AbortError")return;
-        console.error(error);
-        showToast("保存先を選択できませんでした");
-        return;
-      }
-    }
-    const entered=window.prompt("保存するSFCファイル名",defaultName);
-    if(entered==null)return;
-    let requestedName=normalizeExportFileName(String(entered).trim(),defaultName);
-    if(!requestedName)return;
-    if(!/\.sfc$/i.test(requestedName))requestedName+=".sfc";
-    showBusy("SFCと画像を準備中…");
-    await waitForUiPaint();
+    const sourceBase=sourceName.replace(/\.(?:sfc|sfz)$/i,"");
+    const suggestedName=`${sourceBase}${overwrite?"":"_memo"}.sfz`;
+    let handle;
     try{
-      const exportData=await buildAerialSfcSidecarExport(requestedName);
+      handle=await window.showSaveFilePicker({
+        id:"sfcviewer-workspace",
+        suggestedName,
+        types:[{description:"SXF画像付き図面",accept:{"application/zip":[".sfz"]}}]
+      });
+      showBusy("画像付きSFZを準備中…");
+      await waitForUiPaint();
+      const exportData=await buildAerialSfzExport(handle.name||suggestedName);
       if(!exportData.ok)throw new Error(exportData.reason||"保存データを作成できませんでした");
-      showBusy("SFCと画像を同じフォルダーへ保存中…");
-      const sfcHandle=await directoryHandle.getFileHandle(exportData.sfcFileName,{create:true});
-      await writeBlobToHandle(sfcHandle,exportData.sfcBlob);
-      for(const imageFile of exportData.imageFiles){
-        const imageHandle=await directoryHandle.getFileHandle(imageFile.name,{create:true});
-        await writeBlobToHandle(imageHandle,imageFile.blob);
-      }
-      lastSfcSidecarDirectoryHandle=directoryHandle;
-      lastSaveHandle=sfcHandle;currentOpenHandle=sfcHandle;lastPickerHandle=sfcHandle;
+      showBusy("画像付きSFZを保存中…");
+      await writeBlobToHandle(handle,exportData.blob);
+      lastSaveHandle=handle;lastPickerHandle=handle;
+      // The handle points to the SFZ container, not directly to its inner SFC.
+      // Keep currentOpenHandle unchanged so a later SFC-only overwrite cannot
+      // accidentally replace the ZIP container with plain SFC text.
       data.source_name=exportData.sfcFileName;
       hideBusy();
-      showToast(`SFCと画像${exportData.imageCount}枚を保存しました`,2800);
+      showToast(`画像付きSFZを保存しました（画像 ${exportData.imageCount}枚）`,2800);
     }catch(error){
       hideBusy();
       if(error&&error.name==="AbortError")return;
       console.error(error);
-      if(isStaleFileHandleError(error)){
-        lastSfcSidecarDirectoryHandle=null;
-        forgetStaleFileHandle(currentOpenHandle);
-      }
-      showToast(getSfcSaveErrorMessage(error,"SFCと画像を保存できませんでした"),3600);
+      showToast(getSfcSaveErrorMessage(error,"画像付きSFZを保存できませんでした"),3600);
     }
     return;
   }
@@ -13896,6 +13930,8 @@ function sfcTupleNumbers(value){
 async function extractAerialCadImagesFromSfz(sfcText,zipBuffer,entries){
   const records=parseSxfFeatureRecords(getFlatSxfText(sfcText));
   const recordById=new Map(records.map(record=>[String(record.id),record]));
+  const num=ref=>{const value=parseFloat(unquoteSxfValue(ref));return Number.isFinite(value)?value:0;};
+  const assembly=buildSxfAssemblyExpansion(records,num);
   const layerDefs=parseLayerFeatureDefsFlat(getFlatSxfText(sfcText));
   const zipEntryByName=new Map();
   for(const entry of entries||[]){
@@ -13907,14 +13943,20 @@ async function extractAerialCadImagesFromSfz(sfcText,zipBuffer,entries){
   for(let recordIndex=0;recordIndex<records.length;recordIndex++){
     const record=records[recordIndex];
     if(record.name!=="sfig_org_feature"||!record.args.length)continue;
-    const featureName=decodeShiftJisFromLatin1(unquoteSxfValue(record.args[0]||""));
-    const match=featureName.match(/^\$\$ATRU\$\$(\d+)\$\$jpg\$\$[^$]*\$\$(.+)$/i);
-    if(!match)continue;
+    const rawFeatureName=unquoteSxfValue(record.args[0]||"");
+    const featureName=decodeShiftJisFromLatin1(rawFeatureName);
+    const rasterInfo=parseSxfRasterFigureName(featureName)||parseSxfRasterFigureName(rawFeatureName);
+    if(!rasterInfo)continue;
+    const rasterInstance=(assembly.rasterInstances||[]).find(item=>
+      item.name===featureName||item.name===rawFeatureName||item.def&&item.def.rawName===rawFeatureName
+    )||null;
     // Correct SXF/SFZ files use the ATRU number as an image serial. Older
     // exports from this viewer incorrectly wrote a feature ID there. Accept
     // both, and otherwise use the polyline immediately preceding sfig_org,
     // which is how the raster boundary is represented by other CAD products.
-    let boundary=recordById.get(String(match[1]));
+    let boundary=rasterInstance&&rasterInstance.def&&
+      [...rasterInstance.def.members].reverse().find(item=>item.name==="polyline_feature");
+    if(!boundary)boundary=recordById.get(String(rasterInfo.serial));
     if(!boundary||boundary.name!=="polyline_feature"){
       for(let prior=recordIndex-1;prior>=0;prior--){
         const candidate=records[prior];
@@ -13926,9 +13968,16 @@ async function extractAerialCadImagesFromSfz(sfcText,zipBuffer,entries){
     const xs=sfcTupleNumbers(boundary.args[5]),ys=sfcTupleNumbers(boundary.args[6]);
     const pointCount=Math.min(xs.length,ys.length);
     if(pointCount<4)continue;
+    // Standard RASTER compound figures store their boundary in drawing-sheet
+    // coordinates. Convert it back through the selected main drawing frame.
+    // Legacy viewer exports used model coordinates directly under a JPG token.
+    const boundaryMatrix=rasterInfo.kind==="RASTER"&&rasterInstance
+      ?rasterInstance.matrix
+      :sxfAffineIdentity();
     const planePolygon=[];
     for(let index=0;index<pointCount;index++){
-      const plane=sfcWorldToPlane(xs[index],ys[index]);
+      const world=sxfAffinePoint(boundaryMatrix,xs[index],ys[index]);
+      const plane=sfcWorldToPlane(world[0],world[1]);
       if(Number.isFinite(plane.xNorth)&&Number.isFinite(plane.yEast)){
         const previous=planePolygon[planePolygon.length-1];
         if(!previous||Math.hypot(plane.xNorth-previous.xNorth,plane.yEast-previous.yEast)>1e-7)planePolygon.push(plane);
@@ -13939,7 +13988,7 @@ async function extractAerialCadImagesFromSfz(sfcText,zipBuffer,entries){
       if(Math.hypot(first.xNorth-last.xNorth,first.yEast-last.yEast)<1e-7)planePolygon.pop();
     }
     if(planePolygon.length<3)continue;
-    const rawFileName=String(match[2]||"").replace(/\\/g,"/");
+    const rawFileName=String(rasterInfo.fileName||"").replace(/\\/g,"/");
     const key=rawFileName.toLowerCase();
     const imageEntry=zipEntryByName.get(key)||zipEntryByName.get(key.split("/").pop());
     if(!imageEntry)continue;
@@ -14707,6 +14756,12 @@ document.getElementById("saveMenuOverwriteBtn").addEventListener("click", ()=>{
     saveSfcAsDesktop({overwrite:true});
     return;
   }
+  if(getExportableAerialCadImages().length){
+    setSaveMenuOpen(false);
+    saveRecoverySnapshot();
+    saveAerialCadSfz();
+    return;
+  }
   runStandardSfcSave(saveSfcOverwrite,"上書き保存に失敗しました");
 });
 document.getElementById("saveMenuSaveAsBtn").addEventListener("click", ()=>{
@@ -14714,6 +14769,12 @@ document.getElementById("saveMenuSaveAsBtn").addEventListener("click", ()=>{
     setSaveMenuOpen(false);
     saveRecoverySnapshot();
     saveSfcAsDesktop({overwrite:false});
+    return;
+  }
+  if(getExportableAerialCadImages().length){
+    setSaveMenuOpen(false);
+    saveRecoverySnapshot();
+    saveAerialCadSfz();
     return;
   }
   runStandardSfcSave(saveSfcWithAnnotations,"別名保存を開始できませんでした");
