@@ -405,10 +405,10 @@ label.fileBtn{
 .coordinateInspectRow strong{min-width:0;text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
 .coordinateCopyBtn{display:none;align-items:center;justify-content:center;min-width:54px;min-height:30px;padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap;}
 #canvas.desktopCadCrosshair{cursor:none;}
-#desktopCadCrosshair{display:none;position:absolute;left:0;top:0;width:24px;height:24px;z-index:58;pointer-events:none;transform:translate3d(-100px,-100px,0);will-change:transform;}
+#desktopCadCrosshair{display:none;position:absolute;left:0;top:0;width:72px;height:72px;z-index:58;pointer-events:none;transform:translate3d(-100px,-100px,0);will-change:transform;}
 #desktopCadCrosshair::before,#desktopCadCrosshair::after{content:"";position:absolute;left:50%;top:50%;background:rgba(255,255,255,.72);box-shadow:0 0 1px rgba(0,0,0,.9);}
-#desktopCadCrosshair::before{width:24px;height:1px;transform:translate(-50%,-50%);}
-#desktopCadCrosshair::after{width:1px;height:24px;transform:translate(-50%,-50%);}
+#desktopCadCrosshair::before{width:72px;height:1px;transform:translate(-50%,-50%);}
+#desktopCadCrosshair::after{width:1px;height:72px;transform:translate(-50%,-50%);}
 body.light #desktopCadCrosshair::before,body.light #desktopCadCrosshair::after{background:rgba(0,0,0,.72);box-shadow:0 0 1px rgba(255,255,255,.9);}
 @media (hover:hover) and (pointer:fine){#desktopCadCrosshair{display:block;}}
 @media (min-width:821px){
@@ -643,6 +643,10 @@ body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
 #photoListTable th:nth-child(6),#photoListTable td:nth-child(6){width:108px;}
 #photoListTable th:nth-child(7),#photoListTable td:nth-child(7){width:78px;}
 #photoListTable th:nth-child(n+4),#photoListTable td:nth-child(n+4){white-space:nowrap;font-variant-numeric:tabular-nums;}
+#photoListTable td:nth-child(1),#photoListTable td:nth-child(2){-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
+@media (hover:hover) and (pointer:fine){
+  #photoListTable td:nth-child(1),#photoListTable td:nth-child(2){cursor:text;}
+}
 #photoListEmpty{padding:16px 4px;color:var(--muted);font-size:13px;text-align:center;}
 @media (min-width:821px){
   #photoToolBtn{display:inline-flex;}
@@ -1348,27 +1352,27 @@ gtag('config', 'G-88B9YPJXWP');
     <div class="panelHeaderCompact"><div class="panelTitle">設定</div><button id="settingsCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <div class="settingsSection">
       <label class="settingsLabel" for="coordinateSystemSelect">座標系</label>
-      <select id="coordinateSystemSelect" aria-label="平面直角座標系">
+      <select id="coordinateSystemSelect" aria-label="座標系">
         <option value="auto">自動判定</option>
-        <option value="1">平面直角座標系 第1系</option>
-        <option value="2">平面直角座標系 第2系</option>
-        <option value="3">平面直角座標系 第3系</option>
-        <option value="4">平面直角座標系 第4系</option>
-        <option value="5">平面直角座標系 第5系</option>
-        <option value="6">平面直角座標系 第6系</option>
-        <option value="7">平面直角座標系 第7系</option>
-        <option value="8">平面直角座標系 第8系</option>
-        <option value="9">平面直角座標系 第9系</option>
-        <option value="10">平面直角座標系 第10系</option>
-        <option value="11">平面直角座標系 第11系</option>
-        <option value="12">平面直角座標系 第12系</option>
-        <option value="13">平面直角座標系 第13系</option>
-        <option value="14">平面直角座標系 第14系</option>
-        <option value="15">平面直角座標系 第15系</option>
-        <option value="16">平面直角座標系 第16系</option>
-        <option value="17">平面直角座標系 第17系</option>
-        <option value="18">平面直角座標系 第18系</option>
-        <option value="19">平面直角座標系 第19系</option>
+        <option value="1">第1系（長崎・鹿児島の一部）</option>
+        <option value="2">第2系（福岡・佐賀・熊本・大分・宮崎・鹿児島）</option>
+        <option value="3">第3系（山口・島根・広島）</option>
+        <option value="4">第4系（徳島・香川・高知・愛媛）</option>
+        <option value="5">第5系（兵庫・鳥取・岡山）</option>
+        <option value="6">第6系（京都・大阪・福井・滋賀・三重・奈良・和歌山）</option>
+        <option value="7">第7系（石川・富山・岐阜・愛知）</option>
+        <option value="8">第8系（新潟・長野・山梨・静岡）</option>
+        <option value="9">第9系（東京・福島・栃木・茨城・埼玉・千葉・群馬・神奈川）</option>
+        <option value="10">第10系（青森・秋田・山形・岩手・宮城）</option>
+        <option value="11">第11系（北海道・道南／西部）</option>
+        <option value="12">第12系（北海道・中央部）</option>
+        <option value="13">第13系（北海道・東部）</option>
+        <option value="14">第14系（東京・島しょ部の一部）</option>
+        <option value="15">第15系（沖縄・本島周辺）</option>
+        <option value="16">第16系（沖縄・西部）</option>
+        <option value="17">第17系（沖縄・東部）</option>
+        <option value="18">第18系（東京・島しょ部の一部）</option>
+        <option value="19">第19系（東京・島しょ部の一部）</option>
       </select>
       <div id="coordinateSystemStatus">自動判定</div>
     </div>
@@ -8213,7 +8217,7 @@ function updateDesktopCadCrosshair(x,y,visible=true){
     crosshair.style.transform="translate3d(-100px,-100px,0)";
     return;
   }
-  crosshair.style.transform=`translate3d(${x-12}px,${y-12}px,0)`;
+  crosshair.style.transform=`translate3d(${x-36}px,${y-36}px,0)`;
 }
 function drawDesktopCadCrosshair(){
   // The crosshair is a DOM overlay so it follows the native mouse without
