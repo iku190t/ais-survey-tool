@@ -13115,6 +13115,31 @@ async function writeBlobToHandle(handle, blob){
   await writable.write(blob);
   await writable.close();
 }
+function isStaleFileHandleError(error){
+  const name=String(error&&error.name||"");
+  const message=String(error&&error.message||"").toLowerCase();
+  return name==="InvalidStateError"
+    || message.includes("state cached in an interface object")
+    || message.includes("state had changed since it was read from disk");
+}
+function forgetStaleFileHandle(handle){
+  if(!handle)return;
+  if(currentOpenHandle===handle)currentOpenHandle=null;
+  if(lastSaveHandle===handle)lastSaveHandle=null;
+  if(lastPickerHandle===handle)lastPickerHandle=null;
+}
+function getSfcSaveErrorMessage(error,fallback="SFCを保存できませんでした"){
+  if(isStaleFileHandleError(error)){
+    return "元のSFCが別の操作で更新されています。保存先を選び直してください";
+  }
+  if(error&&error.name==="NotAllowedError"){
+    return "保存先への書き込みが許可されていません";
+  }
+  if(error&&error.name==="QuotaExceededError"){
+    return "空き容量が不足しているため保存できません";
+  }
+  return fallback;
+}
 function getPickerStartHandle(){
   return currentOpenHandle || lastSaveHandle || lastPickerHandle || null;
 }
@@ -13568,7 +13593,13 @@ async function saveSfcOverwrite(){
       return;
     }catch(e){
       hideBusy();
-      if (!(e && e.name === "AbortError")) console.error(e);
+      if (!(e && e.name === "AbortError")){
+        console.error(e);
+        if(isStaleFileHandleError(e)){
+          forgetStaleFileHandle(silentHandle);
+          showToast("元のSFCが更新されているため、保存先を選び直します",3000);
+        }
+      }
     }
   }
 
@@ -13596,6 +13627,7 @@ async function saveSfcOverwrite(){
       hideBusy();
       if (e && e.name === "AbortError") return;
       console.error(e);
+      showToast(getSfcSaveErrorMessage(e),3600);
     }
   }
 
@@ -13791,7 +13823,11 @@ async function saveSfcAsDesktop({overwrite=false}={}){
       hideBusy();
       if(error&&error.name==="AbortError")return;
       console.error(error);
-      showToast(error&&error.message?error.message:"SFCと画像を保存できませんでした",3600);
+      if(isStaleFileHandleError(error)){
+        lastSfcSidecarDirectoryHandle=null;
+        forgetStaleFileHandle(currentOpenHandle);
+      }
+      showToast(getSfcSaveErrorMessage(error,"SFCと画像を保存できませんでした"),3600);
     }
     return;
   }
@@ -13799,23 +13835,43 @@ async function saveSfcAsDesktop({overwrite=false}={}){
     showToast("このブラウザーでは名前を付けて保存できません");
     return;
   }
+  let exportData;
   showBusy("SFC保存データを準備中…");
   await waitForUiPaint();
   try{
-    const exportData=await buildSfcExportBlobAndNameAsync();
+    exportData=await buildSfcExportBlobAndNameAsync();
     if(!exportData.ok)throw new Error(exportData.reason||"保存データを作成できませんでした");
+  }catch(error){
     hideBusy();
-    const overwriteHandle=overwrite&&currentOpenHandle&&typeof currentOpenHandle.createWritable==="function"
-      ? currentOpenHandle
-      : null;
-    if(overwriteHandle){
-      showBusy("SFCを上書き保存中…");
+    console.error(error);
+    showToast(getSfcSaveErrorMessage(error,"SFC保存データを作成できませんでした"),3600);
+    return;
+  }
+  hideBusy();
+  const overwriteHandle=overwrite&&currentOpenHandle&&typeof currentOpenHandle.createWritable==="function"
+    ? currentOpenHandle
+    : null;
+  if(overwriteHandle){
+    showBusy("SFCを上書き保存中…");
+    try{
       await writeBlobToHandle(overwriteHandle,exportData.blob);
       lastSaveHandle=overwriteHandle;lastPickerHandle=overwriteHandle;
       data.source_name=overwriteHandle.name||exportData.overwriteName;
       hideBusy();showToast("SFCを上書き保存しました");
       return;
+    }catch(error){
+      hideBusy();
+      if(error&&error.name==="AbortError")return;
+      console.error(error);
+      if(!isStaleFileHandleError(error)){
+        showToast(getSfcSaveErrorMessage(error),3600);
+        return;
+      }
+      forgetStaleFileHandle(overwriteHandle);
+      showToast("元のSFCが更新されているため、保存先を選び直します",3000);
     }
+  }
+  try{
     const handle=await window.showSaveFilePicker({
       id:"sfcviewer-workspace",
       suggestedName:overwrite?exportData.overwriteName:exportData.saveAsName,
@@ -13830,7 +13886,7 @@ async function saveSfcAsDesktop({overwrite=false}={}){
     hideBusy();
     if(error&&error.name==="AbortError")return;
     console.error(error);
-    showToast(error&&error.message?error.message:"SFCを保存できませんでした",3600);
+    showToast(getSfcSaveErrorMessage(error),3600);
   }
 }
 function sfcTupleNumbers(value){
