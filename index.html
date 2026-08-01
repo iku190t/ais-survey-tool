@@ -2063,6 +2063,7 @@ let twoFingerGestureState = null;
 let layerVisibility = {};
 let layerColorOverrides = {};
 let deletedLayerNames = new Set();
+let removedSourceLayerNames = new Set();
 let editUndoActions = [];
 let pendingLayerDelete = null;
 let selectedTextForLayerChange = null;
@@ -6023,11 +6024,15 @@ function applyEditAction(action,undo){
   }else if(action.type==="layer-delete"){
     if(undo){
       for(const name of action.relatedLayerNames||[action.name])deletedLayerNames.delete(name);
+      for(const name of action.removedSourceNames||[])removedSourceLayerNames.delete(name);
+      restoreParsedDataLayerEntries(action.dataEntries);
       for(const entry of [...(action.entries||[])].sort((a,b)=>a.index-b.index))inkStrokes.splice(Math.min(entry.index,inkStrokes.length),0,entry.stroke);
       for(const item of [...(action.aerialEntries||[])].sort((a,b)=>a.index-b.index))aerialCadImages.splice(Math.min(item.index,aerialCadImages.length),0,item.entry);
       if(action.photoEntries)restorePhotoAnnotations(action.photoEntries);
     }else{
       for(const name of action.relatedLayerNames||[action.name])deletedLayerNames.add(name);
+      for(const name of action.removedSourceNames||[])removedSourceLayerNames.add(name);
+      removeParsedDataLayerEntries(action.dataEntries);
       const remove=new Set((action.entries||[]).map(entry=>entry.stroke));inkStrokes=inkStrokes.filter(stroke=>!remove.has(stroke));
       const removeAerial=new Set((action.aerialEntries||[]).map(item=>item.entry));aerialCadImages=aerialCadImages.filter(entry=>!removeAerial.has(entry));
       if(action.photoEntries)photoAnnotations=[];
@@ -8424,6 +8429,53 @@ function openLayerDeleteConfirm(layer){
   const title=document.getElementById("layerDeleteConfirmTitle");if(title)title.textContent=`「${name}」を削除しますか？`;
   const modal=document.getElementById("layerDeleteConfirmModal");if(modal)modal.style.display="flex";
 }
+const DATA_LAYER_COLLECTIONS=[
+  ["lines",item=>item&&item[4]],
+  ["polys",item=>item&&item[1]],
+  ["splines",item=>item&&item[1]],
+  ["texts",item=>item&&item.layer],
+  ["circles",item=>item&&item[3]],
+  ["arcs",item=>item&&item.layer],
+  ["ellipses",item=>item&&item.layer],
+  ["ellipseArcs",item=>item&&item.layer],
+  ["markers",item=>item&&item.layer]
+];
+function removeParsedDataLayersByName(layerNames){
+  const names=new Set((Array.isArray(layerNames)?layerNames:[layerNames]).map(String));
+  const layerCodes=new Set(Object.keys(data&&data.layerNames||{}).filter(code=>names.has(String(data.layerNames[code]||""))));
+  const entries=[];
+  if(!layerCodes.size)return entries;
+  for(const [collection,getLayer] of DATA_LAYER_COLLECTIONS){
+    const list=Array.isArray(data&&data[collection])?data[collection]:null;
+    if(!list)continue;
+    for(let index=list.length-1;index>=0;index--){
+      if(!layerCodes.has(String(getLayer(list[index]))))continue;
+      entries.push({collection,index,item:list[index]});
+      list.splice(index,1);
+    }
+  }
+  return entries;
+}
+function restoreParsedDataLayerEntries(entries){
+  const grouped=new Map();
+  for(const entry of entries||[]){
+    if(!entry||!Array.isArray(data&&data[entry.collection]))continue;
+    const list=grouped.get(entry.collection)||[];list.push(entry);grouped.set(entry.collection,list);
+  }
+  for(const [collection,list] of grouped){
+    list.sort((a,b)=>a.index-b.index);
+    for(const entry of list)data[collection].splice(Math.min(entry.index,data[collection].length),0,entry.item);
+  }
+}
+function removeParsedDataLayerEntries(entries){
+  const removeByCollection=new Map();
+  for(const entry of entries||[]){
+    const set=removeByCollection.get(entry.collection)||new Set();set.add(entry.item);removeByCollection.set(entry.collection,set);
+  }
+  for(const [collection,remove] of removeByCollection){
+    if(Array.isArray(data&&data[collection]))data[collection]=data[collection].filter(item=>!remove.has(item));
+  }
+}
 function deleteLayerByName(name){
   name=String(name||"");if(!name)return;
   const layerBody=document.getElementById("layerBody");
@@ -8439,8 +8491,11 @@ function deleteLayerByName(name){
   const relatedLayerNames=isPhotoLayer?[PHOTO_POSITION_LAYER_NAME,PHOTO_LIST_LAYER_NAME]:[name];
   const photoEntries=isPhotoLayer?serializePhotoAnnotations():null;
   if(isPhotoLayer)photoAnnotations=[];
+  const dataEntries=removeParsedDataLayersByName(relatedLayerNames);
+  const removedSourceNames=dataEntries.length?relatedLayerNames.slice():[];
+  for(const relatedName of removedSourceNames)removedSourceLayerNames.add(relatedName);
   for(const relatedName of relatedLayerNames)deletedLayerNames.add(relatedName);
-  recordEditAction({type:"layer-delete",name,relatedLayerNames,entries,aerialEntries,photoEntries,label:"レイヤー削除"});
+  recordEditAction({type:"layer-delete",name,relatedLayerNames,entries,aerialEntries,photoEntries,dataEntries,removedSourceNames,label:"レイヤー削除"});
   cachedMeasurePointsDirty=true;ensureLayerVisibility();renderLayerList();
   if(keepLayerPanelOpen){
     layerPanel.style.display="flex";
@@ -11107,6 +11162,7 @@ function clearLoadedState(){
   redoStrokes = [];
   editUndoActions = [];
   deletedLayerNames = new Set();
+  removedSourceLayerNames = new Set();
   currentStroke = null;
   inkDrawing = false;
   currentLoadedKind = "sfc";
@@ -11132,6 +11188,7 @@ function getSessionPayload(){
     layerVisibility,
     layerColorOverrides,
     deletedLayerNames:[...deletedLayerNames],
+    removedSourceLayerNames:[...removedSourceLayerNames],
     inkStrokes,
     aerialCadImages,
     photoAnnotations:serializePhotoAnnotations(),
@@ -12752,11 +12809,38 @@ function stripEmbeddedAnnotations(srcText){
 }
 function getSfcRenderSourceText(srcText){
   const text=String(srcText||"");
-  // Viewer-generated geometry is also stored in editable metadata. Parsing
-  // both representations duplicates contours and revives deleted geometry.
-  // With valid metadata, render the original SFC and restore generated items
-  // exactly once from that metadata.
-  return parseMemoMetaPayload(text)?stripEmbeddedAnnotations(text):text;
+  const payload=parseMemoMetaPayload(text);
+  if(!payload)return text;
+  // Remove only generated layers which the editable metadata can actually
+  // restore. Older files can contain valid SFC contour features while their
+  // metadata is empty or partial; those features must remain visible.
+  const coveredNames=new Set();
+  for(const stroke of payload.strokes||[]){
+    const spec=getMemoLayerSpecForStroke(stroke);
+    if(spec){coveredNames.add(String(spec.name||""));coveredNames.add(String(spec.rawName||""));}
+  }
+  if((payload.photoAnnotations||[]).length){
+    for(const id of [PHOTO_POSITION_LAYER_ID,PHOTO_LIST_LAYER_ID]){
+      const spec=getMemoLayerSpecById(id);
+      if(spec){coveredNames.add(String(spec.name||""));coveredNames.add(String(spec.rawName||""));}
+    }
+  }
+  const defs=parseLayerFeatureDefsFlat(getFlatSxfText(text));
+  const coveredCodes=new Set();
+  defs.forEach((def,index)=>{
+    if(coveredNames.has(String(def.name||""))||coveredNames.has(String(def.rawName||"")))coveredCodes.add(index+1);
+  });
+  let renderText=text.replace(/\/\*\s*---\s*sfcviewer_generated_begin\s*---\s*\*\/([\s\S]*?)\/\*\s*---\s*sfcviewer_generated_end\s*---\s*\*\//g,(whole,body)=>{
+    if(!coveredCodes.size)return whole;
+    const filtered=String(body).replace(/\/\*SXF(?:3(?:\.1)?)?\r?\n([\s\S]*?)\r?\nSXF(?:3(?:\.1)?)?\*\//g,(block,inner)=>{
+      const records=parseSxfFeatureRecords(inner);
+      if(records.length!==1||!SFC_LAYER_DRAWABLE_FEATURES.has(records[0].name))return block;
+      const code=Number(unquoteSxfValue(records[0].args[0]));
+      return coveredCodes.has(code)?"":block;
+    });
+    return `/* --- sfcviewer_generated_begin --- */${filtered}/* --- sfcviewer_generated_end --- */`;
+  });
+  return renderText.replace(/\/\*\s*SFCVIEWER_MEMO_META_V1:[A-Za-z0-9+/=]+\s*\*\//g,"");
 }
 function parseMemoMetaPayload(srcText){
   try{
@@ -13055,10 +13139,11 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
 const SFC_LAYER_DRAWABLE_FEATURES=new Set(["line_feature","polyline_feature","spline_feature","circle_feature","arc_feature","ellipse_feature","ellipse_arc_feature","point_marker_feature","text_string_feature"]);
 function stripDeletedLayersFromSfc(srcText){
   let text=String(srcText||"");
-  if(!deletedLayerNames.size)return text;
+  const namesToRemove=new Set([...deletedLayerNames,...removedSourceLayerNames]);
+  if(!namesToRemove.size)return text;
   const defs=parseLayerFeatureDefsFlat(getFlatSxfText(text));
   const deletedCodes=[];
-  defs.forEach((def,index)=>{if(deletedLayerNames.has(String(def.name||""))||deletedLayerNames.has(String(def.rawName||"")))deletedCodes.push(index+1);});
+  defs.forEach((def,index)=>{if(namesToRemove.has(String(def.name||""))||namesToRemove.has(String(def.rawName||"")))deletedCodes.push(index+1);});
   if(!deletedCodes.length)return text;
   const deleted=new Set(deletedCodes),removedLayerFeatureIds=new Set(deletedCodes.map(code=>defs[code-1]?.featureId).filter(Number.isFinite));
   const remap=code=>code-deletedCodes.filter(value=>value<code).length;
@@ -13561,6 +13646,7 @@ function buildRecoveryPayload(){
     layerVisibility: layerVisibility || {},
     layerColorOverrides: layerColorOverrides || {},
     deletedLayerNames: [...deletedLayerNames],
+    removedSourceLayerNames: [...removedSourceLayerNames],
     inkStrokes: Array.isArray(inkStrokes) ? inkStrokes : [],
     aerialCadImages: Array.isArray(aerialCadImages) ? aerialCadImages : [],
     photoAnnotations: serializePhotoAnnotations(),
@@ -13735,6 +13821,11 @@ function applyRecoveryPayload(payload){
   layerVisibility=payload.layerVisibility&&typeof payload.layerVisibility==="object"?payload.layerVisibility:{};
   layerColorOverrides=payload.layerColorOverrides&&typeof payload.layerColorOverrides==="object"?payload.layerColorOverrides:{};
   deletedLayerNames=new Set(Array.isArray(payload.deletedLayerNames)?payload.deletedLayerNames.map(String):[]);
+  removedSourceLayerNames=new Set(Array.isArray(payload.removedSourceLayerNames)?payload.removedSourceLayerNames.map(String):[]);
+  for(const name of removedSourceLayerNames)removeParsedDataLayersByName(name);
+  for(const name of deletedLayerNames){
+    if(removeParsedDataLayersByName(name).length)removedSourceLayerNames.add(name);
+  }
   if(payload.view&&typeof payload.view==="object")view=payload.view;
   if(Number.isFinite(+payload.rotationDeg))rotationDeg=+payload.rotationDeg;
   updateThemeUI();
@@ -14334,6 +14425,16 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   inkStrokes = restoreInkStrokesFromSourceText(srcText);
   restorePhotoAnnotations(restorePhotoAnnotationsFromSourceText(srcText));
   deletedLayerNames = restoreDeletedLayerNamesFromSourceText(srcText);
+  removedSourceLayerNames = new Set();
+  // If geometry is present in metadata it wins over a stale deleted flag.
+  // A truly deleted layer has no restored strokes because export filters them.
+  for(const stroke of inkStrokes){
+    const name=getMemoLayerSpecForStroke(stroke)?.name;
+    if(name)deletedLayerNames.delete(name);
+  }
+  for(const name of [...deletedLayerNames]){
+    if(removeParsedDataLayersByName(name).length)removedSourceLayerNames.add(name);
+  }
   redoStrokes = [];
   updateUndoRedoUI();
   updateStopBtnUI();
