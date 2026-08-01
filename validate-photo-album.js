@@ -12,7 +12,7 @@ const checks = [
   ["新規の既定コメント", /comment1:"number",comment2:"fileName",comment3:"capturedAt"/],
   ["撮影方向8方位", /const labels=\["北へ","北東へ","東へ","南東へ","南へ","南西へ","西へ","北西へ"\]/],
   ["6枚8枚の豆図無効化", /const disabled=layout==="6"\|\|layout==="8";[\s\S]*mini\.disabled=disabled/],
-  ["6枚8枚では豆図を生成しない", /const useMiniMap=!!settings\.miniMap&&!compact/],
+  ["3枚と見開きでも豆図を生成", /const miniMapAllowed=isSpread\|\|photosPerPage<=4;[\s\S]*const useMiniMap=!!settings\.miniMap&&miniMapAllowed/],
   ["豆図設定の保持", /dataset\.preferred=settings\.miniMap\?"true":"false"/],
   ["元写真のセッション保持", /const photoSourceFiles = new Map\(\)/],
   ["写真の縦横比維持", /function fitPhotoAlbumImage\(image,rect\)/],
@@ -27,9 +27,10 @@ const checks = [
   ["印刷ページ中央", /printOptions horizontalCentered="1" verticalCentered="1"/],
   ["手動改ページ", /<rowBreaks count=/],
   ["画像埋込み", /<xdr:twoCellAnchor editAs="oneCell">/],
-  ["片面は写真左コメント右", /photoColStart=front\?1:8,photoColEnd=front\?6:13/],
-  ["見開き表裏反転", /commentColStart=front\?8:1,commentColEnd=front\?13:6/],
-  ["2枚3枚は写真欄を拡大", /const widePhotoLayout=!isSpread&&\(photosPerPage===2\|\|photosPerPage===3\)[\s\S]*photoColumnPx=widePhotoLayout\?72:60,commentColumnPx=widePhotoLayout\?48:60/],
+  ["片面は写真左コメント右", /photoColStart=isSpread\?\(front\?1:11\):\(front\?1:8\)/],
+  ["見開き表裏で大きい写真欄を反転", /photoColEnd=isSpread\?\(front\?15:25\)[\s\S]*commentColStart=isSpread\?\(front\?17:1\)[\s\S]*commentColEnd=isSpread\?\(front\?25:9\)/],
+  ["3枚は写真欄をさらに拡大", /const threePhotoLayout=!isSpread&&photosPerPage===3;[\s\S]*photoColumnPx=threePhotoLayout\?78:[\s\S]*commentColumnPx=threePhotoLayout\?42:/],
+  ["見開きは25列で写真欄を拡大", /const spreadColumnWidthsPx=\[\.\.\.Array\(9\)\.fill\(28\),13,\.\.\.Array\(5\)\.fill\(40\),13,\.\.\.Array\(9\)\.fill\(28\)\]/],
   ["2枚3枚は上下余白を縮小", /const photoInsetY=photosPerPage<=3\?1:photosPerPage===4\?4:2/],
   ["4枚は写真間隔を拡大", /photosPerPage===4\?4:2/],
   ["2枚から4枚の写真セル罫線を除去", /merge\(slotTop\+1,photoColStart,slotBottom,photoColEnd,"",1\)/],
@@ -45,6 +46,8 @@ const checks = [
   ["写真位置を座標へ反映", /function applyPhotoAdjustedWorldPosition\(item,worldX,worldY\)[\s\S]*item\.xNorth=plane\.xNorth;item\.yEast=plane\.yEast/],
   ["矢印先端で方向回転", /item\.direction=\(\(Math\.atan2\(dy,dx\)\*180\/Math\.PI\)\%360\+360\)\%360/],
   ["調整後の8方向を一覧Excelへ出力", /["番号","ファイル名","撮影時間","X座標","Y座標","DEM標高","使用DEM","撮影方向"]/],
+  ["保存先を生成前に指定", /let saveHandle=null;[\s\S]*showSaveFilePicker[\s\S]*showBusy\("写真帳を作成中…"\)[\s\S]*buildPhotoAlbumXlsx\(settings\)/],
+  ["保存先選択失敗時に自動ダウンロードしない", /showToast\("保存先を選択できませんでした",3200\);return;/],
 ];
 
 for (const [label, pattern] of checks) {

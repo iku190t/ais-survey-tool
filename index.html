@@ -13347,14 +13347,26 @@ async function buildPhotoAlbumXlsx(settings){
   if(missing)throw new Error(`写真帳に使う元写真をもう一度開いてください（${missing}枚）`);
   const isSpread=settings.layout==="spread",photosPerPage=isSpread?3:Number(settings.layout)||3;
   const compact=photosPerPage>=6,columns=isSpread?1:(compact?2:1),rowsPerPage=isSpread?3:photosPerPage/columns;
-  const useMiniMap=!!settings.miniMap&&!compact;
+  // 豆図は2・3・4枚と見開き3枚で使用する。6・8枚だけは対象外。
+  const miniMapAllowed=isSpread||photosPerPage<=4;
+  const useMiniMap=!!settings.miniMap&&miniMapAllowed;
   const pageRows=60,slotRows=pageRows/rowsPerPage,rowPx=17,pageCount=Math.ceil(photoAnnotations.length/photosPerPage);
   const widePhotoLayout=!isSpread&&(photosPerPage===2||photosPerPage===3);
-  const photoColumnPx=widePhotoLayout?72:60,commentColumnPx=widePhotoLayout?48:60;
-  const columnWidthsPx=Array.from({length:13},(_,index)=>index<6?photoColumnPx:index===6?13:commentColumnPx),columnCount=columnWidthsPx.length;
-  const columnXml=widePhotoLayout
-    ?'<col min="1" max="6" width="9.6" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="6.4" customWidth="1"/>'
-    :'<col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="8" customWidth="1"/>';
+  // 3枚はコメント欄を右へ詰め、写真をできるだけ大きくする。
+  const threePhotoLayout=!isSpread&&photosPerPage===3;
+  const photoColumnPx=threePhotoLayout?78:(widePhotoLayout?72:60),commentColumnPx=threePhotoLayout?42:(widePhotoLayout?48:60);
+  // 見開きは同じシート内で表裏の左右を反転するため、25列に分ける。
+  // 表は左15列を写真、裏は右15列を写真にして、どちらも3枚形式と同じ大きさを確保する。
+  const spreadColumnWidthsPx=[...Array(9).fill(28),13,...Array(5).fill(40),13,...Array(9).fill(28)];
+  const columnWidthsPx=isSpread
+    ?spreadColumnWidthsPx
+    :Array.from({length:13},(_,index)=>index<6?photoColumnPx:index===6?13:commentColumnPx);
+  const columnCount=columnWidthsPx.length;
+  const columnXml=isSpread
+    ?'<col min="1" max="9" width="3.75" customWidth="1"/><col min="10" max="10" width="1" customWidth="1"/><col min="11" max="15" width="5.33" customWidth="1"/><col min="16" max="16" width="1" customWidth="1"/><col min="17" max="25" width="3.75" customWidth="1"/>'
+    :(widePhotoLayout
+      ?`<col min="1" max="6" width="${threePhotoLayout?10.4:9.6}" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="${threePhotoLayout?5.6:6.4}" customWidth="1"/>`
+      :'<col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="8" customWidth="1"/>');
   const columnLeftPx=column=>columnWidthsPx.slice(0,Math.max(0,column-1)).reduce((sum,value)=>sum+value,0);
   const columnRangeWidthPx=(start,end)=>columnWidthsPx.slice(start-1,end).reduce((sum,value)=>sum+value,0);
   const totalRows=Math.max(pageRows,pageCount*pageRows);
@@ -13391,8 +13403,10 @@ async function buildPhotoAlbumXlsx(settings){
       fields.forEach((field,line)=>mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
     }else{
       const front=!isSpread||page%2===0;
-      const photoColStart=front?1:8,photoColEnd=front?6:13;
-      const commentColStart=front?8:1,commentColEnd=front?13:6;
+      const photoColStart=isSpread?(front?1:11):(front?1:8);
+      const photoColEnd=isSpread?(front?15:25):(front?6:13);
+      const commentColStart=isSpread?(front?17:1):(front?8:1);
+      const commentColEnd=isSpread?(front?25:9):(front?13:6);
       merge(slotTop+1,photoColStart,slotBottom,photoColEnd,"",1);
       const photoInsetY=photosPerPage<=3?1:photosPerPage===4?4:2;
       const photoRect={x:columnLeftPx(photoColStart)+2,y:slotTop*rowPx+photoInsetY,width:columnRangeWidthPx(photoColStart,photoColEnd)-4,height:slotRows*rowPx-photoInsetY*2};
@@ -13445,7 +13459,7 @@ async function buildPhotoAlbumXlsx(settings){
   const files=[
     {name:"[Content_Types].xml",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">${types}</Types>`},
     {name:"_rels/.rels",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
-    {name:"xl/workbook.xml",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets><sheet name="写真帳" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">'写真帳'!$A$1:$M$${totalRows}</definedName></definedNames></workbook>`},
+    {name:"xl/workbook.xml",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets><sheet name="写真帳" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">'写真帳'!$A$1:$${excelColumnName(columnCount)}$${totalRows}</definedName></definedNames></workbook>`},
     {name:"xl/_rels/workbook.xml.rels",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
     {name:"xl/styles.xml",blob:styles},
     {name:"xl/worksheets/sheet1.xml",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0" showRowColHeaders="0"/></sheetViews><sheetFormatPr defaultRowHeight="12.75"/><cols>${columnXml}</cols><sheetData>${rows.join("")}</sheetData>${merges.length?`<mergeCells count="${merges.length}">${merges.map(ref=>`<mergeCell ref="${ref}"/>`).join("")}</mergeCells>`:""}<printOptions horizontalCentered="1" verticalCentered="1" headings="0" gridLines="0"/><pageMargins left="0.2" right="0.2" top="0.2" bottom="0.2" header="0" footer="0"/><pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0" horizontalDpi="300" verticalDpi="300"/>${breaks?`<rowBreaks count="${pageCount-1}" manualBreakCount="${pageCount-1}">${breaks}</rowBreaks>`:""}<drawing r:id="rId1"/></worksheet>`},
@@ -13460,15 +13474,22 @@ async function exportPhotoAlbumExcel(){
   if(!photoAnnotations.length){showToast("先に写真を開いてください");return;}
   const settings=getPhotoAlbumSettingsFromUi();savePhotoAlbumSettings(settings);setPhotoAlbumModalOpen(false);
   const base=normalizeExportFileName(String(data&&data.source_name||"図面").replace(/\.[^.]+$/,""),"図面"),fileName=`${base}_写真帳.xlsx`;
+  // 大容量の写真帳では生成中にユーザー操作権限が切れるため、
+  // Excelを作る前（クリック直後）に保存先を選んでもらう。
+  let saveHandle=null;
+  if(typeof window.showSaveFilePicker==="function"){
+    try{
+      saveHandle=await window.showSaveFilePicker({id:"sfcviewer-photo-album",suggestedName:fileName,types:[{description:"Excel写真帳",accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]});
+    }catch(error){
+      if(error&&error.name==="AbortError")return;
+      console.error(error);showToast("保存先を選択できませんでした",3200);return;
+    }
+  }
   showBusy("写真帳を作成中…");await waitForUiPaint();
   try{
-    const blob=await buildPhotoAlbumXlsx(settings);hideBusy();
-    if(window.showSaveFilePicker&&!isTouchMobileLike()){
-      try{
-        const handle=await window.showSaveFilePicker({id:"sfcviewer-photo-album",suggestedName:fileName,types:[{description:"Excel写真帳",accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]});
-        showBusy("写真帳を保存中…");await writeBlobToHandle(handle,blob);hideBusy();showToast("写真帳を保存しました");return;
-      }catch(error){hideBusy();if(error&&error.name==="AbortError")return;}
-    }
+    const blob=await buildPhotoAlbumXlsx(settings);
+    if(saveHandle){updateBusy("写真帳を保存中…");await writeBlobToHandle(saveHandle,blob);hideBusy();showToast("写真帳を保存しました");return;}
+    hideBusy();
     downloadBlob(blob,fileName);showToast("写真帳を作成しました");
   }catch(error){hideBusy();console.error(error);showToast(error&&error.message||"写真帳を作成できませんでした",3600);}
 }
