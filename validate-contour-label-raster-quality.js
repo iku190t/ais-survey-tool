@@ -47,6 +47,17 @@ requireText(
   "direct source-tile SFC raster renderer is missing"
 );
 requireText(
+  'const GSI_TILE_ATTRIBUTION_TEXT="出典：国土地理院　地理院タイル";',
+  "GSI tile attribution text is missing"
+);
+requireText(
+  "function drawGsiTileAttribution(context,width,height,text=GSI_TILE_ATTRIBUTION_TEXT)",
+  "GSI tile attribution renderer is missing"
+);
+if((html.match(/drawGsiTileAttribution\(/g)||[]).length<4){
+  throw new Error("GSI tile attribution is not applied to CAD preview and SFC raster export");
+}
+requireText(
   "const direct=await renderAerialSourceTilesForSfcExport(entry,displayToPaper);",
   "SFC raster export still always re-encodes the preview JPEG"
 );
@@ -94,6 +105,18 @@ requireText(
 requireText(
   "function terrainCadSegmentDedupKey(a,b)",
   "chunked contour CAD export does not remove duplicate segments"
+);
+requireText(
+  "function terrainCadSourceLabelForPolygon(polygon)",
+  "contour CAD source attribution is missing"
+);
+requireText(
+  "appendTextLabel(s.terrainSourceLabel,layerCode,colorCode,true);",
+  "contour CAD source attribution is not exported as SFC text"
+);
+requireText(
+  "encodeSfcText(GSI_DEM_ATTRIBUTION_TEXT)",
+  "profile SFC source attribution is missing"
 );
 if(!annotationBlock.includes("Math.round(+label.align1||5)")){
   throw new Error("SFC contour labels do not default to the centre anchor");

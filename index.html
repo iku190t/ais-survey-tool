@@ -1405,7 +1405,7 @@ gtag('config', 'G-88B9YPJXWP');
         <div id="profileLoading">標高データを取得中…</div>
       </div>
       <div id="profileFooter">
-        <div id="profileNotice">この断面図は概略です。測量には使用できません。<br>地理院タイル（標高タイル（基盤地図情報数値標高モデル））を加工して作成</div>
+        <div id="profileNotice">この断面図は概略です。測量には使用できません。<br>出典：国土地理院　地理院タイル（標高タイル）を加工して作成</div>
         <button id="profileExportSfcBtn" type="button">断面SFC書出<br>1/100</button>
       </div>
     </div>
@@ -1559,10 +1559,10 @@ gtag('config', 'G-88B9YPJXWP');
     <button id="terrainCadCancelBtn" type="button">取消</button>
   </div>
 
-  <a id="photoCredit" href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院 地理院タイル</a>
-  <a id="registryMapCredit" href="https://front.geospatial.jp/moj-chizu-xml-readme/" target="_blank" rel="noopener">出典：法務省 登記所備付地図データ（G空間情報センター）</a>
-  <a id="hazardMapCredit" href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">出典：国土地理院 ハザードマップポータルサイト</a>
-  <a id="controlPointCredit" href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院 地理院タイル（基準点）</a>
+  <a id="photoCredit" href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院　地理院タイル</a>
+  <a id="registryMapCredit" href="https://front.geospatial.jp/moj-chizu-xml-readme/" target="_blank" rel="noopener">出典：法務省　登記所備付地図データ（G空間情報センター）</a>
+  <a id="hazardMapCredit" href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">出典：国土地理院　ハザードマップポータルサイト</a>
+  <a id="controlPointCredit" href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院　地理院タイル（基準点）</a>
   <div id="controlPointLegend" aria-label="基準点・水準点の凡例">
     <div class="controlPointLegendItems">
       <span class="controlPointLegendItem"><span class="controlPointLegendSymbol triangulation"></span>三角点・基準点</span>
@@ -1867,7 +1867,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">閉じる・非表示</div><b>閉じる</b> は選んだ航空写真を残して設定画面だけ閉じます。航空写真を消す場合はスイッチをOFFにしてください。</div>
               <div class="helpBlock"><div class="helpHead">写真がない場合</div>その場所で利用できる航空写真が一枚もない場合は、メッセージを表示してスイッチをOFFへ戻します。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>SFCと航空写真を合わせるため、初回は現在地から図面の座標系を確認します。位置情報の利用を許可してください。</div>
-              <div class="helpBlock"><div class="helpHead">出典</div>国土地理院の地理院タイルを通信で表示します。航空写真表示中は画面右下に出典を表示します。</div>
+              <div class="helpBlock"><div class="helpHead">出典</div>国土地理院の地理院タイルを通信で表示します。航空写真表示中は画面右下に出典を表示します。航空写真をCAD化した画像には右下へ「出典：国土地理院　地理院タイル」を記載し、等高線CAD・断面SFCには標高タイルを加工して作成したことを記載します。</div>
               <div class="helpBlock"><div class="helpHead">航空写真をCAD化</div>年代を選び、<b>範囲を選んでCAD化</b>を押します。図面上で多角形の頂点を順にタップして確定すると、年代付きレイヤーとして現在の図面へ固定配置します。保存時は画面の拡大率に関係なく、その場所で取得できる最も細かい地理院タイルから最終画像を直接作成し、中間画像の再圧縮による画質低下を防ぎます。背景の航空写真をOFFにしても固定した写真は残ります。PCで<b>名前を付けて保存</b>を選ぶと、SFCと参照JPEGを同じフォルダーへ保存します。外部CADで画像を表示するため、SFCとJPEGを同じフォルダーに置いたまま開いてください。</div>
               <div class="helpBlock"><div class="helpHead">地形解析</div>背景画面の<b>地形解析</b>を押すと地形解析画面へ進みます。<b>閉じる</b>で背景画面へ戻ります。<b>標高</b>、<b>傾斜角</b>、<b>等高線</b>、<b>水の流れ</b>、<b>概算土量</b>は1種類だけ表示され、選択中の青いボタンをもう一度押すと解除できます。取得中は選択ボタンに進行表示が出ます。</div>
               <div class="helpBlock"><div class="helpHead">標高</div>現在見えている範囲の最低標高から最高標高までを10段階に分け、低い場所を青、高い場所を赤で表示します。凡例には実際の標高値を表示します。</div>
@@ -2386,6 +2386,8 @@ const AERIAL_PHOTO_SOURCES = [
   {id:"ort_riku10",label:"1936～1942年頃（一部地域）",url:"https://cyberjapandata.gsi.go.jp/xyz/ort_riku10/{z}/{x}/{y}.png",minZ:13,maxZ:18},
   {id:"ort_1928",label:"1928年頃（大阪市域）",url:"https://cyberjapandata.gsi.go.jp/xyz/ort_1928/{z}/{x}/{y}.png",minZ:13,maxZ:18}
 ];
+const GSI_TILE_ATTRIBUTION_TEXT="出典：国土地理院　地理院タイル";
+const GSI_DEM_ATTRIBUTION_TEXT="出典：国土地理院　地理院タイル（標高タイル）を加工して作成";
 const aerialPhotoTileCache = new Map();
 let aerialPhotoEnabled = false;
 let aerialPhotoSourceIndex = 0;
@@ -3074,7 +3076,7 @@ function updateAerialPhotoUi(){
   if(vectorMapToggleSwitch)vectorMapToggleSwitch.checked=vectorBaseMapEnabled;
   if(photoCredit){
     photoCredit.classList.toggle("show",aerialPhotoEnabled||vectorBaseMapEnabled);
-    photoCredit.textContent=aerialPhotoEnabled&&vectorBaseMapEnabled?"出典：国土地理院 地理院タイル・地理院地図Vector":(vectorBaseMapEnabled?"出典：国土地理院 地理院地図Vector":"出典：国土地理院 地理院タイル");
+    photoCredit.textContent=aerialPhotoEnabled&&vectorBaseMapEnabled?"出典：国土地理院　地理院タイル・地理院地図Vector":(vectorBaseMapEnabled?"出典：国土地理院　地理院地図Vector":GSI_TILE_ATTRIBUTION_TEXT);
     photoCredit.href=vectorBaseMapEnabled?"https://maps.gsi.go.jp/vector/":"https://maps.gsi.go.jp/development/ichiran.html";
   }
   document.getElementById("backgroundBlackBtn")?.classList.toggle("selected",darkTheme);
@@ -3580,7 +3582,8 @@ function normalizeAerialCadImageEntry(entry){
     resolution:Number.isFinite(+entry.resolution)?+entry.resolution:null,
     width:Number.isFinite(+entry.width)?+entry.width:null,
     height:Number.isFinite(+entry.height)?+entry.height:null,
-    rasterAxisVersion:Number.isFinite(+entry.rasterAxisVersion)?+entry.rasterAxisVersion:1
+    rasterAxisVersion:Number.isFinite(+entry.rasterAxisVersion)?+entry.rasterAxisVersion:1,
+    attributionEmbedded:entry.attributionEmbedded===true
   };
 }
 function ensureAerialCadImageRuntime(entry){
@@ -3726,6 +3729,34 @@ function getAerialSelectionPlaneGeometry(worldPolygon){
     bounds:{minX:Math.min(...xs),maxX:Math.max(...xs),minY:Math.min(...ys),maxY:Math.max(...ys)}
   };
 }
+function drawGsiTileAttribution(context,width,height,text=GSI_TILE_ATTRIBUTION_TEXT){
+  if(!context||!(width>0&&height>0)||!String(text||"").trim())return;
+  const label=String(text);
+  let fontSize=Math.max(14,Math.min(32,Math.round(Math.min(width,height)*.022)));
+  const padding=Math.max(5,Math.round(fontSize*.42));
+  context.save();
+  context.setTransform(1,0,0,1,0,0);
+  context.textAlign="right";
+  context.textBaseline="bottom";
+  context.font=`700 ${fontSize}px "Yu Gothic",Meiryo,sans-serif`;
+  let textWidth=context.measureText(label).width;
+  const availableWidth=Math.max(24,width-padding*2);
+  if(textWidth>availableWidth){
+    fontSize=Math.max(9,Math.floor(fontSize*availableWidth/textWidth));
+    context.font=`700 ${fontSize}px "Yu Gothic",Meiryo,sans-serif`;
+    textWidth=context.measureText(label).width;
+  }
+  const boxHeight=fontSize+padding*2;
+  const boxWidth=Math.min(width,textWidth+padding*2);
+  context.fillStyle="rgba(0,0,0,.68)";
+  context.fillRect(width-boxWidth,height-boxHeight,boxWidth,boxHeight);
+  context.lineWidth=Math.max(2,fontSize*.12);
+  context.strokeStyle="rgba(0,0,0,.72)";
+  context.strokeText(label,width-padding,height-padding);
+  context.fillStyle="#ffffff";
+  context.fillText(label,width-padding,height-padding);
+  context.restore();
+}
 async function renderVisibleAerialPhotoForSfc(worldPolygon){
   if(!aerialPhotoEnabled||!aerialPhotoZone||!ensureProj4Defs())throw new Error("航空写真を表示してください");
   const source=aerialAvailableSources[aerialPhotoSourceIndex];
@@ -3794,13 +3825,14 @@ async function renderVisibleAerialPhotoForSfc(worldPolygon){
     drawn++;
   }
   if(!drawn)throw new Error("この範囲の航空写真を取得できません");
+  drawGsiTileAttribution(outCtx,width,height);
   // JPEGが必要な外部CADとの互換性を維持しつつ、最高品質で保持する。
   const plainJpeg=await canvasToBlobAsync(output,"image/jpeg",1);
   const jpeg=await injectGeoReferenceIntoJpeg(plainJpeg,{
     zone:aerialPhotoZone,resolution,
     tieX:imageBounds.minY,tieY:imageBounds.maxX
   });
-  return {jpeg,source,bounds:imageBounds,planePolygon,resolution,width,height};
+  return {jpeg,source,bounds:imageBounds,planePolygon,resolution,width,height,attributionEmbedded:true};
 }
 function getNextAerialImageSerial(srcText){
   const used=new Set();
@@ -3980,6 +4012,7 @@ async function renderAerialSourceTilesForSfcExport(entry,displayToPaper){
   }
   outputContext.restore();
   if(!drawn)return null;
+  drawGsiTileAttribution(outputContext,width,height);
   // Draw the original highest-zoom tiles directly into the final paper-aligned
   // JPEG. This avoids decoding and re-encoding the intermediate CAD preview.
   return {blob:await canvasToBlobAsync(output,"image/jpeg",1),paperCorners:geometry.paperCorners,width,height};
@@ -4041,6 +4074,9 @@ async function prepareAerialRasterForSfcExport(entry,displayToPaper){
     );
     outputContext.drawImage(image,0,0,sourceWidth,sourceHeight);
     outputContext.restore();
+    if(!entry.attributionEmbedded&&/^地理院タイル航空写真/.test(String(entry.layerName||""))){
+      drawGsiTileAttribution(outputContext,width,height);
+    }
     return {
       blob:await canvasToBlobAsync(output,"image/jpeg",1),
       paperCorners:geometry.paperCorners,width,height
@@ -4185,7 +4221,7 @@ async function cadizeVisibleAerialPhoto(worldPolygon){
       bounds:image.bounds,planePolygon:image.planePolygon,
       source:{id:image.source.id||"",label:image.source.label||""},
       resolution:image.resolution,width:image.width,height:image.height,
-      rasterAxisVersion:2
+      rasterAxisVersion:2,attributionEmbedded:image.attributionEmbedded===true
     });
     if(!entry)throw new Error("航空写真をCAD化できませんでした");
     const revived=deletedLayerNames.has(entry.layerName);
@@ -5111,7 +5147,7 @@ function terrainDemInfoHtml(grid){
   const methods=[...new Set(used.map(source=>source.method))];
   const worstDeviation=Math.max(...used.map(source=>source.standardDeviation));
   const mixed=used.length>1?"（混在）":"";
-  return `<span class="terrainDemInfo"><span><b>使用データ：</b>${used.map(source=>source.id).join("・")}${mixed}</span><span><b>作成方法：</b>${methods.join("／")}</span><span><b>標高精度の目安：</b>標準偏差 ${worstDeviation.toFixed(1)}m以内</span><span id="terrainDemPositionInfo"></span><span>出典：国土地理院</span></span>`;
+  return `<span class="terrainDemInfo"><span><b>使用データ：</b>${used.map(source=>source.id).join("・")}${mixed}</span><span><b>作成方法：</b>${methods.join("／")}</span><span><b>標高精度の目安：</b>標準偏差 ${worstDeviation.toFixed(1)}m以内</span><span id="terrainDemPositionInfo"></span><span>${GSI_DEM_ATTRIBUTION_TEXT}</span></span>`;
 }
 function terrainPointAtScreen(grid,screenX,screenY){
   if(!grid||terrainViewportNeedsRefresh(grid)||!Number.isFinite(screenX)||!Number.isFinite(screenY))return null;
@@ -5548,7 +5584,8 @@ function buildProfileSfcFile(){
     "\x8F\x6B\x8E\xDA=1/100",
     `\x8B\x4E\x93\x5F   X=${startPlane.xNorth.toFixed(3)} Y=${startPlane.yEast.toFixed(3)} Z=${firstSample.elevation.toFixed(3)}`,
     `\x8F\x49\x93\x5F   X=${endPlane.xNorth.toFixed(3)} Y=${endPlane.yEast.toFixed(3)} Z=${lastSample.elevation.toFixed(3)}`,
-    `\x89\x84\x92\xB7   ${length.toFixed(3)}m`
+    `\x89\x84\x92\xB7   ${length.toFixed(3)}m`,
+    encodeSfcText(GSI_DEM_ATTRIBUTION_TEXT)
   ];
   // Y grows upward in SFC.  Start at the highest row so the visual top-to-bottom
   // order is: scale, start, end, length.
@@ -10019,6 +10056,19 @@ function terrainCadLabelForPolyline(points,level){
   }
   return null;
 }
+function terrainCadSourceLabelForPolygon(polygon){
+  const points=(Array.isArray(polygon)?polygon:[]).filter(point=>point&&Number.isFinite(+point.x)&&Number.isFinite(+point.y));
+  if(!points.length)return null;
+  const units=getMemoWorldUnitsPerPaperMm();
+  return {
+    x:Math.max(...points.map(point=>+point.x))-2*units,
+    y:Math.min(...points.map(point=>+point.y))+2*units,
+    angle:0,align1:3,align2:1,
+    heightMm:2.5,
+    widthMm:measureSxfTextWidthMm(GSI_DEM_ATTRIBUTION_TEXT,2.5),
+    text:GSI_DEM_ATTRIBUTION_TEXT
+  };
+}
 function terrainCadPlaneBoundsFromWorldPolygon(worldPolygon){
   const planePolygon=worldPolygon.map(point=>{
     const plane=sfcWorldToPlane(point.x,point.y);return {x:plane.xNorth,y:plane.yEast};
@@ -10141,9 +10191,14 @@ function drawTerrainCadSelection(){
   ctx.restore();
 }
 function drawTerrainCadLabels(){
-  const labels=(inkStrokes||[]).filter(stroke=>stroke&&stroke.isTerrainContour&&stroke.terrainLabel&&isLayerVisible(getInkStrokeLayerId(stroke)));
-  if(!labels.length)return;ctx.save();ctx.font="700 12px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
-  for(const stroke of labels){const label=stroke.terrainLabel,p=worldToScreen(label.x,label.y);ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(-(rotationDeg||0)*Math.PI/180);ctx.lineWidth=3;ctx.strokeStyle=darkTheme?"rgba(0,0,0,.9)":"rgba(255,255,255,.9)";ctx.strokeText(label.text,0,0);ctx.fillStyle=adaptContrastColor(getMemoExportColor(stroke));ctx.fillText(label.text,0,0);ctx.restore();}
+  const labels=[];
+  for(const stroke of inkStrokes||[]){
+    if(!stroke||!stroke.isTerrainContour||!isLayerVisible(getInkStrokeLayerId(stroke)))continue;
+    if(stroke.terrainLabel)labels.push({stroke,label:stroke.terrainLabel,source:false});
+    if(stroke.terrainSourceLabel)labels.push({stroke,label:stroke.terrainSourceLabel,source:true});
+  }
+  if(!labels.length)return;ctx.save();ctx.font="700 12px sans-serif";
+  for(const item of labels){const {stroke,label,source}=item,p=worldToScreen(label.x,label.y);ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(-(rotationDeg||0)*Math.PI/180);ctx.textAlign=source?"right":"center";ctx.textBaseline=source?"bottom":"middle";ctx.lineWidth=3;ctx.strokeStyle=darkTheme?"rgba(0,0,0,.9)":"rgba(255,255,255,.9)";ctx.strokeText(label.text,0,0);ctx.fillStyle=adaptContrastColor(getMemoExportColor(stroke));ctx.fillText(label.text,0,0);ctx.restore();}
   ctx.restore();
 }
 async function finishTerrainCadSelection(){
@@ -10179,6 +10234,9 @@ async function finishTerrainCadSelection(){
     }
     const created=createTerrainCadStrokesFromGroups(groups);
     if(!created.length)throw new Error("指定範囲に等高線がありません");
+    const sourceLabel=terrainCadSourceLabelForPolygon(polygon);
+    const sourceTarget=created.find(stroke=>stroke.terrainContourKind==="index")||created[0];
+    if(sourceLabel&&sourceTarget)sourceTarget.terrainSourceLabel=sourceLabel;
     addInkStrokeOperation(created,"等高線CAD化");ensureLayerVisibility();renderLayerList();markMemoChanged();clearTerrainAnalysis();hideBusy();
     if(terrainPanel)terrainPanel.style.display="block";
     updateTerrainUi();showToast("CAD化しました",1800);
@@ -11787,6 +11845,7 @@ function normalizeInkStrokeForSave(s){
     terrainDemSource: normalizeTerrainDemSource(s.terrainDemSource) || null,
     terrainLevel: Number.isFinite(+s.terrainLevel) ? +s.terrainLevel : null,
     terrainLabel: s.terrainLabel || null,
+    terrainSourceLabel: s.terrainSourceLabel || null,
     photoLayerId: s.photoLayerId || null,
     photoTextLabel: s.photoTextLabel || null,
     points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})) : []
@@ -11824,6 +11883,7 @@ function strokeToWorldPolyline(stroke){
     terrainDemSource: normalizeTerrainDemSource(stroke.terrainDemSource) || null,
     terrainLevel: Number.isFinite(+stroke.terrainLevel) ? +stroke.terrainLevel : null,
     terrainLabel: stroke.terrainLabel || null,
+    terrainSourceLabel: stroke.terrainSourceLabel || null,
     photoLayerId: stroke.photoLayerId || null,
     photoTextLabel: stroke.photoTextLabel || null,
     points: stroke.points.map(p => ({x:+p.x||0, y:+p.y||0}))
@@ -13825,6 +13885,7 @@ SXF*/`);
 SXF*/`);
         id += 1;
       }
+      appendTextLabel(s.terrainSourceLabel,layerCode,colorCode,true);
       appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
     }
   }
@@ -13912,6 +13973,7 @@ function buildMemoMetaComment(){
       terrainDemSource: normalizeTerrainDemSource(s.terrainDemSource) || null,
       terrainLevel: Number.isFinite(+s.terrainLevel) ? +s.terrainLevel : null,
       terrainLabel: s.terrainLabel || null,
+      terrainSourceLabel: s.terrainSourceLabel || null,
       points: s.points.map(p => ({x:+p.x||0, y:+p.y||0}))
     }));
     const payload = { version:3, strokes, photoAnnotations:serializePhotoAnnotations(), deletedLayerNames:[...deletedLayerNames] };
@@ -15383,6 +15445,7 @@ function restoreInkStrokesFromSourceText(srcText){
       terrainDemSource: normalizeTerrainDemSource(s.terrainDemSource) || null,
       terrainLevel: Number.isFinite(+s.terrainLevel) ? +s.terrainLevel : null,
       terrainLabel: s.terrainLabel || null,
+      terrainSourceLabel: s.terrainSourceLabel || null,
       points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y)) : []
     })).map(migrateLegacyCircleMemoStroke).filter(s => s.points.length >= 2);
   }
