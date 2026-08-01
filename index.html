@@ -389,22 +389,21 @@ label.fileBtn{
 .textLayerColorSwatch::after{content:"";display:block;width:100%;height:100%;border-radius:3px;background:var(--swatch-color);box-shadow:inset 0 0 0 1px rgba(127,127,127,.55);}
 .textLayerColorSwatch.selected{border-color:#1677ff;box-shadow:0 0 0 2px rgba(22,119,255,.28);}
 #coordinateInspectModal{display:none;position:fixed;inset:0;z-index:231;background:transparent;align-items:flex-end;justify-content:center;padding:12px 12px calc(14px + env(safe-area-inset-bottom));box-sizing:border-box;pointer-events:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
-#coordinateInspectBox{width:min(286px,88vw);background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:10px;box-shadow:0 12px 30px rgba(0,0,0,.42);box-sizing:border-box;pointer-events:auto;}
-#coordinateInspectHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+#coordinateInspectBox{width:min(238px,86vw);background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:8px;box-shadow:0 12px 30px rgba(0,0,0,.42);box-sizing:border-box;pointer-events:auto;}
+#coordinateInspectHeader{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:3px;}
 #coordinateInspectTitle{font-size:15px;font-weight:800;}
 #coordinateInspectHeaderActions{display:flex;align-items:center;gap:6px;}
 #coordinateInspectCopyAllBtn{display:none;min-width:88px!important;}
-#coordinateInspectGrid{display:grid;gap:6px;font-size:13px;}
-.coordinateInspectRow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;}
+#coordinateInspectGrid{display:grid;gap:2px;font-size:13px;}
+.coordinateInspectRow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px;align-items:center;min-height:24px;}
 .coordinateInspectRow span{color:var(--muted);white-space:nowrap;}
-.coordinateInspectRow strong{min-width:0;text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+.coordinateInspectRow strong{min-width:0;text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;cursor:text;}
 #coordinateInspectDifference{margin-top:8px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;font-size:11px;line-height:1.55;color:var(--text);}
 #coordinateInspectDifference .terrainDiffHead{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:800;}
 #coordinateInspectDifference .terrainDiffValue.low{color:#35c96f;}
 #coordinateInspectDifference .terrainDiffValue.medium{color:#ffd24a;}
 #coordinateInspectDifference .terrainDiffValue.high{color:#ff6b5f;}
 #coordinateInspectDifference .terrainDiffValues{margin-top:3px;color:var(--muted);}
-.coordinateCopyBtn{display:none;align-items:center;justify-content:center;min-width:54px;min-height:30px;padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap;}
 #canvas.desktopCadCrosshair{cursor:none;}
 #desktopCadCrosshair{display:none;position:absolute;left:0;top:0;width:72px;height:72px;z-index:58;pointer-events:none;transform:translate3d(-100px,-100px,0);will-change:transform;}
 #desktopCadCrosshair::before,#desktopCadCrosshair::after{content:"";position:absolute;left:50%;top:50%;background:rgba(255,255,255,.72);box-shadow:0 0 1px rgba(0,0,0,.9);}
@@ -1369,15 +1368,12 @@ gtag('config', 'G-88B9YPJXWP');
       <div id="coordinateInspectGrid">
         <div class="coordinateInspectRow">
           <span>X座標</span><strong id="coordinateInspectX">－</strong>
-          <button class="coordinateCopyBtn" type="button" data-copy-source="coordinateInspectX">コピー</button>
         </div>
         <div class="coordinateInspectRow">
           <span>Y座標</span><strong id="coordinateInspectY">－</strong>
-          <button class="coordinateCopyBtn" type="button" data-copy-source="coordinateInspectY">コピー</button>
         </div>
         <div class="coordinateInspectRow">
           <span id="coordinateInspectElevationLabel">DEM標高</span><strong id="coordinateInspectElevation">確認中…</strong>
-          <button class="coordinateCopyBtn" type="button" data-copy-source="coordinateInspectElevation" data-strip-unit="m">コピー</button>
         </div>
       </div>
       <div id="coordinateInspectDifference" aria-live="polite">
@@ -8691,47 +8687,11 @@ function setCoordinateInspectDifferenceResult(dem1a,dem5a,loading=false){
 }
 function updateCoordinateInspectCopyButtons(){
   const visible=!isTouchMobileLike();
-  document.querySelectorAll(".coordinateCopyBtn").forEach(button=>{
-    button.style.display=visible?"inline-flex":"none";
-    button.disabled=false;
-    button.textContent="コピー";
-  });
   const copyAll=document.getElementById("coordinateInspectCopyAllBtn");
   if(copyAll){
     copyAll.style.display=visible?"inline-flex":"none";
     copyAll.disabled=false;
     copyAll.textContent="まとめてコピー";
-  }
-}
-async function copyCoordinateInspectValue(button){
-  const source=document.getElementById(button?.dataset?.copySource||"");
-  let value=String(source?.textContent||"").trim();
-  if(button?.dataset?.stripUnit==="m")value=value.replace(/\s*m\s*$/i,"").trim();
-  if(!value||value==="－"||value==="確認中…")return;
-  try{
-    if(navigator.clipboard&&window.isSecureContext){
-      await navigator.clipboard.writeText(value);
-    }else{
-      const textarea=document.createElement("textarea");
-      textarea.value=value;
-      textarea.setAttribute("readonly","");
-      textarea.style.position="fixed";
-      textarea.style.opacity="0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      if(!document.execCommand("copy"))throw new Error("copy failed");
-      textarea.remove();
-    }
-    button.textContent="コピー済み";
-    button.disabled=true;
-    setTimeout(()=>{
-      if(!button.isConnected)return;
-      button.textContent="コピー";
-      button.disabled=false;
-    },900);
-  }catch(error){
-    console.error(error);
-    showToast("コピーできませんでした");
   }
 }
 async function copyAllCoordinateInspectValues(button){
@@ -8832,7 +8792,7 @@ async function openCoordinateInspectModal(screenX,screenY){
     setCoordinateInspectDemLabel(sourceId);
     setCoordinateInspectDifferenceResult(dem1a,dem5a);
     if(Number.isFinite(elevation)){
-      setCoordinateInspectValue("coordinateInspectElevation",`${elevation.toFixed(3)} m`);
+      setCoordinateInspectValue("coordinateInspectElevation",elevation.toFixed(3));
       setCoordinateInspectValue("coordinateInspectStatus","");
     }else{
       setCoordinateInspectValue("coordinateInspectElevation","－");
@@ -16632,10 +16592,13 @@ document.getElementById("textLayerModal")?.addEventListener("selectstart",event=
 document.getElementById("coordinateInspectCloseBtn")?.addEventListener("click",closeCoordinateInspectModal);
 document.getElementById("coordinateInspectCopyAllBtn")?.addEventListener("click",event=>copyAllCoordinateInspectValues(event.currentTarget));
 document.getElementById("coordinateInspectBox")?.addEventListener("click",event=>event.stopPropagation());
-document.getElementById("coordinateInspectModal")?.addEventListener("contextmenu",event=>event.preventDefault());
-document.getElementById("coordinateInspectModal")?.addEventListener("selectstart",event=>event.preventDefault());
-document.querySelectorAll(".coordinateCopyBtn").forEach(button=>{
-  button.addEventListener("click",()=>copyCoordinateInspectValue(button));
+document.getElementById("coordinateInspectModal")?.addEventListener("contextmenu",event=>{
+  if(event.target.closest(".coordinateInspectRow strong"))return;
+  event.preventDefault();
+});
+document.getElementById("coordinateInspectModal")?.addEventListener("selectstart",event=>{
+  if(event.target.closest(".coordinateInspectRow strong"))return;
+  event.preventDefault();
 });
 canvas.classList.toggle("desktopCadCrosshair",!isTouchMobileLike());
 canvas.addEventListener("contextmenu",event=>event.preventDefault());

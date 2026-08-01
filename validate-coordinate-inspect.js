@@ -12,9 +12,13 @@ const required=[
   '`${x},${y},${elevation}`',
   'replace(/\\s*m\\s*$/i,"")',
   'if(e.button===0&&!isTouchMobileLike()){dragging=false;return;}',
+  '#coordinateInspectBox{width:min(238px,86vw)',
+  '-webkit-user-select:text;user-select:text;',
+  'setCoordinateInspectValue("coordinateInspectElevation",elevation.toFixed(3));',
 ];
 for(const token of required)if(!source.includes(token))throw new Error(`missing implementation: ${token}`);
 if(source.includes('id="terrainDifferenceBtn"'))throw new Error("DEM差ボタンが残っています");
+if(source.includes('class="coordinateCopyBtn"'))throw new Error("個別コピーボタンが残っています");
 
 const root=__dirname;
 const server=http.createServer((req,res)=>{
@@ -37,7 +41,7 @@ let browser;
     window.proj4=mock;window.shp=async()=>({type:"FeatureCollection",features:[]});
   });
   await page.route(/^https:\/\//,route=>route.abort());
-  await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:"commit",timeout:10000});
+  await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:"load",timeout:10000});
   await page.waitForFunction(()=>typeof window.eval("copyAllCoordinateInspectValues")==="function",null,{timeout:10000});
   const result=await page.evaluate(()=>window.eval(`(async()=>{
     window.__copiedCoordinate="";
@@ -64,13 +68,21 @@ let browser;
     window.dispatchEvent(new MouseEvent("mousemove",{bubbles:true,button:1,buttons:4,clientX:x+45,clientY:y+35}));
     window.dispatchEvent(new MouseEvent("mouseup",{bubbles:true,button:1,buttons:0,clientX:x+45,clientY:y+35}));
     const middle={tx:view.tx,ty:view.ty};
-    return {copy,difference,left,middle};
+    const values=[...document.querySelectorAll(".coordinateInspectRow strong")];
+    const compact={
+      individualCopies:document.querySelectorAll(".coordinateCopyBtn").length,
+      boxWidth:getComputedStyle(document.getElementById("coordinateInspectBox")).width,
+      gridGap:getComputedStyle(document.getElementById("coordinateInspectGrid")).gap,
+      selectable:values.every(element=>getComputedStyle(element).userSelect==="text")
+    };
+    return {copy,difference,left,middle,compact};
   })()`));
   if(result.copy.value!=="219.458,-49942.675,59.190")throw new Error(`まとめてコピーが不正です: ${JSON.stringify(result.copy)}`);
   if(result.copy.text!=="コピー済み"||result.copy.display!=="inline-flex")throw new Error(`まとめてコピーボタンの表示が不正です: ${JSON.stringify(result.copy)}`);
   if(result.difference.value!=="0.250 m"||!result.difference.details.includes("DEM1A：59.190 m")||!result.difference.details.includes("DEM5A：58.940 m"))throw new Error(`DEM標高差の情報表示が不正です: ${JSON.stringify(result.difference)}`);
   if(result.left.tx!==100||result.left.ty!==200)throw new Error(`PC左ドラッグで図面が移動しました: ${JSON.stringify(result.left)}`);
   if(result.middle.tx!==145||result.middle.ty!==235)throw new Error(`中ドラッグの既存パンが動きません: ${JSON.stringify(result.middle)}`);
+  if(result.compact.individualCopies!==0||!result.compact.selectable||result.compact.gridGap!=="2px")throw new Error(`情報画面の簡素化が不正です: ${JSON.stringify(result.compact)}`);
   console.log("coordinate inspect copy and PC pan checks passed");
   await browser.close();server.close();
 })().catch(async error=>{console.error(error);try{await browser?.close();}catch(_error){}server.close();process.exitCode=1;});
