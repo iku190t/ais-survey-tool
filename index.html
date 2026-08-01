@@ -13409,22 +13409,17 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
   // 見開きは同じシート内で表裏の左右を反転するため、25列に分ける。
   // 表裏とも、以前の3枚形式と同じ写真432px・コメント288pxの幅を確保する。
   const spreadColumnWidthsPx=[...Array(9).fill(32),13,26,26,26,26,27,13,...Array(9).fill(32)];
-  // 6枚は各枠を「写真｜約1mm｜コメント＋豆図」に分ける。
-  // コメント欄は各枠の半分より少し狭くし、右端へ寄せる。
-  const sixPhotoColumnWidthsPx=[70,70,70,13,65,65,13,70,70,70,13,65,65];
   const columnWidthsPx=isSpread
     ?spreadColumnWidthsPx
-    :(sixPhotoLayout?sixPhotoColumnWidthsPx:Array.from({length:13},(_,index)=>index<6?photoColumnPx:index===6?13:commentColumnPx));
+    :Array.from({length:13},(_,index)=>index<6?photoColumnPx:index===6?13:commentColumnPx);
   const columnCount=columnWidthsPx.length;
   const columnXml=isSpread
     ?'<col min="1" max="9" width="4.27" customWidth="1"/><col min="10" max="10" width="1" customWidth="1"/><col min="11" max="14" width="3.47" customWidth="1"/><col min="15" max="15" width="3.6" customWidth="1"/><col min="16" max="16" width="1" customWidth="1"/><col min="17" max="25" width="4.27" customWidth="1"/>'
-    :(sixPhotoLayout
-      ?'<col min="1" max="3" width="9.33" customWidth="1"/><col min="4" max="4" width="1" customWidth="1"/><col min="5" max="6" width="8.67" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="10" width="9.33" customWidth="1"/><col min="11" max="11" width="1" customWidth="1"/><col min="12" max="13" width="8.67" customWidth="1"/>'
-      :(widePhotoLayout
+    :(widePhotoLayout
       ?'<col min="1" max="6" width="9.6" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="6.4" customWidth="1"/>'
       :(fourPhotoLayout
         ?'<col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="6.4" customWidth="1"/>'
-        :'<col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="8" customWidth="1"/>')));
+        :'<col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="8" customWidth="1"/>'));
   const columnLeftPx=column=>columnWidthsPx.slice(0,Math.max(0,column-1)).reduce((sum,value)=>sum+value,0);
   const columnRangeWidthPx=(start,end)=>columnWidthsPx.slice(start-1,end).reduce((sum,value)=>sum+value,0);
   const totalRows=Math.max(pageRows,pageCount*pageRows);
@@ -13452,29 +13447,22 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
     const item=photoAnnotations[index],page=Math.floor(index/photosPerPage),slot=index%photosPerPage,rowInPage=isSpread?slot:Math.floor(slot/columns);
     const pageTop=page*pageRows,slotTop=pageTop+rowInPage*slotRows,slotBottom=slotTop+slotRows;
     const photo=await makePhotoAlbumImage(sources[index],1400,1400);
-    if(sixPhotoLayout){
-      const column=slot%columns,groupStart=column===0?1:8;
-      const photoColStart=groupStart,photoColEnd=groupStart+2;
-      const commentColStart=groupStart+4,commentColEnd=groupStart+5;
-      merge(slotTop+1,photoColStart,slotBottom,photoColEnd,"",1);
-      const photoRect={x:columnLeftPx(photoColStart)+2,y:slotTop*rowPx+2,width:columnRangeWidthPx(photoColStart,photoColEnd)-4,height:slotRows*rowPx-4};
-      addImage(photo,fitPhotoAlbumImage(photo,photoRect),`写真 ${item.number}`);
-      fields.forEach((field,line)=>mergeComment(slotTop+1+line*2,commentColStart,slotTop+2+line*2,commentColEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
-      for(let guideRow=slotTop+7;guideRow<=slotBottom;guideRow++)mergeComment(guideRow,commentColStart,guideRow,commentColEnd,"",false);
-      if(useMiniMap){
-        const area={x:columnLeftPx(commentColStart),y:(slotTop+6)*rowPx,width:columnRangeWidthPx(commentColStart,commentColEnd),height:(slotRows-6)*rowPx};
-        const miniWidth=Math.max(1,area.width-6),miniHeight=Math.min(Math.max(1,area.height-6),miniWidth*.7);
-        const miniRect={x:area.x+(area.width-miniWidth)/2,y:area.y+(area.height-miniHeight)/2,width:miniWidth,height:miniHeight};
-        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.max(720,Math.round(miniRect.width*4)),Math.max(480,Math.round(miniRect.height*4)));
-        addImage(mini,miniRect,`豆図 ${item.number}`);
-      }
-    }else if(compact){
+    if(compact){
       const column=slot%columns,colStart=column===0?1:8,colEnd=column===0?6:13;
       const photoEnd=slotBottom-3;
       merge(slotTop+1,colStart,photoEnd,colEnd,"",1);
       const photoRect={x:columnLeftPx(colStart)+5,y:slotTop*rowPx+5,width:columnRangeWidthPx(colStart,colEnd)-10,height:(photoEnd-slotTop)*rowPx-10};
       addImage(photo,fitPhotoAlbumImage(photo,photoRect),`写真 ${item.number}`);
       fields.forEach((field,line)=>mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
+      if(sixPhotoLayout&&useMiniMap){
+        // 以前の6枚書式（写真とコメント3行）は変えず、右側の点線上へ豆図だけを重ねる。
+        const commentArea={x:columnLeftPx(colStart),y:photoEnd*rowPx,width:columnRangeWidthPx(colStart,colEnd),height:3*rowPx};
+        const miniWidth=commentArea.width*.45,miniHeight=Math.max(1,commentArea.height-4);
+        const miniRect={x:commentArea.x+commentArea.width-miniWidth-2,y:commentArea.y+2,width:miniWidth,height:miniHeight};
+        const renderScale=6;
+        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale));
+        addImage(mini,miniRect,`豆図 ${item.number}`);
+      }
     }else{
       const front=!isSpread||page%2===0;
       const photoColStart=isSpread?(front?1:11):(front?1:8);

@@ -73,7 +73,8 @@ let browser;
   if(!spread.sheet.includes('<col min="1" max="9" width="4.27"')||!spread.sheet.includes('<col min="17" max="25" width="4.27"'))throw new Error("見開きが以前の3枚形式と同じ幅ではありません");
   if(!three.sheet.includes('<col min="1" max="6" width="9.6"')||!three.sheet.includes('<col min="8" max="13" width="6.4"'))throw new Error("3枚形式が以前の写真・コメント幅ではありません");
   if(!four.sheet.includes('<col min="1" max="6" width="8"')||!four.sheet.includes('<col min="8" max="13" width="6.4"'))throw new Error("4枚形式の写真幅またはコメント幅が正しくありません");
-  if(!six.sheet.includes('<col min="1" max="3" width="9.33"')||!six.sheet.includes('<col min="5" max="6" width="8.67"')||!six.sheet.includes('<col min="12" max="13" width="8.67"'))throw new Error("6枚形式の写真幅または右コメント幅が正しくありません");
+  if(!six.sheet.includes('<col min="1" max="6" width="8"')||!six.sheet.includes('<col min="8" max="13" width="8"'))throw new Error("6枚形式が以前の写真幅とコメント3行を維持していません");
+  if(!six.drawing.includes('name="豆図 1"'))throw new Error("6枚形式のコメント点線上に豆図がありません");
   if(output.progress.join(",")!=="1/6,2/6,3/6,4/6,5/6,6/6")throw new Error(`写真枚数の進捗が正しくありません: ${output.progress.join(",")}`);
   if(output.stages.join(",")!=="excel")throw new Error(`Excel作成段階へ切り替わりません: ${output.stages.join(",")}`);
   const progressUi=await page.evaluate(()=>{
