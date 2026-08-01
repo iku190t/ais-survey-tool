@@ -9569,7 +9569,10 @@ async function finishTerrainCadSelection(){
     for(const line of geometry){
       const clipped=clipTerrainContourToPolygon(line.points,polygon)
         .flatMap(points=>splitTerrainCadPolylineByDemSource(points,grid))
-        .map(piece=>({source:piece.source,points:simplifyTerrainCadPolyline(piece.points,50)}))
+        // CAD export must preserve the one-metre DEM crossing geometry.
+        // A zero tolerance removes only exactly collinear redundant vertices;
+        // it does not smooth or shift the contour.
+        .map(piece=>({source:piece.source,points:simplifyTerrainCadPolyline(piece.points,0)}))
         .filter(piece=>piece.points.length>=2);
       if(!clipped.length)continue;
       const labelTargets=new Map(),labelAssigned=new Set();
@@ -12747,6 +12750,14 @@ function stripEmbeddedAnnotations(srcText){
   text = text.replace(/\/\*\s*SFCVIEWER_MEMO_META_V1:[A-Za-z0-9+/=]+\s*\*\//g, "");
   return text.replace(/[\s\r\n]+$/, "");
 }
+function getSfcRenderSourceText(srcText){
+  const text=String(srcText||"");
+  // Viewer-generated geometry is also stored in editable metadata. Parsing
+  // both representations duplicates contours and revives deleted geometry.
+  // With valid metadata, render the original SFC and restore generated items
+  // exactly once from that metadata.
+  return parseMemoMetaPayload(text)?stripEmbeddedAnnotations(text):text;
+}
 function parseMemoMetaPayload(srcText){
   try{
     const m = String(srcText||'').match(/\/\*\s*SFCVIEWER_MEMO_META_V1:([A-Za-z0-9+/=]+)\s*\*\//);
@@ -14308,7 +14319,8 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   if (handleOverride) lastPickerHandle = handleOverride;
   const parseStarted=performance.now();
   try{
-    data = prepareRenderMetadata(parseSfcText(srcText, fileName || "loaded.sfc"),srcText.length);
+    const renderSourceText=getSfcRenderSourceText(srcText);
+    data = prepareRenderMetadata(parseSfcText(renderSourceText, fileName || "loaded.sfc"),renderSourceText.length);
   }catch(err){
     console.error(err);
     showToast("SFC解析に失敗しました",2600);
@@ -14325,7 +14337,8 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   redoStrokes = [];
   updateUndoRedoUI();
   updateStopBtnUI();
-  if(!count){ showToast("このSFCは読めません"); draw(); return; }
+  const restoredCount=count+inkStrokes.length+(Array.isArray(photoAnnotations)?photoAnnotations.length:0);
+  if(!restoredCount){ showToast("このSFCは読めません"); draw(); return; }
   resetInkToolForNewDrawing();
   rotationDeg = determineBestRotation(data);
   initialLoadRotationDeg = rotationDeg;
