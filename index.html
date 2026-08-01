@@ -1850,7 +1850,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">写真がない場合</div>その場所で利用できる航空写真が一枚もない場合は、メッセージを表示してスイッチをOFFへ戻します。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>SFCと航空写真を合わせるため、初回は現在地から図面の座標系を確認します。位置情報の利用を許可してください。</div>
               <div class="helpBlock"><div class="helpHead">出典</div>国土地理院の地理院タイルを通信で表示します。航空写真表示中は画面右下に出典を表示します。</div>
-              <div class="helpBlock"><div class="helpHead">航空写真をCAD化</div>年代を選び、<b>範囲を選んでCAD化</b>を押します。図面上で多角形の頂点を順にタップして確定すると、年代付きレイヤーとして現在の図面へ固定配置します。保存時は画面の拡大率に関係なく、その場所で取得できる最も細かい地理院タイルを使用します。背景の航空写真をOFFにしても固定した写真は残ります。PCで<b>名前を付けて保存</b>を選ぶと、SFCと参照JPEGを同じフォルダーへ保存します。外部CADで画像を表示するため、SFCとJPEGを同じフォルダーに置いたまま開いてください。</div>
+              <div class="helpBlock"><div class="helpHead">航空写真をCAD化</div>年代を選び、<b>範囲を選んでCAD化</b>を押します。図面上で多角形の頂点を順にタップして確定すると、年代付きレイヤーとして現在の図面へ固定配置します。保存時は画面の拡大率に関係なく、その場所で取得できる最も細かい地理院タイルから最終画像を直接作成し、中間画像の再圧縮による画質低下を防ぎます。背景の航空写真をOFFにしても固定した写真は残ります。PCで<b>名前を付けて保存</b>を選ぶと、SFCと参照JPEGを同じフォルダーへ保存します。外部CADで画像を表示するため、SFCとJPEGを同じフォルダーに置いたまま開いてください。</div>
               <div class="helpBlock"><div class="helpHead">地形解析</div>背景画面の<b>地形解析</b>を押すと地形解析画面へ進みます。<b>閉じる</b>で背景画面へ戻ります。<b>標高</b>、<b>傾斜角</b>、<b>等高線</b>、<b>水の流れ</b>、<b>概算土量</b>は1種類だけ表示され、選択中の青いボタンをもう一度押すと解除できます。取得中は選択ボタンに進行表示が出ます。</div>
               <div class="helpBlock"><div class="helpHead">標高</div>現在見えている範囲の最低標高から最高標高までを10段階に分け、低い場所を青、高い場所を赤で表示します。凡例には実際の標高値を表示します。</div>
               <div class="helpBlock"><div class="helpHead">傾斜角</div>DEMから求めた概略傾斜を10段階で表示し、最後の区分を60度以上とします。</div>
@@ -3884,7 +3884,92 @@ function getAerialRasterExportGeometry(bounds,planePolygon,displayToPaper){
     paperCorners:[[minX,minY],[minX,maxY],[maxX,maxY],[maxX,minY],[minX,minY]]
   };
 }
+async function renderAerialSourceTilesForSfcExport(entry,displayToPaper){
+  const source=AERIAL_PHOTO_SOURCES.find(item=>String(item.id||"")===String(entry&&entry.source&&entry.source.id||""));
+  if(!source||!entry||!entry.bounds)return null;
+  const zone=aerialPhotoZone||await resolveProfileZone();
+  if(!zone)return null;
+  const bounds=entry.bounds;
+  const spanX=bounds.maxX-bounds.minX,spanY=bounds.maxY-bounds.minY;
+  if(!(spanX>0&&spanY>0))return null;
+  const centerLatLon=jgd2024XYToLatLon((bounds.minX+bounds.maxX)/2,(bounds.minY+bounds.maxY)/2,zone);
+  const z=await resolveAerialPhotoExportZoom(source,centerLatLon.lat,centerLatLon.lon);
+  const tileResolution=156543.03392*Math.max(.15,Math.cos(centerLatLon.lat*Math.PI/180))/Math.pow(2,z);
+  const geometry=getAerialRasterExportGeometry(bounds,entry.planePolygon,displayToPaper);
+  const distance=(a,b)=>Math.hypot(b[0]-a[0],b[1]-a[1]);
+  const horizontalLength=Math.max(1e-9,distance(geometry.sourcePaper.tl,geometry.sourcePaper.tr));
+  const verticalLength=Math.max(1e-9,distance(geometry.sourcePaper.tl,geometry.sourcePaper.bl));
+  const nativeWidth=Math.max(2,Math.ceil(spanY/tileResolution));
+  const nativeHeight=Math.max(2,Math.ceil(spanX/tileResolution));
+  const pixelsPerPaperUnit=Math.min(nativeWidth/horizontalLength,nativeHeight/verticalLength);
+  const width=Math.max(2,Math.ceil((geometry.maxX-geometry.minX)*pixelsPerPaperUnit));
+  const height=Math.max(2,Math.ceil((geometry.maxY-geometry.minY)*pixelsPerPaperUnit));
+  const output=document.createElement("canvas");output.width=width;output.height=height;
+  const outputContext=output.getContext("2d",{alpha:false});
+  outputContext.fillStyle="#000000";outputContext.fillRect(0,0,width,height);
+  outputContext.imageSmoothingEnabled=true;outputContext.imageSmoothingQuality="high";
+  const paperToPixel=point=>[
+    (point[0]-geometry.minX)*pixelsPerPaperUnit,
+    (geometry.maxY-point[1])*pixelsPerPaperUnit
+  ];
+  const latLonToPixel=(lat,lon)=>{
+    const plane=latLonToJgd2024XY(lat,lon,zone);
+    const world=planeToSfcWorld(plane.x,plane.y);
+    return paperToPixel(sxfAffinePoint(displayToPaper,world.x*1000,world.y*1000));
+  };
+  const planeCorners=[
+    {xNorth:bounds.minX,yEast:bounds.minY},{xNorth:bounds.minX,yEast:bounds.maxY},
+    {xNorth:bounds.maxX,yEast:bounds.minY},{xNorth:bounds.maxX,yEast:bounds.maxY}
+  ];
+  const tileCorners=planeCorners.map(point=>{
+    const ll=jgd2024XYToLatLon(point.xNorth,point.yEast,zone);
+    return aerialPhotoTileFloat(ll.lat,ll.lon,z);
+  });
+  const n=Math.pow(2,z);
+  const minTileX=Math.max(0,Math.floor(Math.min(...tileCorners.map(point=>point.x)))-1);
+  const maxTileX=Math.min(n-1,Math.floor(Math.max(...tileCorners.map(point=>point.x)))+1);
+  const minTileY=Math.max(0,Math.floor(Math.min(...tileCorners.map(point=>point.y)))-1);
+  const maxTileY=Math.min(n-1,Math.floor(Math.max(...tileCorners.map(point=>point.y)))+1);
+  const jobs=[];
+  for(let tileY=minTileY;tileY<=maxTileY;tileY++)for(let tileX=minTileX;tileX<=maxTileX;tileX++){
+    const tile=getAerialPhotoTile(aerialPhotoUrl(source,z,tileX,tileY));
+    jobs.push({tileX,tileY,tile,promise:waitForAerialPhotoTile(tile)});
+  }
+  await Promise.all(jobs.map(job=>job.promise));
+  outputContext.save();
+  if(geometry.clipPaper.length>=3){
+    const first=paperToPixel(geometry.clipPaper[0]);
+    outputContext.beginPath();outputContext.moveTo(first[0],first[1]);
+    for(let index=1;index<geometry.clipPaper.length;index++){
+      const point=paperToPixel(geometry.clipPaper[index]);outputContext.lineTo(point[0],point[1]);
+    }
+    outputContext.closePath();outputContext.clip();
+  }
+  let drawn=0;
+  for(const job of jobs){
+    if(job.tile.state!=="loaded")continue;
+    const llTL=aerialPhotoTileLatLon(job.tileX,job.tileY,z);
+    const llTR=aerialPhotoTileLatLon(job.tileX+1,job.tileY,z);
+    const llBL=aerialPhotoTileLatLon(job.tileX,job.tileY+1,z);
+    const tl=latLonToPixel(llTL.lat,llTL.lon),tr=latLonToPixel(llTR.lat,llTR.lon),bl=latLonToPixel(llBL.lat,llBL.lon);
+    outputContext.save();
+    outputContext.transform((tr[0]-tl[0])/256,(tr[1]-tl[1])/256,(bl[0]-tl[0])/256,(bl[1]-tl[1])/256,tl[0],tl[1]);
+    outputContext.drawImage(job.tile.image,0,0,256,256);
+    outputContext.restore();drawn++;
+  }
+  outputContext.restore();
+  if(!drawn)return null;
+  // Draw the original highest-zoom tiles directly into the final paper-aligned
+  // JPEG. This avoids decoding and re-encoding the intermediate CAD preview.
+  return {blob:await canvasToBlobAsync(output,"image/jpeg",1),paperCorners:geometry.paperCorners,width,height};
+}
 async function prepareAerialRasterForSfcExport(entry,displayToPaper){
+  try{
+    const direct=await renderAerialSourceTilesForSfcExport(entry,displayToPaper);
+    if(direct)return direct;
+  }catch(error){
+    console.warn("Direct aerial tile export failed; using the stored raster",error);
+  }
   const sourceBlob=dataUrlToBlob(entry.jpegDataUrl);
   let image=null,objectUrl="";
   try{
@@ -7212,6 +7297,11 @@ function parseSfcText(srcText, fileName){
     if(Number.isInteger(n)&&n>=1&&n<=layerDefs.length)return n;
     return layerRefToIdx[n]!=null?layerRefToIdx[n]:1;
   };
+  const isViewerHorizontalTextLayer=layer=>{
+    const name=String(layerNames[String(layer)]||"");
+    return name===PHOTO_POSITION_LAYER_NAME||name===PHOTO_LIST_LAYER_NAME||
+      /^等高線_(?:DEM1A_|DEM5A_)?計曲線$/.test(name);
+  };
   const num=ref=>{const n=parseFloat(unquoteSxfValue(ref)); return Number.isFinite(n)?n:0;};
   const parseTupleNums=parseTupleNumbers;
   const expansion=buildSxfAssemblyExpansion(records,num);
@@ -7251,7 +7341,8 @@ function parseSfcText(srcText, fileName){
       const x=num(rec.args[4]),y=num(rec.args[5]),p=point(x,y),angle=num(rec.args[9]),rad=angle*Math.PI/180;
       const ux={x:Math.cos(rad),y:Math.sin(rad)},uy={x:-Math.sin(rad),y:Math.cos(rad)};
       const tx={x:m.a*ux.x+m.c*ux.y,y:m.b*ux.x+m.d*ux.y},ty={x:m.a*uy.x+m.c*uy.y,y:m.b*uy.x+m.d*uy.y};
-      const text={text:decodeShiftJisFromLatin1(unquoteSxfValue(rec.args[3])),x:p[0],y:p[1],h:num(rec.args[6])*Math.hypot(ty.x,ty.y),w:num(rec.args[7])*Math.hypot(tx.x,tx.y),sp:num(rec.args[8])*Math.hypot(tx.x,tx.y),angle:Math.atan2(tx.y,tx.x)*180/Math.PI,slant:num(rec.args[10]),align1:+unquoteSxfValue(rec.args[11])||1,align2:+unquoteSxfValue(rec.args[12])||1,layer:resolveLayer(rec.args[0]),color:resolveColor(rec.args[1]),font_id:+unquoteSxfValue(rec.args[2])||1,font_name:resolveFontName(rec.args[2]),_sxfFeatureId:rec.id,_sxfSourceLayerCode:+unquoteSxfValue(rec.args[0])||1,_sxfSourceColorCode:+unquoteSxfValue(rec.args[1])||1};
+      const layer=resolveLayer(rec.args[0]),forceHorizontal=isViewerHorizontalTextLayer(layer);
+      const text={text:decodeShiftJisFromLatin1(unquoteSxfValue(rec.args[3])),x:p[0],y:p[1],h:num(rec.args[6])*Math.hypot(ty.x,ty.y),w:num(rec.args[7])*Math.hypot(tx.x,tx.y),sp:num(rec.args[8])*Math.hypot(tx.x,tx.y),angle:forceHorizontal?0:Math.atan2(tx.y,tx.x)*180/Math.PI,slant:num(rec.args[10]),align1:+unquoteSxfValue(rec.args[11])||1,align2:forceHorizontal?1:(+unquoteSxfValue(rec.args[12])||1),layer,color:resolveColor(rec.args[1]),font_id:+unquoteSxfValue(rec.args[2])||1,font_name:resolveFontName(rec.args[2]),_sxfFeatureId:rec.id,_sxfSourceLayerCode:+unquoteSxfValue(rec.args[0])||1,_sxfSourceColorCode:+unquoteSxfValue(rec.args[1])||1};
       sxfAttachMeasureMetadata(text,instance,[[x,y]]);texts.push(text);
     }
     else if(rec.name==='circle_feature' && rec.args.length>=7){
@@ -13423,7 +13514,10 @@ function getGeneratedHorizontalSxfTextAngle(baseText,points){
   // Generated features are written in the selected partial figure's local
   // coordinates. External CAD applies its placement rotation afterwards, so
   // cancel that rotation here to keep text horizontal to the drawing sheet.
-  return normalizeSxfTextAngle(-getSxfPartialFigurePlacementAngle(baseText,insertion.partialFigure));
+  const placementOrientation=Number(insertion.placementOrientation);
+  return normalizeSxfTextAngle(-(Number.isFinite(placementOrientation)
+    ?placementOrientation
+    :getSxfPartialFigurePlacementAngle(baseText,insertion.partialFigure)));
 }
 function buildGeneratedTextFontDefinition(baseText,startId){
   const fonts=parseSxfFeatureRecords(getFlatSxfText(baseText)).filter(record=>record.name==="text_font_feature");
@@ -13742,7 +13836,13 @@ function findMemoGeometryInsertion(baseText,points){
   if(photoAnnotations.length){
     const mainName=String(data&&data._mainDrawingPlacement&&data._mainDrawingPlacement.name||"");
     const mainAt=mainName?findSfcFeatureBlockStartByName(text,"sfig_org_feature",mainName):-1;
-    if(mainAt>=0)return {index:mainAt,partialFigure:mainName};
+    if(mainAt>=0){
+      const main=data&&data._mainDrawingPlacement;
+      const angle=Number(main&&main.angle),sx=Number(main&&main.sx);
+      const rad=(Number.isFinite(angle)?angle:0)*Math.PI/180;
+      const placementOrientation=Math.atan2(Math.sin(rad)*(Number.isFinite(sx)?sx:1),Math.cos(rad)*(Number.isFinite(sx)?sx:1))*180/Math.PI;
+      return {index:mainAt,partialFigure:mainName,placementOrientation};
+    }
   }
   const sheet=records.find(r=>r.name==="drawing_sheet_feature"&&r.args.length>=5);
   const sheetWidth=sheet?Number(unquoteSxfValue(sheet.args[3])):NaN;
@@ -13760,15 +13860,16 @@ function findMemoGeometryInsertion(baseText,points){
     if(!name||![ox,oy,angle,sx,sy].every(Number.isFinite)||Math.abs(sx)<1e-12||Math.abs(sy)<1e-12)continue;
     const rad=angle*Math.PI/180,c=Math.cos(rad),s=Math.sin(rad);
     const score=pts.reduce((n,p)=>{
-      const paperX=ox+sx*(+p.x*c-(+p.y)*s);
-      const paperY=oy+sy*(+p.x*s+(+p.y)*c);
+      const paperX=ox+c*sx*(+p.x)-s*sy*(+p.y);
+      const paperY=oy+s*sx*(+p.x)+c*sy*(+p.y);
       return n+(onSheet(paperX,paperY)?1:0);
     },0);
-    if(!best||score>best.score)best={name,score};
+    const placementOrientation=Math.atan2(s*sx,c*sx)*180/Math.PI;
+    if(!best||score>best.score)best={name,score,placementOrientation,recordId:r.id};
   }
   if(best&&best.score>identityScore&&best.score*2>=pts.length){
     const at=findSfcFeatureBlockStartByName(text,"sfig_org_feature",best.name);
-    if(at>=0)return {index:at,partialFigure:best.name};
+    if(at>=0)return {index:at,partialFigure:best.name,placementOrientation:best.placementOrientation,placementRecordId:best.recordId};
   }
   return {index:sheetInsertAt,partialFigure:null};
 }

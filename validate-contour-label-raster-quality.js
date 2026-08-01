@@ -42,6 +42,14 @@ if(!drawBlock.includes("getAerialPhotoZoomForCurrentView(source,centerLl.lat)"))
 if(!cadBlock.includes("const z=await resolveAerialPhotoExportZoom(source,centerLatLon.lat,centerLatLon.lon);")){
   throw new Error("CAD aerial photo does not resolve the highest available source zoom");
 }
+requireText(
+  "async function renderAerialSourceTilesForSfcExport(entry,displayToPaper)",
+  "direct source-tile SFC raster renderer is missing"
+);
+requireText(
+  "const direct=await renderAerialSourceTilesForSfcExport(entry,displayToPaper);",
+  "SFC raster export still always re-encodes the preview JPEG"
+);
 if(cadBlock.includes("getAerialPhotoZoomForCurrentView(source,centerLatLon.lat)")){
   throw new Error("CAD aerial photo still depends on the current screen zoom");
 }
@@ -93,5 +101,17 @@ if(!annotationBlock.includes("Math.round(+label.align1||5)")){
 if(!annotationBlock.includes("'${anchor}','${direction}'")){
   throw new Error("SFC contour label anchor is not written to text_string_feature");
 }
+requireText(
+  "angle:forceHorizontal?0:Math.atan2(tx.y,tx.x)*180/Math.PI",
+  "reloaded viewer-generated contour labels are not forced horizontal"
+);
+requireText(
+  "align2:forceHorizontal?1:(+unquoteSxfValue(rec.args[12])||1)",
+  "reloaded viewer-generated contour labels can still become vertical text"
+);
+requireText(
+  "const paperX=ox+c*sx*(+p.x)-s*sy*(+p.y);",
+  "partial-figure insertion still uses the incorrect non-uniform transform"
+);
 
-console.log("OK: contour labels are centre-anchored and aerial rasters use the source maximum resolution");
+console.log("OK: contour labels remain horizontal and aerial rasters use source tiles directly at maximum resolution");
