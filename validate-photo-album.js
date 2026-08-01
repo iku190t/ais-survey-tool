@@ -34,7 +34,7 @@ const checks = [
   ["4枚は写真幅を維持してコメントを縮小", /const fourPhotoLayout=!isSpread&&photosPerPage===4;[\s\S]*fourPhotoLayout[\s\S]*width="6\.4"/],
   ["6枚は以前の写真幅とコメント3行を維持", /if\(compact\)[\s\S]*const photoEnd=slotBottom-3;[\s\S]*merge\(slotTop\+1,colStart,photoEnd,colEnd,"",1\)[\s\S]*fields\.forEach\(\(field,line\)=>mergeComment\(photoEnd\+1\+line/],
   ["6枚は右側の点線上へ豆図を重ねる", /if\(sixPhotoLayout&&useMiniMap\)[\s\S]*const commentArea=[\s\S]*const miniWidth=commentArea\.width\*\.45[\s\S]*makePhotoMiniMapImage\(item,miniGeometry/],
-  ["6枚豆図を上下へ拡張して約1.5倍表示", /if\(sixPhotoLayout&&useMiniMap\)[\s\S]*verticalExtension=6[\s\S]*height:commentArea\.height\+verticalExtension\*2[\s\S]*\{zoom:1\.12,markerScale:1\.12\}/],
+  ["6枚豆図を上へ拡張して下端を境界線へ合わせる", /if\(sixPhotoLayout&&useMiniMap\)[\s\S]*verticalExtension=6[\s\S]*miniBottom=slotBottom\*rowPx[\s\S]*height:Math\.max\(1,miniBottom-miniTop\)[\s\S]*\{zoom:1\.25,markerScale:1\.25\}/],
   ["2枚3枚は上下余白を縮小", /const photoInsetY=photosPerPage<=3\?1:photosPerPage===4\?4:2/],
   ["4枚は写真間隔を拡大", /photosPerPage===4\?4:2/],
   ["2枚から4枚の写真セル罫線を除去", /merge\(slotTop\+1,photoColStart,slotBottom,photoColEnd,"",1\)/],

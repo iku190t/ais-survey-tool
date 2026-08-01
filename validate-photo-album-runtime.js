@@ -80,6 +80,7 @@ let browser;
   if(!six.drawing.includes('name="豆図 1"'))throw new Error("6枚形式のコメント点線上に豆図がありません");
   const sixMiniAnchor=drawingAnchorForName(six.drawing,"豆図 1");
   if(!sixMiniAnchor.includes("<xdr:row>16</xdr:row>")||!sixMiniAnchor.includes("<xdr:row>20</xdr:row>"))throw new Error("6枚豆図が上下へ拡張されていません");
+  if(!/<xdr:to>[\s\S]*?<xdr:row>20<\/xdr:row><xdr:rowOff>0<\/xdr:rowOff>/.test(sixMiniAnchor))throw new Error("6枚豆図の下端が次の写真との境界線に揃っていません");
   if(output.progress.join(",")!=="1/6,2/6,3/6,4/6,5/6,6/6")throw new Error(`写真枚数の進捗が正しくありません: ${output.progress.join(",")}`);
   if(output.stages.join(",")!=="excel")throw new Error(`Excel作成段階へ切り替わりません: ${output.stages.join(",")}`);
   const progressUi=await page.evaluate(()=>{

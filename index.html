@@ -13415,9 +13415,10 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
         // 以前の6枚書式（写真とコメント3行）は変えず、右側の点線上へ豆図だけを重ねる。
         const commentArea={x:columnLeftPx(colStart),y:photoEnd*rowPx,width:columnRangeWidthPx(colStart,colEnd),height:3*rowPx};
         const miniWidth=commentArea.width*.45,verticalExtension=6;
-        const miniRect={x:commentArea.x+commentArea.width-miniWidth-2,y:commentArea.y-verticalExtension,width:miniWidth,height:commentArea.height+verticalExtension*2};
+        const miniTop=commentArea.y-verticalExtension,miniBottom=slotBottom*rowPx;
+        const miniRect={x:commentArea.x+commentArea.width-miniWidth-2,y:miniTop,width:miniWidth,height:Math.max(1,miniBottom-miniTop)};
         const renderScale=6;
-        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale),{zoom:1.12,markerScale:1.12});
+        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale),{zoom:1.25,markerScale:1.25});
         addImage(mini,miniRect,`豆図 ${item.number}`);
       }
     }else{
