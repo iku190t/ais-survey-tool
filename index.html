@@ -628,7 +628,8 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #photoListBody{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;overflow:hidden;padding:8px 12px 10px;}
 #photoListActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
 #photoListActions button{min-height:36px;font-size:13px;font-weight:700;}
-#photoAlbumBtn{grid-column:1/-1;background:#1677ff;color:#fff;border-color:#0f5ec8;}
+#photoPositionAdjustBtn{grid-column:1/-1;}
+#photoPositionAdjustBtn.modeActive{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #photoSelectionActions{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:7px;margin:0 0 10px;}
 #photoSelectionActions button{min-height:32px;padding:5px 7px;font-size:12px;font-weight:700;}
 #photoDeleteSelectedBtn{background:#8f2424;color:#fff;border-color:#b63b3b;}
@@ -645,7 +646,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 body.light #photoListTableScroll{scrollbar-color:#858585 rgba(0,0,0,.12);}
 body.light #photoListTableScroll::-webkit-scrollbar-track{background:rgba(0,0,0,.12);}
 body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
-#photoListTable{width:826px;min-width:826px;table-layout:fixed;border-collapse:collapse;font-size:12px;}
+#photoListTable{width:926px;min-width:926px;table-layout:fixed;border-collapse:collapse;font-size:12px;}
 #photoListTable th,#photoListTable td{padding:6px 5px;text-align:left;border-bottom:1px solid var(--border);vertical-align:middle;}
 #photoListTable th:first-child,#photoListTable td:first-child{width:34px;text-align:center;}
 #photoListTable th:nth-child(2),#photoListTable td:nth-child(2){width:42px;text-align:center;}
@@ -655,6 +656,7 @@ body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
 #photoListTable th:nth-child(6),#photoListTable td:nth-child(6){width:126px;}
 #photoListTable th:nth-child(7),#photoListTable td:nth-child(7){width:108px;}
 #photoListTable th:nth-child(8),#photoListTable td:nth-child(8){width:78px;}
+#photoListTable th:nth-child(9),#photoListTable td:nth-child(9){width:92px;white-space:nowrap;}
 #photoListTable th:nth-child(n+5),#photoListTable td:nth-child(n+5){white-space:nowrap;font-variant-numeric:tabular-nums;}
 #photoListTable input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:#1689ff;cursor:pointer;}
 #photoListTable td{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
@@ -662,6 +664,13 @@ body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
   #photoListTable td{cursor:text;}
 }
 #photoListEmpty{padding:16px 4px;color:var(--muted);font-size:13px;text-align:center;}
+#photoExcelChoiceModal{display:none;position:fixed;inset:0;z-index:234;background:rgba(0,0,0,.52);align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
+#photoExcelChoiceBox{width:min(300px,90vw);background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:12px;box-shadow:0 14px 34px rgba(0,0,0,.44);}
+#photoExcelChoiceHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+#photoExcelChoiceTitle{font-size:15px;font-weight:800;}
+#photoExcelChoiceActions{display:grid;gap:8px;}
+#photoExcelChoiceActions button{min-height:38px;font-size:13px;font-weight:750;}
+#photoExcelAlbumChoiceBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #photoAlbumModal{display:none;position:fixed;inset:0;z-index:235;background:rgba(0,0,0,.58);align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
 #photoAlbumBox{width:min(430px,94vw);max-height:min(720px,calc(100vh - 32px));overflow:auto;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:12px;box-sizing:border-box;box-shadow:0 14px 34px rgba(0,0,0,.44);}
 #photoAlbumHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px;}
@@ -1255,8 +1264,8 @@ gtag('config', 'G-88B9YPJXWP');
     <div id="photoListBody">
       <div id="photoListActions">
         <button id="photoOpenBtn" type="button">写真を開く</button>
-        <button id="photoExcelBtn" type="button">一覧をExcel出力</button>
-        <button id="photoAlbumBtn" type="button">写真帳Excel</button>
+        <button id="photoExcelBtn" type="button">Excel出力</button>
+        <button id="photoPositionAdjustBtn" type="button" aria-pressed="false">位置調整</button>
       </div>
       <div id="photoSelectionActions">
         <button id="photoSelectAllBtn" type="button">全選択</button>
@@ -1272,11 +1281,20 @@ gtag('config', 'G-88B9YPJXWP');
       <div id="photoListSummary"></div>
       <div id="photoListTableScroll">
         <table id="photoListTable">
-          <thead><tr><th>選択</th><th>番号</th><th>ファイル名</th><th>撮影時間</th><th>X座標</th><th>Y座標</th><th>DEM標高</th><th>使用DEM</th></tr></thead>
+          <thead><tr><th>選択</th><th>番号</th><th>ファイル名</th><th>撮影時間</th><th>X座標</th><th>Y座標</th><th>DEM標高</th><th>使用DEM</th><th>撮影方向</th></tr></thead>
           <tbody id="photoListRows"></tbody>
         </table>
       </div>
       <div id="photoListEmpty">写真はまだ読み込まれていません。</div>
+    </div>
+  </div>
+  <div id="photoExcelChoiceModal" role="dialog" aria-modal="true" aria-labelledby="photoExcelChoiceTitle">
+    <div id="photoExcelChoiceBox">
+      <div id="photoExcelChoiceHeader"><div id="photoExcelChoiceTitle">Excel出力</div><button id="photoExcelChoiceCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
+      <div id="photoExcelChoiceActions">
+        <button id="photoExcelListChoiceBtn" type="button">一覧表を出力</button>
+        <button id="photoExcelAlbumChoiceBtn" type="button">写真帳を出力</button>
+      </div>
     </div>
   </div>
   <div id="photoAlbumModal" role="dialog" aria-modal="true" aria-labelledby="photoAlbumTitle">
@@ -1725,7 +1743,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開く・保存</div><b>ファイル</b> を押し、<b>開く</b>、<b>上書き保存</b>、<b>名前を付けて保存</b>から選びます。PCでは通常の保存画面を使い、メール送信画面は表示しません。</div>
               <div class="helpBlock"><div class="helpHead">PCでドラッグして開く</div>PCではSFCを図面画面へドラッグし、「ここにドロップして開く」の表示上で離すと、そのまま図面を開けます。</div>
-              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。写真一覧とExcelには、番号・ファイル名・撮影時間・図面上のX座標・Y座標・DEM標高・使用DEMを表示します。<b>写真帳Excel</b> では、A4縦の2・3・4・6・8枚配置と見開き3枚を選べます。各写真のコメントは3行まで選択でき、撮影方向はEXIFの角度から8方向で表示できます。2・3・4枚と見開きでは豆図を付けられますが、6枚・8枚では豆図を選択できません。片面は写真を左、コメントを右へ配置し、見開きの裏面はコメントを左、写真を右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4枚の空き領域に合わせて大きくし、高解像度で作成します。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置と見開き3枚を選べます。各写真のコメントは3行まで選択でき、撮影方向は角度から8方向で表示できます。2・3・4枚と見開きでは豆図を付けられますが、6枚・8枚では豆図を選択できません。片面は写真を左、コメントを右へ配置し、見開きの裏面はコメントを左、写真を右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4枚の空き領域に合わせて大きくし、高解像度で作成します。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容を、開いているSFCへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">名前を付けて保存</div>PCではエクスプローラーの保存画面からSFC名を指定します。CAD化した航空写真がある場合は保存先フォルダーを選び、SFCと参照JPEGを同じフォルダーへ保存します。SFCとJPEGは移動するときも同じフォルダーに置いてください。</div>
               <div class="helpBlock"><div class="helpHead">ZIPで送る理由</div>SFCは一般的なメール添付形式として登録されていないため、iPhone・Android・Gmailなどが添付を拒否する場合があります。ZIPは広く対応しており、SFCのファイル名と内容を変えずに安全に添付できます。受信後はZIPを展開するとSFCファイルが1個入っています。</div>
@@ -2191,6 +2209,9 @@ const PHOTO_LIST_LAYER_NAME = "写真一覧";
 let photoAnnotations = [];
 const selectedPhotoAnnotations = new Set();
 const photoSourceFiles = new Map();
+let photoPositionAdjustMode = false;
+let selectedPhotoPositionItem = null;
+let photoPositionAdjustDrag = null;
 const PHOTO_SETTINGS_KEY = "sfcviewer-photo-settings-v1";
 const PHOTO_DEFAULT_SETTINGS = {circleDiameterMm:5,textHeightMm:2.5,arrowLengthMm:10,arrowHeadWidthMm:.5};
 const PHOTO_LIST_TEXT_HEIGHT_MM = 2.5;
@@ -6422,6 +6443,8 @@ function applyEditAction(action,undo){
   }else if(action.type==="photo-change"){
     restorePhotoAnnotations(undo?action.before:action.after);
     selectedPhotoAnnotations.clear();
+    selectedPhotoPositionItem=null;
+    photoPositionAdjustDrag=null;
     layoutPhotoAnnotationMarkers();
     layoutPhotoListOutsideDrawing();
     renderPhotoListPanel();
@@ -12279,7 +12302,7 @@ function serializePhotoAnnotations(){
     fileName:String(item.fileName||""),
     lat:+item.lat,
     lon:+item.lon,
-    direction:Number.isFinite(+item.direction)?+item.direction:null,
+    direction:item.direction!=null&&Number.isFinite(+item.direction)?+item.direction:null,
     capturedAt:item.capturedAt||null,
     xNorth:+item.xNorth,
     yEast:+item.yEast,
@@ -12290,6 +12313,14 @@ function serializePhotoAnnotations(){
     worldY:+item.worldY,
     markerX:+item.markerX,
     markerY:+item.markerY,
+    coordinateZone:Number.isFinite(+item.coordinateZone)?+item.coordinateZone:null,
+    originalLat:Number.isFinite(+item.originalLat)?+item.originalLat:+item.lat,
+    originalLon:Number.isFinite(+item.originalLon)?+item.originalLon:+item.lon,
+    originalDirection:item.originalDirection!=null&&Number.isFinite(+item.originalDirection)?+item.originalDirection:(item.direction!=null&&Number.isFinite(+item.direction)?+item.direction:null),
+    originalXNorth:Number.isFinite(+item.originalXNorth)?+item.originalXNorth:+item.xNorth,
+    originalYEast:Number.isFinite(+item.originalYEast)?+item.originalYEast:+item.yEast,
+    manualPositionAdjusted:item.manualPositionAdjusted===true,
+    manualDirectionAdjusted:item.manualDirectionAdjusted===true,
     listX:item.listX!=null&&Number.isFinite(+item.listX)?+item.listX:null,
     listY:item.listY!=null&&Number.isFinite(+item.listY)?+item.listY:null,
     listLayoutVersion:2
@@ -12301,7 +12332,7 @@ function restorePhotoAnnotations(list){
     fileName:String(item.fileName||""),
     lat:+item.lat,
     lon:+item.lon,
-    direction:Number.isFinite(+item.direction)?((+item.direction%360)+360)%360:null,
+    direction:item.direction!=null&&Number.isFinite(+item.direction)?((+item.direction%360)+360)%360:null,
     capturedAt:item.capturedAt||null,
     xNorth:+item.xNorth,
     yEast:+item.yEast,
@@ -12312,6 +12343,14 @@ function restorePhotoAnnotations(list){
     worldY:+item.worldY,
     markerX:Number.isFinite(+item.markerX)?+item.markerX:+item.worldX,
     markerY:Number.isFinite(+item.markerY)?+item.markerY:+item.worldY,
+    coordinateZone:Number.isFinite(+item.coordinateZone)?+item.coordinateZone:(Number.isFinite(+item.lat)&&Number.isFinite(+item.lon)?chooseJapanPlaneZone(+item.lat,+item.lon):null),
+    originalLat:Number.isFinite(+item.originalLat)?+item.originalLat:+item.lat,
+    originalLon:Number.isFinite(+item.originalLon)?+item.originalLon:+item.lon,
+    originalDirection:item.originalDirection!=null&&Number.isFinite(+item.originalDirection)?((+item.originalDirection%360)+360)%360:(item.direction!=null&&Number.isFinite(+item.direction)?((+item.direction%360)+360)%360:null),
+    originalXNorth:Number.isFinite(+item.originalXNorth)?+item.originalXNorth:+item.xNorth,
+    originalYEast:Number.isFinite(+item.originalYEast)?+item.originalYEast:+item.yEast,
+    manualPositionAdjusted:item.manualPositionAdjusted===true,
+    manualDirectionAdjusted:item.manualDirectionAdjusted===true,
     // The list is always laid out again from the current drawing sheet.
     // Older files stored positions based on all visible geometry, which could
     // place the list away from the lower-left corner of the actual frame.
@@ -12322,12 +12361,134 @@ function restorePhotoAnnotations(list){
   photoAnnotations.sort((a,b)=>(a.number||0)-(b.number||0));
 }
 function photoDirectionWorldVector(item){
-  if(!item||!Number.isFinite(+item.direction)||!Number.isFinite(+item.xNorth)||!Number.isFinite(+item.yEast))return null;
+  if(!item||item.direction==null||!Number.isFinite(+item.direction)||!Number.isFinite(+item.xNorth)||!Number.isFinite(+item.yEast))return null;
   const rad=(+item.direction)*Math.PI/180;
   const p0=planeToSfcWorld(+item.xNorth,+item.yEast);
   const p1=planeToSfcWorld(+item.xNorth+Math.cos(rad),+item.yEast+Math.sin(rad));
   const dx=(p1.x-p0.x)*1000,dy=(p1.y-p0.y)*1000,length=Math.hypot(dx,dy);
   return length>1e-9?{x:dx/length,y:dy/length}:null;
+}
+function photoPositionPanelIsOpen(){
+  const panel=document.getElementById("photoListPanel");
+  return !!(panel&&getComputedStyle(panel).display!=="none");
+}
+function photoPositionAdjustIsActive(){
+  return photoPositionAdjustMode&&isDesktopPhotoTool()&&photoPositionPanelIsOpen();
+}
+function setPhotoPositionAdjustMode(active){
+  photoPositionAdjustMode=!!active&&isDesktopPhotoTool()&&photoPositionPanelIsOpen()&&photoAnnotations.length>0;
+  if(!photoPositionAdjustMode){
+    selectedPhotoPositionItem=null;
+    photoPositionAdjustDrag=null;
+  }
+  const button=document.getElementById("photoPositionAdjustBtn");
+  if(button){
+    button.classList.toggle("modeActive",photoPositionAdjustMode);
+    button.setAttribute("aria-pressed",photoPositionAdjustMode?"true":"false");
+    button.textContent=photoPositionAdjustMode?"位置調整中":"位置調整";
+  }
+  if(canvas)canvas.style.cursor=photoPositionAdjustMode?"crosshair":"";
+  scheduleDraw();
+}
+function getPhotoMarkerScreenGeometry(item){
+  if(!item||!Number.isFinite(+item.markerX)||!Number.isFinite(+item.markerY))return null;
+  const units=getMemoWorldUnitsPerPaperMm();
+  const center=worldToScreen(+item.markerX,+item.markerY);
+  const radius=Math.max(2,(photoSettings.circleDiameterMm/2)*units*view.scale);
+  const vector=photoDirectionWorldVector(item);
+  let start=null,tip=null;
+  if(vector){
+    const arrowLength=Math.max(photoSettings.arrowLengthMm,photoSettings.circleDiameterMm/2+.5)*units;
+    start=worldToScreen(+item.markerX+vector.x*(photoSettings.circleDiameterMm/2)*units,+item.markerY+vector.y*(photoSettings.circleDiameterMm/2)*units);
+    tip=worldToScreen(+item.markerX+vector.x*arrowLength,+item.markerY+vector.y*arrowLength);
+  }
+  return {center,radius,start,tip};
+}
+function hitTestPhotoPositionAdjust(screenX,screenY){
+  if(!photoPositionAdjustIsActive()||!isLayerVisible(PHOTO_POSITION_LAYER_ID))return null;
+  for(let index=photoAnnotations.length-1;index>=0;index--){
+    const item=photoAnnotations[index],geometry=getPhotoMarkerScreenGeometry(item);
+    if(!geometry)continue;
+    if(geometry.tip&&Math.hypot(screenX-geometry.tip[0],screenY-geometry.tip[1])<=16)return {item,kind:"rotate"};
+    if(Math.hypot(screenX-geometry.center[0],screenY-geometry.center[1])<=Math.max(16,geometry.radius+8))return {item,kind:"move"};
+    if(geometry.start&&geometry.tip&&profileDistanceToSegment(screenX,screenY,geometry.start[0],geometry.start[1],geometry.tip[0],geometry.tip[1])<=10)return {item,kind:"move"};
+  }
+  return null;
+}
+function beginPhotoPositionAdjustDrag(screenX,screenY){
+  const hit=hitTestPhotoPositionAdjust(screenX,screenY);
+  if(!hit)return false;
+  const anchor=screenToWorld(screenX,screenY);
+  selectedPhotoPositionItem=hit.item;
+  photoPositionAdjustDrag={
+    item:hit.item,kind:hit.kind,
+    anchorWorld:{x:anchor[0],y:anchor[1]},
+    originalMarker:{x:+hit.item.markerX,y:+hit.item.markerY},
+    originalWorld:{x:+hit.item.worldX,y:+hit.item.worldY},
+    before:serializePhotoAnnotations(),
+    moved:false
+  };
+  scheduleDraw();
+  return true;
+}
+function getPhotoCoordinateZone(item){
+  const manual=getManualCoordinateZone();
+  if(manual)return manual;
+  const stored=Number(item&&item.coordinateZone);
+  if(stored>=1&&stored<=19)return stored;
+  if(Number.isFinite(+(item&&item.originalLat))&&Number.isFinite(+(item&&item.originalLon)))return chooseJapanPlaneZone(+item.originalLat,+item.originalLon);
+  if(Number.isFinite(+(item&&item.lat))&&Number.isFinite(+(item&&item.lon)))return chooseJapanPlaneZone(+item.lat,+item.lon);
+  return profileZone||getRememberedProfileZone()||null;
+}
+function applyPhotoAdjustedWorldPosition(item,worldX,worldY){
+  if(!item||![worldX,worldY].every(Number.isFinite))return false;
+  const plane=sfcWorldToPlane(worldX,worldY);
+  if(!Number.isFinite(plane?.xNorth)||!Number.isFinite(plane?.yEast))return false;
+  item.worldX=worldX;item.worldY=worldY;item.markerX=worldX;item.markerY=worldY;
+  item.xNorth=plane.xNorth;item.yEast=plane.yEast;item.manualPositionAdjusted=true;
+  const zone=getPhotoCoordinateZone(item);
+  if(zone){
+    try{
+      const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
+      if(Number.isFinite(ll?.lat)&&Number.isFinite(ll?.lon)){
+        item.lat=ll.lat;item.lon=ll.lon;item.coordinateZone=zone;
+      }
+    }catch(error){console.warn("Photo coordinate conversion failed",error);}
+  }
+  item.demElevation=null;item.demSource=null;item.demElevationChecked=false;
+  return true;
+}
+function movePhotoPositionAdjustDrag(screenX,screenY){
+  const drag=photoPositionAdjustDrag;
+  if(!drag)return false;
+  const world=screenToWorld(screenX,screenY),item=drag.item;
+  if(drag.kind==="move"){
+    const dx=world[0]-drag.anchorWorld.x,dy=world[1]-drag.anchorWorld.y;
+    applyPhotoAdjustedWorldPosition(item,drag.originalMarker.x+dx,drag.originalMarker.y+dy);
+  }else{
+    const centerPlane=sfcWorldToPlane(+item.markerX,+item.markerY);
+    const tipPlane=sfcWorldToPlane(world[0],world[1]);
+    const dx=tipPlane.xNorth-centerPlane.xNorth,dy=tipPlane.yEast-centerPlane.yEast;
+    if(Math.hypot(dx,dy)>1e-8){item.direction=((Math.atan2(dy,dx)*180/Math.PI)%360+360)%360;item.manualDirectionAdjusted=true;}
+  }
+  drag.moved=true;
+  renderPhotoListPanel();
+  scheduleDraw();
+  return true;
+}
+function finishPhotoPositionAdjustDrag(){
+  const drag=photoPositionAdjustDrag;
+  if(!drag)return false;
+  photoPositionAdjustDrag=null;
+  suppressClickUntil=Date.now()+350;
+  if(drag.moved){
+    recordEditAction({type:"photo-change",before:drag.before,after:serializePhotoAnnotations(),label:drag.kind==="rotate"?"写真方向調整":"写真位置調整"});
+    renderPhotoListPanel();scheduleDraw();markMemoChanged();saveRecoverySnapshot({immediate:true});
+    if(drag.kind==="move")resolvePhotoDemElevation(drag.item).then(()=>{
+      if(photoAnnotations.includes(drag.item)){renderPhotoListPanel();scheduleDraw();saveRecoverySnapshot({immediate:true});}
+    }).catch(error=>console.warn("Photo DEM elevation adjustment failed",error));
+  }
+  return true;
 }
 function makePhotoCirclePoints(cx,cy,radius,segs=40){
   const points=[];
@@ -12558,6 +12719,16 @@ function drawPhotoAnnotationsOverlay(){
       const fontPx=Math.max(4,photoSettings.textHeightMm*units*view.scale);
       ctx.save();ctx.font=`700 ${fontPx}px sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";
       ctx.lineWidth=Math.max(1,fontPx*.22);ctx.strokeStyle=darkTheme?"#000":"#fff";ctx.strokeText(String(item.number),center[0],center[1]);ctx.fillStyle=color;ctx.fillText(String(item.number),center[0],center[1]);ctx.restore();
+      if(photoPositionAdjustIsActive()&&item===selectedPhotoPositionItem){
+        const geometry=getPhotoMarkerScreenGeometry(item);
+        ctx.save();ctx.setLineDash([]);ctx.strokeStyle="#35c9ff";ctx.fillStyle="rgba(53,201,255,.28)";ctx.lineWidth=2;
+        ctx.beginPath();ctx.arc(center[0],center[1],Math.max(10,radius+5),0,Math.PI*2);ctx.fill();ctx.stroke();
+        if(geometry?.tip){
+          ctx.fillStyle="#35c9ff";ctx.strokeStyle="#fff";ctx.lineWidth=1.5;
+          ctx.beginPath();ctx.arc(geometry.tip[0],geometry.tip[1],7,0,Math.PI*2);ctx.fill();ctx.stroke();
+        }
+        ctx.restore();
+      }
     }
     ctx.restore();
   }
@@ -12655,11 +12826,17 @@ async function readPhotoExif(file){
   return {lat,lon,direction:Number.isFinite(direction)?((direction%360)+360)%360:null,capturedAt};
 }
 function layoutPhotoAnnotationMarkers(){
-  const units=getMemoWorldUnitsPerPaperMm(),placed=[];
+  const units=getMemoWorldUnitsPerPaperMm();
+  const placed=photoAnnotations
+    .filter(item=>item.manualPositionAdjusted===true&&Number.isFinite(+item.markerX)&&Number.isFinite(+item.markerY))
+    .map(item=>({x:+item.markerX,y:+item.markerY}));
   const diameterMm=Math.max(1,+photoSettings.circleDiameterMm||PHOTO_DEFAULT_SETTINGS.circleDiameterMm);
   const minDistance=(diameterMm+Math.max(.35,diameterMm*.08))*units;
   const maxRings=Math.max(10,Math.ceil(Math.sqrt(Math.max(1,photoAnnotations.length)))*3);
   for(const item of photoAnnotations){
+    if(item.manualPositionAdjusted===true&&Number.isFinite(+item.markerX)&&Number.isFinite(+item.markerY)){
+      continue;
+    }
     let selected={x:0,y:0},found=false;
     if(placed.every(point=>Math.hypot(point.x-item.worldX,point.y-item.worldY)>=minDistance))found=true;
     for(let ring=1;!found&&ring<=maxRings;ring++){
@@ -12731,7 +12908,7 @@ function renderPhotoListPanel(){
   rows.textContent="";
   for(const item of photoAnnotations){
     const tr=document.createElement("tr"),select=document.createElement("td"),number=document.createElement("td"),name=document.createElement("td"),capturedAt=document.createElement("td");
-    const xNorth=document.createElement("td"),yEast=document.createElement("td"),demElevation=document.createElement("td"),demSource=document.createElement("td");
+    const xNorth=document.createElement("td"),yEast=document.createElement("td"),demElevation=document.createElement("td"),demSource=document.createElement("td"),direction=document.createElement("td");
     const checkbox=document.createElement("input");
     checkbox.type="checkbox";checkbox.checked=selectedPhotoAnnotations.has(item);checkbox.setAttribute("aria-label",`${item.number}番を選択`);
     checkbox.addEventListener("change",()=>{
@@ -12745,15 +12922,17 @@ function renderPhotoListPanel(){
     yEast.textContent=formatPhotoCoordinate(item.yEast);
     demElevation.textContent=formatPhotoDemElevation(item);
     demSource.textContent=item.demSource||"";
-    tr.append(select,number,name,capturedAt,xNorth,yEast,demElevation,demSource);rows.appendChild(tr);
+    direction.textContent=formatPhotoDirection8(item.direction)||"—";
+    if(photoPositionAdjustIsActive()&&item===selectedPhotoPositionItem)tr.style.outline="2px solid #35c9ff";
+    tr.append(select,number,name,capturedAt,xNorth,yEast,demElevation,demSource,direction);rows.appendChild(tr);
   }
   if(summary)summary.textContent=photoAnnotations.length?`${photoAnnotations.length}枚（ファイル名順）`:"";
   if(table)table.style.display=photoAnnotations.length?"table":"none";
   if(empty)empty.style.display=photoAnnotations.length?"none":"block";
   const excelBtn=document.getElementById("photoExcelBtn");
   if(excelBtn)excelBtn.disabled=!photoAnnotations.length;
-  const albumBtn=document.getElementById("photoAlbumBtn");
-  if(albumBtn)albumBtn.disabled=!photoAnnotations.length;
+  const adjustBtn=document.getElementById("photoPositionAdjustBtn");
+  if(adjustBtn)adjustBtn.disabled=!photoAnnotations.length;
   updatePhotoSelectionActions();
   syncPhotoSettingsUi();
 }
@@ -12775,6 +12954,7 @@ function renumberAndRelayoutPhotoAnnotations(){
 function deleteSelectedPhotoAnnotations(){
   if(!selectedPhotoAnnotations.size)return;
   const before=serializePhotoAnnotations();
+  if(selectedPhotoPositionItem&&selectedPhotoAnnotations.has(selectedPhotoPositionItem))selectedPhotoPositionItem=null;
   for(const item of selectedPhotoAnnotations)photoSourceFiles.delete(photoAlbumSourceKey(item&&item.fileName));
   photoAnnotations=photoAnnotations.filter(item=>!selectedPhotoAnnotations.has(item));
   selectedPhotoAnnotations.clear();
@@ -12796,6 +12976,7 @@ function setPhotoListPanelOpen(open){
     }).catch(error=>console.warn("Photo DEM elevation resolve failed",error));
   }
   panel.style.display=open?"flex":"none";
+  if(!open){setPhotoPositionAdjustMode(false);setPhotoExcelChoiceModalOpen(false);}
   updateToolbarActivationUI();
 }
 function syncPhotoSettingsUi(){
@@ -12833,7 +13014,7 @@ function escapeSpreadsheetXml(value){
 async function buildPhotoListXlsx(){
   await ensurePhotoDemElevations();
   const rows=[
-    ["番号","ファイル名","撮影時間","X座標","Y座標","DEM標高","使用DEM"],
+    ["番号","ファイル名","撮影時間","X座標","Y座標","DEM標高","使用DEM","撮影方向"],
     ...photoAnnotations.map(item=>[
       String(item.number),
       String(item.fileName||""),
@@ -12841,7 +13022,8 @@ async function buildPhotoListXlsx(){
       formatPhotoCoordinate(item.xNorth),
       formatPhotoCoordinate(item.yEast),
       item.demElevation!=null&&Number.isFinite(+item.demElevation)?(+item.demElevation).toFixed(3):"",
-      String(item.demSource||"")
+      String(item.demSource||""),
+      formatPhotoDirection8(item.direction)
     ])
   ];
   const sheetRows=rows.map((row,rowIndex)=>{
@@ -12856,7 +13038,7 @@ async function buildPhotoListXlsx(){
     {name:"_rels/.rels",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
     {name:"xl/workbook.xml",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="写真一覧" sheetId="1" r:id="rId1"/></sheets></workbook>`},
     {name:"xl/_rels/workbook.xml.rels",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`},
-    {name:"xl/worksheets/sheet1.xml",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="10" customWidth="1"/><col min="2" max="2" width="48" customWidth="1"/><col min="3" max="3" width="22" customWidth="1"/><col min="4" max="6" width="16" customWidth="1"/><col min="7" max="7" width="12" customWidth="1"/></cols><sheetData>${sheetRows}</sheetData></worksheet>`}
+    {name:"xl/worksheets/sheet1.xml",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="10" customWidth="1"/><col min="2" max="2" width="48" customWidth="1"/><col min="3" max="3" width="22" customWidth="1"/><col min="4" max="6" width="16" customWidth="1"/><col min="7" max="7" width="12" customWidth="1"/><col min="8" max="8" width="14" customWidth="1"/></cols><sheetData>${sheetRows}</sheetData></worksheet>`}
   ];
   return createZipFromFiles(files);
 }
@@ -12945,6 +13127,10 @@ function setPhotoAlbumModalOpen(open){
   if(open)populatePhotoAlbumSettingsUi();
   modal.style.display=open?"flex":"none";
 }
+function setPhotoExcelChoiceModalOpen(open){
+  const modal=document.getElementById("photoExcelChoiceModal");if(!modal)return;
+  modal.style.display=open?"flex":"none";
+}
 function photoAlbumCommentText(item,field){
   if(field==="fileName")return `ファイル名：${item.fileName||""}`;
   if(field==="number")return `写真番号：${item.number||""}`;
@@ -12958,7 +13144,7 @@ function photoAlbumCommentText(item,field){
   return "";
 }
 function formatPhotoDirection8(value){
-  if(!Number.isFinite(+value))return "";
+  if(value==null||!Number.isFinite(+value))return "";
   const labels=["北へ","北東へ","東へ","南東へ","南へ","南西へ","西へ","北西へ"];
   const normalized=((+value%360)+360)%360;
   return labels[Math.round(normalized/45)%8];
@@ -13192,7 +13378,9 @@ async function importGeotaggedPhotos(files){
       imported.push({
         number:0,fileName:file.name,lat:exif.lat,lon:exif.lon,direction:exif.direction,capturedAt:exif.capturedAt,
         xNorth:xy.x,yEast:xy.y,demElevation:null,demSource:null,demElevationChecked:false,
-        worldX:world.x*1000,worldY:world.y*1000,markerX:world.x*1000,markerY:world.y*1000
+        worldX:world.x*1000,worldY:world.y*1000,markerX:world.x*1000,markerY:world.y*1000,
+        coordinateZone:zone,originalLat:exif.lat,originalLon:exif.lon,originalDirection:exif.direction,
+        originalXNorth:xy.x,originalYEast:xy.y,manualPositionAdjusted:false,manualDirectionAdjusted:false
       });
       photoSourceFiles.set(photoAlbumSourceKey(file.name),file);
     }catch(err){failed.push({name:file.name,reason:err&&err.message||"位置情報なし"});}
@@ -16103,10 +16291,18 @@ document.getElementById("photoOpenBtn")?.addEventListener("click",()=>{
   const input=document.getElementById("photoInput");
   if(input){input.value="";input.click();}
 });
-document.getElementById("photoExcelBtn")?.addEventListener("click",()=>{exportPhotoListExcel();});
-document.getElementById("photoAlbumBtn")?.addEventListener("click",()=>{
+document.getElementById("photoExcelBtn")?.addEventListener("click",()=>{
   if(!photoAnnotations.length){showToast("先に写真を開いてください");return;}
-  setPhotoAlbumModalOpen(true);
+  setPhotoExcelChoiceModalOpen(true);
+});
+document.getElementById("photoExcelChoiceCloseBtn")?.addEventListener("click",()=>setPhotoExcelChoiceModalOpen(false));
+document.getElementById("photoExcelListChoiceBtn")?.addEventListener("click",()=>{setPhotoExcelChoiceModalOpen(false);exportPhotoListExcel();});
+document.getElementById("photoExcelAlbumChoiceBtn")?.addEventListener("click",()=>{setPhotoExcelChoiceModalOpen(false);setPhotoAlbumModalOpen(true);});
+document.getElementById("photoExcelChoiceModal")?.addEventListener("click",event=>{if(event.target.id==="photoExcelChoiceModal")setPhotoExcelChoiceModalOpen(false);});
+document.getElementById("photoPositionAdjustBtn")?.addEventListener("click",()=>{
+  if(!photoAnnotations.length){showToast("先に写真を開いてください");return;}
+  setPhotoPositionAdjustMode(!photoPositionAdjustMode);
+  if(photoPositionAdjustMode)showToast("丸・番号・矢印で位置移動、矢印先端で方向調整",2400);
 });
 document.getElementById("photoAlbumCloseBtn")?.addEventListener("click",()=>setPhotoAlbumModalOpen(false));
 document.getElementById("photoAlbumCancelBtn")?.addEventListener("click",()=>setPhotoAlbumModalOpen(false));
@@ -16888,7 +17084,16 @@ document.addEventListener("click", (e)=>{
 });
 
 canvas.addEventListener("mousedown", e=>{
-  if(e.button===0)startTextLongPress(e.clientX,e.clientY,"mouse");
+  if(e.button===0){
+    const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
+    if(beginPhotoPositionAdjustDrag(local.x,local.y)){
+      e.preventDefault();
+      clearTextLongPressTimer();
+      dragging=false;
+      return;
+    }
+    startTextLongPress(e.clientX,e.clientY,"mouse");
+  }
   if ((e.button === 1) || (e.button === 2)) {
     dragging = true;
     lastX = e.clientX;
@@ -16939,6 +17144,7 @@ canvas.addEventListener("mousedown", e=>{
 window.addEventListener("mouseup", ()=>{
   clearTextLongPressTimer();
   if(textLongPressTriggered){textLongPressTriggered=false;suppressClickUntil=0;}
+  if(photoPositionAdjustDrag){finishPhotoPositionAdjustDrag();dragging=false;return;}
   const wasDragging=dragging;
   if(profileLineDrag&&profileLineDrag.pointerType==="mouse") finishProfileLineDrag();
   dragging=false;
@@ -16961,6 +17167,15 @@ window.addEventListener("mousemove", e=>{
     e.clientY>=canvasRect.top&&e.clientY<=canvasRect.bottom;
   hoverCursorScreen=cursorInsideCanvas?{x:ox,y:oy}:null;
   updateDesktopCadCrosshair(ox,oy,cursorInsideCanvas);
+
+  if(photoPositionAdjustDrag){
+    movePhotoPositionAdjustDrag(ox,oy);
+    return;
+  }
+  if(photoPositionAdjustIsActive()&&cursorInsideCanvas){
+    const photoHit=hitTestPhotoPositionAdjust(ox,oy);
+    canvas.style.cursor=photoHit?(photoHit.kind==="rotate"?"crosshair":"grab"):"crosshair";
+  }
 
   if(terrainMode==="contour"&&!isTouchMobileLike()&&terrainPanel&&getComputedStyle(terrainPanel).display!=="none"){
     clearTimeout(terrainHoverInfoTimer);

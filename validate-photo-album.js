@@ -2,7 +2,7 @@ const fs = require("fs");
 
 const source = fs.readFileSync("index.html", "utf8");
 const checks = [
-  ["写真帳ボタン", /id="photoAlbumBtn"[^>]*>写真帳Excel</],
+  ["Excel出力の2択", /id="photoExcelBtn"[^>]*>Excel出力<[\s\S]*id="photoExcelListChoiceBtn"[^>]*>一覧表を出力<[\s\S]*id="photoExcelAlbumChoiceBtn"[^>]*>写真帳を出力</],
   ["6形式", /value="2"[\s\S]*value="3"[\s\S]*value="4"[\s\S]*value="6"[\s\S]*value="8"[\s\S]*value="spread"/],
   ["コメント3行", /id="photoAlbumComment1"[\s\S]*id="photoAlbumComment2"[\s\S]*id="photoAlbumComment3"/],
   ["豆図選択", /id="photoAlbumMiniMap"[^>]*type="checkbox"/],
@@ -35,6 +35,10 @@ const checks = [
   ["写真一覧のファイル名列を縮小", /nth-child\(3\)[^\n]*width:112px/],
   ["6枚8枚もコメント3行", /fields\.forEach\(\(field,line\)=>mergeComment\(photoEnd\+1\+line/],
   ["既存一覧Excel維持", /async function buildPhotoListXlsx\(\)/],
+  ["PC専用写真位置調整", /function photoPositionAdjustIsActive\(\)[\s\S]*isDesktopPhotoTool\(\)/],
+  ["写真位置を座標へ反映", /function applyPhotoAdjustedWorldPosition\(item,worldX,worldY\)[\s\S]*item\.xNorth=plane\.xNorth;item\.yEast=plane\.yEast/],
+  ["矢印先端で方向回転", /item\.direction=\(\(Math\.atan2\(dy,dx\)\*180\/Math\.PI\)\%360\+360\)\%360/],
+  ["調整後の8方向を一覧Excelへ出力", /["番号","ファイル名","撮影時間","X座標","Y座標","DEM標高","使用DEM","撮影方向"]/],
 ];
 
 for (const [label, pattern] of checks) {
