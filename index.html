@@ -621,6 +621,10 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #photoListBody{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;overflow:hidden;padding:8px 12px 10px;}
 #photoListActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
 #photoListActions button{min-height:36px;font-size:13px;font-weight:700;}
+#photoSelectionActions{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:7px;margin:0 0 10px;}
+#photoSelectionActions button{min-height:32px;padding:5px 7px;font-size:12px;font-weight:700;}
+#photoDeleteSelectedBtn{background:#8f2424;color:#fff;border-color:#b63b3b;}
+#photoDeleteSelectedBtn:disabled{opacity:.38;}
 #photoSettings{display:grid;gap:7px;margin:0 0 10px;padding:9px;border:1px solid var(--border);border-radius:9px;background:rgba(0,0,0,.08);}
 .photoSettingRow{display:grid;grid-template-columns:92px 1fr 54px;align-items:center;gap:7px;font-size:12px;font-weight:700;}
 .photoSettingRow input[type=range]{width:100%;min-width:0;}
@@ -633,16 +637,18 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 body.light #photoListTableScroll{scrollbar-color:#858585 rgba(0,0,0,.12);}
 body.light #photoListTableScroll::-webkit-scrollbar-track{background:rgba(0,0,0,.12);}
 body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
-#photoListTable{width:840px;min-width:840px;table-layout:fixed;border-collapse:collapse;font-size:12px;}
+#photoListTable{width:884px;min-width:884px;table-layout:fixed;border-collapse:collapse;font-size:12px;}
 #photoListTable th,#photoListTable td{padding:6px 5px;text-align:left;border-bottom:1px solid var(--border);vertical-align:middle;}
-#photoListTable th:first-child,#photoListTable td:first-child{width:42px;text-align:center;}
-#photoListTable th:nth-child(2),#photoListTable td:nth-child(2){width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-#photoListTable th:nth-child(3),#photoListTable td:nth-child(3){width:148px;white-space:nowrap;}
-#photoListTable th:nth-child(4),#photoListTable td:nth-child(4),
-#photoListTable th:nth-child(5),#photoListTable td:nth-child(5){width:126px;}
-#photoListTable th:nth-child(6),#photoListTable td:nth-child(6){width:108px;}
-#photoListTable th:nth-child(7),#photoListTable td:nth-child(7){width:78px;}
-#photoListTable th:nth-child(n+4),#photoListTable td:nth-child(n+4){white-space:nowrap;font-variant-numeric:tabular-nums;}
+#photoListTable th:first-child,#photoListTable td:first-child{width:34px;text-align:center;}
+#photoListTable th:nth-child(2),#photoListTable td:nth-child(2){width:42px;text-align:center;}
+#photoListTable th:nth-child(3),#photoListTable td:nth-child(3){width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#photoListTable th:nth-child(4),#photoListTable td:nth-child(4){width:148px;white-space:nowrap;}
+#photoListTable th:nth-child(5),#photoListTable td:nth-child(5),
+#photoListTable th:nth-child(6),#photoListTable td:nth-child(6){width:126px;}
+#photoListTable th:nth-child(7),#photoListTable td:nth-child(7){width:108px;}
+#photoListTable th:nth-child(8),#photoListTable td:nth-child(8){width:78px;}
+#photoListTable th:nth-child(n+5),#photoListTable td:nth-child(n+5){white-space:nowrap;font-variant-numeric:tabular-nums;}
+#photoListTable input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:#1689ff;cursor:pointer;}
 #photoListTable td{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
 @media (hover:hover) and (pointer:fine){
   #photoListTable td{cursor:text;}
@@ -1224,6 +1230,11 @@ gtag('config', 'G-88B9YPJXWP');
         <button id="photoOpenBtn" type="button">写真を開く</button>
         <button id="photoExcelBtn" type="button">一覧をExcel出力</button>
       </div>
+      <div id="photoSelectionActions">
+        <button id="photoSelectAllBtn" type="button">全選択</button>
+        <button id="photoSelectNoneBtn" type="button">全解除</button>
+        <button id="photoDeleteSelectedBtn" type="button" disabled>選択を削除</button>
+      </div>
       <div id="photoSettings">
         <label class="photoSettingRow"><span>丸の大きさ</span><input id="photoCircleSize" type="range" min="1" max="20" step="0.5" value="5"><output id="photoCircleSizeValue">5.0 mm</output></label>
         <label class="photoSettingRow"><span>文字の大きさ</span><input id="photoTextSize" type="range" min="1" max="10" step="0.1" value="2.5"><output id="photoTextSizeValue">2.5 mm</output></label>
@@ -1233,7 +1244,7 @@ gtag('config', 'G-88B9YPJXWP');
       <div id="photoListSummary"></div>
       <div id="photoListTableScroll">
         <table id="photoListTable">
-          <thead><tr><th>番号</th><th>ファイル名</th><th>撮影時間</th><th>X座標</th><th>Y座標</th><th>DEM標高</th><th>使用DEM</th></tr></thead>
+          <thead><tr><th>選択</th><th>番号</th><th>ファイル名</th><th>撮影時間</th><th>X座標</th><th>Y座標</th><th>DEM標高</th><th>使用DEM</th></tr></thead>
           <tbody id="photoListRows"></tbody>
         </table>
       </div>
@@ -2118,6 +2129,7 @@ const PHOTO_LIST_LAYER_ID = "photo:list";
 const PHOTO_POSITION_LAYER_NAME = "写真位置";
 const PHOTO_LIST_LAYER_NAME = "写真一覧";
 let photoAnnotations = [];
+const selectedPhotoAnnotations = new Set();
 const PHOTO_SETTINGS_KEY = "sfcviewer-photo-settings-v1";
 const PHOTO_DEFAULT_SETTINGS = {circleDiameterMm:5,textHeightMm:2.5,arrowLengthMm:10,arrowHeadWidthMm:.5};
 const PHOTO_LIST_TEXT_HEIGHT_MM = 2.5;
@@ -3416,6 +3428,7 @@ function getAerialCadLayerNameById(layer){
 }
 function getAerialEraLabel(source){
   const label=String(source&&source.label||"").trim();
+  if(String(source&&source.id||"").toLowerCase()==="latest"||/現在|最新/.test(label))return "現在";
   const years=[...label.matchAll(/(?:19|20)\d{2}/g)].map(match=>match[0]);
   if(years.length>=2&&years[0]!==years[years.length-1])return `${years[0]}～${years[years.length-1]}年`;
   if(years.length)return `${years[0]}年`;
@@ -3426,7 +3439,7 @@ function getAerialLayerRawName(layerName){
   const years=[...String(layerName||"").matchAll(/(?:19|20)\d{2}/g)].map(match=>match[0]);
   const era=years.length>=2&&years[0]!==years[years.length-1]
     ?years[0]+"\x81\x60"+years[years.length-1]+"\x94\x4e"
-    :(years[0]?years[0]+"\x94\x4e":"photo");
+    :(years[0]?years[0]+"\x94\x4e":"\x8c\xbb\x8d\xdd");
   return "\x92\x6e\x97\x9d\x89\x40\x83\x5e\x83\x43\x83\x8b\x8d\x71\x8b\xf3\x8e\xca\x90\x5e\x81\x69"+era+"\x81\x6a";
 }
 function blobToDataUrlAsync(blob){
@@ -5951,6 +5964,12 @@ function applyEditAction(action,undo){
     }
   }else if(action.type==="text-layer-change"){
     applyTextLayerChangeHistory(action,undo);
+  }else if(action.type==="photo-change"){
+    restorePhotoAnnotations(undo?action.before:action.after);
+    selectedPhotoAnnotations.clear();
+    layoutPhotoAnnotationMarkers();
+    layoutPhotoListOutsideDrawing();
+    renderPhotoListPanel();
   }
   cachedMeasurePointsDirty=true;ensureLayerVisibility();renderLayerList();scheduleDraw();markMemoChanged();
 }
@@ -11983,19 +12002,24 @@ async function readPhotoExif(file){
   return {lat,lon,direction:Number.isFinite(direction)?((direction%360)+360)%360:null,capturedAt};
 }
 function layoutPhotoAnnotationMarkers(){
-  const units=getMemoWorldUnitsPerPaperMm(),placed=[],minDistance=6*units;
-  const offsets=[{x:0,y:0}];
-  for(const radiusMm of [6,10,14,18,24,30]){
-    for(let angle=0;angle<360;angle+=45){
-      const rad=angle*Math.PI/180;
-      offsets.push({x:Math.cos(rad)*radiusMm*units,y:Math.sin(rad)*radiusMm*units});
-    }
-  }
+  const units=getMemoWorldUnitsPerPaperMm(),placed=[];
+  const diameterMm=Math.max(1,+photoSettings.circleDiameterMm||PHOTO_DEFAULT_SETTINGS.circleDiameterMm);
+  const minDistance=(diameterMm+Math.max(.35,diameterMm*.08))*units;
+  const maxRings=Math.max(10,Math.ceil(Math.sqrt(Math.max(1,photoAnnotations.length)))*3);
   for(const item of photoAnnotations){
-    let selected=offsets[0];
-    for(const offset of offsets){
-      const x=item.worldX+offset.x,y=item.worldY+offset.y;
-      if(placed.every(point=>Math.hypot(point.x-x,point.y-y)>=minDistance)){selected=offset;break;}
+    let selected={x:0,y:0},found=false;
+    if(placed.every(point=>Math.hypot(point.x-item.worldX,point.y-item.worldY)>=minDistance))found=true;
+    for(let ring=1;!found&&ring<=maxRings;ring++){
+      const radius=minDistance*ring;
+      const segments=Math.max(16,ring*16);
+      for(let step=0;step<segments;step++){
+        const angle=-Math.PI/2+step*Math.PI*2/segments;
+        const offset={x:Math.cos(angle)*radius,y:Math.sin(angle)*radius};
+        const x=item.worldX+offset.x,y=item.worldY+offset.y;
+        if(placed.every(point=>Math.hypot(point.x-x,point.y-y)>=minDistance)){
+          selected=offset;found=true;break;
+        }
+      }
     }
     item.markerX=item.worldX+selected.x;
     item.markerY=item.worldY+selected.y;
@@ -12053,22 +12077,55 @@ function renderPhotoListPanel(){
   if(!rows)return;
   rows.textContent="";
   for(const item of photoAnnotations){
-    const tr=document.createElement("tr"),number=document.createElement("td"),name=document.createElement("td"),capturedAt=document.createElement("td");
+    const tr=document.createElement("tr"),select=document.createElement("td"),number=document.createElement("td"),name=document.createElement("td"),capturedAt=document.createElement("td");
     const xNorth=document.createElement("td"),yEast=document.createElement("td"),demElevation=document.createElement("td"),demSource=document.createElement("td");
+    const checkbox=document.createElement("input");
+    checkbox.type="checkbox";checkbox.checked=selectedPhotoAnnotations.has(item);checkbox.setAttribute("aria-label",`${item.number}番を選択`);
+    checkbox.addEventListener("change",()=>{
+      if(checkbox.checked)selectedPhotoAnnotations.add(item);else selectedPhotoAnnotations.delete(item);
+      updatePhotoSelectionActions();
+    });
+    select.appendChild(checkbox);
     number.textContent=String(item.number);name.textContent=item.fileName;
     capturedAt.textContent=formatPhotoCapturedAt(item.capturedAt)||"—";
     xNorth.textContent=formatPhotoCoordinate(item.xNorth);
     yEast.textContent=formatPhotoCoordinate(item.yEast);
     demElevation.textContent=formatPhotoDemElevation(item);
     demSource.textContent=item.demSource||"";
-    tr.append(number,name,capturedAt,xNorth,yEast,demElevation,demSource);rows.appendChild(tr);
+    tr.append(select,number,name,capturedAt,xNorth,yEast,demElevation,demSource);rows.appendChild(tr);
   }
   if(summary)summary.textContent=photoAnnotations.length?`${photoAnnotations.length}枚（ファイル名順）`:"";
   if(table)table.style.display=photoAnnotations.length?"table":"none";
   if(empty)empty.style.display=photoAnnotations.length?"none":"block";
   const excelBtn=document.getElementById("photoExcelBtn");
   if(excelBtn)excelBtn.disabled=!photoAnnotations.length;
+  updatePhotoSelectionActions();
   syncPhotoSettingsUi();
+}
+function updatePhotoSelectionActions(){
+  for(const item of [...selectedPhotoAnnotations])if(!photoAnnotations.includes(item))selectedPhotoAnnotations.delete(item);
+  const count=selectedPhotoAnnotations.size;
+  const deleteBtn=document.getElementById("photoDeleteSelectedBtn");
+  const noneBtn=document.getElementById("photoSelectNoneBtn");
+  const allBtn=document.getElementById("photoSelectAllBtn");
+  if(deleteBtn){deleteBtn.disabled=count===0;deleteBtn.textContent=count?`選択を削除（${count}）`:"選択を削除";}
+  if(noneBtn)noneBtn.disabled=count===0;
+  if(allBtn)allBtn.disabled=!photoAnnotations.length||count===photoAnnotations.length;
+}
+function renumberAndRelayoutPhotoAnnotations(){
+  photoAnnotations.forEach((item,index)=>item.number=index+1);
+  layoutPhotoAnnotationMarkers();
+  layoutPhotoListOutsideDrawing();
+}
+function deleteSelectedPhotoAnnotations(){
+  if(!selectedPhotoAnnotations.size)return;
+  const before=serializePhotoAnnotations();
+  photoAnnotations=photoAnnotations.filter(item=>!selectedPhotoAnnotations.has(item));
+  selectedPhotoAnnotations.clear();
+  renumberAndRelayoutPhotoAnnotations();
+  const after=serializePhotoAnnotations();
+  recordEditAction({type:"photo-change",before,after,label:"写真削除"});
+  ensureLayerVisibility();renderLayerList();renderPhotoListPanel();scheduleDraw();markMemoChanged();saveRecoverySnapshot({immediate:true});
 }
 function setPhotoListPanelOpen(open){
   const panel=document.getElementById("photoListPanel");
@@ -12106,6 +12163,7 @@ function applyPhotoSettingFromInput(input,key){
   const min=Number(input.min),max=Number(input.max),value=Math.min(max,Math.max(min,Number(input.value)));
   if(!Number.isFinite(value))return;
   photoSettings={...photoSettings,[key]:value};
+  if(key==="circleDiameterMm")layoutPhotoAnnotationMarkers();
   savePhotoSettings();
   syncPhotoSettingsUi();
   scheduleDraw();
@@ -14838,6 +14896,14 @@ document.getElementById("photoOpenBtn")?.addEventListener("click",()=>{
   if(input){input.value="";input.click();}
 });
 document.getElementById("photoExcelBtn")?.addEventListener("click",()=>{exportPhotoListExcel();});
+document.getElementById("photoSelectAllBtn")?.addEventListener("click",()=>{
+  for(const item of photoAnnotations)selectedPhotoAnnotations.add(item);
+  renderPhotoListPanel();
+});
+document.getElementById("photoSelectNoneBtn")?.addEventListener("click",()=>{
+  selectedPhotoAnnotations.clear();renderPhotoListPanel();
+});
+document.getElementById("photoDeleteSelectedBtn")?.addEventListener("click",deleteSelectedPhotoAnnotations);
 document.getElementById("photoListTable")?.addEventListener("copy",event=>{
   const selection=window.getSelection();
   const plainText=selection?selection.toString().replace(/\u00a0/g," "):"";
