@@ -2279,7 +2279,7 @@ const PROFILE_TILE_CACHE = "sfc-dem-tiles-v1";
 // Do not reuse older profiles that may contain DEM5B/DEM5C/DEM10B samples.
 // v4 keeps every valid DEM1A sample and uses DEM5A only for DEM1A gaps.
 // The key change prevents older all-DEM5A fallbacks from being reused.
-const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v4-dem1a-priority";
+const PROFILE_DATA_CACHE_KEY = "sfc-dem-profiles-v5-pointwise-dem-priority";
 // v2 invalidates zone numbers remembered before GPS-first validation was added.
 const PROFILE_ZONE_CACHE_KEY = "sfc-dem-zones-v2";
 const PROFILE_DEM_SOURCES = [
@@ -4191,6 +4191,17 @@ async function sampleTerrainGridBilinear(points,source,maxTiles=120){
   }
   return {source,validCount,tooWide:false};
 }
+async function fillTerrainPointsByDemPriority(points,maxTiles=120){
+  const sourceCounts={DEM1A:0,DEM5A:0};
+  for(const source of PROFILE_DEM_SOURCES){
+    const missing=points.filter(point=>!Number.isFinite(point.elevation));
+    if(!missing.length)break;
+    const result=await sampleTerrainGridBilinear(missing,source,maxTiles);
+    if(result.tooWide)return {validCount:points.length-missing.length,sourceCounts,tooWide:true};
+    sourceCounts[source.id]=(sourceCounts[source.id]||0)+result.validCount;
+  }
+  return {validCount:points.reduce((count,point)=>count+(Number.isFinite(point.elevation)?1:0),0),sourceCounts,tooWide:false};
+}
 function decodeProfileElevation(pixels, px, py){
   if (!pixels) return null;
   const i = (py * 256 + px) * 4;
@@ -4245,22 +4256,8 @@ async function buildProfileData(start,end,zone){
     const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
     samples.push({t,distance:length*t,worldX,worldY,lat:ll.lat,lon:ll.lon,elevation:null,source:null});
   }
-  let validElevationCount=0;
-  for(const source of PROFILE_DEM_SOURCES){
-    const candidate=await samplePointsFromDemSource(samples,source,"_profileRef");
-    for(let i=0;i<samples.length;i++){
-      // Sources are ordered by priority. Never overwrite a valid DEM1A value;
-      // DEM5A is only a gap filler for points that DEM1A could not provide.
-      if(samples[i].elevation!=null)continue;
-      const elevation=candidate.values[i];
-      if(elevation!=null){
-        samples[i].elevation=elevation;
-        samples[i].source=source.id;
-        validElevationCount++;
-      }
-    }
-    if(validElevationCount===samples.length)break;
-  }
+  const filled=await fillTerrainPointsByDemPriority(samples);
+  const validElevationCount=filled.validCount;
   if(validElevationCount<2) return null;
   const result={start:{...start},end:{...end},zone,length,samples};
   rememberProfileData(result);
@@ -4301,11 +4298,17 @@ function chooseTerrainGridSize(viewport){
   }
   return {cols,rows,targetPx};
 }
-function chooseTerrainContourGrid(viewport){
+function terrainContourDisplaySpacing(viewport){
+  const oneMeterPx=Math.max(0,viewport.scale*1000);
+  if(oneMeterPx>=2.5)return 1;
+  if(oneMeterPx>=1.1)return 2;
+  return 5;
+}
+function chooseTerrainContourGrid(viewport,spacing=1){
   const corners=[[0,0],[viewport.w,0],[viewport.w,viewport.h],[0,viewport.h]].map(([sx,sy])=>{
     const world=screenToWorld(sx,sy);return sfcWorldToPlane(world[0],world[1]);
   });
-  const spacing=1,padding=2;
+  const padding=spacing*2;
   const minX=Math.floor(Math.min(...corners.map(point=>point.xNorth))/spacing)*spacing-padding;
   const maxX=Math.ceil(Math.max(...corners.map(point=>point.xNorth))/spacing)*spacing+padding;
   const minY=Math.floor(Math.min(...corners.map(point=>point.yEast))/spacing)*spacing-padding;
@@ -4341,7 +4344,10 @@ function terrainContourGridCoversViewport(grid){
 }
 function terrainViewportNeedsRefresh(grid){
   if(!grid||!grid.viewport)return true;
-  if(grid.gridPurpose==="contour"&&(grid.planeContourGrid||grid.nativeDemGrid))return !terrainContourGridCoversViewport(grid);
+  if(grid.gridPurpose==="contour"&&grid.planeContourGrid){
+    return !terrainContourGridCoversViewport(grid)||grid.planeContourGrid.spacing!==terrainContourDisplaySpacing(getTerrainViewportState());
+  }
+  if(grid.gridPurpose==="contour"&&grid.nativeDemGrid)return !terrainContourGridCoversViewport(grid);
   const now=getTerrainViewportState(),old=grid.viewport;
   const centerShiftPx=Math.hypot(now.cx-old.cx,now.cy-old.cy)*now.scale;
   const scaleRatio=Math.max(now.scale/old.scale,old.scale/now.scale);
@@ -4481,8 +4487,9 @@ async function buildNativeTerrainContourGrid(zone,viewport,quality="auto"){
   const sourceId=dem5Count?"MIXED":"DEM1A";
   return terrainContourGridFromNativeResult(primary,zone,viewport,sourceId,{DEM1A:primary.validCount,DEM5A:dem5Count},"DEM1A");
 }
-async function buildAlignedTerrainContourGrid(zone,viewport){
-  const spec=chooseTerrainContourGrid(viewport);
+async function buildAlignedTerrainContourGrid(zone,viewport,quality="auto"){
+  const spacing=quality==="detail"?1:terrainContourDisplaySpacing(viewport);
+  const spec=chooseTerrainContourGrid(viewport,spacing);
   const points=new Array(spec.rows*spec.cols);
   for(let row=0;row<spec.rows;row++){
     const xNorth=spec.minX+row*spec.spacing;
@@ -4498,27 +4505,18 @@ async function buildAlignedTerrainContourGrid(zone,viewport){
     }
   }
 
-  const dem1Source=PROFILE_DEM_SOURCES.find(source=>source.id==="DEM1A");
-  const dem5Source=PROFILE_DEM_SOURCES.find(source=>source.id==="DEM5A");
-  if(!dem1Source||!dem5Source)throw new Error("標高データの設定を確認できません");
-
-  // Contours are calculated on a true one-metre grid aligned to the plane
-  // rectangular coordinate axes. The DEM raster is only sampled for height;
-  // its Web-Mercator pixel direction must not define the contour grid.
-  const primary=await sampleTerrainGridBilinear(points,dem1Source,120);
-  let selected=primary,sourceId="DEM1A";
-  if(primary.tooWide||primary.validCount<Math.ceil(points.length*.45)){
-    for(const point of points){point.elevation=null;point.source=null;}
-    const fallback=await sampleTerrainGridBilinear(points,dem5Source,120);
-    if(fallback.tooWide)throw new Error("範囲が広すぎます。少し拡大してから実行してください");
-    selected=fallback;sourceId="DEM5A";
-  }
-  if(selected.validCount<Math.ceil(points.length*.45))throw new Error("標高データを取得できません");
+  // The display grid is aligned to the plane rectangular coordinate axes.
+  // Only its spacing changes with zoom; DEM1A remains the first height source.
+  // The Web-Mercator pixel direction must not define the contour grid.
+  const filled=await fillTerrainPointsByDemPriority(points,120);
+  if(filled.tooWide)throw new Error("範囲が広すぎます。少し拡大してから実行してください");
+  if(filled.validCount<Math.ceil(points.length*.45))throw new Error("標高データを取得できません");
+  const sourceId=filled.sourceCounts.DEM1A&&filled.sourceCounts.DEM5A?"MIXED":filled.sourceCounts.DEM1A?"DEM1A":"DEM5A";
 
   return {
     cols:spec.cols,rows:spec.rows,zone,points,createdAt:Date.now(),
     width:viewport.w,height:viewport.h,viewport,gridPurpose:"contour",
-    planeContourGrid:{...spec,sourceId,sourceCounts:{DEM1A:sourceId==="DEM1A"?selected.validCount:0,DEM5A:sourceId==="DEM5A"?selected.validCount:0}}
+    planeContourGrid:{...spec,sourceId,sourceCounts:filled.sourceCounts,displaySpacing:spacing}
   };
 }
 async function buildTerrainGrid(purpose="surface",contourQuality="auto"){
@@ -4526,7 +4524,7 @@ async function buildTerrainGrid(purpose="surface",contourQuality="auto"){
   const zone=await resolveProfileZone();
   if(!zone) throw new Error("このSFC図面の座標系を確認できません");
   const viewport=getTerrainViewportState();
-  if(purpose==="contour")return buildAlignedTerrainContourGrid(zone,viewport);
+  if(purpose==="contour")return buildAlignedTerrainContourGrid(zone,viewport,contourQuality);
   const {cols,rows}=chooseTerrainGridSize(viewport);
   const w=viewport.w,h=viewport.h;
   const inset=8;
@@ -4541,22 +4539,9 @@ async function buildTerrainGrid(purpose="surface",contourQuality="auto"){
       points.push({row,col,sx,sy,worldX:world[0],worldY:world[1],plane,lat:ll.lat,lon:ll.lon,elevation:null,source:null});
     }
   }
-  let skippedWideSource=false,selected=null;
-  for(const source of PROFILE_DEM_SOURCES){
-    const candidate=await samplePointsFromDemSource(points,source,"_terrainRef",120);
-    if(candidate.tooWide){skippedWideSource=true;continue;}
-    if(candidate.complete){selected=candidate;break;}
-    // Never fill holes in DEM1A with DEM5A. If DEM1A does not cover the
-    // complete viewport, discard it and evaluate DEM5A for the whole area.
-    if(source.id==="DEM5A"&&candidate.validCount>=Math.ceil(points.length*.45))selected=candidate;
-  }
-  if(selected)for(let i=0;i<points.length;i++){
-    const elevation=selected.values[i];
-    if(elevation!=null){points[i].elevation=elevation;points[i].source=selected.source.id;}
-  }
-  const valid=points.filter(p=>p.elevation!=null);
-  if(!valid.length&&skippedWideSource)throw new Error("範囲が広すぎます。少し拡大してから実行してください");
-  if(valid.length<Math.ceil(points.length*.45)) throw new Error("標高データを取得できません");
+  const filled=await fillTerrainPointsByDemPriority(points,120);
+  if(filled.tooWide)throw new Error("範囲が広すぎます。少し拡大してから実行してください");
+  if(filled.validCount<Math.ceil(points.length*.45)) throw new Error("標高データを取得できません");
   return {cols,rows,zone,points,createdAt:Date.now(),width:w,height:h,viewport,gridPurpose:purpose};
 }
 const TERRAIN_ELEVATION_COLORS=[
@@ -9433,8 +9418,25 @@ function normalizeTerrainDemSource(source){
 }
 function terrainDemSourceAtWorld(grid,worldX,worldY){
   if(!grid||!Number.isFinite(worldX)||!Number.isFinite(worldY))return "";
-  const alignedFixed=normalizeTerrainDemSource(grid.planeContourGrid?.sourceId);
+  const aligned=grid.planeContourGrid;
+  const alignedFixed=normalizeTerrainDemSource(aligned?.sourceId);
   if(alignedFixed)return alignedFixed;
+  if(aligned){
+    const plane=sfcWorldToPlane(worldX,worldY);
+    const centreRow=Math.max(0,Math.min(grid.rows-1,Math.round((plane.xNorth-aligned.minX)/aligned.spacing)));
+    const centreCol=Math.max(0,Math.min(grid.cols-1,Math.round((plane.yEast-aligned.minY)/aligned.spacing)));
+    for(let radius=0;radius<=2;radius++){
+      let best="",bestDistance=Infinity;
+      for(let row=Math.max(0,centreRow-radius);row<=Math.min(grid.rows-1,centreRow+radius);row++)for(let col=Math.max(0,centreCol-radius);col<=Math.min(grid.cols-1,centreCol+radius);col++){
+        const source=normalizeTerrainDemSource(getTerrainPoint(grid,row,col)?.source);
+        if(!source)continue;
+        const distance=(row-centreRow)*(row-centreRow)+(col-centreCol)*(col-centreCol);
+        if(distance<bestDistance){best=source;bestDistance=distance;}
+      }
+      if(best)return best;
+    }
+    return "";
+  }
   const native=grid.nativeDemGrid;
   if(native){
     const fixed=normalizeTerrainDemSource(native.sourceId);
@@ -9558,9 +9560,9 @@ async function finishTerrainCadSelection(){
   const polygon=terrainCadPolygon.slice();setTerrainCadSelectionOpen(false);showBusy("1m等高線をCAD化しています…");await waitForUiPaint();
   try{
     const currentAligned=terrainGrid?.gridPurpose==="contour"?terrainGrid.planeContourGrid:null;
-    const currentIsDetailed=currentAligned?.sourceId==="DEM1A"&&currentAligned?.spacing===1&&terrainContourGridCoversViewport(terrainGrid);
-    // Reuse only the coordinate-aligned one-metre DEM1A grid. Otherwise build
-    // the same grid again; CAD export must never use a smoothed display copy.
+    const currentIsDetailed=currentAligned?.spacing===1&&terrainContourGridCoversViewport(terrainGrid);
+    // Reuse only the coordinate-aligned one-metre priority grid. Otherwise
+    // rebuild at one metre; CAD export never uses a coarser display grid.
     const grid=currentIsDetailed?terrainGrid:await buildTerrainGrid("contour","detail");
     if(!grid)throw new Error("標高データを取得できません");
     const geometry=buildTerrainContourGeometry(grid,1,5),created=[];

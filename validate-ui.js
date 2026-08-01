@@ -131,10 +131,11 @@ const required=[
   ,'const sourceId=dem5Count?"MIXED":"DEM1A";'
   ,'return terrainContourGridFromNativeResult(fallback,zone,viewport,"DEM5A"'
   ,'async function sampleTerrainGridBilinear(points,source,maxTiles=120)'
-  ,'async function buildAlignedTerrainContourGrid(zone,viewport)'
-  ,'planeContourGrid:{...spec,sourceId,sourceCounts:'
-  ,'if(grid.gridPurpose==="contour"&&(grid.planeContourGrid||grid.nativeDemGrid))return !terrainContourGridCoversViewport(grid);'
-  ,'if(purpose==="contour")return buildAlignedTerrainContourGrid(zone,viewport);'
+  ,'async function fillTerrainPointsByDemPriority(points,maxTiles=120)'
+  ,'async function buildAlignedTerrainContourGrid(zone,viewport,quality="auto")'
+  ,'planeContourGrid:{...spec,sourceId,sourceCounts:filled.sourceCounts,displaySpacing:spacing}'
+  ,'grid.planeContourGrid.spacing!==terrainContourDisplaySpacing(getTerrainViewportState())'
+  ,'if(purpose==="contour")return buildAlignedTerrainContourGrid(zone,viewport,contourQuality);'
   ,'const grid=currentIsDetailed?terrainGrid:await buildTerrainGrid("contour","detail");'
   ,'let min=Infinity,max=-Infinity,validCount=0;'
   ,'if(elevation<min)min=elevation;'
@@ -348,11 +349,14 @@ if(registryParsed.parcels[0].metadata.lotNumber!=='101-1'||registryParsed.parcel
 if(registryParsed.parcels[0].points[0].x!==200000||registryParsed.parcels[0].points[0].y!==100000)throw new Error('registry projected coordinate order failed');
 
 if(html.includes('function terrainContourDisplayResolutionMode'))throw new Error('zoom-based DEM5A contour fallback must stay disabled');
-if(!html.includes('async function buildAlignedTerrainContourGrid(zone,viewport)'))throw new Error('contours must use the plane-coordinate aligned grid');
-const alignedContourBuilder=html.slice(html.indexOf('async function buildAlignedTerrainContourGrid(zone,viewport)'),html.indexOf('async function buildTerrainGrid(',html.indexOf('async function buildAlignedTerrainContourGrid(zone,viewport)')));
-if(!alignedContourBuilder.includes('const spacing=1')&&!html.includes('const spacing=1,padding=2'))throw new Error('aligned contour grid must remain one metre');
-if(!alignedContourBuilder.includes('sampleTerrainGridBilinear(points,dem1Source,120)'))throw new Error('aligned contour grid must bilinearly sample DEM1A');
-if(alignedContourBuilder.includes('samplePointsFromDemSource(missing'))throw new Error('aligned contour grid must not mix DEM5A into individual DEM1A gaps');
+if(!html.includes('async function buildAlignedTerrainContourGrid(zone,viewport,quality="auto")'))throw new Error('contours must use the plane-coordinate aligned grid');
+const alignedContourBuilder=html.slice(html.indexOf('async function buildAlignedTerrainContourGrid(zone,viewport,quality="auto")'),html.indexOf('async function buildTerrainGrid(',html.indexOf('async function buildAlignedTerrainContourGrid(zone,viewport,quality="auto")')));
+if(!html.includes('function terrainContourDisplaySpacing(viewport)')||!html.includes('if(oneMeterPx>=2.5)return 1;')||!html.includes('if(oneMeterPx>=1.1)return 2;')||!html.includes('return 5;'))throw new Error('contour display must use adaptive 1/2/5 metre spacing');
+if(!alignedContourBuilder.includes('const spacing=quality==="detail"?1:terrainContourDisplaySpacing(viewport);'))throw new Error('detail contour grid must remain one metre');
+if(!alignedContourBuilder.includes('fillTerrainPointsByDemPriority(points,120)'))throw new Error('aligned contour grid must use pointwise DEM1A priority');
+const demPriorityHelper=html.slice(html.indexOf('async function fillTerrainPointsByDemPriority('),html.indexOf('function decodeProfileElevation',html.indexOf('async function fillTerrainPointsByDemPriority(')));
+if(!demPriorityHelper.includes('const missing=points.filter(point=>!Number.isFinite(point.elevation));')||!demPriorityHelper.includes('for(const source of PROFILE_DEM_SOURCES)'))throw new Error('DEM5A must fill only points missing from DEM1A');
+if(!html.includes('sfc-dem-profiles-v5-pointwise-dem-priority'))throw new Error('old profile DEM cache must be invalidated');
 if(!html.includes('const passes=0;')||!html.includes('const subdivisions=1;'))throw new Error('contour geometry must not apply smoothing or artificial subdivision');
 
 // Fixed aerial-photo export regression: an era layer must be created once,
