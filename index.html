@@ -1850,11 +1850,11 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">写真がない場合</div>その場所で利用できる航空写真が一枚もない場合は、メッセージを表示してスイッチをOFFへ戻します。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>SFCと航空写真を合わせるため、初回は現在地から図面の座標系を確認します。位置情報の利用を許可してください。</div>
               <div class="helpBlock"><div class="helpHead">出典</div>国土地理院の地理院タイルを通信で表示します。航空写真表示中は画面右下に出典を表示します。</div>
-              <div class="helpBlock"><div class="helpHead">航空写真をCAD化</div>年代を選び、<b>範囲を選んでCAD化</b>を押します。図面上で多角形の頂点を順にタップして確定すると、年代付きレイヤーとして現在の図面へ固定配置します。背景の航空写真をOFFにしても固定した写真は残ります。PCで<b>名前を付けて保存</b>を選ぶと、SFCと参照JPEGを同じフォルダーへ保存します。外部CADで画像を表示するため、SFCとJPEGを同じフォルダーに置いたまま開いてください。</div>
+              <div class="helpBlock"><div class="helpHead">航空写真をCAD化</div>年代を選び、<b>範囲を選んでCAD化</b>を押します。図面上で多角形の頂点を順にタップして確定すると、年代付きレイヤーとして現在の図面へ固定配置します。保存時は画面の拡大率に関係なく、その場所で取得できる最も細かい地理院タイルを使用します。背景の航空写真をOFFにしても固定した写真は残ります。PCで<b>名前を付けて保存</b>を選ぶと、SFCと参照JPEGを同じフォルダーへ保存します。外部CADで画像を表示するため、SFCとJPEGを同じフォルダーに置いたまま開いてください。</div>
               <div class="helpBlock"><div class="helpHead">地形解析</div>背景画面の<b>地形解析</b>を押すと地形解析画面へ進みます。<b>閉じる</b>で背景画面へ戻ります。<b>標高</b>、<b>傾斜角</b>、<b>等高線</b>、<b>水の流れ</b>、<b>概算土量</b>は1種類だけ表示され、選択中の青いボタンをもう一度押すと解除できます。取得中は選択ボタンに進行表示が出ます。</div>
               <div class="helpBlock"><div class="helpHead">標高</div>現在見えている範囲の最低標高から最高標高までを10段階に分け、低い場所を青、高い場所を赤で表示します。凡例には実際の標高値を表示します。</div>
               <div class="helpBlock"><div class="helpHead">傾斜角</div>DEMから求めた概略傾斜を10段階で表示し、最後の区分を60度以上とします。</div>
-              <div class="helpBlock"><div class="helpHead">等高線</div>表示中は縮尺に応じて線を間引きます。<b>等高線をCAD化</b>では、多角形で囲んだ範囲を表示状態とは別に1m間隔で再計算し、使用した標高データごとに<b>等高線_DEM1A_主曲線</b>・<b>等高線_DEM1A_計曲線</b>・<b>等高線_DEM5A_主曲線</b>・<b>等高線_DEM5A_計曲線</b>へ分けて追加します。計曲線の標高文字も同じDEMの計曲線レイヤーへ入ります。線は互換性を優先したポリラインで、形を崩さない範囲の頂点削減と安全な長さへの分割を行います。凡例には、実際に使用した国土地理院DEMの種類・作成方法・標高精度の目安（標準偏差）を表示します。</div>
+              <div class="helpBlock"><div class="helpHead">等高線</div>表示中は縮尺に応じて線を間引きます。<b>等高線をCAD化</b>では、多角形で囲んだ範囲を約220mずつに分割して1m間隔で再計算します。各区画はDEM1Aを優先し、欠けた地点だけDEM5Aで補完します。区画境界を重ねて接続し、重複線を除去したうえで、使用した標高データごとに<b>等高線_DEM1A_主曲線</b>・<b>等高線_DEM1A_計曲線</b>・<b>等高線_DEM5A_主曲線</b>・<b>等高線_DEM5A_計曲線</b>へ分けて追加します。計曲線の標高文字は線の長さにかかわらず線上の中央へ置き、実際に文字位置を含む計曲線へ結び付けます。線は互換性を優先したポリラインで、安全な長さへの分割を行います。凡例には、実際に使用した国土地理院DEMの種類・作成方法・標高精度の目安（標準偏差）を表示します。</div>
               <div class="helpBlock"><div class="helpHead">水の流れ</div>細かいDEMで方向を計算し、矢印数は高密度表示時の約10%まで間引いて低い方向を表示します。排水施設を考慮した流域解析ではありません。</div>
               <div class="helpBlock"><div class="helpHead">概算土量</div>表示範囲の平均標高を基準面として切土・盛土を概算します。正式な施工数量には使用できません。</div>
               <div class="helpBlock"><div class="helpHead">精細表示と軽量化</div>表示中の範囲だけを、倍率とDEM解像度に合わせて画面で識別できる最細密度まで自動解析します。移動・拡大後は新しい表示範囲へ自動更新し、取得済みDEMキャッシュを再利用します。</div>
@@ -3164,6 +3164,16 @@ function getAerialPhotoExportZoom(source){
   const maxZ=Math.max(minZ,Math.trunc(Number(source?.maxZ)||minZ));
   return maxZ;
 }
+async function resolveAerialPhotoExportZoom(source,latitude,longitude){
+  const minZ=Math.max(0,Math.trunc(Number(source?.minZ)||0));
+  const declaredMax=getAerialPhotoExportZoom(source);
+  for(let z=declaredMax;z>=minZ;z--){
+    const tile=aerialPhotoTileFloat(latitude,longitude,z);
+    const entry=getAerialPhotoTile(aerialPhotoUrl(source,z,Math.floor(tile.x),Math.floor(tile.y)));
+    if(await waitForAerialPhotoTile(entry,7000))return z;
+  }
+  throw new Error("この範囲の航空写真を取得できません");
+}
 function drawAerialPhoto(w,h){
   if(!aerialPhotoEnabled||!aerialPhotoZone||!ensureProj4Defs()) return;
   const source=aerialAvailableSources[aerialPhotoSourceIndex];
@@ -3707,7 +3717,7 @@ async function renderVisibleAerialPhotoForSfc(worldPolygon){
   const centerLatLon=jgd2024XYToLatLon((bounds.minX+bounds.maxX)/2,(bounds.minY+bounds.maxY)/2,aerialPhotoZone);
   // 画面の拡大率ではなく、提供元タイルの最高ズームで取得する。
   // 選択範囲を一定ピクセルへ縮小せず、最高ズームの1画素相当を維持する。
-  const z=getAerialPhotoExportZoom(source);
+  const z=await resolveAerialPhotoExportZoom(source,centerLatLon.lat,centerLatLon.lon);
   const tileResolution=156543.03392*Math.max(.15,Math.cos(centerLatLon.lat*Math.PI/180))/Math.pow(2,z);
   const resolution=tileResolution;
   // North-up raster: horizontal pixels are easting, vertical pixels are northing.
@@ -4569,6 +4579,43 @@ function chooseTerrainContourGrid(viewport,spacing=1){
   // view instead of silently switching from the DEM1A 1 m grid to 5 m.
   if(rows*cols>180000)throw new Error("等高線の範囲が広すぎます。少し拡大してから実行してください");
   return {minX,maxX,minY,maxY,spacing,rows,cols};
+}
+function terrainContourGridSpecForPlaneBounds(bounds,spacing=1){
+  const minX=Math.floor(bounds.minX/spacing)*spacing;
+  const maxX=Math.ceil(bounds.maxX/spacing)*spacing;
+  const minY=Math.floor(bounds.minY/spacing)*spacing;
+  const maxY=Math.ceil(bounds.maxY/spacing)*spacing;
+  const rows=Math.max(3,Math.round((maxX-minX)/spacing)+1);
+  const cols=Math.max(3,Math.round((maxY-minY)/spacing)+1);
+  return {minX,maxX,minY,maxY,spacing,rows,cols};
+}
+async function buildTerrainContourGridForPlaneBounds(zone,bounds,spacing=1){
+  const spec=terrainContourGridSpecForPlaneBounds(bounds,spacing);
+  // Each CAD-export chunk is intentionally kept below this size. The whole
+  // selected polygon is processed chunk-by-chunk, so this is not a limit on
+  // the final CAD area.
+  if(spec.rows*spec.cols>70000)throw new Error("等高線の分割範囲を作成できません");
+  const points=new Array(spec.rows*spec.cols);
+  for(let row=0;row<spec.rows;row++){
+    const xNorth=spec.minX+row*spec.spacing;
+    for(let col=0;col<spec.cols;col++){
+      const yEast=spec.minY+col*spec.spacing,plane={xNorth,yEast};
+      const mapped=planeToSfcWorld(xNorth,yEast),ll=jgd2024XYToLatLon(xNorth,yEast,zone);
+      points[row*spec.cols+col]={
+        row,col,worldX:mapped.x*1000,worldY:mapped.y*1000,
+        plane,lat:ll.lat,lon:ll.lon,elevation:null,source:null
+      };
+    }
+  }
+  const filled=await fillTerrainPointsByDemPriority(points,64);
+  if(filled.tooWide)throw new Error("標高データの取得範囲が広すぎます");
+  if(filled.validCount<Math.ceil(points.length*.20))throw new Error("標高データを取得できません");
+  const sourceId=filled.sourceCounts.DEM1A&&filled.sourceCounts.DEM5A?"MIXED":filled.sourceCounts.DEM1A?"DEM1A":"DEM5A";
+  return {
+    cols:spec.cols,rows:spec.rows,zone,points,createdAt:Date.now(),
+    width:0,height:0,viewport:getTerrainViewportState(),gridPurpose:"contour",
+    planeContourGrid:{...spec,sourceId,sourceCounts:filled.sourceCounts,displaySpacing:spacing}
+  };
 }
 function terrainContourGridCoversViewport(grid){
   const aligned=grid&&grid.planeContourGrid;
@@ -9846,7 +9893,7 @@ function splitTerrainCadPolyline(points,maxPoints=500){
 function terrainCadPolylineLength(points){let length=0;for(let i=1;i<points.length;i++)length+=Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y);return length;}
 function terrainCadLabelForPolyline(points,level){
   if(points.length<2)return null;
-  const total=terrainCadPolylineLength(points);if(total<8000)return null;
+  const total=terrainCadPolylineLength(points);if(!(total>0))return null;
   let target=total/2,covered=0;
   for(let i=1;i<points.length;i++){
     const a=points[i-1],b=points[i],segment=Math.hypot(b.x-a.x,b.y-a.y);
@@ -9857,6 +9904,107 @@ function terrainCadLabelForPolyline(points,level){
     covered+=segment;
   }
   return null;
+}
+function terrainCadPlaneBoundsFromWorldPolygon(worldPolygon){
+  const planePolygon=worldPolygon.map(point=>{
+    const plane=sfcWorldToPlane(point.x,point.y);return {x:plane.xNorth,y:plane.yEast};
+  });
+  if(planePolygon.some(point=>!Number.isFinite(point.x)||!Number.isFinite(point.y)))return null;
+  return {
+    planePolygon,
+    bounds:{
+      minX:Math.min(...planePolygon.map(point=>point.x)),maxX:Math.max(...planePolygon.map(point=>point.x)),
+      minY:Math.min(...planePolygon.map(point=>point.y)),maxY:Math.max(...planePolygon.map(point=>point.y))
+    }
+  };
+}
+function terrainCadWorldRectangle(bounds){
+  return [
+    [bounds.minX,bounds.minY],[bounds.maxX,bounds.minY],
+    [bounds.maxX,bounds.maxY],[bounds.minX,bounds.maxY]
+  ].map(([xNorth,yEast])=>{const point=planeToSfcWorld(xNorth,yEast);return {x:point.x*1000,y:point.y*1000};});
+}
+function terrainCadPlaneSegmentsIntersect(a,b,c,d){
+  const orient=(p,q,r)=>(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x);
+  const ab1=orient(a,b,c),ab2=orient(a,b,d),cd1=orient(c,d,a),cd2=orient(c,d,b);
+  return ((ab1<=0&&ab2>=0)||(ab1>=0&&ab2<=0))&&((cd1<=0&&cd2>=0)||(cd1>=0&&cd2<=0));
+}
+function terrainCadPlaneRectIntersectsPolygon(bounds,polygon){
+  if(polygon.some(point=>point.x>=bounds.minX&&point.x<=bounds.maxX&&point.y>=bounds.minY&&point.y<=bounds.maxY))return true;
+  const rect=[
+    {x:bounds.minX,y:bounds.minY},{x:bounds.maxX,y:bounds.minY},
+    {x:bounds.maxX,y:bounds.maxY},{x:bounds.minX,y:bounds.maxY}
+  ];
+  if(rect.some(point=>pointInTerrainCadPolygon(point,polygon)))return true;
+  for(let i=0;i<polygon.length;i++)for(let j=0;j<rect.length;j++){
+    if(terrainCadPlaneSegmentsIntersect(polygon[i],polygon[(i+1)%polygon.length],rect[j],rect[(j+1)%rect.length]))return true;
+  }
+  return false;
+}
+function buildTerrainCadChunkSpecs(worldPolygon,chunkSize=220,overlap=2){
+  const selection=terrainCadPlaneBoundsFromWorldPolygon(worldPolygon);if(!selection)return [];
+  const {bounds,planePolygon}=selection,chunks=[];
+  for(let minX=bounds.minX;minX<bounds.maxX-1e-9;minX+=chunkSize){
+    const maxX=Math.min(bounds.maxX,minX+chunkSize);
+    for(let minY=bounds.minY;minY<bounds.maxY-1e-9;minY+=chunkSize){
+      const maxY=Math.min(bounds.maxY,minY+chunkSize),core={minX,maxX,minY,maxY};
+      if(!terrainCadPlaneRectIntersectsPolygon(core,planePolygon))continue;
+      chunks.push({
+        core,
+        sample:{minX:minX-overlap,maxX:maxX+overlap,minY:minY-overlap,maxY:maxY+overlap}
+      });
+    }
+  }
+  return chunks;
+}
+function terrainCadSegmentDedupKey(a,b){
+  const first=terrainContourPointKey([a.x,a.y]),second=terrainContourPointKey([b.x,b.y]);
+  return first<second?`${first}|${second}`:`${second}|${first}`;
+}
+function addTerrainCadGroupedPolyline(groups,line,source,points){
+  if(!source||points.length<2)return;
+  const key=`${line.isIndex?1:0}:${line.level.toFixed(8)}:${source}`;
+  let group=groups.get(key);
+  if(!group){group={level:line.level,isIndex:line.isIndex,source,segments:[],segmentKeys:new Set()};groups.set(key,group);}
+  for(let index=1;index<points.length;index++){
+    const a=points[index-1],b=points[index],segmentKey=terrainCadSegmentDedupKey(a,b);
+    if(group.segmentKeys.has(segmentKey))continue;
+    group.segmentKeys.add(segmentKey);group.segments.push({a:[a.x,a.y],b:[b.x,b.y],passes:0});
+  }
+}
+function terrainCadStrokeDistanceToLabel(stroke,label){
+  let distance=Infinity;
+  for(let index=1;index<stroke.points.length;index++)distance=Math.min(distance,terrainCadPointSegmentDistance(label,stroke.points[index-1],stroke.points[index]));
+  return distance;
+}
+function createTerrainCadStrokesFromGroups(groups){
+  const created=[];
+  const ordered=[...groups.values()].sort((a,b)=>a.level-b.level||a.source.localeCompare(b.source)||Number(a.isIndex)-Number(b.isIndex));
+  for(const group of ordered){
+    const joinedLines=joinTerrainContourSegments(group.segments);
+    group.segmentKeys.clear();group.segments.length=0;
+    for(const joined of joinedLines){
+      const points=simplifyTerrainCadPolyline(joined.points.map(point=>({x:point[0],y:point[1]})),0);
+      if(points.length<2)continue;
+      const lineStrokes=[];
+      for(const chunk of splitTerrainCadPolyline(points,500)){
+        const stroke={type:"freehand",color:group.isIndex?"#ff3030":"#ffd400",opacity:1,eraser:false,screenWidthPx:null,worldWidthMm:group.isIndex?.25:.13,width:penWidthLevelFromMm(group.isIndex?.25:.13),isTerrainContour:true,terrainContourKind:group.isIndex?"index":"regular",terrainDemSource:group.source,terrainLevel:group.level,points:chunk};
+        created.push(stroke);lineStrokes.push(stroke);
+      }
+      if(group.isIndex&&lineStrokes.length){
+        const label=terrainCadLabelForPolyline(points,group.level);
+        if(label){
+          let target=lineStrokes[0],best=terrainCadStrokeDistanceToLabel(target,label);
+          for(let index=1;index<lineStrokes.length;index++){
+            const distance=terrainCadStrokeDistanceToLabel(lineStrokes[index],label);
+            if(distance<best){target=lineStrokes[index];best=distance;}
+          }
+          target.terrainLabel=label;
+        }
+      }
+    }
+  }
+  return created;
 }
 function setTerrainCadSelectionOpen(open,purpose=polygonSelectionPurpose||"terrain"){
   if(open)polygonSelectionPurpose=purpose;
@@ -9888,36 +10036,34 @@ async function finishTerrainCadSelection(){
   if(terrainCadPolygon.length<3){showToast("多角形の頂点を3点以上指定してください");return;}
   const polygon=terrainCadPolygon.slice();setTerrainCadSelectionOpen(false);showBusy("1m等高線をCAD化しています…");await waitForUiPaint();
   try{
-    const currentAligned=terrainGrid?.gridPurpose==="contour"?terrainGrid.planeContourGrid:null;
-    const currentIsDetailed=currentAligned?.spacing===1&&terrainContourGridCoversViewport(terrainGrid);
-    // Reuse only the coordinate-aligned one-metre priority grid. Otherwise
-    // rebuild at one metre; CAD export never uses a coarser display grid.
-    const grid=currentIsDetailed?terrainGrid:await buildTerrainGrid("contour","detail");
-    if(!grid)throw new Error("標高データを取得できません");
-    const geometry=buildTerrainContourGeometry(grid,1,5),created=[];
-    for(const line of geometry){
-      const clipped=clipTerrainContourToPolygon(line.points,polygon)
-        .flatMap(points=>splitTerrainCadPolylineByDemSource(points,grid))
-        // CAD export must preserve the one-metre DEM crossing geometry.
-        // A zero tolerance removes only exactly collinear redundant vertices;
-        // it does not smooth or shift the contour.
-        .map(piece=>({source:piece.source,points:simplifyTerrainCadPolyline(piece.points,0)}))
-        .filter(piece=>piece.points.length>=2);
-      if(!clipped.length)continue;
-      const labelTargets=new Map(),labelAssigned=new Set();
-      if(line.isIndex)for(const piece of clipped){
-        const current=labelTargets.get(piece.source),length=terrainCadPolylineLength(piece.points);
-        if(!current||length>current.length)labelTargets.set(piece.source,{points:piece.points,length});
-      }
-      for(const piece of clipped)for(const chunk of splitTerrainCadPolyline(piece.points,500)){
-        const stroke={type:"freehand",color:line.isIndex?"#ff3030":"#ffd400",opacity:1,eraser:false,screenWidthPx:null,worldWidthMm:line.isIndex?.25:.13,width:penWidthLevelFromMm(line.isIndex?.25:.13),isTerrainContour:true,terrainContourKind:line.isIndex?"index":"regular",terrainDemSource:piece.source,terrainLevel:line.level,points:chunk};
-        if(line.isIndex&&!labelAssigned.has(piece.source)&&piece.points===labelTargets.get(piece.source)?.points){
-          stroke.terrainLabel=terrainCadLabelForPolyline(piece.points,line.level);
-          if(stroke.terrainLabel)labelAssigned.add(piece.source);
+    const zone=await resolveProfileZone();if(!zone)throw new Error("このSFC図面の座標系を確認できません");
+    const chunks=buildTerrainCadChunkSpecs(polygon);
+    if(!chunks.length)throw new Error("指定範囲を確認できません");
+    const groups=new Map();let completed=0;
+    for(const chunkSpec of chunks){
+      updateBusy(`1m等高線をCAD化しています… ${completed+1}/${chunks.length}`);
+      try{
+        const grid=await buildTerrainContourGridForPlaneBounds(zone,chunkSpec.sample,1);
+        const corePolygon=terrainCadWorldRectangle(chunkSpec.core);
+        for(const line of buildTerrainContourGeometry(grid,1,5)){
+          const corePieces=clipTerrainContourToPolygon(line.points,corePolygon);
+          for(const corePiece of corePieces){
+            const selectedPieces=clipTerrainContourToPolygon(corePiece.map(point=>[point.x,point.y]),polygon);
+            for(const selectedPiece of selectedPieces){
+              for(const sourcePiece of splitTerrainCadPolylineByDemSource(selectedPiece,grid)){
+                addTerrainCadGroupedPolyline(groups,line,sourcePiece.source,simplifyTerrainCadPolyline(sourcePiece.points,0));
+              }
+            }
+          }
         }
-        created.push(stroke);
+        grid.points.length=0;
+      }catch(error){
+        console.warn("Terrain CAD chunk skipped",chunkSpec,error);
       }
+      completed++;
+      await new Promise(resolve=>setTimeout(resolve,0));
     }
+    const created=createTerrainCadStrokesFromGroups(groups);
     if(!created.length)throw new Error("指定範囲に等高線がありません");
     addInkStrokeOperation(created,"等高線CAD化");ensureLayerVisibility();renderLayerList();markMemoChanged();clearTerrainAnalysis();hideBusy();
     if(terrainPanel)terrainPanel.style.display="block";
