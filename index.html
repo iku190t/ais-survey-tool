@@ -3755,12 +3755,18 @@ function insertAerialSxfAssemblyRecords(srcText,definitionBlocks,placementBlocks
   const block=[definitions,placements].filter(Boolean).join("\r\n\r\n");
   return text.slice(0,orgBounds.end)+"\r\n\r\n"+block+text.slice(orgBounds.end);
 }
-function getAerialRasterPaperCorners(bounds,displayToPaper){
+function getAerialRasterPaperCorners(bounds,planePolygon,displayToPaper){
   if(!bounds)throw new Error("SFCへ配置する航空写真の範囲がありません");
-  const sourceCorners=[
-    [bounds.minX,bounds.minY],[bounds.minX,bounds.maxY],
-    [bounds.maxX,bounds.maxY],[bounds.maxX,bounds.minY]
-  ];
+  const selected=Array.isArray(planePolygon)&&planePolygon.length>=3
+    ?planePolygon.map(point=>[+point.xNorth,+point.yEast])
+    :[
+      [bounds.minX,bounds.minY],[bounds.minX,bounds.maxY],
+      [bounds.maxX,bounds.maxY],[bounds.maxX,bounds.minY]
+    ];
+  if(selected.some(point=>!Number.isFinite(point[0])||!Number.isFinite(point[1])))throw new Error("航空写真の選択範囲を確認できませんでした");
+  const sourceCorners=selected.slice();
+  const first=sourceCorners[0],last=sourceCorners[sourceCorners.length-1];
+  if(Math.hypot(first[0]-last[0],first[1]-last[1])>1e-7)sourceCorners.push(first.slice());
   const transformed=sourceCorners.map(([xNorth,yEast])=>{
     const point=planeToSfcWorld(xNorth,yEast);
     return sxfAffinePoint(displayToPaper,point.x*1000,point.y*1000);
@@ -3768,13 +3774,9 @@ function getAerialRasterPaperCorners(bounds,displayToPaper){
   if(transformed.some(point=>!Number.isFinite(point[0])||!Number.isFinite(point[1]))){
     throw new Error("航空写真の配置座標を作成できませんでした");
   }
-  const xs=transformed.map(point=>point[0]);
-  const ys=transformed.map(point=>point[1]);
-  const minX=Math.min(...xs),maxX=Math.max(...xs);
-  const minY=Math.min(...ys),maxY=Math.max(...ys);
-  return [
-    [minX,minY],[minX,maxY],[maxX,maxY],[maxX,minY],[minX,minY]
-  ];
+  // Preserve the actual transformed corner order. A min/max rectangle drops
+  // the SFC partial-figure rotation and forces the raster to paper-horizontal.
+  return transformed;
 }
 function addAerialImageReferenceToSfc(srcText,jpegFileName,bounds,planePolygon,layerName){
   let text=String(srcText||"").replace(/[\s\r\n]+$/,"");
@@ -3798,7 +3800,7 @@ function addAerialImageReferenceToSfc(srcText,jpegFileName,bounds,planePolygon,l
   const num=ref=>{const value=parseFloat(unquoteSxfValue(ref));return Number.isFinite(value)?value:0;};
   const assembly=buildSxfAssemblyExpansion(records,num);
   const displayToPaper=assembly.displayToPaper||sxfAffineIdentity();
-  const paperCorners=getAerialRasterPaperCorners(bounds,displayToPaper);
+  const paperCorners=getAerialRasterPaperCorners(bounds,planePolygon,displayToPaper);
   // 外部図面の線属性を流用すると、色コード0など、その図面内だけで
   // 偶然成立していた参照を新規レイヤーへ持ち込むことがある。
   // 画像配置枠はSXFの定義済み属性だけで生成する。
@@ -13385,7 +13387,7 @@ function addAerialImageReferencesToSfc(srcText,imageSpecs){
     const imageWordSjis="\x89\xe6\x91\x9c";
     // OCF準拠CADが出力する画像付きSFZと同じRASTER複合図形名を使う。
     const featureName=`$$ATRU$$${nextSerial()}$$RASTER$$${imageWordSjis}$$${spec.jpegFileName}`;
-    const paperCorners=getAerialRasterPaperCorners(spec.bounds,displayToPaper);
+    const paperCorners=getAerialRasterPaperCorners(spec.bounds,spec.planePolygon,displayToPaper);
     const xs=paperCorners.map(point=>point[0].toFixed(6)).join(",");
     const ys=paperCorners.map(point=>point[1].toFixed(6)).join(",");
     // Members precede sfig_org.  All root placements follow all definitions
