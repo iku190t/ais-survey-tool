@@ -55,17 +55,20 @@ let browser;
     }
     const settings={comment1:'number',comment2:'fileName',comment3:'capturedAt',custom1:'',custom2:'',custom3:'',miniMap:true};
     const encode=async blob=>{const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(binary);};
-    return {three:await encode(await buildPhotoAlbumXlsx({...settings,layout:'3'})),spread:await encode(await buildPhotoAlbumXlsx({...settings,layout:'spread'}))};
+    return {three:await encode(await buildPhotoAlbumXlsx({...settings,layout:'3'})),four:await encode(await buildPhotoAlbumXlsx({...settings,layout:'4'})),spread:await encode(await buildPhotoAlbumXlsx({...settings,layout:'spread'}))};
   })()`));
   const three=await inspectWorkbook(decodeBase64(output.three),"M",8);
+  const four=await inspectWorkbook(decodeBase64(output.four),"M",8);
   const spread=await inspectWorkbook(decodeBase64(output.spread),"Y",8);
   if(process.env.PHOTO_ALBUM_TEST_OUTPUT){
     fs.mkdirSync(process.env.PHOTO_ALBUM_TEST_OUTPUT,{recursive:true});
     fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-3.xlsx"),decodeBase64(output.three));
+    fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-4.xlsx"),decodeBase64(output.four));
     fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-spread.xlsx"),decodeBase64(output.spread));
   }
-  if(!spread.sheet.includes('<col min="1" max="9" width="3.75"')||!spread.sheet.includes('<col min="17" max="25" width="3.75"'))throw new Error("見開きの表裏写真拡大列がありません");
-  if(!three.sheet.includes('<col min="1" max="6" width="10.4"')||!three.sheet.includes('<col min="8" max="13" width="5.6"'))throw new Error("3枚形式の写真・コメント幅が正しくありません");
-  console.log(`photo album runtime checks passed (3-photo media=${three.media}, spread media=${spread.media})`);
+  if(!spread.sheet.includes('<col min="1" max="9" width="4.27"')||!spread.sheet.includes('<col min="17" max="25" width="4.27"'))throw new Error("見開きが以前の3枚形式と同じ幅ではありません");
+  if(!three.sheet.includes('<col min="1" max="6" width="9.6"')||!three.sheet.includes('<col min="8" max="13" width="6.4"'))throw new Error("3枚形式が以前の写真・コメント幅ではありません");
+  if(!four.sheet.includes('<col min="1" max="6" width="8"')||!four.sheet.includes('<col min="8" max="13" width="6.4"'))throw new Error("4枚形式の写真幅またはコメント幅が正しくありません");
+  console.log(`photo album runtime checks passed (3-photo media=${three.media}, 4-photo media=${four.media}, spread media=${spread.media})`);
   await browser.close();server.close();
 })().catch(async error=>{console.error(error);try{await browser?.close();}catch(_error){}server.close();process.exitCode=1;});
