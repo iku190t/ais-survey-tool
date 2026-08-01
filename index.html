@@ -9577,8 +9577,7 @@ function terrainCadLabelForPolyline(points,level){
     const a=points[i-1],b=points[i],segment=Math.hypot(b.x-a.x,b.y-a.y);
     if(covered+segment>=target){
       const t=(target-covered)/Math.max(segment,1e-9);
-      let angle=Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI;if(angle>90)angle-=180;if(angle<-90)angle+=180;
-      return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,angle,text:String(Math.round(level))};
+      return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,angle:0,text:String(Math.round(level))};
     }
     covered+=segment;
   }
@@ -9607,7 +9606,7 @@ function drawTerrainCadSelection(){
 function drawTerrainCadLabels(){
   const labels=(inkStrokes||[]).filter(stroke=>stroke&&stroke.isTerrainContour&&stroke.terrainLabel&&isLayerVisible(getInkStrokeLayerId(stroke)));
   if(!labels.length)return;ctx.save();ctx.font="700 12px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
-  for(const stroke of labels){const label=stroke.terrainLabel,p=worldToScreen(label.x,label.y);ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(-(rotationDeg||0)*Math.PI/180+(label.angle||0)*Math.PI/180);ctx.lineWidth=3;ctx.strokeStyle=darkTheme?"rgba(0,0,0,.9)":"rgba(255,255,255,.9)";ctx.strokeText(label.text,0,0);ctx.fillStyle=adaptContrastColor(getMemoExportColor(stroke));ctx.fillText(label.text,0,0);ctx.restore();}
+  for(const stroke of labels){const label=stroke.terrainLabel,p=worldToScreen(label.x,label.y);ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(-(rotationDeg||0)*Math.PI/180);ctx.lineWidth=3;ctx.strokeStyle=darkTheme?"rgba(0,0,0,.9)":"rgba(255,255,255,.9)";ctx.strokeText(label.text,0,0);ctx.fillStyle=adaptContrastColor(getMemoExportColor(stroke));ctx.fillText(label.text,0,0);ctx.restore();}
   ctx.restore();
 }
 async function finishTerrainCadSelection(){
@@ -11949,7 +11948,7 @@ function buildPhotoAnnotationExportStrokes(){
       out.push({
         type:"freehand",color:"#ffd400",opacity:1,eraser:false,screenWidthPx:null,worldWidthMm:0.13,width:13,
         isCircleMemo:true,paperDiameterMm:photoSettings.circleDiameterMm,photoLayerId:PHOTO_POSITION_LAYER_ID,
-        photoTextLabel:{text:String(item.number),x:cx,y:cy,heightMm:photoSettings.textHeightMm,widthMm:Math.max(photoSettings.textHeightMm,String(item.number).length*photoSettings.textHeightMm*.72),align1:5,align2:1},
+        photoTextLabel:{text:String(item.number),x:cx,y:cy,heightMm:photoSettings.textHeightMm,widthMm:Math.max(photoSettings.textHeightMm,String(item.number).length*photoSettings.textHeightMm*.72),align1:5,align2:1,angle:0},
         points:makePhotoCirclePoints(cx,cy,radius)
       });
       const vector=photoDirectionWorldVector(item);
@@ -12685,6 +12684,34 @@ function normalizeSxfTextAngle(angle){
   if(Math.abs(value)<1e-9||Math.abs(value-360)<1e-9)return 0;
   return value;
 }
+function getSxfPartialFigurePlacementAngle(baseText,partialFigureName){
+  const target=String(partialFigureName||"");
+  if(!target)return 0;
+  const decodedTarget=decodeShiftJisFromLatin1(target);
+  const records=parseSxfFeatureRecords(getFlatSxfText(baseText));
+  for(const record of records){
+    if(record.name!=="sfig_locate_feature"||record.args.length<7)continue;
+    const rawName=String(unquoteSxfValue(record.args[1])||"");
+    const decodedName=decodeShiftJisFromLatin1(rawName);
+    if(rawName!==target&&decodedName!==target&&rawName!==decodedTarget&&decodedName!==decodedTarget)continue;
+    const angle=Number(unquoteSxfValue(record.args[4]));
+    return Number.isFinite(angle)?angle:0;
+  }
+  const main=data&&data._mainDrawingPlacement;
+  if(main&&(String(main.name||"")===target||String(main.name||"")===decodedTarget)){
+    const angle=Number(main.angle);
+    return Number.isFinite(angle)?angle:0;
+  }
+  return 0;
+}
+function getGeneratedHorizontalSxfTextAngle(baseText,points){
+  const insertion=findMemoGeometryInsertion(baseText,points);
+  if(!insertion||!insertion.partialFigure)return 0;
+  // Generated features are written in the selected partial figure's local
+  // coordinates. External CAD applies its placement rotation afterwards, so
+  // cancel that rotation here to keep text horizontal to the drawing sheet.
+  return normalizeSxfTextAngle(-getSxfPartialFigurePlacementAngle(baseText,insertion.partialFigure));
+}
 function buildGeneratedTextFontDefinition(baseText,startId){
   const fonts=parseSxfFeatureRecords(getFlatSxfText(baseText)).filter(record=>record.name==="text_font_feature");
   for(let index=0;index<fonts.length;index++){
@@ -12725,7 +12752,12 @@ function buildInkPolylineFeatureText(baseText){
 
   const lineParts = [];
   const allExportPoints=[];
-  const appendTextLabel=(label,layerCode,colorCode)=>{
+  const generatedGeometryPoints=[];
+  for(const stroke of normalized)for(const point of stroke.points||[]){
+    if(Number.isFinite(+point.x)&&Number.isFinite(+point.y))generatedGeometryPoints.push({x:+point.x,y:+point.y});
+  }
+  const horizontalTextAngle=getGeneratedHorizontalSxfTextAngle(baseText,generatedGeometryPoints);
+  const appendTextLabel=(label,layerCode,colorCode,forceHorizontal=false)=>{
     if(!label||!String(label.text||"").trim())return;
     const units=getMemoWorldUnitsPerPaperMm();
     const sourceText=String(label.text||"");
@@ -12734,7 +12766,7 @@ function buildInkPolylineFeatureText(baseText){
     const width=Math.max(.5,+label.widthMm||Math.max(2.5,Array.from(sourceText).length*1.7))*units;
     const anchor=Math.min(9,Math.max(1,Math.round(+label.align1||1)));
     const direction=(+label.align2===2)?2:1;
-    const angle=normalizeSxfTextAngle(label.angle);
+    const angle=forceHorizontal ? horizontalTextAngle : normalizeSxfTextAngle(label.angle);
     lineParts.push(`/*SXF
 #${id} = text_string_feature('${layerCode}','${colorCode}','${generatedTextFontCode}',\\'${text}\\','${(+label.x).toFixed(6)}','${(+label.y).toFixed(6)}','${height.toFixed(6)}','${width.toFixed(6)}','0.000000','${angle.toFixed(6)}','0.000000','${anchor}','${direction}')
 SXF*/`);
@@ -12770,7 +12802,7 @@ SXF*/`);
 #${id} = circle_feature('${layerCode}','${colorCode}','${typeCode}','${widthCode}','${cx.toFixed(6)}','${cy.toFixed(6)}','${radius.toFixed(6)}')
 SXF*/`);
         id += 1;
-        appendTextLabel(s.photoTextLabel,layerCode,colorCode);
+        appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
       }
       continue;
     }
@@ -12790,13 +12822,13 @@ SXF*/`);
       if(s.isTerrainContour&&s.terrainContourKind==="index"&&s.terrainLabel){
         const label=s.terrainLabel,units=getMemoWorldUnitsPerPaperMm(),height=2.5*units,width=Math.max(2.5,String(label.text||"").length*1.7)*units;
         const text=encodeSfcText(label.text);
-        const angle=normalizeSxfTextAngle(label.angle);
+        const angle=horizontalTextAngle;
         lineParts.push(`/*SXF
 #${id} = text_string_feature('${layerCode}','${colorCode}','${generatedTextFontCode}','${text}','${(+label.x).toFixed(6)}','${(+label.y).toFixed(6)}','${height.toFixed(6)}','${width.toFixed(6)}','0.000000','${angle.toFixed(6)}','0.000000','1','1')
 SXF*/`);
         id += 1;
       }
-      appendTextLabel(s.photoTextLabel,layerCode,colorCode);
+      appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
     }
   }
   return { colorText, layerText, widthText, fontText, lineText: lineParts.join("\r\n"), expectedFeatureCount:normalized.length, exportPoints:allExportPoints };
