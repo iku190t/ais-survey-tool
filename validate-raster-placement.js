@@ -5,6 +5,8 @@ const html=fs.readFileSync(__dirname+"/index.html","utf8");
 const start=html.indexOf("function getAerialRasterPaperCorners");
 const end=html.indexOf("function addAerialImageReferenceToSfc",start);
 if(start<0||end<=start)throw new Error("aerial raster corner helper is missing");
+const assemblyStart=html.indexOf("function getSxfFeatureBlockBoundsAt");
+if(assemblyStart<0||assemblyStart>=start)throw new Error("aerial raster assembly helper is missing");
 
 const context={Math,Number};
 context.planeToSfcWorld=(xNorth,yEast)=>({x:xNorth/1000,y:yEast/1000});
@@ -13,6 +15,7 @@ context.sxfAffinePoint=(matrix,x,y)=>[
   matrix.b*x+matrix.d*y+matrix.f
 ];
 vm.createContext(context);
+vm.runInContext(html.slice(assemblyStart,start),context);
 vm.runInContext(html.slice(start,end),context);
 
 const polygon=[
@@ -39,4 +42,15 @@ if(fallback.length!==5||Math.hypot(fallback[0][0]-fallback[4][0],fallback[0][1]-
 if(!html.includes("getAerialRasterPaperCorners(bounds,planePolygon,displayToPaper)"))throw new Error("single raster export lost its selection polygon");
 if(!html.includes("getAerialRasterPaperCorners(spec.bounds,spec.planePolygon,displayToPaper)"))throw new Error("batch raster export lost its selection polygon");
 
-console.log("OK: aerial raster rotation and corner order are preserved");
+const source=[
+  "/*SXF\n#1 = sfig_org_feature('MAIN','3')\nSXF*/",
+  "/*SXF\n#2 = sfig_locate_feature('0','MAIN','0','0','0','1','1')\nSXF*/",
+  "/*SXF\n#3 = drawing_sheet_feature('A3')\nSXF*/"
+].join("\n");
+const assembled=context.insertAerialSxfAssemblyRecords(source,["RASTER_DEFINITION"],["RASTER_PLACEMENT"]);
+const order=["sfig_org_feature","RASTER_DEFINITION","sfig_locate_feature","RASTER_PLACEMENT","drawing_sheet_feature"].map(token=>assembled.indexOf(token));
+if(order.some(index=>index<0)||order.some((index,item)=>item>0&&index<=order[item-1])){
+  throw new Error("aerial raster SXF assembly order changed");
+}
+
+console.log("OK: aerial raster rotation, corner order and SXF assembly order are preserved");
