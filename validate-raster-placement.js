@@ -39,6 +39,15 @@ const fallback=context.getAerialRasterPaperCorners(bounds,null,transform);
 if(fallback.length!==5||Math.hypot(fallback[0][0]-fallback[4][0],fallback[0][1]-fallback[4][1])>1e-9){
   throw new Error("aerial raster bounds fallback is not a closed boundary");
 }
+const exportGeometry=context.getAerialRasterExportGeometry(bounds,polygon,transform);
+const rectangle=exportGeometry.paperCorners;
+if(rectangle.length!==5||rectangle[0][0]!==rectangle[1][0]||rectangle[1][1]!==rectangle[2][1]
+  ||rectangle[2][0]!==rectangle[3][0]||rectangle[3][1]!==rectangle[0][1]){
+  throw new Error("external CAD raster boundary is not paper-horizontal");
+}
+if(!html.includes("prepareAerialRasterForSfcExport(entry,displayToPaper)"))throw new Error("raster pixels are not aligned before SFC export");
+if(!html.includes("paperCorners:prepared.paperCorners"))throw new Error("prepared raster boundary is not used by SFC export");
+if(!html.includes("rasterAxisVersion:3"))throw new Error("paper-aligned SFZ raster import is not enabled");
 if(!html.includes("getAerialRasterPaperCorners(bounds,planePolygon,displayToPaper)"))throw new Error("single raster export lost its selection polygon");
 if(!html.includes("getAerialRasterPaperCorners(spec.bounds,spec.planePolygon,displayToPaper)"))throw new Error("batch raster export lost its selection polygon");
 

@@ -3512,19 +3512,23 @@ function drawAerialCadImages(){
     const runtime=ensureAerialCadImageRuntime(entry);
     if(runtime.state!=="loaded")continue;
     const {bounds}=entry;
+    const polygon=entry.planePolygon||[];
+    const paperAligned=entry.rasterAxisVersion>=3&&polygon.length>=4;
     const conventionalAxis=entry.rasterAxisVersion>=2;
-    const tlWorld=conventionalAxis
-      ?planeToSfcWorld(bounds.maxX,bounds.minY)
-      :planeToSfcWorld(bounds.minX,bounds.maxY);
-    const trWorld=planeToSfcWorld(bounds.maxX,bounds.maxY);
-    const blWorld=planeToSfcWorld(bounds.minX,bounds.minY);
+    const tlPlane=paperAligned?polygon[1]:(conventionalAxis
+      ?{xNorth:bounds.maxX,yEast:bounds.minY}
+      :{xNorth:bounds.minX,yEast:bounds.maxY});
+    const trPlane=paperAligned?polygon[2]:{xNorth:bounds.maxX,yEast:bounds.maxY};
+    const blPlane=paperAligned?polygon[0]:{xNorth:bounds.minX,yEast:bounds.minY};
+    const tlWorld=planeToSfcWorld(tlPlane.xNorth,tlPlane.yEast);
+    const trWorld=planeToSfcWorld(trPlane.xNorth,trPlane.yEast);
+    const blWorld=planeToSfcWorld(blPlane.xNorth,blPlane.yEast);
     const tl=worldToScreen(tlWorld.x*1000,tlWorld.y*1000);
     const tr=worldToScreen(trWorld.x*1000,trWorld.y*1000);
     const bl=worldToScreen(blWorld.x*1000,blWorld.y*1000);
     const iw=Math.max(1,runtime.image.naturalWidth||entry.width||1);
     const ih=Math.max(1,runtime.image.naturalHeight||entry.height||1);
     ctx.save();
-    const polygon=entry.planePolygon||[];
     if(polygon.length>=3){
       const firstWorld=planeToSfcWorld(polygon[0].xNorth,polygon[0].yEast);
       const first=worldToScreen(firstWorld.x*1000,firstWorld.y*1000);
@@ -3777,6 +3781,101 @@ function getAerialRasterPaperCorners(bounds,planePolygon,displayToPaper){
   // Preserve the actual transformed corner order. A min/max rectangle drops
   // the SFC partial-figure rotation and forces the raster to paper-horizontal.
   return transformed;
+}
+function getAerialRasterExportGeometry(bounds,planePolygon,displayToPaper){
+  if(!bounds)throw new Error("SFCへ配置する航空写真の範囲がありません");
+  const toPaper=point=>{
+    const world=planeToSfcWorld(point.xNorth,point.yEast);
+    return sxfAffinePoint(displayToPaper,world.x*1000,world.y*1000);
+  };
+  const sourcePaper={
+    tl:toPaper({xNorth:bounds.maxX,yEast:bounds.minY}),
+    tr:toPaper({xNorth:bounds.maxX,yEast:bounds.maxY}),
+    bl:toPaper({xNorth:bounds.minX,yEast:bounds.minY}),
+    br:toPaper({xNorth:bounds.minX,yEast:bounds.maxY})
+  };
+  const sourcePoints=[sourcePaper.tl,sourcePaper.tr,sourcePaper.bl,sourcePaper.br];
+  if(sourcePoints.some(point=>!Number.isFinite(point[0])||!Number.isFinite(point[1]))){
+    throw new Error("航空写真の配置座標を作成できませんでした");
+  }
+  const minX=Math.min(...sourcePoints.map(point=>point[0]));
+  const maxX=Math.max(...sourcePoints.map(point=>point[0]));
+  const minY=Math.min(...sourcePoints.map(point=>point[1]));
+  const maxY=Math.max(...sourcePoints.map(point=>point[1]));
+  if(!(maxX>minX&&maxY>minY))throw new Error("航空写真の配置範囲を作成できませんでした");
+  const clipPlane=Array.isArray(planePolygon)&&planePolygon.length>=3
+    ?planePolygon
+    :[
+      {xNorth:bounds.minX,yEast:bounds.minY},{xNorth:bounds.maxX,yEast:bounds.minY},
+      {xNorth:bounds.maxX,yEast:bounds.maxY},{xNorth:bounds.minX,yEast:bounds.maxY}
+    ];
+  const clipPaper=clipPlane.map(toPaper);
+  return {
+    sourcePaper,clipPaper,minX,maxX,minY,maxY,
+    // SXF raster compound figures accepted by V-nas/TREND-ONE use a
+    // paper-horizontal rectangle. The JPEG itself is rotated into this box.
+    paperCorners:[[minX,minY],[minX,maxY],[maxX,maxY],[maxX,minY],[minX,minY]]
+  };
+}
+async function prepareAerialRasterForSfcExport(entry,displayToPaper){
+  const sourceBlob=dataUrlToBlob(entry.jpegDataUrl);
+  let image=null,objectUrl="";
+  try{
+    if(window.createImageBitmap)image=await createImageBitmap(sourceBlob);
+    else{
+      objectUrl=URL.createObjectURL(sourceBlob);
+      image=await new Promise((resolve,reject)=>{
+        const target=new Image();
+        target.onload=()=>resolve(target);target.onerror=reject;target.src=objectUrl;
+      });
+    }
+    const sourceWidth=Math.max(1,image.naturalWidth||image.width||entry.width||1);
+    const sourceHeight=Math.max(1,image.naturalHeight||image.height||entry.height||1);
+    const geometry=getAerialRasterExportGeometry(entry.bounds,entry.planePolygon,displayToPaper);
+    const distance=(a,b)=>Math.hypot(b[0]-a[0],b[1]-a[1]);
+    const horizontalLength=Math.max(1e-9,distance(geometry.sourcePaper.tl,geometry.sourcePaper.tr));
+    const verticalLength=Math.max(1e-9,distance(geometry.sourcePaper.tl,geometry.sourcePaper.bl));
+    let pixelsPerPaperUnit=Math.min(sourceWidth/horizontalLength,sourceHeight/verticalLength);
+    const paperWidth=geometry.maxX-geometry.minX,paperHeight=geometry.maxY-geometry.minY;
+    const maxSide=1800;
+    pixelsPerPaperUnit=Math.min(pixelsPerPaperUnit,maxSide/Math.max(paperWidth,paperHeight));
+    const width=Math.max(2,Math.ceil(paperWidth*pixelsPerPaperUnit));
+    const height=Math.max(2,Math.ceil(paperHeight*pixelsPerPaperUnit));
+    const output=document.createElement("canvas");output.width=width;output.height=height;
+    const outputContext=output.getContext("2d",{alpha:false});
+    outputContext.fillStyle="#000000";outputContext.fillRect(0,0,width,height);
+    outputContext.imageSmoothingEnabled=true;outputContext.imageSmoothingQuality="high";
+    const paperToPixel=point=>[
+      (point[0]-geometry.minX)*pixelsPerPaperUnit,
+      (geometry.maxY-point[1])*pixelsPerPaperUnit
+    ];
+    outputContext.save();
+    if(geometry.clipPaper.length>=3){
+      const first=paperToPixel(geometry.clipPaper[0]);
+      outputContext.beginPath();outputContext.moveTo(first[0],first[1]);
+      for(let index=1;index<geometry.clipPaper.length;index++){
+        const point=paperToPixel(geometry.clipPaper[index]);outputContext.lineTo(point[0],point[1]);
+      }
+      outputContext.closePath();outputContext.clip();
+    }
+    const tl=paperToPixel(geometry.sourcePaper.tl);
+    const tr=paperToPixel(geometry.sourcePaper.tr);
+    const bl=paperToPixel(geometry.sourcePaper.bl);
+    outputContext.transform(
+      (tr[0]-tl[0])/sourceWidth,(tr[1]-tl[1])/sourceWidth,
+      (bl[0]-tl[0])/sourceHeight,(bl[1]-tl[1])/sourceHeight,
+      tl[0],tl[1]
+    );
+    outputContext.drawImage(image,0,0,sourceWidth,sourceHeight);
+    outputContext.restore();
+    return {
+      blob:await canvasToBlobAsync(output,"image/jpeg",.9),
+      paperCorners:geometry.paperCorners,width,height
+    };
+  }finally{
+    if(image&&typeof image.close==="function")image.close();
+    if(objectUrl)URL.revokeObjectURL(objectUrl);
+  }
 }
 function addAerialImageReferenceToSfc(srcText,jpegFileName,bounds,planePolygon,layerName){
   let text=String(srcText||"").replace(/[\s\r\n]+$/,"");
@@ -13387,7 +13486,9 @@ function addAerialImageReferencesToSfc(srcText,imageSpecs){
     const imageWordSjis="\x89\xe6\x91\x9c";
     // OCF準拠CADが出力する画像付きSFZと同じRASTER複合図形名を使う。
     const featureName=`$$ATRU$$${nextSerial()}$$RASTER$$${imageWordSjis}$$${spec.jpegFileName}`;
-    const paperCorners=getAerialRasterPaperCorners(spec.bounds,spec.planePolygon,displayToPaper);
+    const paperCorners=Array.isArray(spec.paperCorners)&&spec.paperCorners.length>=5
+      ?spec.paperCorners
+      :getAerialRasterPaperCorners(spec.bounds,spec.planePolygon,displayToPaper);
     const xs=paperCorners.map(point=>point[0].toFixed(6)).join(",");
     const ys=paperCorners.map(point=>point[1].toFixed(6)).join(",");
     // Members precede sfig_org.  All root placements follow all definitions
@@ -13421,16 +13522,22 @@ async function buildAerialSfcSidecarExport(requestedSfcFileName=""){
   updateBusy("既存の画像参照を整理中…");
   await waitForUiPaint();
   let sfcText=sanitizeInvalidSxfExternalHatches(stripAerialImageReferenceFeatures(sourceExport.text));
+  const sourceRecords=parseSxfFeatureRecords(getFlatSxfText(sfcText));
+  const sourceNum=ref=>{const value=parseFloat(unquoteSxfValue(ref));return Number.isFinite(value)?value:0;};
+  const sourceAssembly=buildSxfAssemblyExpansion(sourceRecords,sourceNum);
+  const displayToPaper=sourceAssembly.displayToPaper||sxfAffineIdentity();
   const imageSpecs=[];
   for(let index=0;index<images.length;index++){
     const entry=images[index];
     // Raster file names inside SFZ are kept ASCII and short for maximum CAD
     // interoperability. Their meaning is carried by the SXF layer name.
     const jpegFileName=`${index+1}.jpg`;
+    const prepared=await prepareAerialRasterForSfcExport(entry,displayToPaper);
     imageSpecs.push({
-      jpegFileName,bounds:entry.bounds,planePolygon:entry.planePolygon,layerName:entry.layerName
+      jpegFileName,bounds:entry.bounds,planePolygon:entry.planePolygon,
+      paperCorners:prepared.paperCorners,layerName:entry.layerName
     });
-    imageFiles.push({name:jpegFileName,blob:dataUrlToBlob(entry.jpegDataUrl)});
+    imageFiles.push({name:jpegFileName,blob:prepared.blob});
   }
   updateBusy("航空写真の配置情報を作成中…");
   await waitForUiPaint();
@@ -14352,7 +14459,7 @@ async function extractAerialCadImagesFromSfz(sfcText,zipBuffer,entries){
     const layerName=String(layerDefs[layerCode-1]?.name||layerDefs[layerCode-1]?.rawName||getAerialLayerName({label:"航空写真"}));
     const normalized=normalizeAerialCadImageEntry({
       id:`sfz:${record.id}:${rawFileName}`,layerName,jpegDataUrl:dataUrl,bounds,planePolygon,
-      source:{id:rawFileName,label:rawFileName},resolution:null,width:null,height:null,rasterAxisVersion:2
+      source:{id:rawFileName,label:rawFileName},resolution:null,width:null,height:null,rasterAxisVersion:3
     });
     if(normalized)restored.push(normalized);
   }
