@@ -123,13 +123,6 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 @keyframes terrainSpin{to{transform:rotate(360deg);}}
 #terrainStatus{font-size:12px;line-height:1.55;margin-top:9px;color:var(--muted);min-height:19px;}
 #terrainStatus:empty{display:none;}
-#terrainDifferenceResult{display:none;margin-top:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.16);border-radius:8px;font-size:11px;line-height:1.55;color:var(--text);}
-#terrainDifferenceResult.open{display:block;}
-#terrainDifferenceResult .terrainDiffHead{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:800;}
-#terrainDifferenceResult .terrainDiffValue.low{color:#35c96f;}
-#terrainDifferenceResult .terrainDiffValue.medium{color:#ffd24a;}
-#terrainDifferenceResult .terrainDiffValue.high{color:#ff6b5f;}
-#terrainDifferenceResult .terrainDiffValues{margin-top:3px;color:var(--muted);}
 #terrainLegend{display:none;align-items:center;gap:5px;margin-top:7px;font-size:11px;flex-wrap:wrap;}
 #terrainCadBtn{display:none;width:100%;margin-top:8px;background:#25394d;color:#fff;border-color:#3e6b91;font-weight:800;}
 #terrainCadBtn.active{display:block;background:#1677ff;border-color:#0f5ec8;}
@@ -405,6 +398,12 @@ label.fileBtn{
 .coordinateInspectRow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;}
 .coordinateInspectRow span{color:var(--muted);white-space:nowrap;}
 .coordinateInspectRow strong{min-width:0;text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+#coordinateInspectDifference{margin-top:8px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;font-size:11px;line-height:1.55;color:var(--text);}
+#coordinateInspectDifference .terrainDiffHead{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:800;}
+#coordinateInspectDifference .terrainDiffValue.low{color:#35c96f;}
+#coordinateInspectDifference .terrainDiffValue.medium{color:#ffd24a;}
+#coordinateInspectDifference .terrainDiffValue.high{color:#ff6b5f;}
+#coordinateInspectDifference .terrainDiffValues{margin-top:3px;color:var(--muted);}
 .coordinateCopyBtn{display:none;align-items:center;justify-content:center;min-width:54px;min-height:30px;padding:4px 8px;font-size:11px;font-weight:700;white-space:nowrap;}
 #canvas.desktopCadCrosshair{cursor:none;}
 #desktopCadCrosshair{display:none;position:absolute;left:0;top:0;width:72px;height:72px;z-index:58;pointer-events:none;transform:translate3d(-100px,-100px,0);will-change:transform;}
@@ -1379,6 +1378,10 @@ gtag('config', 'G-88B9YPJXWP');
           <button class="coordinateCopyBtn" type="button" data-copy-source="coordinateInspectElevation" data-strip-unit="m">コピー</button>
         </div>
       </div>
+      <div id="coordinateInspectDifference" aria-live="polite">
+        <div class="terrainDiffHead"><span>DEM間標高差</span><strong id="coordinateInspectDifferenceValue">確認中…</strong></div>
+        <div id="coordinateInspectDifferenceDetails" class="terrainDiffValues">DEM1A・DEM5Aを確認しています…</div>
+      </div>
       <div id="coordinateInspectStatus" role="status" aria-live="polite"></div>
     </div>
   </div>
@@ -1558,10 +1561,8 @@ gtag('config', 'G-88B9YPJXWP');
       <button id="terrainContourBtn" type="button">等高線</button>
       <button id="terrainFlowBtn" type="button">水の流れ</button>
       <button id="terrainVolumeBtn" type="button">概算土量</button>
-      <button id="terrainDifferenceBtn" type="button">DEM差</button>
     </div>
     <div id="terrainStatus"></div>
-    <div id="terrainDifferenceResult" aria-live="polite"></div>
     <div id="terrainLegend"></div>
     <button id="terrainCadBtn" type="button">等高線をCAD化</button>
   </div>
@@ -2308,9 +2309,6 @@ let terrainReferenceElevation = null;
 let terrainElevationRange = null;
 let terrainRefreshTimer = 0;
 let terrainHoverInfoTimer = 0;
-let terrainDifferencePoint = null;
-let terrainDifferenceRequestVersion = 0;
-let terrainDifferenceSuppressClickUntil = 0;
 let terrainCadSelectionMode = false;
 let terrainCadPolygon = [];
 let terrainCadTouchCandidate = null;
@@ -5061,7 +5059,7 @@ function chooseTerrainContourInterval(range){
   return 50;
 }
 function terrainModeLabel(mode){
-  return mode==="elevation"?"標高":mode==="slope"?"傾斜角":mode==="contour"?"等高線":mode==="flow"?"水の流れ":mode==="volume"?"概算土量":mode==="difference"?"DEM差":"";
+  return mode==="elevation"?"標高":mode==="slope"?"傾斜角":mode==="contour"?"等高線":mode==="flow"?"水の流れ":mode==="volume"?"概算土量":"";
 }
 function terrainContourRegularColor(){return darkTheme?"#ffd24a":"#0057c8";}
 function terrainContourIndexColor(){return "#ff6b35";}
@@ -5079,7 +5077,7 @@ function calculateTerrainVolume(grid){
 }
 function updateTerrainUi(){
   const selectedMode=terrainLoading&&terrainRequestedMode?terrainRequestedMode:terrainMode;
-  ["elevation","slope","contour","flow","volume","difference"].forEach(mode=>{
+  ["elevation","slope","contour","flow","volume"].forEach(mode=>{
     const btn=document.getElementById(`terrain${mode[0].toUpperCase()+mode.slice(1)}Btn`);if(!btn)return;
     const selected=selectedMode===mode;
     btn.classList.toggle("active",selected);
@@ -5100,59 +5098,6 @@ function updateTerrainUi(){
   updateBackgroundIconState();
 }
 function setTerrainStatus(text){const el=document.getElementById("terrainStatus");if(el)el.textContent=text||"";}
-function clearTerrainDifferenceResult(){
-  terrainDifferencePoint=null;
-  const el=document.getElementById("terrainDifferenceResult");
-  if(el){el.classList.remove("open");el.textContent="";}
-}
-function setTerrainDifferenceResult(dem1a,dem5a){
-  const el=document.getElementById("terrainDifferenceResult");if(!el)return;
-  el.classList.add("open");
-  if(!Number.isFinite(dem1a)||!Number.isFinite(dem5a)){
-    el.innerHTML='<div class="terrainDiffHead"><span>DEM間標高差</span><strong>比較できません</strong></div><div class="terrainDiffValues">DEM1A・DEM5Aの両方がある地点で確認してください。</div>';
-    return;
-  }
-  const signed=dem1a-dem5a,absolute=Math.abs(signed);
-  const level=absolute<=.10?"low":absolute<=.30?"medium":"high";
-  const sign=signed>0?"+":"";
-  el.innerHTML=`<div class="terrainDiffHead"><span>DEM間標高差</span><strong class="terrainDiffValue ${level}">${absolute.toFixed(3)}m</strong></div><div class="terrainDiffValues">DEM1A：${dem1a.toFixed(3)}m<br>DEM5A：${dem5a.toFixed(3)}m<br>差（1A－5A）：${sign}${signed.toFixed(3)}m</div>`;
-}
-async function selectTerrainDifferencePoint(screenX,screenY){
-  if(terrainMode!=="difference"||terrainLoading)return;
-  const world=screenToWorld(screenX,screenY);
-  const plane=sfcWorldToPlane(world[0],world[1]);
-  const request=++terrainDifferenceRequestVersion;
-  clearTerrainDifferenceResult();
-  terrainDifferencePoint={worldX:world[0],worldY:world[1],loading:true};
-  terrainLoading=true;terrainRequestedMode="difference";
-  setTerrainStatus("DEM1AとDEM5Aを比較しています…");
-  updateTerrainUi();scheduleDraw();
-  try{
-    const zone=await resolveProfileZone();
-    if(!zone)throw new Error("座標系を確認できません");
-    const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
-    const dem1aSource=PROFILE_DEM_SOURCES.find(source=>source.id==="DEM1A");
-    const dem5aSource=PROFILE_DEM_SOURCES.find(source=>source.id==="DEM5A");
-    const [dem1a,dem5a]=await Promise.all([
-      sampleDemElevationBilinear(ll.lat,ll.lon,dem1aSource),
-      sampleDemElevationBilinear(ll.lat,ll.lon,dem5aSource)
-    ]);
-    if(request!==terrainDifferenceRequestVersion||terrainMode!=="difference")return;
-    terrainDifferencePoint={worldX:world[0],worldY:world[1],lat:ll.lat,lon:ll.lon,dem1a,dem5a,loading:false};
-    setTerrainDifferenceResult(dem1a,dem5a);
-    setTerrainStatus(Number.isFinite(dem1a)&&Number.isFinite(dem5a)?"同じ地点の標高を比較しました。":"この地点では両方のDEMを取得できません。");
-  }catch(error){
-    if(request!==terrainDifferenceRequestVersion||terrainMode!=="difference")return;
-    console.error(error);
-    terrainDifferencePoint={worldX:world[0],worldY:world[1],loading:false};
-    setTerrainDifferenceResult(null,null);
-    setTerrainStatus(formatTerrainError(error));
-  }finally{
-    if(request===terrainDifferenceRequestVersion){
-      terrainLoading=false;terrainRequestedMode="";updateTerrainUi();scheduleDraw();
-    }
-  }
-}
 function terrainDemInfoHtml(grid){
   const usedIds=[...new Set((grid?.points||[]).map(point=>point.source).filter(Boolean))];
   const used=PROFILE_DEM_SOURCES.filter(source=>usedIds.includes(source.id));
@@ -5237,15 +5182,7 @@ async function activateTerrainMode(mode,force=false){
   if(terrainLoading)return;
   if(!force&&terrainMode===mode){clearTerrainAnalysis();return;}
   if(!force){
-    terrainMode="";terrainReferenceElevation=null;terrainElevationRange=null;setTerrainLegend("");clearTerrainDifferenceResult();scheduleDraw();
-  }
-  if(mode==="difference"){
-    terrainDifferenceRequestVersion++;
-    terrainRequestedMode="";
-    terrainMode="difference";
-    setTerrainStatus("比較する地点を図面上でタップしてください。");
-    updateTerrainUi();scheduleDraw();
-    return;
+    terrainMode="";terrainReferenceElevation=null;terrainElevationRange=null;setTerrainLegend("");scheduleDraw();
   }
   terrainRequestedMode=mode;
   updateTerrainUi();
@@ -5270,7 +5207,7 @@ async function activateTerrainMode(mode,force=false){
   }
 }
 function clearTerrainAnalysis(){
-  terrainRequestVersion++;terrainDifferenceRequestVersion++;terrainLoading=false;terrainRequestedMode="";terrainMode="";terrainReferenceElevation=null;terrainElevationRange=null;setTerrainLegend("");clearTerrainDifferenceResult();
+  terrainRequestVersion++;terrainLoading=false;terrainRequestedMode="";terrainMode="";terrainReferenceElevation=null;terrainElevationRange=null;setTerrainLegend("");
   clearTimeout(terrainRefreshTimer);terrainRefreshTimer=0;
   setTerrainStatus("");updateTerrainUi();scheduleDraw();
 }
@@ -8726,6 +8663,27 @@ function setCoordinateInspectDemLabel(sourceId=""){
     source.startsWith("DEM1")?"DEM1標高":source.startsWith("DEM5")?"DEM5標高":"DEM標高"
   );
 }
+function setCoordinateInspectDifferenceResult(dem1a,dem5a,loading=false){
+  const value=document.getElementById("coordinateInspectDifferenceValue");
+  const details=document.getElementById("coordinateInspectDifferenceDetails");
+  if(!value||!details)return;
+  value.className="";
+  if(loading){
+    value.textContent="確認中…";
+    details.textContent="DEM1A・DEM5Aを確認しています…";
+    return;
+  }
+  if(!Number.isFinite(dem1a)||!Number.isFinite(dem5a)){
+    value.textContent="比較できません";
+    details.textContent="DEM1A・DEM5Aの両方がある地点で確認できます。";
+    return;
+  }
+  const signed=dem1a-dem5a,absolute=Math.abs(signed),sign=signed>0?"+":"";
+  const level=absolute<=.10?"low":absolute<=.30?"medium":"high";
+  value.className=`terrainDiffValue ${level}`;
+  value.textContent=`${absolute.toFixed(3)} m`;
+  details.innerHTML=`DEM1A：${dem1a.toFixed(3)} m<br>DEM5A：${dem5a.toFixed(3)} m<br>差（1A－5A）：${sign}${signed.toFixed(3)} m`;
+}
 function updateCoordinateInspectCopyButtons(){
   const visible=!isTouchMobileLike();
   document.querySelectorAll(".coordinateCopyBtn").forEach(button=>{
@@ -8816,7 +8774,7 @@ function closeCoordinateInspectModal(){
 }
 function canStartCoordinateInspectLongPress(){
   return hasLoadedDrawing()&&!measureMode&&!profileMode&&!profileLineDrag&&
-    !terrainCadSelectionMode&&!inkEnabled&&terrainMode!=="difference";
+    !terrainCadSelectionMode&&!inkEnabled;
 }
 async function openCoordinateInspectModal(screenX,screenY){
   if(!canStartCoordinateInspectLongPress())return;
@@ -8828,6 +8786,7 @@ async function openCoordinateInspectModal(screenX,screenY){
   setCoordinateInspectValue("coordinateInspectY",Number.isFinite(plane?.yEast)?plane.yEast.toFixed(3):"－");
   setCoordinateInspectValue("coordinateInspectElevation","確認中…");
   setCoordinateInspectDemLabel("");
+  setCoordinateInspectDifferenceResult(null,null,true);
   setCoordinateInspectValue("coordinateInspectStatus","標高を確認しています…");
   const modal=document.getElementById("coordinateInspectModal");
   updateCoordinateInspectCopyButtons();
@@ -8837,6 +8796,7 @@ async function openCoordinateInspectModal(screenX,screenY){
   if(!Number.isFinite(plane?.xNorth)||!Number.isFinite(plane?.yEast)){
     coordinateInspectPoint.loading=false;
     setCoordinateInspectValue("coordinateInspectElevation","－");
+    setCoordinateInspectDifferenceResult(null,null);
     setCoordinateInspectValue("coordinateInspectStatus","座標を確認できません");
     return;
   }
@@ -8846,19 +8806,26 @@ async function openCoordinateInspectModal(screenX,screenY){
     if(!zone){
       coordinateInspectPoint.loading=false;
       setCoordinateInspectValue("coordinateInspectElevation","－");
+      setCoordinateInspectDifferenceResult(null,null);
       setCoordinateInspectValue("coordinateInspectStatus","座標を確認できません");
       scheduleDraw();
       return;
     }
     const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
-    let elevation=null,sourceId="";
-    for(const source of PROFILE_DEM_SOURCES){
-      const value=await sampleDemElevationBilinear(ll.lat,ll.lon,source);
-      if(request!==coordinateInspectRequestVersion||!coordinateInspectModalIsOpen())return;
-      if(Number.isFinite(value)){elevation=value;sourceId=source.id;break;}
-    }
-    coordinateInspectPoint={worldX:world[0],worldY:world[1],loading:false,zone,elevation,source:sourceId};
+    const dem1aSource=PROFILE_DEM_SOURCES.find(source=>source.id==="DEM1A");
+    const dem5aSource=PROFILE_DEM_SOURCES.find(source=>source.id==="DEM5A");
+    const sample=async source=>{
+      if(!source)return null;
+      try{return await sampleDemElevationBilinear(ll.lat,ll.lon,source);}
+      catch(error){console.warn(`${source.id}標高を取得できません`,error);return null;}
+    };
+    const [dem1a,dem5a]=await Promise.all([sample(dem1aSource),sample(dem5aSource)]);
+    if(request!==coordinateInspectRequestVersion||!coordinateInspectModalIsOpen())return;
+    const elevation=Number.isFinite(dem1a)?dem1a:Number.isFinite(dem5a)?dem5a:null;
+    const sourceId=Number.isFinite(dem1a)?"DEM1A":Number.isFinite(dem5a)?"DEM5A":"";
+    coordinateInspectPoint={worldX:world[0],worldY:world[1],loading:false,zone,elevation,source:sourceId,dem1a,dem5a};
     setCoordinateInspectDemLabel(sourceId);
+    setCoordinateInspectDifferenceResult(dem1a,dem5a);
     if(Number.isFinite(elevation)){
       setCoordinateInspectValue("coordinateInspectElevation",`${elevation.toFixed(3)} m`);
       setCoordinateInspectValue("coordinateInspectStatus","");
@@ -8871,6 +8838,7 @@ async function openCoordinateInspectModal(screenX,screenY){
     console.error(error);
     coordinateInspectPoint={worldX:world[0],worldY:world[1],loading:false};
     setCoordinateInspectValue("coordinateInspectElevation","－");
+    setCoordinateInspectDifferenceResult(null,null);
     setCoordinateInspectValue("coordinateInspectStatus","DEM標高を取得できません");
   }
   scheduleDraw();
@@ -10354,19 +10322,6 @@ function drawTerrainContours(grid,staleViewport){
 }
 function drawTerrainOverlay(){
   const mode=terrainMode;if(!mode)return;
-  if(mode==="difference"){
-    const point=terrainDifferencePoint;if(!point)return;
-    const screen=worldToScreen(point.worldX,point.worldY);
-    ctx.save();
-    ctx.beginPath();ctx.arc(screen[0],screen[1],7,0,Math.PI*2);
-    ctx.fillStyle=point.loading?"rgba(255,210,74,.88)":"rgba(39,199,255,.92)";
-    ctx.fill();ctx.lineWidth=2;ctx.strokeStyle="#ffffff";ctx.stroke();
-    ctx.beginPath();ctx.moveTo(screen[0]-11,screen[1]);ctx.lineTo(screen[0]+11,screen[1]);
-    ctx.moveTo(screen[0],screen[1]-11);ctx.lineTo(screen[0],screen[1]+11);
-    ctx.lineWidth=1.4;ctx.strokeStyle=point.loading?"#ffd24a":"#27c7ff";ctx.stroke();
-    ctx.restore();
-    return;
-  }
   const grid=terrainGrid;if(!grid)return;
   if(dragging||touchMode==="twofinger"||touchMode==="onefingerzoom"||oneFingerZoomGesture||touchPanMoved)return;
   const staleViewport=terrainViewportNeedsRefresh(grid);
@@ -16813,7 +16768,6 @@ document.getElementById("terrainSlopeBtn")?.addEventListener("click",()=>activat
 document.getElementById("terrainContourBtn")?.addEventListener("click",()=>activateTerrainMode("contour"));
 document.getElementById("terrainFlowBtn")?.addEventListener("click",()=>activateTerrainMode("flow"));
 document.getElementById("terrainVolumeBtn")?.addEventListener("click",()=>activateTerrainMode("volume"));
-document.getElementById("terrainDifferenceBtn")?.addEventListener("click",()=>activateTerrainMode("difference"));
 document.getElementById("terrainCadBtn")?.addEventListener("click",()=>{
   if(terrainMode!=="contour"||!terrainGrid){showToast("先に等高線を表示してください");return;}
   terrainCadPolygon=[];setTerrainCadSelectionOpen(true,"terrain");
@@ -17419,7 +17373,6 @@ window.addEventListener("mousemove", e=>{
     return;
   }
   if(dragging){
-    if(terrainMode==="difference")terrainDifferenceSuppressClickUntil=Date.now()+400;
     suspendGpsFollowFromUserGesture();
     view.tx += e.clientX-lastX; view.ty += e.clientY-lastY;
     lastX=e.clientX; lastY=e.clientY; scheduleDraw(); return;
@@ -17464,12 +17417,6 @@ document.addEventListener("dblclick", e=>{ e.preventDefault(); }, {capture:true,
 
 canvas.addEventListener("click", e=>{
   if(Date.now() < suppressClickUntil) return;
-  if(terrainMode==="difference"){
-    if(Date.now()<terrainDifferenceSuppressClickUntil)return;
-    const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
-    selectTerrainDifferencePoint(local.x,local.y);
-    return;
-  }
   if(terrainCadSelectionMode){
     const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);addTerrainCadPolygonPoint(local.x,local.y);return;
   }
@@ -17706,7 +17653,7 @@ canvas.addEventListener("touchmove", e=>{
       const dx = e.touches[0].clientX - lastX;
       const dy = e.touches[0].clientY - lastY;
       const total = Math.hypot(e.touches[0].clientX - touchPanCandidate.clientX, e.touches[0].clientY - touchPanCandidate.clientY);
-      if(total > 5){touchPanMoved = true;if(terrainMode==="difference")terrainDifferenceSuppressClickUntil=Date.now()+500;suspendGpsFollowFromUserGesture();}
+      if(total > 5){touchPanMoved = true;suspendGpsFollowFromUserGesture();}
       view.tx += dx;
       view.ty += dy;
       lastX = e.touches[0].clientX;

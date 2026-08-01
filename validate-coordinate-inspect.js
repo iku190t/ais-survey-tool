@@ -6,11 +6,15 @@ const {chromium}=require("playwright");
 const source=fs.readFileSync("index.html","utf8");
 const required=[
   'id="coordinateInspectCopyAllBtn"',
+  'id="coordinateInspectDifference"',
+  'setCoordinateInspectDifferenceResult(dem1a,dem5a)',
+  'const [dem1a,dem5a]=await Promise.all([sample(dem1aSource),sample(dem5aSource)])',
   '`${x},${y},${elevation}`',
   'replace(/\\s*m\\s*$/i,"")',
   'if(e.button===0&&!isTouchMobileLike()){dragging=false;return;}',
 ];
 for(const token of required)if(!source.includes(token))throw new Error(`missing implementation: ${token}`);
+if(source.includes('id="terrainDifferenceBtn"'))throw new Error("DEM差ボタンが残っています");
 
 const root=__dirname;
 const server=http.createServer((req,res)=>{
@@ -42,10 +46,12 @@ let browser;
     setCoordinateInspectValue("coordinateInspectX","219.458");
     setCoordinateInspectValue("coordinateInspectY","-49942.675");
     setCoordinateInspectValue("coordinateInspectElevation","59.190 m");
+    setCoordinateInspectDifferenceResult(59.190,58.940);
     updateCoordinateInspectCopyButtons();
     const copyButton=document.getElementById("coordinateInspectCopyAllBtn");
     await copyAllCoordinateInspectValues(copyButton);
     const copy={value:window.__copiedCoordinate,text:copyButton.textContent,display:copyButton.style.display};
+    const difference={value:document.getElementById("coordinateInspectDifferenceValue")?.textContent,details:document.getElementById("coordinateInspectDifferenceDetails")?.textContent};
 
     view.tx=100;view.ty=200;
     const rect=canvas.getBoundingClientRect(),x=rect.left+220,y=rect.top+180;
@@ -58,10 +64,11 @@ let browser;
     window.dispatchEvent(new MouseEvent("mousemove",{bubbles:true,button:1,buttons:4,clientX:x+45,clientY:y+35}));
     window.dispatchEvent(new MouseEvent("mouseup",{bubbles:true,button:1,buttons:0,clientX:x+45,clientY:y+35}));
     const middle={tx:view.tx,ty:view.ty};
-    return {copy,left,middle};
+    return {copy,difference,left,middle};
   })()`));
   if(result.copy.value!=="219.458,-49942.675,59.190")throw new Error(`まとめてコピーが不正です: ${JSON.stringify(result.copy)}`);
   if(result.copy.text!=="コピー済み"||result.copy.display!=="inline-flex")throw new Error(`まとめてコピーボタンの表示が不正です: ${JSON.stringify(result.copy)}`);
+  if(result.difference.value!=="0.250 m"||!result.difference.details.includes("DEM1A：59.190 m")||!result.difference.details.includes("DEM5A：58.940 m"))throw new Error(`DEM標高差の情報表示が不正です: ${JSON.stringify(result.difference)}`);
   if(result.left.tx!==100||result.left.ty!==200)throw new Error(`PC左ドラッグで図面が移動しました: ${JSON.stringify(result.left)}`);
   if(result.middle.tx!==145||result.middle.ty!==235)throw new Error(`中ドラッグの既存パンが動きません: ${JSON.stringify(result.middle)}`);
   console.log("coordinate inspect copy and PC pan checks passed");
