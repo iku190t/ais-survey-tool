@@ -14,6 +14,7 @@ const checks = [
   ["元写真のセッション保持", /const photoSourceFiles = new Map\(\)/],
   ["写真の縦横比維持", /function fitPhotoAlbumImage\(image,rect\)/],
   ["豆図の写真番号中央", /fillText\(String\(item\.number\|\|""\),width\/2,height\/2\+1\)/],
+  ["豆図の撮影方向矢印", /const directionVector=photoDirectionWorldVector\(item\)/],
   ["豆図80パーセント", /width:area\.width\*\.8,height:area\.height\*\.8/],
   ["A4縦", /paperSize="9" orientation="portrait"/],
   ["グリッド線非表示", /showGridLines="0"/],
@@ -23,6 +24,9 @@ const checks = [
   ["画像埋込み", /<xdr:twoCellAnchor editAs="oneCell">/],
   ["片面は写真左コメント右", /photoColStart=isSpread\?\(front\?1:6\):1,photoColEnd=isSpread\?\(front\?7:12\):7/],
   ["見開き表裏反転", /commentColStart=isSpread\?\(front\?8:1\):8,commentColEnd=isSpread\?\(front\?12:5\):12/],
+  ["2枚から4枚は写真を枠いっぱいに配置", /merge\(slotTop\+1,photoColStart,slotBottom,photoColEnd,"",4\)/],
+  ["コメント欄の点線", /bottom style="dotted"/],
+  ["写真一覧のファイル名列を縮小", /nth-child\(3\)[^\n]*width:112px/],
   ["6枚8枚もコメント3行", /fields\.forEach\(\(field,line\)=>merge\(photoEnd\+1\+line/],
   ["既存一覧Excel維持", /async function buildPhotoListXlsx\(\)/],
 ];

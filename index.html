@@ -645,11 +645,11 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 body.light #photoListTableScroll{scrollbar-color:#858585 rgba(0,0,0,.12);}
 body.light #photoListTableScroll::-webkit-scrollbar-track{background:rgba(0,0,0,.12);}
 body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
-#photoListTable{width:884px;min-width:884px;table-layout:fixed;border-collapse:collapse;font-size:12px;}
+#photoListTable{width:826px;min-width:826px;table-layout:fixed;border-collapse:collapse;font-size:12px;}
 #photoListTable th,#photoListTable td{padding:6px 5px;text-align:left;border-bottom:1px solid var(--border);vertical-align:middle;}
 #photoListTable th:first-child,#photoListTable td:first-child{width:34px;text-align:center;}
 #photoListTable th:nth-child(2),#photoListTable td:nth-child(2){width:42px;text-align:center;}
-#photoListTable th:nth-child(3),#photoListTable td:nth-child(3){width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#photoListTable th:nth-child(3),#photoListTable td:nth-child(3){width:112px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #photoListTable th:nth-child(4),#photoListTable td:nth-child(4){width:148px;white-space:nowrap;}
 #photoListTable th:nth-child(5),#photoListTable td:nth-child(5),
 #photoListTable th:nth-child(6),#photoListTable td:nth-child(6){width:126px;}
@@ -1297,7 +1297,7 @@ gtag('config', 'G-88B9YPJXWP');
         <label class="photoAlbumCommentRow"><span>2行目</span><select id="photoAlbumComment2"></select></label>
         <label class="photoAlbumCommentRow"><span>3行目</span><select id="photoAlbumComment3"></select></label>
         <label id="photoAlbumMiniMapLabel"><input id="photoAlbumMiniMap" type="checkbox">豆図を付ける</label>
-        <div id="photoAlbumHint">豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。6枚・8枚では豆図を使用できません。見開きでは表面が「写真・コメント」、裏面が「コメント・写真」です。</div>
+        <div id="photoAlbumHint">豆図は写真位置を中心に図面を縮小し、中央へ写真番号と撮影方向を表示します。6枚・8枚では豆図を使用できません。見開きでは表面が「写真・コメント」、裏面が「コメント・写真」です。</div>
       </div>
       <div id="photoAlbumActions"><button id="photoAlbumCancelBtn" type="button">キャンセル</button><button id="photoAlbumCreateBtn" type="button">Excelを作成</button></div>
     </div>
@@ -12502,7 +12502,7 @@ function renderPhotoListPanel(){
       updatePhotoSelectionActions();
     });
     select.appendChild(checkbox);
-    number.textContent=String(item.number);name.textContent=item.fileName;
+    number.textContent=String(item.number);name.textContent=item.fileName;name.title=item.fileName;
     capturedAt.textContent=formatPhotoCapturedAt(item.capturedAt)||"—";
     xNorth.textContent=formatPhotoCoordinate(item.xNorth);
     yEast.textContent=formatPhotoCoordinate(item.yEast);
@@ -12790,6 +12790,21 @@ async function makePhotoMiniMapImage(item,geometry,width=560,height=300){
   const markerRadius=Math.max(13,Math.min(width,height)*.065);
   c.fillStyle="#fff";c.strokeStyle="#d11f2e";c.lineWidth=4;c.beginPath();c.arc(width/2,height/2,markerRadius,0,Math.PI*2);c.fill();c.stroke();
   c.fillStyle="#d11f2e";c.font=`700 ${Math.round(markerRadius*1.15)}px sans-serif`;c.textAlign="center";c.textBaseline="middle";c.fillText(String(item.number||""),width/2,height/2+1);
+  const directionVector=photoDirectionWorldVector(item);
+  if(directionVector){
+    const origin=point(+item.worldX,+item.worldY);
+    const directionPoint=point(+item.worldX+directionVector.x*1000,+item.worldY+directionVector.y*1000);
+    const dx=directionPoint[0]-origin[0],dy=directionPoint[1]-origin[1],length=Math.hypot(dx,dy);
+    if(length>1e-6){
+      const ux=dx/length,uy=dy/length;
+      const start=markerRadius+4,arrowLength=Math.max(markerRadius*2.2,Math.min(width,height)*.17);
+      const sx=width/2+ux*start,sy=height/2+uy*start,tx=width/2+ux*(start+arrowLength),ty=height/2+uy*(start+arrowLength);
+      const head=Math.max(8,markerRadius*.65),wing=Math.max(5,markerRadius*.38);
+      c.save();c.strokeStyle="#d11f2e";c.fillStyle="#d11f2e";c.lineWidth=4;c.lineCap="round";c.lineJoin="round";
+      c.beginPath();c.moveTo(sx,sy);c.lineTo(tx,ty);c.stroke();
+      c.beginPath();c.moveTo(tx,ty);c.lineTo(tx-ux*head-uy*wing,ty-uy*head+ux*wing);c.lineTo(tx-ux*head+uy*wing,ty-uy*head-ux*wing);c.closePath();c.fill();c.restore();
+    }
+  }
   c.strokeStyle="#202832";c.lineWidth=2;c.strokeRect(1,1,width-2,height-2);
   return {blob:await canvasToBlob(canvas,"image/png"),width,height,extension:"png",contentType:"image/png"};
 }
@@ -12834,13 +12849,12 @@ async function buildPhotoAlbumXlsx(settings){
       const front=!isSpread||page%2===0;
       const photoColStart=isSpread?(front?1:6):1,photoColEnd=isSpread?(front?7:12):7;
       const commentColStart=isSpread?(front?8:1):8,commentColEnd=isSpread?(front?12:5):12;
-      merge(slotTop+1,photoColStart,slotTop+2,photoColEnd,`写真 ${item.number}`,2);
-      merge(slotTop+3,photoColStart,slotBottom,photoColEnd,"",4);
-      const photoRect={x:(photoColStart-1)*colPx+4,y:(slotTop+2)*rowPx+4,width:(photoColEnd-photoColStart+1)*colPx-8,height:(slotRows-2)*rowPx-8};
+      merge(slotTop+1,photoColStart,slotBottom,photoColEnd,"",4);
+      const photoRect={x:(photoColStart-1)*colPx+2,y:slotTop*rowPx+2,width:(photoColEnd-photoColStart+1)*colPx-4,height:slotRows*rowPx-4};
       addImage(photo,fitPhotoAlbumImage(photo,photoRect),`写真 ${item.number}`);
       fields.forEach((field,line)=>merge(slotTop+1+line*2,commentColStart,slotTop+2+line*2,commentColEnd,photoAlbumCommentText(item,field),line===0?2:3));
       if(useMiniMap){
-        merge(slotTop+7,commentColStart,slotBottom,commentColEnd,"",4);
+        for(let guideRow=slotTop+7;guideRow<=slotBottom;guideRow++)merge(guideRow,commentColStart,guideRow,commentColEnd,"",5);
         const mini=await makePhotoMiniMapImage(item,miniGeometry,448,240);
         const area={x:(commentColStart-1)*colPx,y:(slotTop+6)*rowPx,width:(commentColEnd-commentColStart+1)*colPx,height:(slotRows-6)*rowPx};
         const miniRect={x:area.x+area.width*.1,y:area.y+area.height*.1,width:area.width*.8,height:area.height*.8};
@@ -12879,7 +12893,7 @@ async function buildPhotoAlbumXlsx(settings){
     `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>`,
     `<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`
   ].join("");
-  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="ＭＳ ゴシック"/><family val="3"/></font><font><b/><sz val="10"/><name val="ＭＳ ゴシック"/><family val="3"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1F3F5"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF666666"/></left><right style="thin"><color rgb="FF666666"/></right><top style="thin"><color rgb="FF666666"/></top><bottom style="thin"><color rgb="FF666666"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="標準" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="ＭＳ ゴシック"/><family val="3"/></font><font><b/><sz val="10"/><name val="ＭＳ ゴシック"/><family val="3"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1F3F5"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF666666"/></left><right style="thin"><color rgb="FF666666"/></right><top style="thin"><color rgb="FF666666"/></top><bottom style="thin"><color rgb="FF666666"/></bottom><diagonal/></border><border><left style="thin"><color rgb="FF666666"/></left><right style="thin"><color rgb="FF666666"/></right><top/><bottom style="dotted"><color rgb="FF777777"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="2" xfId="0" applyBorder="1"><alignment horizontal="left" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="標準" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const files=[
     {name:"[Content_Types].xml",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">${types}</Types>`},
     {name:"_rels/.rels",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
