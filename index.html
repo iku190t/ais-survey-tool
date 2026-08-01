@@ -9534,6 +9534,10 @@ function drawTerrainContours(grid,staleViewport){
   const range=terrainElevationRange;if(!range)return;
   const interval=chooseTerrainContourInterval(range),indexInterval=interval*5,labelCandidates=new Map(),screenW=canvas.clientWidth||1,screenH=canvas.clientHeight||1;
   const geometry=buildTerrainContourGeometry(grid,interval,indexInterval),regularLines=[],indexLines=[];
+  // Keep the native DEM crossings untouched for CAD export and calculations,
+  // but soften the raster-grid corners in the on-screen preview.  DEM5A needs
+  // one extra pass because its cells are wider than DEM1A cells.
+  const displaySmoothPasses=grid?.nativeDemGrid?.sourceId==="DEM5A"?2:1;
   const considerLabel=(level,a,b)=>{
     const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);
     if(mx<18||mx>screenW-18||my<18||my>screenH-18)return;
@@ -9542,7 +9546,9 @@ function drawTerrainContours(grid,staleViewport){
     if(!current||score>current.score)labelCandidates.set(key,{level,x:mx,y:my,angle,score});
   };
   for(const line of geometry){
-    const screen=line.points.map(point=>worldToScreen(point[0],point[1]));
+    const closed=line.points.length>2&&terrainContourPointKey(line.points[0])===terrainContourPointKey(line.points[line.points.length-1]);
+    const displayPoints=smoothTerrainContour(line.points,displaySmoothPasses,closed);
+    const screen=displayPoints.map(point=>worldToScreen(point[0],point[1]));
     (line.isIndex?indexLines:regularLines).push(screen);
     for(let i=1;i<screen.length;i++)considerLabel(line.level,screen[i-1],screen[i]);
   }
