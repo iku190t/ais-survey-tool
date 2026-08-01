@@ -13303,13 +13303,15 @@ function buildPhotoMiniMapGeometry(){
   for(let i=0;i<maxSegments;i++)sampled.push(segments[Math.floor(i*step)]);
   return sampled;
 }
-async function makePhotoMiniMapImage(item,geometry,width=560,height=300){
+async function makePhotoMiniMapImage(item,geometry,width=560,height=300,options={}){
   const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;
   const c=canvas.getContext("2d",{alpha:false});c.fillStyle="#fff";c.fillRect(0,0,width,height);
   const angle=(Number.isFinite(+initialLoadRotationDeg)?+initialLoadRotationDeg:0)*Math.PI/180;
   const cos=Math.cos(angle),sin=Math.sin(angle),rotate=(x,y)=>[x*cos-y*sin,x*sin+y*cos];
   const center=rotate(+item.worldX,+item.worldY),halfSpan=Math.max(1,getMemoWorldUnitsPerPaperMm()*35);
-  const scale=Math.min((width-18)/(halfSpan*2),(height-18)/(halfSpan*2));
+  const zoom=Math.max(.5,Math.min(3,Number(options.zoom)||1));
+  const markerScale=Math.max(.5,Math.min(3,Number(options.markerScale)||1));
+  const scale=Math.min((width-18)/(halfSpan*2),(height-18)/(halfSpan*2))*zoom;
   const point=(x,y)=>{const p=rotate(x,y);return [width/2+(p[0]-center[0])*scale,height/2-(p[1]-center[1])*scale];};
   c.save();c.beginPath();c.rect(1,1,width-2,height-2);c.clip();c.strokeStyle="#26313b";c.lineWidth=Math.max(1.5,Math.min(width,height)/360);c.lineCap="round";c.lineJoin="round";
   c.beginPath();let count=0;
@@ -13319,7 +13321,7 @@ async function makePhotoMiniMapImage(item,geometry,width=560,height=300){
     c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);if(++count%2500===0){c.stroke();c.beginPath();}
   }
   c.stroke();c.restore();
-  const markerRadius=Math.max(13,Math.min(width,height)*.065);
+  const markerRadius=Math.max(13,Math.min(width,height)*.065)*markerScale;
   c.fillStyle="#fff";c.strokeStyle="#d11f2e";c.lineWidth=4;c.beginPath();c.arc(width/2,height/2,markerRadius,0,Math.PI*2);c.fill();c.stroke();
   c.fillStyle="#d11f2e";c.font=`700 ${Math.round(markerRadius*1.15)}px sans-serif`;c.textAlign="center";c.textBaseline="middle";c.fillText(String(item.number||""),width/2,height/2+1);
   const directionVector=photoDirectionWorldVector(item);
@@ -13412,10 +13414,10 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       if(sixPhotoLayout&&useMiniMap){
         // 以前の6枚書式（写真とコメント3行）は変えず、右側の点線上へ豆図だけを重ねる。
         const commentArea={x:columnLeftPx(colStart),y:photoEnd*rowPx,width:columnRangeWidthPx(colStart,colEnd),height:3*rowPx};
-        const miniWidth=commentArea.width*.45,miniHeight=Math.max(1,commentArea.height-4);
-        const miniRect={x:commentArea.x+commentArea.width-miniWidth-2,y:commentArea.y+2,width:miniWidth,height:miniHeight};
+        const miniWidth=commentArea.width*.45,verticalExtension=6;
+        const miniRect={x:commentArea.x+commentArea.width-miniWidth-2,y:commentArea.y-verticalExtension,width:miniWidth,height:commentArea.height+verticalExtension*2};
         const renderScale=6;
-        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale));
+        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale),{zoom:1.12,markerScale:1.12});
         addImage(mini,miniRect,`豆図 ${item.number}`);
       }
     }else{
