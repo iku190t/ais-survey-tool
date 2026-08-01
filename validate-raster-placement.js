@@ -48,7 +48,7 @@ const source=[
   "/*SXF\n#3 = drawing_sheet_feature('A3')\nSXF*/"
 ].join("\n");
 const assembled=context.insertAerialSxfAssemblyRecords(source,["RASTER_DEFINITION"],["RASTER_PLACEMENT"]);
-const order=["sfig_org_feature","RASTER_DEFINITION","sfig_locate_feature","RASTER_PLACEMENT","drawing_sheet_feature"].map(token=>assembled.indexOf(token));
+const order=["sfig_org_feature","RASTER_DEFINITION","RASTER_PLACEMENT","sfig_locate_feature","drawing_sheet_feature"].map(token=>assembled.indexOf(token));
 if(order.some(index=>index<0)||order.some((index,item)=>item>0&&index<=order[item-1])){
   throw new Error("aerial raster SXF assembly order changed");
 }

@@ -3738,8 +3738,8 @@ function insertAerialSxfAssemblyRecords(srcText,definitionBlocks,placementBlocks
   if(!definitions&&!placements)return text;
   const attributeMatch=/\bdrawing_attribute_feature\s*\(/i.exec(text);
   const sheetMatch=/\bdrawing_sheet_feature\s*\(/i.exec(text);
-  const placementAnchor=attributeMatch||sheetMatch;
-  const placementBounds=placementAnchor&&getSxfFeatureBlockBoundsAt(text,placementAnchor.index);
+  const sheetAnchor=attributeMatch||sheetMatch;
+  const placementBounds=sheetAnchor&&getSxfFeatureBlockBoundsAt(text,sheetAnchor.index);
   if(!placementBounds)throw new Error("SFCの用紙定義を確認できませんでした");
   const placementAt=placementBounds.start;
   const prefix=text.slice(0,placementAt);
@@ -3749,10 +3749,11 @@ function insertAerialSxfAssemblyRecords(srcText,definitionBlocks,placementBlocks
   if(!lastOrgMatch)throw new Error("SFCの部分図定義を確認できませんでした");
   const orgBounds=getSxfFeatureBlockBoundsAt(text,lastOrgMatch.index);
   if(!orgBounds||orgBounds.end>placementAt)throw new Error("SFCの部分図構造を確認できませんでした");
-  // Use the same ordering as the previously working raster export.
-  if(placements)text=text.slice(0,placementAt)+placements+"\r\n\r\n"+text.slice(placementAt);
-  if(definitions)text=text.slice(0,orgBounds.end)+"\r\n\r\n"+definitions+text.slice(orgBounds.end);
-  return text;
+  // Keep each raster definition and its root placement together. V-nas and
+  // TREND-ONE resolve the RASTER compound in this order. If they are split,
+  // the layer remains but its image is not displayed.
+  const block=[definitions,placements].filter(Boolean).join("\r\n\r\n");
+  return text.slice(0,orgBounds.end)+"\r\n\r\n"+block+text.slice(orgBounds.end);
 }
 function getAerialRasterPaperCorners(bounds,planePolygon,displayToPaper){
   if(!bounds)throw new Error("SFCへ配置する航空写真の範囲がありません");
