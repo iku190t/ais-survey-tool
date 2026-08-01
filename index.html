@@ -3151,6 +3151,11 @@ function aerialPhotoCornerScreen(tileX,tileY,z,zone){
   const world=planeToSfcWorld(xy.x,xy.y);
   return worldToScreen(world.x*1000,world.y*1000);
 }
+function getAerialPhotoZoomForCurrentView(source,latitude){
+  const metersPerPixel=1/Math.max(0.000001,view.scale*1000);
+  const idealZ=Math.round(Math.log2(156543.03392*Math.max(.15,Math.cos(latitude*Math.PI/180))/metersPerPixel));
+  return Math.max(source.minZ,Math.min(source.maxZ,idealZ));
+}
 function drawAerialPhoto(w,h){
   if(!aerialPhotoEnabled||!aerialPhotoZone||!ensureProj4Defs()) return;
   const source=aerialAvailableSources[aerialPhotoSourceIndex];
@@ -3160,9 +3165,7 @@ function drawAerialPhoto(w,h){
     const centerPlane=sfcWorldToPlane(centerWorld[0],centerWorld[1]);
     const centerLl=jgd2024XYToLatLon(centerPlane.xNorth,centerPlane.yEast,aerialPhotoZone);
     scheduleAerialPhotoSourceRefresh(centerLl);
-    const metersPerPixel=1/Math.max(0.000001,view.scale*1000);
-    const idealZ=Math.round(Math.log2(156543.03392*Math.max(.15,Math.cos(centerLl.lat*Math.PI/180))/metersPerPixel));
-    const z=Math.max(source.minZ,Math.min(source.maxZ,idealZ));
+    const z=getAerialPhotoZoomForCurrentView(source,centerLl.lat);
     const screenCorners=[[0,0],[w,0],[w,h],[0,h]];
     const tileCorners=screenCorners.map(([sx,sy])=>{
       const world=screenToWorld(sx,sy);
@@ -3694,12 +3697,11 @@ async function renderVisibleAerialPhotoForSfc(worldPolygon){
   const spanX=bounds.maxX-bounds.minX,spanY=bounds.maxY-bounds.minY;
   if(!(spanX>0&&spanY>0))throw new Error("保存範囲を確認できません");
   const centerLatLon=jgd2024XYToLatLon((bounds.minX+bounds.maxX)/2,(bounds.minY+bounds.maxY)/2,aerialPhotoZone);
-  const maxSide=1800;
-  const requestedResolution=Math.max(spanX/maxSide,spanY/maxSide,0.01);
-  const rawZoom=Math.round(Math.log2(156543.03392*Math.max(.15,Math.cos(centerLatLon.lat*Math.PI/180))/requestedResolution));
-  const z=Math.max(source.minZ,Math.min(source.maxZ,rawZoom));
+  // CAD化直前に画面で表示していたタイルと同じズームを使う。
+  // 選択範囲を一定の1800pxへ縮小せず、元タイルの1画素相当を維持する。
+  const z=getAerialPhotoZoomForCurrentView(source,centerLatLon.lat);
   const tileResolution=156543.03392*Math.max(.15,Math.cos(centerLatLon.lat*Math.PI/180))/Math.pow(2,z);
-  const resolution=Math.max(requestedResolution,tileResolution);
+  const resolution=tileResolution;
   // North-up raster: horizontal pixels are easting, vertical pixels are northing.
   // SFC axis swapping and rotation are applied only when this raster is drawn.
   const width=Math.max(2,Math.ceil(spanY/resolution));
@@ -3753,7 +3755,8 @@ async function renderVisibleAerialPhotoForSfc(worldPolygon){
     drawn++;
   }
   if(!drawn)throw new Error("この範囲の航空写真を取得できません");
-  const plainJpeg=await canvasToBlobAsync(output,"image/jpeg",.9);
+  // JPEGが必要な外部CADとの互換性を維持しつつ、最高品質で保持する。
+  const plainJpeg=await canvasToBlobAsync(output,"image/jpeg",1);
   const jpeg=await injectGeoReferenceIntoJpeg(plainJpeg,{
     zone:aerialPhotoZone,resolution,
     tieX:imageBounds.minY,tieY:imageBounds.maxX
@@ -3881,10 +3884,10 @@ async function prepareAerialRasterForSfcExport(entry,displayToPaper){
     const distance=(a,b)=>Math.hypot(b[0]-a[0],b[1]-a[1]);
     const horizontalLength=Math.max(1e-9,distance(geometry.sourcePaper.tl,geometry.sourcePaper.tr));
     const verticalLength=Math.max(1e-9,distance(geometry.sourcePaper.tl,geometry.sourcePaper.bl));
-    let pixelsPerPaperUnit=Math.min(sourceWidth/horizontalLength,sourceHeight/verticalLength);
+    const pixelsPerPaperUnit=Math.min(sourceWidth/horizontalLength,sourceHeight/verticalLength);
     const paperWidth=geometry.maxX-geometry.minX,paperHeight=geometry.maxY-geometry.minY;
-    const maxSide=1800;
-    pixelsPerPaperUnit=Math.min(pixelsPerPaperUnit,maxSide/Math.max(paperWidth,paperHeight));
+    // 回転後も元画像の画素密度を維持する。ここで1800pxへ再縮小すると、
+    // SFCへ保存した航空写真だけが表示中の地理院タイルより粗くなる。
     const width=Math.max(2,Math.ceil(paperWidth*pixelsPerPaperUnit));
     const height=Math.max(2,Math.ceil(paperHeight*pixelsPerPaperUnit));
     const output=document.createElement("canvas");output.width=width;output.height=height;
@@ -3915,7 +3918,7 @@ async function prepareAerialRasterForSfcExport(entry,displayToPaper){
     outputContext.drawImage(image,0,0,sourceWidth,sourceHeight);
     outputContext.restore();
     return {
-      blob:await canvasToBlobAsync(output,"image/jpeg",.9),
+      blob:await canvasToBlobAsync(output,"image/jpeg",1),
       paperCorners:geometry.paperCorners,width,height
     };
   }finally{
@@ -9841,7 +9844,7 @@ function terrainCadLabelForPolyline(points,level){
     const a=points[i-1],b=points[i],segment=Math.hypot(b.x-a.x,b.y-a.y);
     if(covered+segment>=target){
       const t=(target-covered)/Math.max(segment,1e-9);
-      return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,angle:0,text:String(Math.round(level))};
+      return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,angle:0,align1:5,align2:1,text:String(Math.round(level))};
     }
     covered+=segment;
   }
@@ -13318,8 +13321,10 @@ SXF*/`);
         const label=s.terrainLabel,units=getMemoWorldUnitsPerPaperMm(),height=2.5*units,width=Math.max(2.5,String(label.text||"").length*1.7)*units;
         const text=encodeSfcText(label.text);
         const angle=horizontalTextAngle;
+        const anchor=Math.min(9,Math.max(1,Math.round(+label.align1||5)));
+        const direction=(+label.align2===2)?2:1;
         lineParts.push(`/*SXF
-#${id} = text_string_feature('${layerCode}','${colorCode}','${generatedTextFontCode}','${text}','${(+label.x).toFixed(6)}','${(+label.y).toFixed(6)}','${height.toFixed(6)}','${width.toFixed(6)}','0.000000','${angle.toFixed(6)}','0.000000','1','1')
+#${id} = text_string_feature('${layerCode}','${colorCode}','${generatedTextFontCode}','${text}','${(+label.x).toFixed(6)}','${(+label.y).toFixed(6)}','${height.toFixed(6)}','${width.toFixed(6)}','0.000000','${angle.toFixed(6)}','0.000000','${anchor}','${direction}')
 SXF*/`);
         id += 1;
       }
