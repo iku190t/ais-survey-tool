@@ -1324,7 +1324,7 @@ gtag('config', 'G-88B9YPJXWP');
         <label class="photoAlbumCommentRow"><span>2行目</span><span class="photoAlbumCommentControl"><select id="photoAlbumComment2"></select><input id="photoAlbumCustom2" class="photoAlbumCommentCustom" type="text" maxlength="80" placeholder="共通の文字を入力" hidden></span></label>
         <label class="photoAlbumCommentRow"><span>3行目</span><span class="photoAlbumCommentControl"><select id="photoAlbumComment3"></select><input id="photoAlbumCustom3" class="photoAlbumCommentCustom" type="text" maxlength="80" placeholder="共通の文字を入力" hidden></span></label>
         <label id="photoAlbumMiniMapLabel"><input id="photoAlbumMiniMap" type="checkbox">豆図を付ける</label>
-        <div id="photoAlbumHint">豆図は写真位置を中心に図面を縮小し、中央へ写真番号と撮影方向を表示します。6枚・8枚では豆図を使用できません。見開きでは表面が「写真・コメント」、裏面が「コメント・写真」です。</div>
+        <div id="photoAlbumHint">豆図は写真位置を中心に図面を縮小し、中央へ写真番号と撮影方向を表示します。8枚では豆図を使用できません。見開きでは表面が「写真・コメント」、裏面が「コメント・写真」です。</div>
       </div>
       <div id="photoAlbumActions"><button id="photoAlbumCancelBtn" type="button">キャンセル</button><button id="photoAlbumCreateBtn" type="button">Excelを作成</button></div>
     </div>
@@ -1752,7 +1752,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開く・保存</div><b>ファイル</b> を押し、<b>開く</b>、<b>上書き保存</b>、<b>名前を付けて保存</b>から選びます。PCでは通常の保存画面を使い、メール送信画面は表示しません。</div>
               <div class="helpBlock"><div class="helpHead">PCでドラッグして開く</div>PCではSFCを図面画面へドラッグし、「ここにドロップして開く」の表示上で離すと、そのまま図面を開けます。</div>
-              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置と見開き3枚を選べます。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4枚と見開きでは豆図を付けられますが、6枚・8枚では豆図を選択できません。片面は写真を左、コメントを右へ配置し、見開きの裏面はコメントを左、写真を右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4枚の空き領域に合わせて大きくし、高解像度で作成します。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置と見開き3枚を選べます。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4・6枚と見開きでは豆図を付けられますが、8枚では豆図を選択できません。片面は写真を左、コメントを右へ配置し、見開きの裏面はコメントを左、写真を右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4・6枚の空き領域に合わせて大きくし、高解像度で作成します。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容を、開いているSFCへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">名前を付けて保存</div>PCではエクスプローラーの保存画面からSFC名を指定します。CAD化した航空写真がある場合は保存先フォルダーを選び、SFCと参照JPEGを同じフォルダーへ保存します。SFCとJPEGは移動するときも同じフォルダーに置いてください。</div>
               <div class="helpBlock"><div class="helpHead">ZIPで送る理由</div>SFCは一般的なメール添付形式として登録されていないため、iPhone・Android・Gmailなどが添付を拒否する場合があります。ZIPは広く対応しており、SFCのファイル名と内容を変えずに安全に添付できます。受信後はZIPを展開するとSFCファイルが1個入っています。</div>
@@ -13202,7 +13202,7 @@ function updatePhotoAlbumMiniMapAvailability(){
   const layout=document.querySelector('input[name="photoAlbumLayout"]:checked')?.value||PHOTO_ALBUM_DEFAULT_SETTINGS.layout;
   const mini=document.getElementById("photoAlbumMiniMap"),label=document.getElementById("photoAlbumMiniMapLabel");
   if(!mini)return;
-  const disabled=layout==="6"||layout==="8";
+  const disabled=layout==="8";
   mini.disabled=disabled;
   mini.checked=disabled?false:mini.dataset.preferred!=="false";
   if(label)label.classList.toggle("disabled",disabled);
@@ -13350,8 +13350,9 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
   if(missing)throw new Error(`写真帳に使う元写真をもう一度開いてください（${missing}枚）`);
   const isSpread=settings.layout==="spread",photosPerPage=isSpread?3:Number(settings.layout)||3;
   const compact=photosPerPage>=6,columns=isSpread?1:(compact?2:1),rowsPerPage=isSpread?3:photosPerPage/columns;
-  // 豆図は2・3・4枚と見開き3枚で使用する。6・8枚だけは対象外。
-  const miniMapAllowed=isSpread||photosPerPage<=4;
+  const sixPhotoLayout=!isSpread&&photosPerPage===6;
+  // 豆図は2・3・4・6枚と見開き3枚で使用する。8枚だけは対象外。
+  const miniMapAllowed=isSpread||photosPerPage<=4||sixPhotoLayout;
   const useMiniMap=!!settings.miniMap&&miniMapAllowed;
   const pageRows=60,slotRows=pageRows/rowsPerPage,rowPx=17,pageCount=Math.ceil(photoAnnotations.length/photosPerPage);
   const widePhotoLayout=!isSpread&&(photosPerPage===2||photosPerPage===3);
@@ -13361,17 +13362,22 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
   // 見開きは同じシート内で表裏の左右を反転するため、25列に分ける。
   // 表裏とも、以前の3枚形式と同じ写真432px・コメント288pxの幅を確保する。
   const spreadColumnWidthsPx=[...Array(9).fill(32),13,26,26,26,26,27,13,...Array(9).fill(32)];
+  // 6枚は各枠を「写真｜約1mm｜コメント＋豆図」に分ける。
+  // コメント欄は各枠の半分より少し狭くし、右端へ寄せる。
+  const sixPhotoColumnWidthsPx=[70,70,70,13,65,65,13,70,70,70,13,65,65];
   const columnWidthsPx=isSpread
     ?spreadColumnWidthsPx
-    :Array.from({length:13},(_,index)=>index<6?photoColumnPx:index===6?13:commentColumnPx);
+    :(sixPhotoLayout?sixPhotoColumnWidthsPx:Array.from({length:13},(_,index)=>index<6?photoColumnPx:index===6?13:commentColumnPx));
   const columnCount=columnWidthsPx.length;
   const columnXml=isSpread
     ?'<col min="1" max="9" width="4.27" customWidth="1"/><col min="10" max="10" width="1" customWidth="1"/><col min="11" max="14" width="3.47" customWidth="1"/><col min="15" max="15" width="3.6" customWidth="1"/><col min="16" max="16" width="1" customWidth="1"/><col min="17" max="25" width="4.27" customWidth="1"/>'
-    :(widePhotoLayout
+    :(sixPhotoLayout
+      ?'<col min="1" max="3" width="9.33" customWidth="1"/><col min="4" max="4" width="1" customWidth="1"/><col min="5" max="6" width="8.67" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="10" width="9.33" customWidth="1"/><col min="11" max="11" width="1" customWidth="1"/><col min="12" max="13" width="8.67" customWidth="1"/>'
+      :(widePhotoLayout
       ?'<col min="1" max="6" width="9.6" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="6.4" customWidth="1"/>'
       :(fourPhotoLayout
         ?'<col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="6.4" customWidth="1"/>'
-        :'<col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="8" customWidth="1"/>'));
+        :'<col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="8" customWidth="1"/>')));
   const columnLeftPx=column=>columnWidthsPx.slice(0,Math.max(0,column-1)).reduce((sum,value)=>sum+value,0);
   const columnRangeWidthPx=(start,end)=>columnWidthsPx.slice(start-1,end).reduce((sum,value)=>sum+value,0);
   const totalRows=Math.max(pageRows,pageCount*pageRows);
@@ -13399,7 +13405,23 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
     const item=photoAnnotations[index],page=Math.floor(index/photosPerPage),slot=index%photosPerPage,rowInPage=isSpread?slot:Math.floor(slot/columns);
     const pageTop=page*pageRows,slotTop=pageTop+rowInPage*slotRows,slotBottom=slotTop+slotRows;
     const photo=await makePhotoAlbumImage(sources[index],1400,1400);
-    if(compact){
+    if(sixPhotoLayout){
+      const column=slot%columns,groupStart=column===0?1:8;
+      const photoColStart=groupStart,photoColEnd=groupStart+2;
+      const commentColStart=groupStart+4,commentColEnd=groupStart+5;
+      merge(slotTop+1,photoColStart,slotBottom,photoColEnd,"",1);
+      const photoRect={x:columnLeftPx(photoColStart)+2,y:slotTop*rowPx+2,width:columnRangeWidthPx(photoColStart,photoColEnd)-4,height:slotRows*rowPx-4};
+      addImage(photo,fitPhotoAlbumImage(photo,photoRect),`写真 ${item.number}`);
+      fields.forEach((field,line)=>mergeComment(slotTop+1+line*2,commentColStart,slotTop+2+line*2,commentColEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
+      for(let guideRow=slotTop+7;guideRow<=slotBottom;guideRow++)mergeComment(guideRow,commentColStart,guideRow,commentColEnd,"",false);
+      if(useMiniMap){
+        const area={x:columnLeftPx(commentColStart),y:(slotTop+6)*rowPx,width:columnRangeWidthPx(commentColStart,commentColEnd),height:(slotRows-6)*rowPx};
+        const miniWidth=Math.max(1,area.width-6),miniHeight=Math.min(Math.max(1,area.height-6),miniWidth*.7);
+        const miniRect={x:area.x+(area.width-miniWidth)/2,y:area.y+(area.height-miniHeight)/2,width:miniWidth,height:miniHeight};
+        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.max(720,Math.round(miniRect.width*4)),Math.max(480,Math.round(miniRect.height*4)));
+        addImage(mini,miniRect,`豆図 ${item.number}`);
+      }
+    }else if(compact){
       const column=slot%columns,colStart=column===0?1:8,colEnd=column===0?6:13;
       const photoEnd=slotBottom-3;
       merge(slotTop+1,colStart,photoEnd,colEnd,"",1);

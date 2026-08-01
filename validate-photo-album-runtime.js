@@ -46,7 +46,7 @@ let browser;
     loadedSfcText="test";
     data={lines:[[0,0,1000,0,"L"],[1000,0,1000,1000,"L"],[1000,1000,0,1000,"L"]],polys:[],splines:[],texts:[],circles:[],arcs:[],ellipses:[],ellipseArcs:[],markers:[],layerNames:{L:"L"},source_name:"test.sfc",_drawingToPaperScale:1};
     layerVisibility.L=true;photoSourceFiles.clear();
-    photoAnnotations=Array.from({length:4},(_,index)=>({number:index+1,fileName:'P'+(index+1)+'.jpg',direction:index*45,capturedAt:'2026:08:02 10:00:0'+index,xNorth:index,yEast:index,demElevation:10+index,demSource:'DEM1A',demElevationChecked:true,worldX:index*120,worldY:index*80,markerX:index*120,markerY:index*80}));
+    photoAnnotations=Array.from({length:6},(_,index)=>({number:index+1,fileName:'P'+(index+1)+'.jpg',direction:index*45,capturedAt:'2026:08:02 10:00:0'+index,xNorth:index,yEast:index,demElevation:10+index,demSource:'DEM1A',demElevationChecked:true,worldX:index*120,worldY:index*80,markerX:index*120,markerY:index*80}));
     for(const item of photoAnnotations){
       const canvas=document.createElement('canvas');canvas.width=180;canvas.height=120;
       const c=canvas.getContext('2d');c.fillStyle='#dbeafe';c.fillRect(0,0,180,120);c.fillStyle='#1d4ed8';c.font='24px sans-serif';c.fillText(item.fileName,18,65);
@@ -57,21 +57,24 @@ let browser;
     const encode=async blob=>{const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(binary);};
     const progress=[],stages=[];
     const threeBlob=await buildPhotoAlbumXlsx({...settings,layout:'3'},(completed,total)=>progress.push(completed+'/'+total),stage=>stages.push(stage));
-    return {three:await encode(threeBlob),four:await encode(await buildPhotoAlbumXlsx({...settings,layout:'4'})),spread:await encode(await buildPhotoAlbumXlsx({...settings,layout:'spread'})),progress,stages};
+    return {three:await encode(threeBlob),four:await encode(await buildPhotoAlbumXlsx({...settings,layout:'4'})),six:await encode(await buildPhotoAlbumXlsx({...settings,layout:'6'})),spread:await encode(await buildPhotoAlbumXlsx({...settings,layout:'spread'})),progress,stages};
   })()`));
   const three=await inspectWorkbook(decodeBase64(output.three),"M",8);
   const four=await inspectWorkbook(decodeBase64(output.four),"M",8);
+  const six=await inspectWorkbook(decodeBase64(output.six),"M",8);
   const spread=await inspectWorkbook(decodeBase64(output.spread),"Y",8);
   if(process.env.PHOTO_ALBUM_TEST_OUTPUT){
     fs.mkdirSync(process.env.PHOTO_ALBUM_TEST_OUTPUT,{recursive:true});
     fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-3.xlsx"),decodeBase64(output.three));
     fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-4.xlsx"),decodeBase64(output.four));
+    fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-6.xlsx"),decodeBase64(output.six));
     fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-spread.xlsx"),decodeBase64(output.spread));
   }
   if(!spread.sheet.includes('<col min="1" max="9" width="4.27"')||!spread.sheet.includes('<col min="17" max="25" width="4.27"'))throw new Error("見開きが以前の3枚形式と同じ幅ではありません");
   if(!three.sheet.includes('<col min="1" max="6" width="9.6"')||!three.sheet.includes('<col min="8" max="13" width="6.4"'))throw new Error("3枚形式が以前の写真・コメント幅ではありません");
   if(!four.sheet.includes('<col min="1" max="6" width="8"')||!four.sheet.includes('<col min="8" max="13" width="6.4"'))throw new Error("4枚形式の写真幅またはコメント幅が正しくありません");
-  if(output.progress.join(",")!=="1/4,2/4,3/4,4/4")throw new Error(`写真枚数の進捗が正しくありません: ${output.progress.join(",")}`);
+  if(!six.sheet.includes('<col min="1" max="3" width="9.33"')||!six.sheet.includes('<col min="5" max="6" width="8.67"')||!six.sheet.includes('<col min="12" max="13" width="8.67"'))throw new Error("6枚形式の写真幅または右コメント幅が正しくありません");
+  if(output.progress.join(",")!=="1/6,2/6,3/6,4/6,5/6,6/6")throw new Error(`写真枚数の進捗が正しくありません: ${output.progress.join(",")}`);
   if(output.stages.join(",")!=="excel")throw new Error(`Excel作成段階へ切り替わりません: ${output.stages.join(",")}`);
   const progressUi=await page.evaluate(()=>{
     showBusy("写真帳を作成中…");updateBusyPhotoCount(7,17);
@@ -79,6 +82,6 @@ let browser;
     hideBusy();return result;
   });
   if(progressUi.hidden||progressUi.count!=="7／17枚"||progressUi.percent!=="41％"||progressUi.width!=="41%")throw new Error(`進捗バー表示が正しくありません: ${JSON.stringify(progressUi)}`);
-  console.log(`photo album runtime checks passed (3-photo media=${three.media}, 4-photo media=${four.media}, spread media=${spread.media})`);
+  console.log(`photo album runtime checks passed (3-photo media=${three.media}, 4-photo media=${four.media}, 6-photo media=${six.media}, spread media=${spread.media})`);
   await browser.close();server.close();
 })().catch(async error=>{console.error(error);try{await browser?.close();}catch(_error){}server.close();process.exitCode=1;});
