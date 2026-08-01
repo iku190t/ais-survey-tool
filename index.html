@@ -3877,6 +3877,80 @@ async function prepareAerialRasterForSfcExport(entry,displayToPaper){
     if(objectUrl)URL.revokeObjectURL(objectUrl);
   }
 }
+function getSxfRasterBoundaryStyle(srcText){
+  const flat=getFlatSxfText(srcText);
+  const records=parseSxfFeatureRecords(flat);
+  const definedColorCodes=new Set();
+  const definedLineTypeCodes=new Set();
+  const definedWidthCodes=new Set();
+  const widthValuesByCode=new Map();
+
+  let userColorCode=17;
+  let userLineTypeCode=17;
+  let userWidthCode=11;
+  const predefinedLineTypeNames=[
+    "continuous","dashed","dashed spaced","long dashed dotted","long dashed double-dotted",
+    "long dashed triplicate-dotted","dotted","chain","chain double dash","dashed dotted",
+    "double-dashed dotted","dashed double-dotted","double-dashed double-dotted",
+    "dashed triplicate-dotted","double-dashed triplicate-dotted"
+  ];
+
+  // SXF specification codes are references to definitions present in this
+  // drawing.  Never guess that code 1 (black/continuous/0.13 mm) exists.
+  for(const record of records){
+    if(record.name==="pre_defined_colour_feature"){
+      const code=sxfPredefinedColorCodeFromName(unquoteSxfValue(record.args[0]));
+      if(code!=null)definedColorCodes.add(code);
+    }else if(record.name==="user_defined_colour_feature"){
+      definedColorCodes.add(userColorCode++);
+    }else if(record.name==="pre_defined_font_feature"||record.name==="pre_defined_linetype_feature"){
+      const name=String(unquoteSxfValue(record.args[0])||"").trim().toLowerCase();
+      const code=predefinedLineTypeNames.indexOf(name)+1;
+      if(code>0)definedLineTypeCodes.add(code);
+    }else if(record.name==="user_defined_font_feature"||record.name==="user_defined_linetype_feature"){
+      definedLineTypeCodes.add(userLineTypeCode++);
+    }else if(record.name==="width_feature"){
+      const value=Number(unquoteSxfValue(record.args[0]));
+      const predefinedCode=sxfPredefinedWidthCode(value);
+      const code=predefinedCode==null?userWidthCode++:predefinedCode;
+      definedWidthCodes.add(code);
+      if(Number.isFinite(value)&&value>0)widthValuesByCode.set(code,value);
+    }
+  }
+
+  const styleFeatureNames=new Set([
+    "line_feature","polyline_feature","spline_feature","circle_feature",
+    "arc_feature","ellipse_feature","ellipse_arc_feature"
+  ]);
+  const candidates=new Map();
+  for(const record of records){
+    if(!styleFeatureNames.has(record.name)||record.args.length<4)continue;
+    const colorCode=Math.trunc(Number(unquoteSxfValue(record.args[1])));
+    const lineTypeCode=Math.trunc(Number(unquoteSxfValue(record.args[2])));
+    const widthCode=Math.trunc(Number(unquoteSxfValue(record.args[3])));
+    if(!definedColorCodes.has(colorCode)||!definedLineTypeCodes.has(lineTypeCode)||!definedWidthCodes.has(widthCode))continue;
+    const key=`${colorCode},${lineTypeCode},${widthCode}`;
+    const current=candidates.get(key);
+    if(current)current.count++;
+    else candidates.set(key,{colorCode,lineTypeCode,widthCode,count:1});
+  }
+
+  const ranked=[...candidates.values()].sort((a,b)=>
+    b.count-a.count
+    ||(widthValuesByCode.get(a.widthCode)??Infinity)-(widthValuesByCode.get(b.widthCode)??Infinity)
+    ||a.lineTypeCode-b.lineTypeCode
+    ||a.colorCode-b.colorCode
+  );
+  if(ranked.length)return ranked[0];
+
+  // A valid but empty drawing may contain definitions without drawable
+  // geometry.  Combining those definitions is still specification-compliant.
+  const colorCode=[...definedColorCodes].sort((a,b)=>a-b)[0];
+  const lineTypeCode=definedLineTypeCodes.has(1)?1:[...definedLineTypeCodes].sort((a,b)=>a-b)[0];
+  const widthCode=[...definedWidthCodes].sort((a,b)=>(widthValuesByCode.get(a)??Infinity)-(widthValuesByCode.get(b)??Infinity))[0];
+  if(colorCode&&lineTypeCode&&widthCode)return {colorCode,lineTypeCode,widthCode,count:0};
+  throw new Error("SXF内に画像外枠で使用できる色・線種・線幅の定義がありません");
+}
 function addAerialImageReferenceToSfc(srcText,jpegFileName,bounds,planePolygon,layerName){
   let text=String(srcText||"").replace(/[\s\r\n]+$/,"");
   let id=getNextSfcFeatureId(text);
@@ -3903,7 +3977,8 @@ function addAerialImageReferenceToSfc(srcText,jpegFileName,bounds,planePolygon,l
   // 外部図面の線属性を流用すると、色コード0など、その図面内だけで
   // 偶然成立していた参照を新規レイヤーへ持ち込むことがある。
   // 画像配置枠はSXFの定義済み属性だけで生成する。
-  const style=[`'${layerCode}'`,"'1'","'1'","'1'"];
+  const rasterStyle=getSxfRasterBoundaryStyle(text);
+  const style=[`'${layerCode}'`,`'${rasterStyle.colorCode}'`,`'${rasterStyle.lineTypeCode}'`,`'${rasterStyle.widthCode}'`];
   const xs=paperCorners.map(p=>p[0].toFixed(6)).join(",");
   const ys=paperCorners.map(p=>p[1].toFixed(6)).join(",");
   const definition=[
@@ -13473,6 +13548,7 @@ function addAerialImageReferencesToSfc(srcText,imageSpecs){
   const sourceNum=ref=>{const value=parseFloat(unquoteSxfValue(ref));return Number.isFinite(value)?value:0;};
   const sourceAssembly=buildSxfAssemblyExpansion(sourceRecords,sourceNum);
   const displayToPaper=sourceAssembly.displayToPaper||sxfAffineIdentity();
+  const rasterStyle=getSxfRasterBoundaryStyle(text);
   for(const spec of specs){
     const layerName=String(spec.layerName||"");
     const rawLayerName=getAerialLayerRawName(layerName);
@@ -13494,7 +13570,7 @@ function addAerialImageReferencesToSfc(srcText,imageSpecs){
     // Members precede sfig_org.  All root placements follow all definitions
     // and remain before drawing_sheet_feature.
     definitions.push(
-      `/*SXF\r\n#${id++} = polyline_feature('${layerCode}','1','1','1','${paperCorners.length}','(${xs})','(${ys})')\r\nSXF*/`,
+      `/*SXF\r\n#${id++} = polyline_feature('${layerCode}','${rasterStyle.colorCode}','${rasterStyle.lineTypeCode}','${rasterStyle.widthCode}','${paperCorners.length}','(${xs})','(${ys})')\r\nSXF*/`,
       `/*SXF\r\n#${id++} = sfig_org_feature(\\'${featureName}\\','3')\r\nSXF*/`
     );
     placements.push(`/*SXF\r\n#${id++} = sfig_locate_feature('0',\\'${featureName}\\','0.000000','0.000000','0.00000000000000','1.00000000000000','1.00000000000000')\r\nSXF*/`);
