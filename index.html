@@ -11838,7 +11838,10 @@ function buildPhotoAnnotationExportStrokes(){
         y:row.y+paperUpVector.y*textOffset,
         heightMm:PHOTO_LIST_TEXT_HEIGHT_MM,
         widthMm:Math.max(8,measureSxfTextWidthMm(text,PHOTO_LIST_TEXT_HEIGHT_MM)),
-        angle:compensationAngle,
+        // Keep SXF text horizontal in its partial figure. The containing
+        // sfig placement is applied by external CAD readers; repeating that
+        // compensation here makes the characters rotate a second time.
+        angle:0,
         align1:1,align2:1
       });
     }
