@@ -4149,6 +4149,48 @@ async function sampleDemElevationBilinear(lat,lon,source){
   const bottom=values[2]*(1-tx)+values[3]*tx;
   return top*(1-ty)+bottom*ty;
 }
+async function sampleTerrainGridBilinear(points,source,maxTiles=120){
+  const tileUrls=new Set();
+  for(const point of points){
+    const global=profileGlobalPixel(point.lat,point.lon,source.z);
+    if(!Number.isFinite(global.x)||!Number.isFinite(global.y)){point._terrainBilinear=null;continue;}
+    const centreX=global.x-.5,centreY=global.y-.5;
+    const x0=Math.floor(centreX),y0=Math.floor(centreY);
+    point._terrainBilinear={x0,y0,tx:centreX-x0,ty:centreY-y0};
+    for(const [x,y] of [[x0,y0],[x0+1,y0],[x0,y0+1],[x0+1,y0+1]]){
+      const tileX=Math.floor(x/256),tileY=Math.floor(y/256);
+      tileUrls.add(profileDemUrl(source,{x:tileX,y:tileY}));
+    }
+  }
+  if(tileUrls.size>maxTiles){
+    for(const point of points)delete point._terrainBilinear;
+    return {source,validCount:0,tooWide:true};
+  }
+  const tiles=new Map();
+  for(let attempt=0;attempt<2;attempt++){
+    const pending=[...tileUrls].filter(url=>!tiles.get(url));
+    if(!pending.length)break;
+    await profileMapLimit(pending,5,async url=>tiles.set(url,await decodeProfileDemTile(url)));
+  }
+  const read=(x,y)=>{
+    const tileX=Math.floor(x/256),tileY=Math.floor(y/256);
+    const url=profileDemUrl(source,{x:tileX,y:tileY});
+    const px=((x%256)+256)%256,py=((y%256)+256)%256;
+    return decodeProfileElevation(tiles.get(url),px,py);
+  };
+  let validCount=0;
+  for(const point of points){
+    const ref=point._terrainBilinear;delete point._terrainBilinear;
+    if(!ref)continue;
+    const values=[read(ref.x0,ref.y0),read(ref.x0+1,ref.y0),read(ref.x0,ref.y0+1),read(ref.x0+1,ref.y0+1)];
+    if(values.some(value=>value==null||!Number.isFinite(value)))continue;
+    const top=values[0]*(1-ref.tx)+values[1]*ref.tx;
+    const bottom=values[2]*(1-ref.tx)+values[3]*ref.tx;
+    point.elevation=top*(1-ref.ty)+bottom*ref.ty;
+    point.source=source.id;validCount++;
+  }
+  return {source,validCount,tooWide:false};
+}
 function decodeProfileElevation(pixels, px, py){
   if (!pixels) return null;
   const i = (py * 256 + px) * 4;
@@ -4277,6 +4319,16 @@ function chooseTerrainContourGrid(viewport){
   return {minX,maxX,minY,maxY,spacing,rows,cols};
 }
 function terrainContourGridCoversViewport(grid){
+  const aligned=grid&&grid.planeContourGrid;
+  if(aligned){
+    const tolerance=Math.max(.01,aligned.spacing*.01);
+    const corners=[[0,0],[canvas.clientWidth,0],[canvas.clientWidth,canvas.clientHeight],[0,canvas.clientHeight]];
+    return corners.every(([sx,sy])=>{
+      const world=screenToWorld(sx,sy),plane=sfcWorldToPlane(world[0],world[1]);
+      return plane.xNorth>=aligned.minX-tolerance&&plane.xNorth<=aligned.maxX+tolerance&&
+        plane.yEast>=aligned.minY-tolerance&&plane.yEast<=aligned.maxY+tolerance;
+    });
+  }
   const native=grid&&grid.nativeDemGrid;
   if(!native)return false;
   const corners=[[0,0],[canvas.clientWidth,0],[canvas.clientWidth,canvas.clientHeight],[0,canvas.clientHeight]];
@@ -4289,7 +4341,7 @@ function terrainContourGridCoversViewport(grid){
 }
 function terrainViewportNeedsRefresh(grid){
   if(!grid||!grid.viewport)return true;
-  if(grid.gridPurpose==="contour"&&grid.nativeDemGrid)return !terrainContourGridCoversViewport(grid);
+  if(grid.gridPurpose==="contour"&&(grid.planeContourGrid||grid.nativeDemGrid))return !terrainContourGridCoversViewport(grid);
   const now=getTerrainViewportState(),old=grid.viewport;
   const centerShiftPx=Math.hypot(now.cx-old.cx,now.cy-old.cy)*now.scale;
   const scaleRatio=Math.max(now.scale/old.scale,old.scale/now.scale);
@@ -4429,12 +4481,52 @@ async function buildNativeTerrainContourGrid(zone,viewport,quality="auto"){
   const sourceId=dem5Count?"MIXED":"DEM1A";
   return terrainContourGridFromNativeResult(primary,zone,viewport,sourceId,{DEM1A:primary.validCount,DEM5A:dem5Count},"DEM1A");
 }
+async function buildAlignedTerrainContourGrid(zone,viewport){
+  const spec=chooseTerrainContourGrid(viewport);
+  const points=new Array(spec.rows*spec.cols);
+  for(let row=0;row<spec.rows;row++){
+    const xNorth=spec.minX+row*spec.spacing;
+    for(let col=0;col<spec.cols;col++){
+      const yEast=spec.minY+col*spec.spacing;
+      const plane={xNorth,yEast};
+      const mapped=planeToSfcWorld(xNorth,yEast);
+      const ll=jgd2024XYToLatLon(xNorth,yEast,zone);
+      points[row*spec.cols+col]={
+        row,col,worldX:mapped.x*1000,worldY:mapped.y*1000,
+        plane,lat:ll.lat,lon:ll.lon,elevation:null,source:null
+      };
+    }
+  }
+
+  const dem1Source=PROFILE_DEM_SOURCES.find(source=>source.id==="DEM1A");
+  const dem5Source=PROFILE_DEM_SOURCES.find(source=>source.id==="DEM5A");
+  if(!dem1Source||!dem5Source)throw new Error("標高データの設定を確認できません");
+
+  // Contours are calculated on a true one-metre grid aligned to the plane
+  // rectangular coordinate axes. The DEM raster is only sampled for height;
+  // its Web-Mercator pixel direction must not define the contour grid.
+  const primary=await sampleTerrainGridBilinear(points,dem1Source,120);
+  let selected=primary,sourceId="DEM1A";
+  if(primary.tooWide||primary.validCount<Math.ceil(points.length*.45)){
+    for(const point of points){point.elevation=null;point.source=null;}
+    const fallback=await sampleTerrainGridBilinear(points,dem5Source,120);
+    if(fallback.tooWide)throw new Error("範囲が広すぎます。少し拡大してから実行してください");
+    selected=fallback;sourceId="DEM5A";
+  }
+  if(selected.validCount<Math.ceil(points.length*.45))throw new Error("標高データを取得できません");
+
+  return {
+    cols:spec.cols,rows:spec.rows,zone,points,createdAt:Date.now(),
+    width:viewport.w,height:viewport.h,viewport,gridPurpose:"contour",
+    planeContourGrid:{...spec,sourceId,sourceCounts:{DEM1A:sourceId==="DEM1A"?selected.validCount:0,DEM5A:sourceId==="DEM5A"?selected.validCount:0}}
+  };
+}
 async function buildTerrainGrid(purpose="surface",contourQuality="auto"){
   if(!hasLoadedDrawing()) return null;
   const zone=await resolveProfileZone();
   if(!zone) throw new Error("このSFC図面の座標系を確認できません");
   const viewport=getTerrainViewportState();
-  if(purpose==="contour")return buildNativeTerrainContourGrid(zone,viewport,contourQuality);
+  if(purpose==="contour")return buildAlignedTerrainContourGrid(zone,viewport);
   const {cols,rows}=chooseTerrainGridSize(viewport);
   const w=viewport.w,h=viewport.h;
   const inset=8;
@@ -4636,6 +4728,12 @@ function terrainDemInfoHtml(grid){
 }
 function terrainPointAtScreen(grid,screenX,screenY){
   if(!grid||terrainViewportNeedsRefresh(grid)||!Number.isFinite(screenX)||!Number.isFinite(screenY))return null;
+  if(grid.planeContourGrid){
+    const world=screenToWorld(screenX,screenY),plane=sfcWorldToPlane(world[0],world[1]),aligned=grid.planeContourGrid;
+    const row=Math.max(0,Math.min(grid.rows-1,Math.round((plane.xNorth-aligned.minX)/aligned.spacing)));
+    const col=Math.max(0,Math.min(grid.cols-1,Math.round((plane.yEast-aligned.minY)/aligned.spacing)));
+    return getTerrainPoint(grid,row,col);
+  }
   if(grid.nativeDemGrid){
     const world=screenToWorld(screenX,screenY),plane=sfcWorldToPlane(world[0],world[1]),native=grid.nativeDemGrid;
     const ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,grid.zone),pixel=profileGlobalPixel(ll.lat,ll.lon,native.z);
@@ -9335,6 +9433,8 @@ function normalizeTerrainDemSource(source){
 }
 function terrainDemSourceAtWorld(grid,worldX,worldY){
   if(!grid||!Number.isFinite(worldX)||!Number.isFinite(worldY))return "";
+  const alignedFixed=normalizeTerrainDemSource(grid.planeContourGrid?.sourceId);
+  if(alignedFixed)return alignedFixed;
   const native=grid.nativeDemGrid;
   if(native){
     const fixed=normalizeTerrainDemSource(native.sourceId);
@@ -9363,7 +9463,7 @@ function terrainDemSourceAtWorld(grid,worldX,worldY){
 }
 function splitTerrainCadPolylineByDemSource(points,grid){
   if(!Array.isArray(points)||points.length<2)return [];
-  const fixed=normalizeTerrainDemSource(grid?.nativeDemGrid?.sourceId);
+  const fixed=normalizeTerrainDemSource(grid?.planeContourGrid?.sourceId||grid?.nativeDemGrid?.sourceId);
   if(fixed)return [{source:fixed,points:points.slice()}];
   const pieces=[];let currentSource="",current=[];
   const flush=()=>{if(currentSource&&current.length>=2)pieces.push({source:currentSource,points:current});current=[];};
@@ -9457,10 +9557,10 @@ async function finishTerrainCadSelection(){
   if(terrainCadPolygon.length<3){showToast("多角形の頂点を3点以上指定してください");return;}
   const polygon=terrainCadPolygon.slice();setTerrainCadSelectionOpen(false);showBusy("1m等高線をCAD化しています…");await waitForUiPaint();
   try{
-    const currentNative=terrainGrid?.gridPurpose==="contour"?terrainGrid.nativeDemGrid:null;
-    const currentIsDetailed=currentNative?.displayResolutionMode==="DEM1A"&&currentNative?.z===17&&terrainContourGridCoversViewport(terrainGrid);
-    // Display LOD may use DEM5A while zoomed out. CAD export must always use
-    // DEM1A first and fill only its missing samples with DEM5A.
+    const currentAligned=terrainGrid?.gridPurpose==="contour"?terrainGrid.planeContourGrid:null;
+    const currentIsDetailed=currentAligned?.sourceId==="DEM1A"&&currentAligned?.spacing===1&&terrainContourGridCoversViewport(terrainGrid);
+    // Reuse only the coordinate-aligned one-metre DEM1A grid. Otherwise build
+    // the same grid again; CAD export must never use a smoothed display copy.
     const grid=currentIsDetailed?terrainGrid:await buildTerrainGrid("contour","detail");
     if(!grid)throw new Error("標高データを取得できません");
     const geometry=buildTerrainContourGeometry(grid,1,5),created=[];
