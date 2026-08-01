@@ -681,8 +681,11 @@ body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
 .photoAlbumLayoutChoice{display:flex;align-items:center;justify-content:center;min-height:38px;padding:6px;border:1px solid var(--border);border-radius:8px;background:var(--button);color:var(--buttonText);font-size:12px;font-weight:750;cursor:pointer;}
 .photoAlbumLayoutChoice:has(input:checked){background:#1677ff;color:#fff;border-color:#0f5ec8;}
 .photoAlbumLayoutChoice input{position:absolute;opacity:0;pointer-events:none;}
-.photoAlbumCommentRow{display:grid;grid-template-columns:70px 1fr;align-items:center;gap:8px;margin-top:7px;font-size:12px;font-weight:700;}
-.photoAlbumCommentRow select{width:100%;min-height:34px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--fg);font-size:13px;}
+.photoAlbumCommentRow{display:grid;grid-template-columns:70px 1fr;align-items:start;gap:8px;margin-top:7px;font-size:12px;font-weight:700;}
+.photoAlbumCommentRow>span:first-child{padding-top:9px;}
+.photoAlbumCommentControl{display:grid;gap:6px;min-width:0;}
+.photoAlbumCommentRow select,.photoAlbumCommentCustom{width:100%;min-height:34px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--fg);font-size:13px;box-sizing:border-box;}
+.photoAlbumCommentCustom[hidden]{display:none;}
 #photoAlbumMiniMapLabel{display:flex;align-items:center;gap:9px;min-height:36px;margin-top:10px;font-size:13px;font-weight:700;}
 #photoAlbumMiniMapLabel.disabled{opacity:.42;cursor:not-allowed;}
 #photoAlbumMiniMap{width:19px;height:19px;accent-color:#1677ff;}
@@ -1311,9 +1314,9 @@ gtag('config', 'G-88B9YPJXWP');
       </div>
       <div class="photoAlbumSection">
         <div class="photoAlbumSectionTitle">コメント欄（上から3行）</div>
-        <label class="photoAlbumCommentRow"><span>1行目</span><select id="photoAlbumComment1"></select></label>
-        <label class="photoAlbumCommentRow"><span>2行目</span><select id="photoAlbumComment2"></select></label>
-        <label class="photoAlbumCommentRow"><span>3行目</span><select id="photoAlbumComment3"></select></label>
+        <label class="photoAlbumCommentRow"><span>1行目</span><span class="photoAlbumCommentControl"><select id="photoAlbumComment1"></select><input id="photoAlbumCustom1" class="photoAlbumCommentCustom" type="text" maxlength="80" placeholder="共通の文字を入力" hidden></span></label>
+        <label class="photoAlbumCommentRow"><span>2行目</span><span class="photoAlbumCommentControl"><select id="photoAlbumComment2"></select><input id="photoAlbumCustom2" class="photoAlbumCommentCustom" type="text" maxlength="80" placeholder="共通の文字を入力" hidden></span></label>
+        <label class="photoAlbumCommentRow"><span>3行目</span><span class="photoAlbumCommentControl"><select id="photoAlbumComment3"></select><input id="photoAlbumCustom3" class="photoAlbumCommentCustom" type="text" maxlength="80" placeholder="共通の文字を入力" hidden></span></label>
         <label id="photoAlbumMiniMapLabel"><input id="photoAlbumMiniMap" type="checkbox">豆図を付ける</label>
         <div id="photoAlbumHint">豆図は写真位置を中心に図面を縮小し、中央へ写真番号と撮影方向を表示します。6枚・8枚では豆図を使用できません。見開きでは表面が「写真・コメント」、裏面が「コメント・写真」です。</div>
       </div>
@@ -1743,7 +1746,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開く・保存</div><b>ファイル</b> を押し、<b>開く</b>、<b>上書き保存</b>、<b>名前を付けて保存</b>から選びます。PCでは通常の保存画面を使い、メール送信画面は表示しません。</div>
               <div class="helpBlock"><div class="helpHead">PCでドラッグして開く</div>PCではSFCを図面画面へドラッグし、「ここにドロップして開く」の表示上で離すと、そのまま図面を開けます。</div>
-              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置と見開き3枚を選べます。各写真のコメントは3行まで選択でき、撮影方向は角度から8方向で表示できます。2・3・4枚と見開きでは豆図を付けられますが、6枚・8枚では豆図を選択できません。片面は写真を左、コメントを右へ配置し、見開きの裏面はコメントを左、写真を右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4枚の空き領域に合わせて大きくし、高解像度で作成します。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置と見開き3枚を選べます。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4枚と見開きでは豆図を付けられますが、6枚・8枚では豆図を選択できません。片面は写真を左、コメントを右へ配置し、見開きの裏面はコメントを左、写真を右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4枚の空き領域に合わせて大きくし、高解像度で作成します。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容を、開いているSFCへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">名前を付けて保存</div>PCではエクスプローラーの保存画面からSFC名を指定します。CAD化した航空写真がある場合は保存先フォルダーを選び、SFCと参照JPEGを同じフォルダーへ保存します。SFCとJPEGは移動するときも同じフォルダーに置いてください。</div>
               <div class="helpBlock"><div class="helpHead">ZIPで送る理由</div>SFCは一般的なメール添付形式として登録されていないため、iPhone・Android・Gmailなどが添付を拒否する場合があります。ZIPは広く対応しており、SFCのファイル名と内容を変えずに安全に添付できます。受信後はZIPを展開するとSFCファイルが1個入っています。</div>
@@ -2232,7 +2235,7 @@ function loadPhotoSettings(){
 let photoSettings=loadPhotoSettings();
 const photoPreviewUrls = new Map();
 const PHOTO_ALBUM_SETTINGS_KEY = "sfcviewer-photo-album-settings-v1";
-const PHOTO_ALBUM_DEFAULT_SETTINGS = Object.freeze({layout:"3",comment1:"number",comment2:"fileName",comment3:"capturedAt",miniMap:true});
+const PHOTO_ALBUM_DEFAULT_SETTINGS = Object.freeze({layout:"3",comment1:"number",comment2:"fileName",comment3:"capturedAt",custom1:"",custom2:"",custom3:"",miniMap:true});
 let currentStroke = null;
 let pendingTouchInk = null;
 let suppressTouchInkUntil = 0;
@@ -13147,13 +13150,16 @@ function loadPhotoAlbumSettings(){
     const saved=JSON.parse(localStorage.getItem(PHOTO_ALBUM_SETTINGS_KEY)||"null")||{};
     const layouts=new Set(["2","3","4","6","8","spread"]);
     const fields=new Set(["none","fileName","number","direction8","capturedAt","xy","xNorth","yEast","demElevation","demSource","blank"]);
-    const currentVersion=2,isCurrent=Number(saved.version)===currentVersion;
+    const currentVersion=3,isCompatible=Number(saved.version)===2||Number(saved.version)===currentVersion;
     return {
       version:currentVersion,
       layout:layouts.has(String(saved.layout))?String(saved.layout):PHOTO_ALBUM_DEFAULT_SETTINGS.layout,
-      comment1:isCurrent&&fields.has(String(saved.comment1))?String(saved.comment1):PHOTO_ALBUM_DEFAULT_SETTINGS.comment1,
-      comment2:isCurrent&&fields.has(String(saved.comment2))?String(saved.comment2):PHOTO_ALBUM_DEFAULT_SETTINGS.comment2,
-      comment3:isCurrent&&fields.has(String(saved.comment3))?String(saved.comment3):PHOTO_ALBUM_DEFAULT_SETTINGS.comment3,
+      comment1:isCompatible&&fields.has(String(saved.comment1))?String(saved.comment1):PHOTO_ALBUM_DEFAULT_SETTINGS.comment1,
+      comment2:isCompatible&&fields.has(String(saved.comment2))?String(saved.comment2):PHOTO_ALBUM_DEFAULT_SETTINGS.comment2,
+      comment3:isCompatible&&fields.has(String(saved.comment3))?String(saved.comment3):PHOTO_ALBUM_DEFAULT_SETTINGS.comment3,
+      custom1:Number(saved.version)===currentVersion?String(saved.custom1||"").slice(0,80):"",
+      custom2:Number(saved.version)===currentVersion?String(saved.custom2||"").slice(0,80):"",
+      custom3:Number(saved.version)===currentVersion?String(saved.custom3||"").slice(0,80):"",
       miniMap:saved.miniMap!==false
     };
   }catch(_error){return {...PHOTO_ALBUM_DEFAULT_SETTINGS};}
@@ -13166,13 +13172,25 @@ function getPhotoAlbumSettingsFromUi(){
   const layout=selected?selected.value:PHOTO_ALBUM_DEFAULT_SETTINGS.layout;
   const mini=document.getElementById("photoAlbumMiniMap");
   return {
-    version:2,
+    version:3,
     layout,
     comment1:document.getElementById("photoAlbumComment1")?.value||PHOTO_ALBUM_DEFAULT_SETTINGS.comment1,
     comment2:document.getElementById("photoAlbumComment2")?.value||PHOTO_ALBUM_DEFAULT_SETTINGS.comment2,
     comment3:document.getElementById("photoAlbumComment3")?.value||PHOTO_ALBUM_DEFAULT_SETTINGS.comment3,
+    custom1:String(document.getElementById("photoAlbumCustom1")?.value||"").slice(0,80),
+    custom2:String(document.getElementById("photoAlbumCustom2")?.value||"").slice(0,80),
+    custom3:String(document.getElementById("photoAlbumCustom3")?.value||"").slice(0,80),
     miniMap:mini?.dataset.preferred!=="false"
   };
+}
+function updatePhotoAlbumCustomInputVisibility(focusInput=false){
+  for(let line=1;line<=3;line++){
+    const select=document.getElementById(`photoAlbumComment${line}`),input=document.getElementById(`photoAlbumCustom${line}`);
+    if(!select||!input)continue;
+    const visible=select.value==="blank";
+    input.hidden=!visible;
+    if(visible&&focusInput)input.focus();
+  }
 }
 function updatePhotoAlbumMiniMapAvailability(){
   const layout=document.querySelector('input[name="photoAlbumLayout"]:checked')?.value||PHOTO_ALBUM_DEFAULT_SETTINGS.layout;
@@ -13188,18 +13206,20 @@ function populatePhotoAlbumSettingsUi(){
   const options=[
     ["fileName","ファイル名"],["number","写真番号"],["direction8","撮影方向（8方向）"],["capturedAt","撮影時間"],["xy","X・Y座標"],
     ["xNorth","X座標"],["yEast","Y座標"],["demElevation","DEM標高"],["demSource","使用DEM"],
-    ["blank","自由入力（空欄）"],["none","なし"]
+    ["blank","自由入力"],["none","なし"]
   ];
-  for(const [id,key] of [["photoAlbumComment1","comment1"],["photoAlbumComment2","comment2"],["photoAlbumComment3","comment3"]]){
+  for(const [id,key,customId,customKey] of [["photoAlbumComment1","comment1","photoAlbumCustom1","custom1"],["photoAlbumComment2","comment2","photoAlbumCustom2","custom2"],["photoAlbumComment3","comment3","photoAlbumCustom3","custom3"]]){
     const select=document.getElementById(id);if(!select)continue;
     select.textContent="";
     for(const [value,label] of options){const option=document.createElement("option");option.value=value;option.textContent=label;select.appendChild(option);}
     select.value=settings[key];
+    const input=document.getElementById(customId);if(input)input.value=settings[customKey]||"";
   }
   const radio=document.querySelector(`input[name="photoAlbumLayout"][value="${settings.layout}"]`);
   if(radio)radio.checked=true;
   const mini=document.getElementById("photoAlbumMiniMap");
   if(mini){mini.dataset.preferred=settings.miniMap?"true":"false";mini.checked=settings.miniMap;}
+  updatePhotoAlbumCustomInputVisibility(false);
   updatePhotoAlbumMiniMapAvailability();
 }
 function setPhotoAlbumModalOpen(open){
@@ -13211,7 +13231,7 @@ function setPhotoExcelChoiceModalOpen(open){
   const modal=document.getElementById("photoExcelChoiceModal");if(!modal)return;
   modal.style.display=open?"flex":"none";
 }
-function photoAlbumCommentText(item,field){
+function photoAlbumCommentText(item,field,customText=""){
   if(field==="fileName")return `ファイル名：${item.fileName||""}`;
   if(field==="number")return `写真番号：${item.number||""}`;
   if(field==="direction8")return `撮影方向：${formatPhotoDirection8(item.direction)}`;
@@ -13221,6 +13241,7 @@ function photoAlbumCommentText(item,field){
   if(field==="yEast")return `Y座標：${formatPhotoCoordinate(item.yEast)}`;
   if(field==="demElevation")return `${item.demSource||"DEM"}標高：${item.demElevation!=null&&Number.isFinite(+item.demElevation)?(+item.demElevation).toFixed(3)+" m":""}`;
   if(field==="demSource")return `使用DEM：${item.demSource||""}`;
+  if(field==="blank")return String(customText||"");
   return "";
 }
 function formatPhotoDirection8(value){
@@ -13325,7 +13346,12 @@ async function buildPhotoAlbumXlsx(settings){
   const compact=photosPerPage>=6,columns=isSpread?1:(compact?2:1),rowsPerPage=isSpread?3:photosPerPage/columns;
   const useMiniMap=!!settings.miniMap&&!compact;
   const pageRows=60,slotRows=pageRows/rowsPerPage,rowPx=17,pageCount=Math.ceil(photoAnnotations.length/photosPerPage);
-  const columnWidthsPx=Array.from({length:13},(_,index)=>index===6?13:60),columnCount=columnWidthsPx.length;
+  const widePhotoLayout=!isSpread&&(photosPerPage===2||photosPerPage===3);
+  const photoColumnPx=widePhotoLayout?72:60,commentColumnPx=widePhotoLayout?48:60;
+  const columnWidthsPx=Array.from({length:13},(_,index)=>index<6?photoColumnPx:index===6?13:commentColumnPx),columnCount=columnWidthsPx.length;
+  const columnXml=widePhotoLayout
+    ?'<col min="1" max="6" width="9.6" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="6.4" customWidth="1"/>'
+    :'<col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="8" customWidth="1"/>';
   const columnLeftPx=column=>columnWidthsPx.slice(0,Math.max(0,column-1)).reduce((sum,value)=>sum+value,0);
   const columnRangeWidthPx=(start,end)=>columnWidthsPx.slice(start-1,end).reduce((sum,value)=>sum+value,0);
   const totalRows=Math.max(pageRows,pageCount*pageRows);
@@ -13347,6 +13373,7 @@ async function buildPhotoAlbumXlsx(settings){
     images.push({id,name,rect,border:true});
   };
   const fields=[settings.comment1,settings.comment2,settings.comment3];
+  const customTexts=[settings.custom1,settings.custom2,settings.custom3];
   const miniGeometry=useMiniMap?buildPhotoMiniMapGeometry():null;
   for(let index=0;index<photoAnnotations.length;index++){
     const item=photoAnnotations[index],page=Math.floor(index/photosPerPage),slot=index%photosPerPage,rowInPage=isSpread?slot:Math.floor(slot/columns);
@@ -13358,15 +13385,16 @@ async function buildPhotoAlbumXlsx(settings){
       merge(slotTop+1,colStart,photoEnd,colEnd,"",1);
       const photoRect={x:columnLeftPx(colStart)+5,y:slotTop*rowPx+5,width:columnRangeWidthPx(colStart,colEnd)-10,height:(photoEnd-slotTop)*rowPx-10};
       addImage(photo,fitPhotoAlbumImage(photo,photoRect),`写真 ${item.number}`);
-      fields.forEach((field,line)=>mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,photoAlbumCommentText(item,field),line===0));
+      fields.forEach((field,line)=>mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
     }else{
       const front=!isSpread||page%2===0;
       const photoColStart=front?1:8,photoColEnd=front?6:13;
       const commentColStart=front?8:1,commentColEnd=front?13:6;
       merge(slotTop+1,photoColStart,slotBottom,photoColEnd,"",1);
-      const photoRect={x:columnLeftPx(photoColStart)+2,y:slotTop*rowPx+2,width:columnRangeWidthPx(photoColStart,photoColEnd)-4,height:slotRows*rowPx-4};
+      const photoInsetY=photosPerPage<=3?1:photosPerPage===4?4:2;
+      const photoRect={x:columnLeftPx(photoColStart)+2,y:slotTop*rowPx+photoInsetY,width:columnRangeWidthPx(photoColStart,photoColEnd)-4,height:slotRows*rowPx-photoInsetY*2};
       addImage(photo,fitPhotoAlbumImage(photo,photoRect),`写真 ${item.number}`);
-      fields.forEach((field,line)=>mergeComment(slotTop+1+line*2,commentColStart,slotTop+2+line*2,commentColEnd,photoAlbumCommentText(item,field),line===0));
+      fields.forEach((field,line)=>mergeComment(slotTop+1+line*2,commentColStart,slotTop+2+line*2,commentColEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
       if(useMiniMap){
         for(let guideRow=slotTop+7;guideRow<=slotBottom;guideRow++)mergeComment(guideRow,commentColStart,guideRow,commentColEnd,"",false);
         const area={x:columnLeftPx(commentColStart),y:(slotTop+6)*rowPx,width:columnRangeWidthPx(commentColStart,commentColEnd),height:(slotRows-6)*rowPx};
@@ -13417,7 +13445,7 @@ async function buildPhotoAlbumXlsx(settings){
     {name:"xl/workbook.xml",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets><sheet name="写真帳" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">'写真帳'!$A$1:$M$${totalRows}</definedName></definedNames></workbook>`},
     {name:"xl/_rels/workbook.xml.rels",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
     {name:"xl/styles.xml",blob:styles},
-    {name:"xl/worksheets/sheet1.xml",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0" showRowColHeaders="0"/></sheetViews><sheetFormatPr defaultRowHeight="12.75"/><cols><col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="8" customWidth="1"/></cols><sheetData>${rows.join("")}</sheetData>${merges.length?`<mergeCells count="${merges.length}">${merges.map(ref=>`<mergeCell ref="${ref}"/>`).join("")}</mergeCells>`:""}<printOptions horizontalCentered="1" verticalCentered="1" headings="0" gridLines="0"/><pageMargins left="0.2" right="0.2" top="0.2" bottom="0.2" header="0" footer="0"/><pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0" horizontalDpi="300" verticalDpi="300"/>${breaks?`<rowBreaks count="${pageCount-1}" manualBreakCount="${pageCount-1}">${breaks}</rowBreaks>`:""}<drawing r:id="rId1"/></worksheet>`},
+    {name:"xl/worksheets/sheet1.xml",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0" showRowColHeaders="0"/></sheetViews><sheetFormatPr defaultRowHeight="12.75"/><cols>${columnXml}</cols><sheetData>${rows.join("")}</sheetData>${merges.length?`<mergeCells count="${merges.length}">${merges.map(ref=>`<mergeCell ref="${ref}"/>`).join("")}</mergeCells>`:""}<printOptions horizontalCentered="1" verticalCentered="1" headings="0" gridLines="0"/><pageMargins left="0.2" right="0.2" top="0.2" bottom="0.2" header="0" footer="0"/><pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0" horizontalDpi="300" verticalDpi="300"/>${breaks?`<rowBreaks count="${pageCount-1}" manualBreakCount="${pageCount-1}">${breaks}</rowBreaks>`:""}<drawing r:id="rId1"/></worksheet>`},
     {name:"xl/worksheets/_rels/sheet1.xml.rels",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`},
     {name:"xl/drawings/drawing1.xml",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${anchors}</xdr:wsDr>`},
     {name:"xl/drawings/_rels/drawing1.xml.rels",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${drawingRels.join("")}</Relationships>`},
@@ -16392,6 +16420,9 @@ document.getElementById("photoAlbumCancelBtn")?.addEventListener("click",()=>set
 document.getElementById("photoAlbumCreateBtn")?.addEventListener("click",()=>{exportPhotoAlbumExcel();});
 document.getElementById("photoAlbumModal")?.addEventListener("click",event=>{if(event.target.id==="photoAlbumModal")setPhotoAlbumModalOpen(false);});
 document.querySelectorAll('input[name="photoAlbumLayout"]').forEach(input=>input.addEventListener("change",updatePhotoAlbumMiniMapAvailability));
+["photoAlbumComment1","photoAlbumComment2","photoAlbumComment3"].forEach(id=>{
+  document.getElementById(id)?.addEventListener("change",()=>updatePhotoAlbumCustomInputVisibility(true));
+});
 document.getElementById("photoAlbumMiniMap")?.addEventListener("change",event=>{
   event.currentTarget.dataset.preferred=event.currentTarget.checked?"true":"false";
 });
