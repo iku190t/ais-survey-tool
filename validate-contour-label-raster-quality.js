@@ -8,8 +8,18 @@ const requireText=(text,message)=>{
 
 requireText(
   "function getAerialPhotoZoomForCurrentView(source,latitude)",
-  "shared aerial-photo zoom helper is missing"
+  "screen aerial-photo zoom helper is missing"
 );
+requireText(
+  "function getAerialPhotoExportZoom(source)",
+  "native-resolution aerial-photo export helper is missing"
+);
+const exportZoomStart=html.indexOf("function getAerialPhotoExportZoom(source)");
+const exportZoomEnd=html.indexOf("function drawAerialPhoto",exportZoomStart);
+const getExportZoom=new Function(`${html.slice(exportZoomStart,exportZoomEnd)};return getAerialPhotoExportZoom;`)();
+if(getExportZoom({minZ:14,maxZ:18})!==18||getExportZoom({minZ:10,maxZ:17})!==17){
+  throw new Error("CAD aerial photo export does not select the source maximum zoom");
+}
 const drawStart=html.indexOf("function drawAerialPhoto(w,h)");
 const drawEnd=html.indexOf("function overlayTileUrl",drawStart);
 const cadStart=html.indexOf("async function renderVisibleAerialPhotoForSfc");
@@ -25,8 +35,11 @@ const exportBlock=html.slice(exportStart,exportEnd);
 if(!drawBlock.includes("getAerialPhotoZoomForCurrentView(source,centerLl.lat)")){
   throw new Error("screen aerial photo does not use the shared zoom");
 }
-if(!cadBlock.includes("getAerialPhotoZoomForCurrentView(source,centerLatLon.lat)")){
-  throw new Error("CAD aerial photo does not use the screen zoom");
+if(!cadBlock.includes("const z=getAerialPhotoExportZoom(source);")){
+  throw new Error("CAD aerial photo does not use the source maximum zoom");
+}
+if(cadBlock.includes("getAerialPhotoZoomForCurrentView(source,centerLatLon.lat)")){
+  throw new Error("CAD aerial photo still depends on the current screen zoom");
 }
 if(!cadBlock.includes("const resolution=tileResolution;")){
   throw new Error("CAD aerial photo still changes native tile resolution");
@@ -58,4 +71,4 @@ if(!annotationBlock.includes("'${anchor}','${direction}'")){
   throw new Error("SFC contour label anchor is not written to text_string_feature");
 }
 
-console.log("OK: contour labels are centre-anchored and aerial rasters keep displayed tile resolution");
+console.log("OK: contour labels are centre-anchored and aerial rasters use the source maximum resolution");

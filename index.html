@@ -3157,6 +3157,13 @@ function getAerialPhotoZoomForCurrentView(source,latitude){
   const idealZ=Math.round(Math.log2(156543.03392*Math.max(.15,Math.cos(latitude*Math.PI/180))/metersPerPixel));
   return Math.max(source.minZ,Math.min(source.maxZ,idealZ));
 }
+function getAerialPhotoExportZoom(source){
+  // CAD化は表示中の拡大率に依存させない。地理院タイルが持つ最高ズームを
+  // そのまま使用し、縮小表示中にCAD化しても元タイルより粗くしない。
+  const minZ=Math.max(0,Math.trunc(Number(source?.minZ)||0));
+  const maxZ=Math.max(minZ,Math.trunc(Number(source?.maxZ)||minZ));
+  return maxZ;
+}
 function drawAerialPhoto(w,h){
   if(!aerialPhotoEnabled||!aerialPhotoZone||!ensureProj4Defs()) return;
   const source=aerialAvailableSources[aerialPhotoSourceIndex];
@@ -3698,9 +3705,9 @@ async function renderVisibleAerialPhotoForSfc(worldPolygon){
   const spanX=bounds.maxX-bounds.minX,spanY=bounds.maxY-bounds.minY;
   if(!(spanX>0&&spanY>0))throw new Error("保存範囲を確認できません");
   const centerLatLon=jgd2024XYToLatLon((bounds.minX+bounds.maxX)/2,(bounds.minY+bounds.maxY)/2,aerialPhotoZone);
-  // CAD化直前に画面で表示していたタイルと同じズームを使う。
-  // 選択範囲を一定の1800pxへ縮小せず、元タイルの1画素相当を維持する。
-  const z=getAerialPhotoZoomForCurrentView(source,centerLatLon.lat);
+  // 画面の拡大率ではなく、提供元タイルの最高ズームで取得する。
+  // 選択範囲を一定ピクセルへ縮小せず、最高ズームの1画素相当を維持する。
+  const z=getAerialPhotoExportZoom(source);
   const tileResolution=156543.03392*Math.max(.15,Math.cos(centerLatLon.lat*Math.PI/180))/Math.pow(2,z);
   const resolution=tileResolution;
   // North-up raster: horizontal pixels are easting, vertical pixels are northing.
