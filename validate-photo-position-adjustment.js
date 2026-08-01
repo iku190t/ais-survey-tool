@@ -16,6 +16,7 @@ const required=[
   ["方向回転処理","Math.atan2(dy,dx)*180/Math.PI"],
   ["DEM再取得","resolvePhotoDemElevation(drag.item)"],
   ["8方向Excel","formatPhotoDirection8(item.direction)"],
+  ["選択行の中央スクロール",'scrollPhotoListItemToCenter(hit.item,"smooth")'],
   ["Undo登録",'label:drag.kind==="rotate"?"写真方向調整":"写真位置調整"']
 ];
 for(const [name,token] of required)if(!html.includes(token))throw new Error(`${name}がありません`);
@@ -72,9 +73,25 @@ let browser;
   const beforeUndo=rotated.direction;
   const history=await page.evaluate(()=>window.eval(`(()=>{undoLastEdit();const undone=photoAnnotations[0].direction;redoLastEdit();return {undone,redone:photoAnnotations[0].direction};})()`));
   if(Math.abs(history.undone-beforeUndo)<1e-6||Math.abs(history.redone-beforeUndo)>1e-6)throw new Error(`写真位置調整のUndo/Redoに失敗しました: ${JSON.stringify({beforeUndo,history,rotated})}`);
+  const scrollCheck=await page.evaluate(()=>window.eval(`(()=>{
+    const source=photoAnnotations[0];
+    photoAnnotations=Array.from({length:24},(_,index)=>({...source,number:index+1,fileName:'P'+String(index+1).padStart(2,'0')+'.jpg',markerX:index*80,worldX:index*80}));
+    selectedPhotoPositionItem=photoAnnotations[11];renderPhotoListPanel();
+    const scroll=document.getElementById('photoListTableScroll');scroll.scrollTop=0;
+    const ok=scrollPhotoListItemToCenter(selectedPhotoPositionItem,'auto');
+    const row=[...document.getElementById('photoListRows').children].find(candidate=>candidate._photoAnnotation===selectedPhotoPositionItem);
+    const scrollRect=scroll.getBoundingClientRect(),rowRect=row.getBoundingClientRect();
+    return {ok,scrollTop:scroll.scrollTop,centerDifference:Math.abs((rowRect.top+rowRect.bottom)/2-(scrollRect.top+scrollRect.bottom)/2),outlined:row.classList.contains('photoPositionSelectedRow')};
+  })()`));
+  if(!scrollCheck.ok||scrollCheck.scrollTop<=0||scrollCheck.centerDifference>25||!scrollCheck.outlined)throw new Error(`選択した写真行が一覧中央へ移動しません: ${JSON.stringify(scrollCheck)}`);
   await page.locator("#photoExcelBtn").click();
-  const excelChoice=await page.evaluate(()=>({display:getComputedStyle(document.getElementById("photoExcelChoiceModal")).display,list:document.getElementById("photoExcelListChoiceBtn").textContent,album:document.getElementById("photoExcelAlbumChoiceBtn").textContent}));
+  const excelChoice=await page.evaluate(()=>{
+    const list=document.getElementById("photoExcelListChoiceBtn"),album=document.getElementById("photoExcelAlbumChoiceBtn");
+    const listStyle=getComputedStyle(list),albumStyle=getComputedStyle(album);
+    return {display:getComputedStyle(document.getElementById("photoExcelChoiceModal")).display,list:list.textContent,album:album.textContent,listBackground:listStyle.backgroundColor,albumBackground:albumStyle.backgroundColor,listColor:listStyle.color,albumColor:albumStyle.color};
+  });
   if(excelChoice.display!=="flex"||excelChoice.list!=="一覧表を出力"||excelChoice.album!=="写真帳を出力")throw new Error("Excel出力の選択画面が正しく開きません");
+  if(excelChoice.listBackground!==excelChoice.albumBackground||excelChoice.listColor!==excelChoice.albumColor)throw new Error(`写真帳出力だけ青色です: ${JSON.stringify(excelChoice)}`);
   if(pageErrors.length)throw new Error(`ページエラー: ${pageErrors.join(" | ")}`);
   console.log("photo position adjustment checks passed");
   await browser.close();server.close();

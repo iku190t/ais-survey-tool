@@ -648,6 +648,7 @@ body.light #photoListTableScroll::-webkit-scrollbar-track{background:rgba(0,0,0,
 body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
 #photoListTable{width:926px;min-width:926px;table-layout:fixed;border-collapse:collapse;font-size:12px;}
 #photoListTable th,#photoListTable td{padding:6px 5px;text-align:left;border-bottom:1px solid var(--border);vertical-align:middle;}
+#photoListRows tr.photoPositionSelectedRow{outline:2px solid #35c9ff;outline-offset:-2px;background:rgba(53,201,255,.10);}
 #photoListTable th:first-child,#photoListTable td:first-child{width:34px;text-align:center;}
 #photoListTable th:nth-child(2),#photoListTable td:nth-child(2){width:42px;text-align:center;}
 #photoListTable th:nth-child(3),#photoListTable td:nth-child(3){width:112px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -670,7 +671,6 @@ body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
 #photoExcelChoiceTitle{font-size:15px;font-weight:800;}
 #photoExcelChoiceActions{display:grid;gap:8px;}
 #photoExcelChoiceActions button{min-height:38px;font-size:13px;font-weight:750;}
-#photoExcelAlbumChoiceBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #photoAlbumModal{display:none;position:fixed;inset:0;z-index:235;background:rgba(0,0,0,.58);align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
 #photoAlbumBox{width:min(430px,94vw);max-height:min(720px,calc(100vh - 32px));overflow:auto;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:12px;box-sizing:border-box;box-shadow:0 14px 34px rgba(0,0,0,.44);}
 #photoAlbumHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px;}
@@ -12480,6 +12480,10 @@ function beginPhotoPositionAdjustDrag(screenX,screenY){
   if(!hit)return false;
   const anchor=screenToWorld(screenX,screenY);
   selectedPhotoPositionItem=hit.item;
+  renderPhotoListPanel();
+  requestAnimationFrame(()=>{
+    if(selectedPhotoPositionItem===hit.item&&photoPositionAdjustIsActive())scrollPhotoListItemToCenter(hit.item,"smooth");
+  });
   photoPositionAdjustDrag={
     item:hit.item,kind:hit.kind,
     anchorWorld:{x:anchor[0],y:anchor[1]},
@@ -12961,6 +12965,21 @@ async function ensurePhotoDemElevations(items=photoAnnotations){
   });
   return changed;
 }
+function scrollPhotoListItemToCenter(item,behavior="smooth"){
+  const scroll=document.getElementById("photoListTableScroll");
+  const rows=document.getElementById("photoListRows");
+  if(!item||!scroll||!rows)return false;
+  const row=[...rows.children].find(candidate=>candidate._photoAnnotation===item);
+  if(!row)return false;
+  const scrollRect=scroll.getBoundingClientRect();
+  const rowRect=row.getBoundingClientRect();
+  const rowCenter=scroll.scrollTop+(rowRect.top-scrollRect.top)+rowRect.height/2;
+  const maxTop=Math.max(0,scroll.scrollHeight-scroll.clientHeight);
+  const targetTop=Math.max(0,Math.min(maxTop,rowCenter-scroll.clientHeight/2));
+  if(typeof scroll.scrollTo==="function")scroll.scrollTo({top:targetTop,left:scroll.scrollLeft,behavior});
+  else scroll.scrollTop=targetTop;
+  return true;
+}
 function renderPhotoListPanel(){
   const rows=document.getElementById("photoListRows"),empty=document.getElementById("photoListEmpty");
   const table=document.getElementById("photoListTable"),summary=document.getElementById("photoListSummary");
@@ -12968,6 +12987,7 @@ function renderPhotoListPanel(){
   rows.textContent="";
   for(const item of photoAnnotations){
     const tr=document.createElement("tr"),select=document.createElement("td"),number=document.createElement("td"),name=document.createElement("td"),capturedAt=document.createElement("td");
+    tr._photoAnnotation=item;
     const xNorth=document.createElement("td"),yEast=document.createElement("td"),demElevation=document.createElement("td"),demSource=document.createElement("td"),direction=document.createElement("td");
     const checkbox=document.createElement("input");
     checkbox.type="checkbox";checkbox.checked=selectedPhotoAnnotations.has(item);checkbox.setAttribute("aria-label",`${item.number}番を選択`);
@@ -12983,7 +13003,7 @@ function renderPhotoListPanel(){
     demElevation.textContent=formatPhotoDemElevation(item);
     demSource.textContent=item.demSource||"";
     direction.textContent=formatPhotoDirection8(item.direction)||"—";
-    if(photoPositionAdjustIsActive()&&item===selectedPhotoPositionItem)tr.style.outline="2px solid #35c9ff";
+    tr.classList.toggle("photoPositionSelectedRow",photoPositionAdjustIsActive()&&item===selectedPhotoPositionItem);
     tr.append(select,number,name,capturedAt,xNorth,yEast,demElevation,demSource,direction);rows.appendChild(tr);
   }
   if(summary)summary.textContent=photoAnnotations.length?`${photoAnnotations.length}枚（ファイル名順）`:"";
