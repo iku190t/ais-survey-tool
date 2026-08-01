@@ -613,6 +613,13 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #saveMenuActions{display:grid;gap:9px;}
 #saveMenuActions button{min-height:36px;font-size:13px;font-weight:700;}
 #saveMenuActions .saveMenuNativeOpen{display:flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:36px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--button);color:var(--buttonText);font-size:13px;font-weight:700;cursor:pointer;}
+.recentDrawingSection{display:none;min-width:0;margin-top:2px;padding-top:9px;border-top:1px solid var(--border);text-align:left;}
+.recentDrawingTitle{margin-bottom:6px;color:var(--muted);font-size:12px;font-weight:800;}
+.recentDrawingList{display:grid;gap:5px;min-width:0;}
+.recentDrawingButton{display:block;width:100%;min-width:0;min-height:32px!important;padding:6px 9px!important;overflow:hidden;text-align:left;text-overflow:ellipsis;white-space:nowrap;font-size:12px!important;font-weight:650!important;}
+#startupRecentSection{margin:11px 0 2px;border-top-color:#d5d5d5;}
+#startupRecentSection .recentDrawingTitle{color:#555;}
+#startupRecentSection .recentDrawingButton{border-color:#bbb;background:#f7f7f7;color:#222;}
 #saveMenuOverwriteBtn,#saveMenuSaveAsBtn,#saveMenuSfzBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #photoToolBtn{display:none;}
 #photoListPanel{display:none;left:auto;right:12px;top:calc(58px + var(--cad-toolbar-offset,40px));width:min(420px,calc(100vw - 24px));height:min(720px,calc(100% - 76px - var(--cad-toolbar-offset,40px)));max-height:calc(100% - 76px - var(--cad-toolbar-offset,40px));overflow:hidden;padding:0;z-index:82;flex-direction:column;}
@@ -1529,6 +1536,10 @@ gtag('config', 'G-88B9YPJXWP');
         <div style="font-size:13px;line-height:1.6;color:#666;font-weight:700;">青い点＝あなたの現在地</div>
       </div>
       <label id="startupOpenBtn" for="fileInput" role="button">ファイルを開く</label>
+      <div id="startupRecentSection" class="recentDrawingSection">
+        <div class="recentDrawingTitle">最近開いた図面</div>
+        <div id="startupRecentList" class="recentDrawingList"></div>
+      </div>
       <button id="startupSampleBtn" type="button">サンプル図面を開く</button>
       <a id="startupVideoBtn" href="https://youtube.com/shorts/I6SMwaPudo0?si=qV6PsM1bB4mNe8nF" target="_blank" rel="noopener noreferrer" aria-label="YouTubeで使い方の紹介動画を見る">使い方を動画で見る</a>
     </div>
@@ -1842,6 +1853,10 @@ gtag('config', 'G-88B9YPJXWP');
         <button id="saveMenuOpenBtn" class="saveMenuNativeOpen" type="button">開く</button>
         <button id="saveMenuOverwriteBtn" type="button">上書き保存</button>
         <button id="saveMenuSaveAsBtn" type="button">名前を付けて保存</button>
+        <div id="saveMenuRecentSection" class="recentDrawingSection">
+          <div class="recentDrawingTitle">最近開いた図面</div>
+          <div id="saveMenuRecentList" class="recentDrawingList"></div>
+        </div>
         <button id="saveMenuSfzBtn" type="button" hidden>航空写真を含めてSFZ保存・送信</button>
         <button id="saveMenuCancelBtn" type="button">閉じる</button>
       </div>
@@ -14498,6 +14513,140 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
     hideBusy();
   }
 }
+const RECENT_DRAWING_DB_NAME="sfcviewer-recent-drawings-v1";
+const RECENT_DRAWING_STORE="state";
+const RECENT_DRAWING_KEY="recent";
+const RECENT_DRAWING_META_KEY="sfcviewer.recentDrawings.v1";
+const RECENT_DRAWING_LIMIT=5;
+let recentDrawingDbPromise=null;
+function openRecentDrawingDb(){
+  if(recentDrawingDbPromise)return recentDrawingDbPromise;
+  recentDrawingDbPromise=new Promise((resolve,reject)=>{
+    if(!window.indexedDB){reject(new Error("IndexedDB unavailable"));return;}
+    const request=indexedDB.open(RECENT_DRAWING_DB_NAME,1);
+    request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains(RECENT_DRAWING_STORE))request.result.createObjectStore(RECENT_DRAWING_STORE);};
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error||new Error("履歴を開けません"));
+  }).catch(error=>{recentDrawingDbPromise=null;throw error;});
+  return recentDrawingDbPromise;
+}
+function readRecentDrawingMeta(){
+  try{
+    const list=JSON.parse(localStorage.getItem(RECENT_DRAWING_META_KEY)||"[]");
+    return Array.isArray(list)?list.slice(0,RECENT_DRAWING_LIMIT):[];
+  }catch(error){return [];}
+}
+function writeRecentDrawingMeta(entries){
+  try{
+    const safe=(entries||[]).slice(0,RECENT_DRAWING_LIMIT).map(entry=>({
+      id:String(entry.id||""),name:String(entry.name||""),size:+entry.size||0,lastModified:+entry.lastModified||0,openedAt:+entry.openedAt||0
+    }));
+    localStorage.setItem(RECENT_DRAWING_META_KEY,JSON.stringify(safe));
+  }catch(error){}
+}
+async function readRecentDrawingHistory(){
+  if(!isDesktopPhotoTool())return [];
+  try{
+    const db=await openRecentDrawingDb();
+    const record=await new Promise((resolve,reject)=>{
+      const request=db.transaction(RECENT_DRAWING_STORE,"readonly").objectStore(RECENT_DRAWING_STORE).get(RECENT_DRAWING_KEY);
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(request.error);
+    });
+    if(record&&Array.isArray(record.items))return record.items.slice(0,RECENT_DRAWING_LIMIT);
+  }catch(error){}
+  return readRecentDrawingMeta();
+}
+async function writeRecentDrawingHistory(entries){
+  const items=(entries||[]).slice(0,RECENT_DRAWING_LIMIT);
+  writeRecentDrawingMeta(items);
+  try{
+    const db=await openRecentDrawingDb();
+    await new Promise((resolve,reject)=>{
+      const transaction=db.transaction(RECENT_DRAWING_STORE,"readwrite");
+      transaction.objectStore(RECENT_DRAWING_STORE).put({items},RECENT_DRAWING_KEY);
+      transaction.oncomplete=()=>resolve();
+      transaction.onerror=()=>reject(transaction.error);
+      transaction.onabort=()=>reject(transaction.error);
+    });
+  }catch(error){}
+}
+function recentDrawingFingerprint(file){
+  return `${String(file&&file.name||"")}\u0000${+file?.size||0}\u0000${+file?.lastModified||0}`;
+}
+async function rememberRecentDrawing(file,handle){
+  if(!isDesktopPhotoTool()||!file||!/\.(?:sfc|sfz)$/i.test(String(file.name||"")))return;
+  const entries=await readRecentDrawingHistory();
+  const fingerprint=recentDrawingFingerprint(file);
+  let existingIndex=entries.findIndex(entry=>recentDrawingFingerprint(entry)===fingerprint);
+  if(handle&&typeof handle.isSameEntry==="function"){
+    for(let index=0;index<entries.length;index++){
+      if(!entries[index].handle)continue;
+      try{if(await handle.isSameEntry(entries[index].handle)){existingIndex=index;break;}}catch(error){}
+    }
+  }
+  const existing=existingIndex>=0?entries.splice(existingIndex,1)[0]:null;
+  const openedAt=Date.now();
+  const entry={
+    id:String(existing&&existing.id||`${openedAt}-${Math.random().toString(36).slice(2,9)}`),
+    name:String(file.name||""),size:+file.size||0,lastModified:+file.lastModified||0,openedAt,
+    handle:handle||existing&&existing.handle||null
+  };
+  entries.unshift(entry);
+  await writeRecentDrawingHistory(entries);
+  await renderRecentDrawingHistory();
+}
+async function openRecentDrawingEntry(entryId){
+  const entries=await readRecentDrawingHistory();
+  const entry=entries.find(item=>String(item.id)===String(entryId));
+  if(!entry)return;
+  setSaveMenuOpen(false);
+  const handle=entry.handle;
+  if(!handle||typeof handle.getFile!=="function"){
+    showToast("この図面をもう一度選択してください",2200);
+    openSfcViaPickerOrInput();
+    return;
+  }
+  try{
+    let permission=typeof handle.queryPermission==="function"?await handle.queryPermission({mode:"read"}):"granted";
+    if(permission!=="granted"&&typeof handle.requestPermission==="function")permission=await handle.requestPermission({mode:"read"});
+    if(permission!=="granted")throw new Error("permission denied");
+    const file=await handle.getFile();
+    if(/\.sfz$/i.test(file.name))await handleLoadedSfzFile(file);
+    else await handleLoadedSource(await readFileAsLatin1Text(file),file.name,handle);
+    await rememberRecentDrawing(file,handle);
+  }catch(error){
+    console.error(error);
+    hideBusy();
+    showToast("ファイルを移動したか、参照権限が切れています",2600);
+  }
+}
+let recentDrawingRenderSerial=0;
+async function renderRecentDrawingHistory(){
+  const serial=++recentDrawingRenderSerial;
+  const desktop=isDesktopPhotoTool();
+  const sections=[
+    [document.getElementById("startupRecentSection"),document.getElementById("startupRecentList")],
+    [document.getElementById("saveMenuRecentSection"),document.getElementById("saveMenuRecentList")]
+  ];
+  if(!desktop){for(const [section,list] of sections){if(section)section.style.display="none";if(list)list.innerHTML="";}return;}
+  const entries=await readRecentDrawingHistory();
+  if(serial!==recentDrawingRenderSerial)return;
+  for(const [section,list] of sections){
+    if(!section||!list)continue;
+    list.innerHTML="";
+    section.style.display=entries.length?"block":"none";
+    for(const entry of entries){
+      const button=document.createElement("button");
+      button.type="button";
+      button.className="recentDrawingButton";
+      button.textContent=String(entry.name||"図面");
+      button.title=String(entry.name||"");
+      button.addEventListener("click",()=>openRecentDrawingEntry(entry.id).catch(console.error));
+      list.appendChild(button);
+    }
+  }
+}
 async function openSfcViaPickerOrInput(){
   if (window.showOpenFilePicker) {
     try{
@@ -14516,10 +14665,12 @@ async function openSfcViaPickerOrInput(){
         const file = await handle.getFile();
         if(/\.sfz$/i.test(file.name)){
           await handleLoadedSfzFile(file);
+          await rememberRecentDrawing(file,handle);
           return;
         }
         const srcText = await readFileAsLatin1Text(file);
         await handleLoadedSource(srcText, file.name, handle);
+        await rememberRecentDrawing(file,handle);
         return;
       }
     }catch(e){
@@ -14540,7 +14691,7 @@ async function handleSelectedDrawingFile(file){
     return;
   }
   if(/\.sfz$/i.test(String(file.name||""))){
-    try{await handleLoadedSfzFile(file);}
+    try{await handleLoadedSfzFile(file);await rememberRecentDrawing(file,null);}
     catch(err){hideBusy();console.error(err);showToast(err&&err.message?err.message:"SFZを開けませんでした",2800);}
     return;
   }
@@ -14548,6 +14699,7 @@ async function handleSelectedDrawingFile(file){
   try{
     const srcText = await readFileAsLatin1Text(file);
     await handleLoadedSource(srcText, file.name, null);
+    await rememberRecentDrawing(file,null);
   }catch(err){
     hideBusy();
     try{
@@ -14556,6 +14708,7 @@ async function handleSelectedDrawingFile(file){
         const bytes=new Uint8Array(reader.result);
         const srcText=bytesToLatin1String(bytes);
         await handleLoadedSource(srcText, file.name, null);
+        await rememberRecentDrawing(file,null);
       };
       reader.onerror=()=>{hideBusy();showToast("読み込み失敗");};
       reader.readAsArrayBuffer(file);
@@ -14585,6 +14738,12 @@ async function openBundledSampleDrawing(){
 document.getElementById("startupSampleBtn")?.addEventListener("click",()=>{
   openBundledSampleDrawing().catch(console.error);
 });
+document.getElementById("startupOpenBtn")?.addEventListener("click",event=>{
+  if(!isDesktopPhotoTool())return;
+  event.preventDefault();
+  openSfcViaPickerOrInput().catch(console.error);
+});
+renderRecentDrawingHistory().catch(console.error);
 const earlyFileState=window.__sfcFileOpenState;
 if(earlyFileState){
   earlyFileState.consumeFile=file=>handleSelectedDrawingFile(file);
@@ -15057,6 +15216,7 @@ function setSaveMenuOpen(open){
   }
   if(modal) modal.style.display=open?"flex":"none";
   document.body.classList.toggle("file-menu-open",!!open);
+  if(open)renderRecentDrawingHistory().catch(console.error);
   updateToolbarActivationUI();
 }
 let aerialSfcWarningResolver=null;
