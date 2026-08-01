@@ -130,10 +130,8 @@ const required=[
   ,'missing[index].source="DEM5A";'
   ,'const sourceId=dem5Count?"MIXED":"DEM1A";'
   ,'return terrainContourGridFromNativeResult(fallback,zone,viewport,"DEM5A"'
-  ,'function terrainContourDisplayResolutionMode(scale,previousMode="")'
-  ,'if(previousMode==="DEM1A")return pixelsPerMeter<.65?"DEM5A":"DEM1A";'
-  ,'if(previousMode==="DEM5A")return pixelsPerMeter>=1?"DEM1A":"DEM5A";'
-  ,'const displayResolutionMode=quality==="detail"?"DEM1A":terrainContourDisplayResolutionMode(viewport.scale,previousMode);'
+  ,'const displayResolutionMode="DEM1A";'
+  ,'if(grid.gridPurpose==="contour"&&grid.nativeDemGrid)return !terrainContourGridCoversViewport(grid);'
   ,'const grid=currentIsDetailed?terrainGrid:await buildTerrainGrid("contour","detail");'
   ,'let min=Infinity,max=-Infinity,validCount=0;'
   ,'if(elevation<min)min=elevation;'
@@ -346,16 +344,8 @@ if(!registryParsed.loaded||registryParsed.parcels.length!==1||registryParsed.poi
 if(registryParsed.parcels[0].metadata.lotNumber!=='101-1'||registryParsed.parcels[0].metadata.precision!=='甲二')throw new Error('registry GeoJSON metadata parsing failed');
 if(registryParsed.parcels[0].points[0].x!==200000||registryParsed.parcels[0].points[0].y!==100000)throw new Error('registry projected coordinate order failed');
 
-const contourLodStart=html.indexOf('function terrainContourDisplayResolutionMode');
-const contourLodEnd=html.indexOf('function terrainViewportNeedsRefresh',contourLodStart);
-if(contourLodStart<0||contourLodEnd<0)throw new Error('missing contour display LOD function');
-const contourLodContext={Math};
-vm.createContext(contourLodContext);
-new vm.Script(html.slice(contourLodStart,contourLodEnd),{filename:'contour-display-lod.js'}).runInContext(contourLodContext);
-const contourLod=contourLodContext.terrainContourDisplayResolutionMode;
-if(contourLod(.0005)!=='DEM5A'||contourLod(.0009)!=='DEM1A')throw new Error('initial contour LOD threshold failed');
-if(contourLod(.0007,'DEM1A')!=='DEM1A'||contourLod(.0006,'DEM1A')!=='DEM5A')throw new Error('DEM1A exit hysteresis failed');
-if(contourLod(.0009,'DEM5A')!=='DEM5A'||contourLod(.001,'DEM5A')!=='DEM1A')throw new Error('DEM5A exit hysteresis failed');
+if(html.includes('function terrainContourDisplayResolutionMode'))throw new Error('zoom-based DEM5A contour fallback must stay disabled');
+if(!html.includes('const displayResolutionMode="DEM1A";'))throw new Error('contour display must stay on DEM1A');
 
 // Fixed aerial-photo export regression: an era layer must be created once,
 // and every generated boundary must reference that valid layer code.
