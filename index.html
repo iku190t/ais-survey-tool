@@ -3709,10 +3709,10 @@ function insertAerialSxfAssemblyRecords(srcText,definitionBlocks,placementBlocks
   if(!definitions&&!placements)return text;
   const attributeMatch=/\bdrawing_attribute_feature\s*\(/i.exec(text);
   const sheetMatch=/\bdrawing_sheet_feature\s*\(/i.exec(text);
-  const placementAnchor=attributeMatch||sheetMatch;
-  const placementBounds=placementAnchor&&getSxfFeatureBlockBoundsAt(text,placementAnchor.index);
-  if(!placementBounds)throw new Error("SFCの用紙定義を確認できませんでした");
-  const placementAt=placementBounds.start;
+  const sheetAnchor=attributeMatch||sheetMatch;
+  const sheetBounds=sheetAnchor&&getSxfFeatureBlockBoundsAt(text,sheetAnchor.index);
+  if(!sheetBounds)throw new Error("SFCの用紙定義を確認できませんでした");
+  const placementAt=sheetBounds.start;
   const prefix=text.slice(0,placementAt);
   const orgPattern=/\bsfig_org_feature\s*\(/ig;
   let orgMatch,lastOrgMatch=null;
@@ -3720,11 +3720,32 @@ function insertAerialSxfAssemblyRecords(srcText,definitionBlocks,placementBlocks
   if(!lastOrgMatch)throw new Error("SFCの部分図定義を確認できませんでした");
   const orgBounds=getSxfFeatureBlockBoundsAt(text,lastOrgMatch.index);
   if(!orgBounds||orgBounds.end>placementAt)throw new Error("SFCの部分図構造を確認できませんでした");
-  // Finish every compound definition before root placements. Keep the
-  // drawing attribute and sheet records outside the raster compound.
-  if(placements)text=text.slice(0,placementAt)+placements+"\r\n\r\n"+text.slice(placementAt);
-  if(definitions)text=text.slice(0,orgBounds.end)+"\r\n\r\n"+definitions+text.slice(orgBounds.end);
-  return text;
+  // Keep each raster definition and its root placement together. V-nas and
+  // TREND-ONE resolve the RASTER compound in this order; separating the
+  // locate record behind the source drawing's root locate shifts the image.
+  const block=[definitions,placements].filter(Boolean).join("\r\n\r\n");
+  return text.slice(0,orgBounds.end)+"\r\n\r\n"+block+text.slice(orgBounds.end);
+}
+function getAerialRasterPaperCorners(bounds,displayToPaper){
+  if(!bounds)throw new Error("SFCへ配置する航空写真の範囲がありません");
+  const sourceCorners=[
+    [bounds.minX,bounds.minY],[bounds.minX,bounds.maxY],
+    [bounds.maxX,bounds.maxY],[bounds.maxX,bounds.minY]
+  ];
+  const transformed=sourceCorners.map(([xNorth,yEast])=>{
+    const point=planeToSfcWorld(xNorth,yEast);
+    return sxfAffinePoint(displayToPaper,point.x*1000,point.y*1000);
+  });
+  if(transformed.some(point=>!Number.isFinite(point[0])||!Number.isFinite(point[1]))){
+    throw new Error("航空写真の配置座標を作成できませんでした");
+  }
+  const xs=transformed.map(point=>point[0]);
+  const ys=transformed.map(point=>point[1]);
+  const minX=Math.min(...xs),maxX=Math.max(...xs);
+  const minY=Math.min(...ys),maxY=Math.max(...ys);
+  return [
+    [minX,minY],[minX,maxY],[maxX,maxY],[maxX,minY],[minX,minY]
+  ];
 }
 function addAerialImageReferenceToSfc(srcText,jpegFileName,bounds,planePolygon,layerName){
   let text=String(srcText||"").replace(/[\s\r\n]+$/,"");
@@ -3744,23 +3765,11 @@ function addAerialImageReferenceToSfc(srcText,jpegFileName,bounds,planePolygon,l
   const imageWordSjis="\x89\xe6\x91\x9c";
   // OCF準拠CADが出力する画像付きSFZと同じRASTER複合図形名。
   const imageFeatureName=`$$ATRU$$${graphicId}$$RASTER$$${imageWordSjis}$$${jpegFileName}`;
-  if(!bounds)throw new Error("SFCへ配置する航空写真の範囲がありません");
-  const selectedCorners=Array.isArray(planePolygon)&&planePolygon.length>=3
-    ?planePolygon.map(point=>[point.xNorth,point.yEast])
-    :[
-      [bounds.minX,bounds.minY],[bounds.minX,bounds.maxY],
-      [bounds.maxX,bounds.maxY],[bounds.maxX,bounds.minY]
-    ];
-  const planeCorners=[...selectedCorners,selectedCorners[0]];
   const records=parseSxfFeatureRecords(flat);
   const num=ref=>{const value=parseFloat(unquoteSxfValue(ref));return Number.isFinite(value)?value:0;};
   const assembly=buildSxfAssemblyExpansion(records,num);
   const displayToPaper=assembly.displayToPaper||sxfAffineIdentity();
-  const paperCorners=planeCorners.map(([xNorth,yEast])=>{
-    const p=planeToSfcWorld(xNorth,yEast);
-    return sxfAffinePoint(displayToPaper,p.x*1000,p.y*1000);
-  });
-  if(paperCorners.some(p=>!Number.isFinite(p[0])||!Number.isFinite(p[1])))throw new Error("航空写真の配置座標を作成できませんでした");
+  const paperCorners=getAerialRasterPaperCorners(bounds,displayToPaper);
   // 外部図面の線属性を流用すると、色コード0など、その図面内だけで
   // 偶然成立していた参照を新規レイヤーへ持ち込むことがある。
   // 画像配置枠はSXFの定義済み属性だけで生成する。
@@ -13067,19 +13076,7 @@ function addAerialImageReferencesToSfc(srcText,imageSpecs){
     const imageWordSjis="\x89\xe6\x91\x9c";
     // OCF準拠CADが出力する画像付きSFZと同じRASTER複合図形名を使う。
     const featureName=`$$ATRU$$${nextSerial()}$$RASTER$$${imageWordSjis}$$${spec.jpegFileName}`;
-    const bounds=spec.bounds;
-    if(!bounds)throw new Error("航空写真の配置範囲がありません");
-    const selectedCorners=Array.isArray(spec.planePolygon)&&spec.planePolygon.length>=3
-      ?spec.planePolygon.map(point=>[point.xNorth,point.yEast])
-      :[[bounds.minX,bounds.minY],[bounds.minX,bounds.maxY],[bounds.maxX,bounds.maxY],[bounds.maxX,bounds.minY]];
-    const closed=[...selectedCorners,selectedCorners[0]];
-    const paperCorners=closed.map(([xNorth,yEast])=>{
-      const point=planeToSfcWorld(xNorth,yEast);
-      return sxfAffinePoint(displayToPaper,point.x*1000,point.y*1000);
-    });
-    if(paperCorners.some(point=>!Number.isFinite(point[0])||!Number.isFinite(point[1]))){
-      throw new Error("航空写真の配置座標を作成できませんでした");
-    }
+    const paperCorners=getAerialRasterPaperCorners(spec.bounds,displayToPaper);
     const xs=paperCorners.map(point=>point[0].toFixed(6)).join(",");
     const ys=paperCorners.map(point=>point[1].toFixed(6)).join(",");
     // Members precede sfig_org.  All root placements follow all definitions
