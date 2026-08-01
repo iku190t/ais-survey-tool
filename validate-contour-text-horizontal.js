@@ -1,0 +1,54 @@
+const fs=require("fs");
+
+const html=fs.readFileSync("index.html","utf8");
+const requireText=(needle,message)=>{if(!html.includes(needle))throw new Error(message);};
+
+const displayStart=html.indexOf("function drawTerrainContours(grid,staleViewport)");
+const displayEnd=html.indexOf("function drawTerrainOverlay()",displayStart);
+const cadStart=html.indexOf("function drawTerrainCadLabels()");
+const cadEnd=html.indexOf("async function finishTerrainCadSelection()",cadStart);
+const parserStart=html.indexOf("function parseSfcText(srcText, fileName)");
+const parserEnd=html.indexOf("function setRenderBounds",parserStart);
+const exportStart=html.indexOf("function getGeneratedHorizontalSxfTextAngle(baseText,points)");
+const exportEnd=html.indexOf("function buildGeneratedTextFontDefinition",exportStart);
+
+if([displayStart,displayEnd,cadStart,cadEnd,parserStart,parserEnd,exportStart,exportEnd].some(value=>value<0)){
+  throw new Error("contour text implementation blocks were not found");
+}
+
+const displayBlock=html.slice(displayStart,displayEnd);
+const cadBlock=html.slice(cadStart,cadEnd);
+const parserBlock=html.slice(parserStart,parserEnd);
+const exportBlock=html.slice(exportStart,exportEnd);
+
+requireText(
+  "/^等高線_(?:DEM1A_|DEM5A_)?計曲線$/.test(name)",
+  "reloaded contour label layers are not identified"
+);
+if(displayBlock.includes("ctx.rotate(item.angle)")){
+  throw new Error("terrain-analysis labels still follow contour segment angles");
+}
+if(!displayBlock.includes("ctx.rotate(-(rotationDeg||0)*Math.PI/180)")){
+  throw new Error("terrain-analysis labels are not horizontal to the drawing");
+}
+if(!cadBlock.includes("ctx.rotate(-(rotationDeg||0)*Math.PI/180)")){
+  throw new Error("CAD contour labels are not horizontal to the drawing");
+}
+if(!parserBlock.includes("angle:forceHorizontal?0:Math.atan2(tx.y,tx.x)*180/Math.PI")){
+  throw new Error("reloaded CAD contour labels can inherit partial-figure rotation");
+}
+if(!parserBlock.includes("align2:forceHorizontal?1:")){
+  throw new Error("reloaded CAD contour labels are not forced to horizontal writing");
+}
+if(!exportBlock.includes("return normalizeSxfTextAngle(-(Number.isFinite(placementOrientation)")){
+  throw new Error("SXF export does not cancel partial-figure placement rotation");
+}
+
+// The supplied regression file uses a 310-degree partial-figure placement and
+// a 50-degree text angle.  SXF composes them to 360 degrees (drawing horizontal).
+const normalize=angle=>((angle%360)+360)%360;
+if(Math.abs(normalize(310+50))>1e-9){
+  throw new Error("SXF partial-figure/text angle composition regression");
+}
+
+console.log("OK: terrain contour labels remain horizontal in display, export and reload paths");

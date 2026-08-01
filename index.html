@@ -10296,7 +10296,10 @@ function drawTerrainContours(grid,staleViewport){
   for(const item of [...labelCandidates.values()].sort((a,b)=>a.level-b.level)){
     const text=String(Math.round(item.level)),width=ctx.measureText(text).width+12,height=18,box={l:item.x-width/2,r:item.x+width/2,t:item.y-height/2,b:item.y+height/2};
     if(placed.some(p=>!(box.r+8<p.l||box.l-8>p.r||box.b+6<p.t||box.t-6>p.b)))continue;
-    placed.push(box);ctx.save();ctx.translate(item.x,item.y);ctx.rotate(item.angle);ctx.lineWidth=3.2;ctx.strokeStyle="rgba(0,0,0,.92)";ctx.strokeText(text,0,0);ctx.fillStyle=regularColor;ctx.fillText(text,0,0);ctx.restore();
+    // SXF text rotation is measured from the drawing's horizontal axis.
+    // Keep terrain-analysis labels on that same axis instead of rotating them
+    // along each contour segment.  Only the current view rotation is cancelled.
+    placed.push(box);ctx.save();ctx.translate(item.x,item.y);ctx.rotate(-(rotationDeg||0)*Math.PI/180);ctx.lineWidth=3.2;ctx.strokeStyle="rgba(0,0,0,.92)";ctx.strokeText(text,0,0);ctx.fillStyle=regularColor;ctx.fillText(text,0,0);ctx.restore();
   }
 }
 function drawTerrainOverlay(){
