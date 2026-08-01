@@ -54,8 +54,15 @@ requireText(
   "function drawGsiTileAttribution(context,width,height,text=GSI_TILE_ATTRIBUTION_TEXT)",
   "GSI tile attribution renderer is missing"
 );
-if((html.match(/drawGsiTileAttribution\(/g)||[]).length<4){
-  throw new Error("GSI tile attribution is not applied to CAD preview and SFC raster export");
+requireText(
+  '<a id="photoCredit" href="https://maps.gsi.go.jp/development/ichiran.html"',
+  "normal aerial-photo attribution is missing from the lower-right screen"
+);
+if(cadBlock.includes("drawGsiTileAttribution(")||exportBlock.includes("drawGsiTileAttribution(")){
+  throw new Error("GSI tile attribution is still embedded in CAD aerial-photo images");
+}
+if(!cadBlock.includes("attributionEmbedded:false")){
+  throw new Error("CAD aerial-photo metadata still says that attribution is embedded");
 }
 requireText(
   "const direct=await renderAerialSourceTilesForSfcExport(entry,displayToPaper);",
@@ -106,18 +113,16 @@ requireText(
   "function terrainCadSegmentDedupKey(a,b)",
   "chunked contour CAD export does not remove duplicate segments"
 );
-requireText(
-  "function terrainCadSourceLabelForPolygon(polygon)",
-  "contour CAD source attribution is missing"
-);
-requireText(
-  "appendTextLabel(s.terrainSourceLabel,layerCode,colorCode,true);",
-  "contour CAD source attribution is not exported as SFC text"
-);
+if(labelBlock.includes("terrainCadSourceLabelForPolygon")||annotationBlock.includes("appendTextLabel(s.terrainSourceLabel")){
+  throw new Error("contour CAD source attribution is still written to the drawing");
+}
 requireText(
   "encodeSfcText(GSI_DEM_ATTRIBUTION_TEXT)",
   "profile SFC source attribution is missing"
 );
+if(!html.includes("const verticalFont=/^@/.test(canonical);")||!html.includes("if(!verticalFont&&(normalized.includes")){
+  throw new Error("vertical @ font can still be reused for horizontal contour labels");
+}
 if(!annotationBlock.includes("Math.round(+label.align1||5)")){
   throw new Error("SFC contour labels do not default to the centre anchor");
 }

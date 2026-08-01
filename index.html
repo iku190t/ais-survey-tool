@@ -1870,7 +1870,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">閉じる・非表示</div><b>閉じる</b> は選んだ航空写真を残して設定画面だけ閉じます。航空写真を消す場合はスイッチをOFFにしてください。</div>
               <div class="helpBlock"><div class="helpHead">写真がない場合</div>その場所で利用できる航空写真が一枚もない場合は、メッセージを表示してスイッチをOFFへ戻します。</div>
               <div class="helpBlock"><div class="helpHead">位置情報</div>SFCと航空写真を合わせるため、初回は現在地から図面の座標系を確認します。位置情報の利用を許可してください。</div>
-              <div class="helpBlock"><div class="helpHead">出典</div>国土地理院の地理院タイルを通信で表示します。航空写真表示中は画面右下に出典を表示します。航空写真をCAD化した画像には右下へ「出典：国土地理院　地理院タイル」を記載し、等高線CAD・断面SFCには標高タイルを加工して作成したことを記載します。</div>
+              <div class="helpBlock"><div class="helpHead">出典</div>国土地理院の地理院タイルを通信で表示します。航空写真表示中は画面右下に出典を表示します。航空写真・等高線をCAD化したデータには出典文字を書き込みません。断面SFCには標高タイルを加工して作成したことを記載します。</div>
               <div class="helpBlock"><div class="helpHead">航空写真をCAD化</div>年代を選び、<b>範囲を選んでCAD化</b>を押します。図面上で多角形の頂点を順にタップして確定すると、年代付きレイヤーとして現在の図面へ固定配置します。保存時は画面の拡大率に関係なく、その場所で取得できる最も細かい地理院タイルから最終画像を直接作成し、中間画像の再圧縮による画質低下を防ぎます。背景の航空写真をOFFにしても固定した写真は残ります。PCで<b>名前を付けて保存</b>を選ぶと、SFCと参照JPEGを同じフォルダーへ保存します。外部CADで画像を表示するため、SFCとJPEGを同じフォルダーに置いたまま開いてください。</div>
               <div class="helpBlock"><div class="helpHead">地形解析</div>背景画面の<b>地形解析</b>を押すと地形解析画面へ進みます。<b>閉じる</b>で背景画面へ戻ります。<b>標高</b>、<b>傾斜角</b>、<b>等高線</b>、<b>水の流れ</b>、<b>概算土量</b>は1種類だけ表示され、選択中の青いボタンをもう一度押すと解除できます。取得中は選択ボタンに進行表示が出ます。</div>
               <div class="helpBlock"><div class="helpHead">標高</div>現在見えている範囲の最低標高から最高標高までを10段階に分け、低い場所を青、高い場所を赤で表示します。凡例には実際の標高値を表示します。</div>
@@ -3828,14 +3828,13 @@ async function renderVisibleAerialPhotoForSfc(worldPolygon){
     drawn++;
   }
   if(!drawn)throw new Error("この範囲の航空写真を取得できません");
-  drawGsiTileAttribution(outCtx,width,height);
   // JPEGが必要な外部CADとの互換性を維持しつつ、最高品質で保持する。
   const plainJpeg=await canvasToBlobAsync(output,"image/jpeg",1);
   const jpeg=await injectGeoReferenceIntoJpeg(plainJpeg,{
     zone:aerialPhotoZone,resolution,
     tieX:imageBounds.minY,tieY:imageBounds.maxX
   });
-  return {jpeg,source,bounds:imageBounds,planePolygon,resolution,width,height,attributionEmbedded:true};
+  return {jpeg,source,bounds:imageBounds,planePolygon,resolution,width,height,attributionEmbedded:false};
 }
 function getNextAerialImageSerial(srcText){
   const used=new Set();
@@ -4015,7 +4014,6 @@ async function renderAerialSourceTilesForSfcExport(entry,displayToPaper){
   }
   outputContext.restore();
   if(!drawn)return null;
-  drawGsiTileAttribution(outputContext,width,height);
   // Draw the original highest-zoom tiles directly into the final paper-aligned
   // JPEG. This avoids decoding and re-encoding the intermediate CAD preview.
   return {blob:await canvasToBlobAsync(output,"image/jpeg",1),paperCorners:geometry.paperCorners,width,height};
@@ -4077,9 +4075,6 @@ async function prepareAerialRasterForSfcExport(entry,displayToPaper){
     );
     outputContext.drawImage(image,0,0,sourceWidth,sourceHeight);
     outputContext.restore();
-    if(!entry.attributionEmbedded&&/^地理院タイル航空写真/.test(String(entry.layerName||""))){
-      drawGsiTileAttribution(outputContext,width,height);
-    }
     return {
       blob:await canvasToBlobAsync(output,"image/jpeg",1),
       paperCorners:geometry.paperCorners,width,height
@@ -10059,19 +10054,6 @@ function terrainCadLabelForPolyline(points,level){
   }
   return null;
 }
-function terrainCadSourceLabelForPolygon(polygon){
-  const points=(Array.isArray(polygon)?polygon:[]).filter(point=>point&&Number.isFinite(+point.x)&&Number.isFinite(+point.y));
-  if(!points.length)return null;
-  const units=getMemoWorldUnitsPerPaperMm();
-  return {
-    x:Math.max(...points.map(point=>+point.x))-2*units,
-    y:Math.min(...points.map(point=>+point.y))+2*units,
-    angle:0,align1:3,align2:1,
-    heightMm:2.5,
-    widthMm:measureSxfTextWidthMm(GSI_DEM_ATTRIBUTION_TEXT,2.5),
-    text:GSI_DEM_ATTRIBUTION_TEXT
-  };
-}
 function terrainCadPlaneBoundsFromWorldPolygon(worldPolygon){
   const planePolygon=worldPolygon.map(point=>{
     const plane=sfcWorldToPlane(point.x,point.y);return {x:plane.xNorth,y:plane.yEast};
@@ -10198,7 +10180,6 @@ function drawTerrainCadLabels(){
   for(const stroke of inkStrokes||[]){
     if(!stroke||!stroke.isTerrainContour||!isLayerVisible(getInkStrokeLayerId(stroke)))continue;
     if(stroke.terrainLabel)labels.push({stroke,label:stroke.terrainLabel,source:false});
-    if(stroke.terrainSourceLabel)labels.push({stroke,label:stroke.terrainSourceLabel,source:true});
   }
   if(!labels.length)return;ctx.save();ctx.font="700 12px sans-serif";
   for(const item of labels){const {stroke,label,source}=item,p=worldToScreen(label.x,label.y);ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(-(rotationDeg||0)*Math.PI/180);ctx.textAlign=source?"right":"center";ctx.textBaseline=source?"bottom":"middle";ctx.lineWidth=3;ctx.strokeStyle=darkTheme?"rgba(0,0,0,.9)":"rgba(255,255,255,.9)";ctx.strokeText(label.text,0,0);ctx.fillStyle=adaptContrastColor(getMemoExportColor(stroke));ctx.fillText(label.text,0,0);ctx.restore();}
@@ -10237,9 +10218,6 @@ async function finishTerrainCadSelection(){
     }
     const created=createTerrainCadStrokesFromGroups(groups);
     if(!created.length)throw new Error("指定範囲に等高線がありません");
-    const sourceLabel=terrainCadSourceLabelForPolygon(polygon);
-    const sourceTarget=created.find(stroke=>stroke.terrainContourKind==="index")||created[0];
-    if(sourceLabel&&sourceTarget)sourceTarget.terrainSourceLabel=sourceLabel;
     addInkStrokeOperation(created,"等高線CAD化");ensureLayerVisibility();renderLayerList();markMemoChanged();clearTerrainAnalysis();hideBusy();
     if(terrainPanel)terrainPanel.style.display="block";
     updateTerrainUi();showToast("CAD化しました",1800);
@@ -13843,8 +13821,12 @@ function buildGeneratedTextFontDefinition(baseText,startId){
   const fonts=parseSxfFeatureRecords(getFlatSxfText(baseText)).filter(record=>record.name==="text_font_feature");
   for(let index=0;index<fonts.length;index++){
     const raw=decodeShiftJisFromLatin1(unquoteSxfValue(fonts[index].args[0]||""));
-    const normalized=String(raw||"").normalize("NFKC").toLowerCase().replace(/[\s_-]+/g,"");
-    if(normalized.includes("ms\u30b4\u30b7\u30c3\u30af")||normalized.includes("msgothic")){
+    const canonical=String(raw||"").normalize("NFKC").trim();
+    const verticalFont=/^@/.test(canonical);
+    const normalized=canonical.toLowerCase().replace(/[\s_-]+/g,"");
+    // @付きフォントは縦書き用。横書き方向(1)と組み合わせると、外部CADで
+    // 数字1文字ずつが90度寝るため、等高線文字には再利用しない。
+    if(!verticalFont&&(normalized.includes("ms\u30b4\u30b7\u30c3\u30af")||normalized.includes("msgothic"))){
       return {fontCode:String(index+1),fontText:"",nextId:startId};
     }
   }
@@ -13957,7 +13939,6 @@ SXF*/`);
 SXF*/`);
         id += 1;
       }
-      appendTextLabel(s.terrainSourceLabel,layerCode,colorCode,true);
       appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
     }
   }
