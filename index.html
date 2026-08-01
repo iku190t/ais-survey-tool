@@ -399,6 +399,8 @@ label.fileBtn{
 #coordinateInspectBox{width:min(286px,88vw);background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:10px;box-shadow:0 12px 30px rgba(0,0,0,.42);box-sizing:border-box;pointer-events:auto;}
 #coordinateInspectHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
 #coordinateInspectTitle{font-size:15px;font-weight:800;}
+#coordinateInspectHeaderActions{display:flex;align-items:center;gap:6px;}
+#coordinateInspectCopyAllBtn{display:none;min-width:88px!important;}
 #coordinateInspectGrid{display:grid;gap:6px;font-size:13px;}
 .coordinateInspectRow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;}
 .coordinateInspectRow span{color:var(--muted);white-space:nowrap;}
@@ -1358,7 +1360,10 @@ gtag('config', 'G-88B9YPJXWP');
     <div id="coordinateInspectBox">
       <div id="coordinateInspectHeader">
         <div id="coordinateInspectTitle">情報</div>
-        <button id="coordinateInspectCloseBtn" class="panelCloseBtn" type="button">閉じる</button>
+        <div id="coordinateInspectHeaderActions">
+          <button id="coordinateInspectCopyAllBtn" class="panelUtilityBtn" type="button">まとめてコピー</button>
+          <button id="coordinateInspectCloseBtn" class="panelCloseBtn" type="button">閉じる</button>
+        </div>
       </div>
       <div id="coordinateInspectGrid">
         <div class="coordinateInspectRow">
@@ -8728,6 +8733,12 @@ function updateCoordinateInspectCopyButtons(){
     button.disabled=false;
     button.textContent="コピー";
   });
+  const copyAll=document.getElementById("coordinateInspectCopyAllBtn");
+  if(copyAll){
+    copyAll.style.display=visible?"inline-flex":"none";
+    copyAll.disabled=false;
+    copyAll.textContent="まとめてコピー";
+  }
 }
 async function copyCoordinateInspectValue(button){
   const source=document.getElementById(button?.dataset?.copySource||"");
@@ -8753,6 +8764,42 @@ async function copyCoordinateInspectValue(button){
     setTimeout(()=>{
       if(!button.isConnected)return;
       button.textContent="コピー";
+      button.disabled=false;
+    },900);
+  }catch(error){
+    console.error(error);
+    showToast("コピーできませんでした");
+  }
+}
+async function copyAllCoordinateInspectValues(button){
+  const x=String(document.getElementById("coordinateInspectX")?.textContent||"").trim();
+  const y=String(document.getElementById("coordinateInspectY")?.textContent||"").trim();
+  const elevation=String(document.getElementById("coordinateInspectElevation")?.textContent||"").replace(/\s*m\s*$/i,"").trim();
+  const invalid=value=>!value||value==="－"||value==="確認中…";
+  if(invalid(x)||invalid(y)||invalid(elevation)){
+    showToast(elevation==="確認中…"?"DEM標高を確認中です":"X・Y座標とDEM標高を確認できません");
+    return;
+  }
+  const value=`${x},${y},${elevation}`;
+  try{
+    if(navigator.clipboard&&window.isSecureContext){
+      await navigator.clipboard.writeText(value);
+    }else{
+      const textarea=document.createElement("textarea");
+      textarea.value=value;
+      textarea.setAttribute("readonly","");
+      textarea.style.position="fixed";
+      textarea.style.opacity="0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      if(!document.execCommand("copy"))throw new Error("copy failed");
+      textarea.remove();
+    }
+    button.textContent="コピー済み";
+    button.disabled=true;
+    setTimeout(()=>{
+      if(!button.isConnected)return;
+      button.textContent="まとめてコピー";
       button.disabled=false;
     },900);
   }catch(error){
@@ -16583,6 +16630,7 @@ document.getElementById("textLayerModal")?.addEventListener("selectstart",event=
   event.preventDefault();
 });
 document.getElementById("coordinateInspectCloseBtn")?.addEventListener("click",closeCoordinateInspectModal);
+document.getElementById("coordinateInspectCopyAllBtn")?.addEventListener("click",event=>copyAllCoordinateInspectValues(event.currentTarget));
 document.getElementById("coordinateInspectBox")?.addEventListener("click",event=>event.stopPropagation());
 document.getElementById("coordinateInspectModal")?.addEventListener("contextmenu",event=>event.preventDefault());
 document.getElementById("coordinateInspectModal")?.addEventListener("selectstart",event=>event.preventDefault());
@@ -17316,6 +17364,9 @@ canvas.addEventListener("mousedown", e=>{
     scheduleDraw();
     return;
   }
+  // PCでは左ドラッグを選択操作専用にし、通常時のパンを開始しない。
+  // 中ボタン・右ボタン、タッチ操作、各機能専用のドラッグは従来どおり維持する。
+  if(e.button===0&&!isTouchMobileLike()){dragging=false;return;}
   dragging=true; lastX=e.clientX; lastY=e.clientY;
 });
 window.addEventListener("mouseup", ()=>{
