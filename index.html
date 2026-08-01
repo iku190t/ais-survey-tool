@@ -410,6 +410,8 @@ label.fileBtn{
 #desktopCadCrosshair::before,#desktopCadCrosshair::after{content:"";position:absolute;left:50%;top:50%;background:rgba(255,255,255,.72);box-shadow:0 0 1px rgba(0,0,0,.9);}
 #desktopCadCrosshair::before{width:72px;height:1px;transform:translate(-50%,-50%);}
 #desktopCadCrosshair::after{width:1px;height:72px;transform:translate(-50%,-50%);}
+#desktopCadCrosshair .desktopCadCrosshairHit{display:none;position:absolute;left:50%;top:50%;width:12px;height:12px;box-sizing:border-box;border:1.5px solid #00e83f;transform:translate(-50%,-50%);filter:drop-shadow(0 0 1px rgba(0,0,0,.9));}
+#desktopCadCrosshair.interactive .desktopCadCrosshairHit{display:block;}
 body.light #desktopCadCrosshair::before,body.light #desktopCadCrosshair::after{background:rgba(0,0,0,.72);box-shadow:0 0 1px rgba(255,255,255,.9);}
 @media (hover:hover) and (pointer:fine){#desktopCadCrosshair{display:block;}}
 @media (min-width:821px){
@@ -1976,7 +1978,7 @@ gtag('config', 'G-88B9YPJXWP');
   </div>
 
   <canvas id="canvas"></canvas>
-  <div id="desktopCadCrosshair" aria-hidden="true"></div>
+  <div id="desktopCadCrosshair" aria-hidden="true"><span class="desktopCadCrosshairHit"></span></div>
   <div id="toast"></div>
   <div id="busyOverlay" role="status" aria-live="assertive" aria-busy="true">
     <div id="busyBox"><span id="busySpinner" aria-hidden="true"></span><div id="busyContent"><span id="busyMessage">処理中…</span><div id="busyProgress" hidden><div id="busyProgressInfo"><span id="busyProgressCount">0／0枚</span><span id="busyProgressPercent">0％</span></div><div id="busyProgressTrack"><span id="busyProgressFill"></span></div></div></div></div>
@@ -2180,6 +2182,9 @@ let hoverMeasurePoint = null;
 let hoverCursorScreen = null;
 let flashCursorScreen = null;
 let flashCursorUntil = 0;
+let desktopCadHoverPoint = null;
+let desktopCadHoverTimer = null;
+let desktopCadHoverInteractive = false;
 let lastTapMeasurePoint = null;
 let touchTapCandidate = null;
 let touchPanCandidate = null;
@@ -8885,9 +8890,10 @@ function drawCoordinateInspectMarker(){
   }
   ctx.restore();
 }
-function updateDesktopCadCrosshair(x,y,visible=true){
+function updateDesktopCadCrosshair(x,y,visible=true,interactive=desktopCadHoverInteractive){
   const crosshair=document.getElementById("desktopCadCrosshair");
   if(!crosshair||isTouchMobileLike())return;
+  crosshair.classList.toggle("interactive",!!visible&&!!interactive);
   if(!visible||!Number.isFinite(x)||!Number.isFinite(y)){
     crosshair.style.transform="translate3d(-100px,-100px,0)";
     return;
@@ -8897,6 +8903,39 @@ function updateDesktopCadCrosshair(x,y,visible=true){
 function drawDesktopCadCrosshair(){
   // The crosshair is a DOM overlay so it follows the native mouse without
   // waiting for a potentially expensive CAD canvas redraw.
+}
+function canUseDesktopCadObjectInteraction(){
+  return !isTouchMobileLike()&&hasLoadedDrawing()&&!measureMode&&!profileMode&&!profileLineDrag&&
+    !terrainCadSelectionMode&&!inkEnabled&&!controlPointEnabled;
+}
+function findDesktopCadInteractiveTarget(screenX,screenY){
+  if(!canUseDesktopCadObjectInteraction())return null;
+  const photo=hitTestPhotoPositionMarker(screenX,screenY);
+  if(photo)return {type:"photo",hit:photo};
+  const text=findEditableTextAtScreen(screenX,screenY);
+  return text?{type:"text",text}:null;
+}
+function clearDesktopCadObjectHover(){
+  desktopCadHoverPoint=null;
+  desktopCadHoverInteractive=false;
+  if(desktopCadHoverTimer){clearTimeout(desktopCadHoverTimer);desktopCadHoverTimer=null;}
+}
+function scheduleDesktopCadObjectHover(screenX,screenY,insideCanvas){
+  if(!insideCanvas||dragging||photoPositionAdjustDrag||profileLineDrag||inkDrawing||!canUseDesktopCadObjectInteraction()){
+    clearDesktopCadObjectHover();
+    updateDesktopCadCrosshair(screenX,screenY,insideCanvas,false);
+    return;
+  }
+  desktopCadHoverPoint={x:screenX,y:screenY};
+  updateDesktopCadCrosshair(screenX,screenY,true,desktopCadHoverInteractive);
+  if(desktopCadHoverTimer)return;
+  desktopCadHoverTimer=setTimeout(()=>{
+    desktopCadHoverTimer=null;
+    const point=desktopCadHoverPoint;
+    if(!point)return;
+    desktopCadHoverInteractive=!!findDesktopCadInteractiveTarget(point.x,point.y);
+    updateDesktopCadCrosshair(point.x,point.y,true,desktopCadHoverInteractive);
+  },45);
 }
 function clearTextLongPressTimer(){
   if(textLongPressTimer){clearTimeout(textLongPressTimer);textLongPressTimer=null;}
@@ -12475,8 +12514,8 @@ function getPhotoMarkerScreenGeometry(item){
   }
   return {center,radius,start,tip};
 }
-function hitTestPhotoPositionAdjust(screenX,screenY){
-  if(!photoPositionAdjustIsActive()||!isLayerVisible(PHOTO_POSITION_LAYER_ID))return null;
+function hitTestPhotoPositionMarker(screenX,screenY){
+  if(!isDesktopPhotoTool()||!isLayerVisible(PHOTO_POSITION_LAYER_ID))return null;
   for(let index=photoAnnotations.length-1;index>=0;index--){
     const item=photoAnnotations[index],geometry=getPhotoMarkerScreenGeometry(item);
     if(!geometry)continue;
@@ -12485,6 +12524,21 @@ function hitTestPhotoPositionAdjust(screenX,screenY){
     if(geometry.start&&geometry.tip&&profileDistanceToSegment(screenX,screenY,geometry.start[0],geometry.start[1],geometry.tip[0],geometry.tip[1])<=10)return {item,kind:"move"};
   }
   return null;
+}
+function hitTestPhotoPositionAdjust(screenX,screenY){
+  return photoPositionAdjustIsActive()?hitTestPhotoPositionMarker(screenX,screenY):null;
+}
+function activatePhotoPositionAdjustment(hit){
+  if(!hit||!hit.item||!isDesktopPhotoTool())return false;
+  setPhotoListPanelOpen(true);
+  setPhotoPositionAdjustMode(true);
+  selectedPhotoPositionItem=hit.item;
+  renderPhotoListPanel();
+  requestAnimationFrame(()=>{
+    if(selectedPhotoPositionItem===hit.item&&photoPositionAdjustIsActive())scrollPhotoListItemToCenter(hit.item,"smooth");
+  });
+  scheduleDraw();
+  return true;
 }
 function beginPhotoPositionAdjustDrag(screenX,screenY){
   const hit=hitTestPhotoPositionAdjust(screenX,screenY);
@@ -17256,13 +17310,24 @@ document.addEventListener("click", (e)=>{
 canvas.addEventListener("mousedown", e=>{
   if(e.button===0){
     const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
+    if(!isTouchMobileLike()&&canUseDesktopCadObjectInteraction()){
+      const photoHit=hitTestPhotoPositionMarker(local.x,local.y);
+      if(photoHit){
+        activatePhotoPositionAdjustment(photoHit);
+        if(beginPhotoPositionAdjustDrag(local.x,local.y)){
+          e.preventDefault();
+          clearTextLongPressTimer();
+          dragging=false;
+          return;
+        }
+      }
+    }
     if(beginPhotoPositionAdjustDrag(local.x,local.y)){
       e.preventDefault();
       clearTextLongPressTimer();
       dragging=false;
       return;
     }
-    startTextLongPress(e.clientX,e.clientY,"mouse");
   }
   if ((e.button === 1) || (e.button === 2)) {
     dragging = true;
@@ -17332,18 +17397,22 @@ window.addEventListener("mouseup", ()=>{
 });
 window.addEventListener("mousemove", e=>{
   cancelTextLongPressIfMoved(e.clientX,e.clientY);
-  const ptLocal = getCanvasLocalPointFromClient(e.clientX, e.clientY);
-  const ox = ptLocal.x, oy = ptLocal.y;
   const canvasRect=canvas.getBoundingClientRect();
+  const ox=e.clientX-canvasRect.left,oy=e.clientY-canvasRect.top;
   const cursorInsideCanvas=
     e.clientX>=canvasRect.left&&e.clientX<=canvasRect.right&&
     e.clientY>=canvasRect.top&&e.clientY<=canvasRect.bottom;
   hoverCursorScreen=cursorInsideCanvas?{x:ox,y:oy}:null;
-  updateDesktopCadCrosshair(ox,oy,cursorInsideCanvas);
+  scheduleDesktopCadObjectHover(ox,oy,cursorInsideCanvas);
 
   if(photoPositionAdjustDrag){
     movePhotoPositionAdjustDrag(ox,oy);
     return;
+  }
+  if(dragging){
+    suspendGpsFollowFromUserGesture();
+    view.tx += e.clientX-lastX; view.ty += e.clientY-lastY;
+    lastX=e.clientX; lastY=e.clientY; scheduleDraw(); return;
   }
   if(photoPositionAdjustIsActive()&&cursorInsideCanvas){
     const photoHit=hitTestPhotoPositionAdjust(ox,oy);
@@ -17375,12 +17444,6 @@ window.addEventListener("mousemove", e=>{
     scheduleDraw();
     return;
   }
-  if(dragging){
-    suspendGpsFollowFromUserGesture();
-    view.tx += e.clientX-lastX; view.ty += e.clientY-lastY;
-    lastX=e.clientX; lastY=e.clientY; scheduleDraw(); return;
-  }
-
   if(measureMode){
     const pt = chooseMeasurePointByMode(ox, oy);
     hoverMeasurePoint = pt || null;
@@ -17388,9 +17451,8 @@ window.addEventListener("mousemove", e=>{
     hoverMeasurePoint = null;
   }
   if(measureMode)scheduleDraw();
-  updateUndoRedoUI();
 });
-canvas.addEventListener("mouseleave", ()=>{ hoverCursorScreen=null; hoverMeasurePoint=null; updateDesktopCadCrosshair(0,0,false); if(measureMode)requestAnimationFrame(draw); });
+canvas.addEventListener("mouseleave", ()=>{ hoverCursorScreen=null; hoverMeasurePoint=null; clearDesktopCadObjectHover(); updateDesktopCadCrosshair(0,0,false,false); if(measureMode)requestAnimationFrame(draw); });
 canvas.addEventListener("contextmenu", e=> e.preventDefault());
 canvas.addEventListener("wheel", e=>{
   e.preventDefault();
@@ -17420,6 +17482,18 @@ document.addEventListener("dblclick", e=>{ e.preventDefault(); }, {capture:true,
 
 canvas.addEventListener("click", e=>{
   if(Date.now() < suppressClickUntil) return;
+  if(e.button===0&&!isTouchMobileLike()&&canUseDesktopCadObjectInteraction()){
+    const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
+    const target=findDesktopCadInteractiveTarget(local.x,local.y);
+    if(target?.type==="photo"){
+      activatePhotoPositionAdjustment(target.hit);
+      return;
+    }
+    if(target?.type==="text"){
+      openTextLayerModal(target.text);
+      return;
+    }
+  }
   if(terrainCadSelectionMode){
     const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);addTerrainCadPolygonPoint(local.x,local.y);return;
   }
