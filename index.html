@@ -6481,7 +6481,7 @@ function rawColorFromIndex(idx){
   return (resolved || sxfBaseColorFromIndex(idx)).toLowerCase();
 }
 function colorFromIndex(idx,layer){
-  const override=layerColorOverrides&&layerColorOverrides[String(layer)];
+  const override=getLayerColorOverride(layer);
   if(override)return adaptContrastColor(override);
   const layerSpec=getMemoLayerSpecByLayer(layer);
   if(layerSpec?.id==="terrain:regular")return terrainContourRegularColor();
@@ -7898,6 +7898,34 @@ function getLayerBaseColor(layer){
   const ellipseArc=(data.ellipseArcs||[]).find(v=>same(v.layer)); if(ellipseArc)return rawColorFromIndex(ellipseArc.color);
   return darkTheme?"#ffffff":"#000000";
 }
+function getEquivalentLayerColorKeys(layer){
+  const direct=String(layer);
+  const keys=[direct];
+  const spec=getMemoLayerSpecByLayer(layer);
+  if(spec&&!keys.includes(String(spec.id)))keys.push(String(spec.id));
+  const label=spec?.name||getLayerLabel(layer);
+  if(label&&data&&data.layerNames){
+    for(const [code,name] of Object.entries(data.layerNames)){
+      if(String(name||"")===String(label)&&!keys.includes(String(code)))keys.push(String(code));
+    }
+  }
+  return keys;
+}
+function getLayerColorOverride(layer){
+  for(const key of getEquivalentLayerColorKeys(layer)){
+    const color=layerColorOverrides[String(key)];
+    if(color)return String(color).toLowerCase();
+  }
+  return null;
+}
+function setLayerColorOverride(layer,color){
+  const value=String(color||"").toLowerCase();
+  if(!value)return;
+  for(const key of getEquivalentLayerColorKeys(layer))layerColorOverrides[String(key)]=value;
+}
+function getCurrentLayerColor(layer,fallback=null){
+  return getLayerColorOverride(layer)||fallback||getLayerBaseColor(layer);
+}
 const LAYER_COLOR_PALETTE = [
   "#000000","#ffffff","#808080","#c0c0c0","#ff0000","#00b050","#0070c0","#ffff00",
   "#ff00ff","#00ffff","#800000","#008000","#000080","#808000","#800080","#008080",
@@ -7915,9 +7943,9 @@ function applyLayerPaletteColor(color){
   const selected=String(color||"").toLowerCase();
   if(!selected||!layerColorPaletteTarget)return;
   if(layerColorPaletteTarget.type==="all"){
-    for(const layer of getAllLayers())layerColorOverrides[String(layer)]=selected;
+    for(const layer of getAllLayers())setLayerColorOverride(layer,selected);
   }else{
-    layerColorOverrides[String(layerColorPaletteTarget.layer)]=selected;
+    setLayerColorOverride(layerColorPaletteTarget.layer,selected);
   }
   closeLayerColorPalette();
   renderLayerList();
@@ -8026,7 +8054,7 @@ function nearestSxfPredefinedColorCode(hex){
   return best;
 }
 function getTargetLayerColorCode(layer){
-  const override=layerColorOverrides[String(layer)];
+  const override=getLayerColorOverride(layer);
   return override?nearestSxfPredefinedColorCode(override):getLayerSourceColorCode(layer);
 }
 function refreshParsedSfcAfterTextLayerEdit(){
@@ -8131,7 +8159,7 @@ function renderRecentTextLayerButton(button,def){
   if(!def)return;
   const swatch=document.createElement("span");
   swatch.className="textLayerChoiceSwatch";
-  swatch.style.setProperty("--layer-choice-color",layerColorOverrides[String(def.code)]||getLayerBaseColor(def.code));
+  swatch.style.setProperty("--layer-choice-color",getCurrentLayerColor(def.code));
   const label=document.createElement("span");
   label.className="textLayerChoiceName";
   label.textContent=`${def.name}へ変更`;
@@ -8189,7 +8217,7 @@ function renderTextLayerChoiceList(){
     button.disabled=String(def.code)===current;
     const swatch=document.createElement("span");
     swatch.className="textLayerChoiceSwatch";
-    swatch.style.setProperty("--layer-choice-color",layerColorOverrides[String(def.code)]||getLayerBaseColor(def.code));
+    swatch.style.setProperty("--layer-choice-color",getCurrentLayerColor(def.code));
     const name=document.createElement("span");
     name.className="textLayerChoiceName";
     name.textContent=def.name;
@@ -8561,7 +8589,7 @@ function renderLayerList(){
       if(e.key==="Enter"||e.key===" "){e.preventDefault();openLayerDeleteConfirm(layer);}
     });
     const color=document.createElement("button");color.type="button";color.className="layerColorButton";color.title="表示色を変更";
-    const currentColor=(layerColorOverrides[String(layer)]||getLayerBaseColor(layer)).toLowerCase();
+    const currentColor=getCurrentLayerColor(layer).toLowerCase();
     color.style.setProperty("--layer-color",currentColor);
     color.setAttribute("aria-label",`${getLayerLabel(layer)}の表示色を変更`);
     color.addEventListener("click",()=>openLayerColorPalette({type:"layer",layer},currentColor));
@@ -9207,11 +9235,10 @@ function updateMeasureBox(){
 function drawInkStroke(stroke){
   const inkLayer=getInkStrokeLayerId(stroke);
   if(inkLayer!=null && !isLayerVisible(inkLayer))return;
-  const layerOverride=inkLayer==null?null:layerColorOverrides[String(inkLayer)];
   const defaultColor=stroke?.isTerrainContour&&stroke.terrainContourKind==="regular"
     ?terrainContourRegularColor()
     :getMemoExportColor(stroke);
-  const strokeColor=adaptContrastColor(layerOverride || defaultColor);
+  const strokeColor=adaptContrastColor(inkLayer==null?defaultColor:getCurrentLayerColor(inkLayer,defaultColor));
   ctx.save();
   ctx.lineCap="round";
   ctx.lineJoin="round";
@@ -11421,43 +11448,24 @@ function getInkStrokeLayerId(stroke){
 function getMemoExportColor(stroke){
   const spec=getMemoLayerSpecForStroke(stroke);
   const layer=getInkStrokeLayerId(stroke);
-  // The layer colour picker can return standard CSS colours (#ff0000 etc.)
-  // which are not the UI palette literals.  Always canonicalise them before
-  // looking up an SXF predefined-colour code.
-  const requested=String((layer!=null&&layerColorOverrides[String(layer)])||spec.color).toLowerCase();
-  const key=getMemoColorKey(requested);
-  return (MEMO_LAYER_SPECS.find(v=>v.colorKey===key)||spec).color.toLowerCase();
+  // Generated CAD geometry must follow the current logical layer colour.
+  // A saved SFC can contain a numeric source-layer code while the live editor
+  // uses a synthetic id (photo:positions, terrain:DEM1A:index, ...), so resolve
+  // both as one layer before choosing the nearest safe SXF predefined colour.
+  const requested=getCurrentLayerColor(layer==null?spec.id:layer,spec.color);
+  return sxfBaseColorFromIndex(nearestSxfPredefinedColorCode(requested));
 }
-const MEMO_COLOR_TO_FILE_CODE = {
-  "#000000": "1",
-  "#ff3030": "2",
-  "#00a86b": "3",
-  "#007aff": "4",
-  "#ffd400": "5",
-  "#ff66ff": "6",
-  "#00ffff": "7",
-  "#ffffff": "8"
-};
-const FILE_CODE_TO_DRAW_COLOR = {
-  1: "#000000",
-  2: "#ff3030",
-  3: "#00a86b",
-  4: "#007aff",
-  5: "#ffd400",
-  6: "#ff66ff",
-  7: "#00ffff",
-  8: "#ffffff"
-};
-const MEMO_COLOR_TO_PREDEFINED_NAME = {
-  "#000000": "black",
-  "#ff3030": "red",
-  "#00a86b": "green",
-  "#007aff": "blue",
-  "#ffd400": "yellow",
-  "#ff66ff": "magenta",
-  "#00ffff": "cyan",
-  "#ffffff": "white"
-};
+const MEMO_COLOR_TO_FILE_CODE = Object.freeze(Object.fromEntries(
+  Object.entries(SXF_PREDEFINED_COLOR_HEX_BY_CODE).map(([code,hex])=>[String(hex).toLowerCase(),String(code)])
+));
+const FILE_CODE_TO_DRAW_COLOR = Object.freeze(Object.fromEntries(
+  Object.entries(SXF_PREDEFINED_COLOR_HEX_BY_CODE).map(([code,hex])=>[String(code),String(hex).toLowerCase()])
+));
+const MEMO_COLOR_TO_PREDEFINED_NAME = Object.freeze(Object.fromEntries(
+  Object.entries(SXF_PREDEFINED_COLOR_HEX_BY_CODE).map(([code,hex])=>[
+    String(hex).toLowerCase(),SXF_PREDEFINED_COLOR_NAMES_BY_CODE[code]
+  ])
+));
 const MEMO_FILE_COLOR_CODE = "8";
 const MEMO_FILE_TYPE_CODE = "1";
 const MEMO_FILE_WIDTH_CODE = "3";
@@ -11959,14 +11967,14 @@ function buildPhotoAnnotationExportStrokes(){
   const positionDeleted=deletedLayerNames.has(PHOTO_POSITION_LAYER_NAME);
   const listDeleted=deletedLayerNames.has(PHOTO_LIST_LAYER_NAME);
   const addLine=(points,layerId,label=null)=>out.push({
-    type:"freehand",color:layerId===PHOTO_LIST_LAYER_ID?"#007aff":"#ffd400",opacity:1,eraser:false,
+    type:"freehand",color:getCurrentLayerColor(layerId),opacity:1,eraser:false,
     screenWidthPx:null,worldWidthMm:0.13,width:13,photoLayerId:layerId,photoTextLabel:label,points
   });
   if(!positionDeleted){
     for(const item of photoAnnotations){
       const radius=(photoSettings.circleDiameterMm/2)*units,cx=item.markerX,cy=item.markerY;
       out.push({
-        type:"freehand",color:"#ffd400",opacity:1,eraser:false,screenWidthPx:null,worldWidthMm:0.13,width:13,
+        type:"freehand",color:getCurrentLayerColor(PHOTO_POSITION_LAYER_ID),opacity:1,eraser:false,screenWidthPx:null,worldWidthMm:0.13,width:13,
         isCircleMemo:true,paperDiameterMm:photoSettings.circleDiameterMm,photoLayerId:PHOTO_POSITION_LAYER_ID,
         photoTextLabel:{text:String(item.number),x:cx,y:cy,heightMm:photoSettings.textHeightMm,widthMm:Math.max(photoSettings.textHeightMm,String(item.number).length*photoSettings.textHeightMm*.72),align1:5,align2:1,angle:0},
         points:makePhotoCirclePoints(cx,cy,radius)
@@ -12055,7 +12063,7 @@ function drawPhotoAnnotationsOverlay(){
   if(!photoAnnotations.length)return;
   const units=getMemoWorldUnitsPerPaperMm();
   if(isLayerVisible(PHOTO_POSITION_LAYER_ID)){
-    const color=adaptContrastColor(layerColorOverrides[PHOTO_POSITION_LAYER_ID]||"#ff9800");
+    const color=adaptContrastColor(getCurrentLayerColor(PHOTO_POSITION_LAYER_ID));
     ctx.save();ctx.strokeStyle=color;ctx.fillStyle=color;ctx.globalAlpha=1;ctx.lineWidth=Math.max(.65,.13*view.scale);ctx.lineCap="round";ctx.lineJoin="round";
     for(const item of photoAnnotations){
       const center=worldToScreen(item.markerX,item.markerY);
@@ -12083,7 +12091,7 @@ function drawPhotoAnnotationsOverlay(){
     ctx.restore();
   }
   if(isLayerVisible(PHOTO_LIST_LAYER_ID)){
-    const color=adaptContrastColor(layerColorOverrides[PHOTO_LIST_LAYER_ID]||"#00bcd4");
+    const color=adaptContrastColor(getCurrentLayerColor(PHOTO_LIST_LAYER_ID));
     const displayRad=-(rotationDeg||0)*Math.PI/180;
     const displayLineVector={x:Math.cos(displayRad),y:Math.sin(displayRad)};
     ctx.save();ctx.strokeStyle=color;ctx.fillStyle=color;ctx.globalAlpha=1;ctx.lineWidth=Math.max(.5,.1*view.scale);ctx.textAlign="left";ctx.textBaseline="bottom";
@@ -15375,7 +15383,7 @@ const layersColorAllBtn=document.getElementById("layersColorAllBtn");
 if(layersColorAllBtn)layersColorAllBtn.addEventListener("click",()=>{
   const layers=getAllLayers();
   const first=layers.length?String(layers[0]):"";
-  const current=first?(layerColorOverrides[first]||getLayerBaseColor(first)):"";
+  const current=first?getCurrentLayerColor(first):"";
   openLayerColorPalette({type:"all"},current);
 });
 const layerColorPaletteModal=document.getElementById("layerColorPaletteModal");
