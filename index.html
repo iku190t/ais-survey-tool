@@ -11857,6 +11857,11 @@ function getPhotoListLayout(){
     rowHeight
   }));
 }
+function formatPhotoListRowText(item){
+  const maxNumber=(photoAnnotations||[]).reduce((max,entry)=>Math.max(max,Math.abs(Math.trunc(+entry.number||0))),0);
+  const numberWidth=Math.max(1,String(maxNumber).length);
+  return `${String(Math.trunc(+item.number||0)).padEnd(numberWidth," ")}      ${String(item.fileName||"")}`;
+}
 function getMainDrawingSheetRotatedBounds(){
   const placement=data&&data._mainDrawingPlacement;
   const sheet=data&&data._drawingSheet;
@@ -11974,7 +11979,7 @@ function buildPhotoAnnotationExportStrokes(){
     const lineVector={x:Math.cos(compensationRad),y:Math.sin(compensationRad)};
     const paperUpVector={x:-Math.sin(compensationRad),y:Math.cos(compensationRad)};
     for(const row of getPhotoListLayout()){
-      const text=`${row.item.number}      ${row.item.fileName}`;
+      const text=formatPhotoListRowText(row.item);
       const lineLength=PHOTO_LIST_LINE_WIDTH_MM*units;
       const textOffset=PHOTO_LIST_TEXT_OFFSET_MM*units;
       addLine([
@@ -12064,12 +12069,15 @@ function drawPhotoAnnotationsOverlay(){
   }
   if(isLayerVisible(PHOTO_LIST_LAYER_ID)){
     const color=adaptContrastColor(layerColorOverrides[PHOTO_LIST_LAYER_ID]||"#00bcd4");
+    const displayRad=-(rotationDeg||0)*Math.PI/180;
+    const displayLineVector={x:Math.cos(displayRad),y:Math.sin(displayRad)};
     ctx.save();ctx.strokeStyle=color;ctx.fillStyle=color;ctx.globalAlpha=1;ctx.lineWidth=Math.max(.5,.1*view.scale);ctx.textAlign="left";ctx.textBaseline="bottom";
     for(const row of getPhotoListLayout()){
-      const a=worldToScreen(row.x,row.y),b=worldToScreen(row.x+PHOTO_LIST_LINE_WIDTH_MM*units,row.y);
+      const lineLength=PHOTO_LIST_LINE_WIDTH_MM*units;
+      const a=worldToScreen(row.x,row.y),b=worldToScreen(row.x+displayLineVector.x*lineLength,row.y+displayLineVector.y*lineLength);
       ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
       ctx.font=`400 ${Math.max(4,PHOTO_LIST_TEXT_HEIGHT_MM*units*view.scale)}px "MS Gothic","ＭＳ ゴシック",monospace`;
-      ctx.fillText(`${row.item.number}      ${row.item.fileName}`,a[0],a[1]-Math.max(1,PHOTO_LIST_TEXT_OFFSET_MM*units*view.scale));
+      ctx.fillText(formatPhotoListRowText(row.item),a[0],a[1]-Math.max(1,PHOTO_LIST_TEXT_OFFSET_MM*units*view.scale));
     }
     ctx.restore();
   }
