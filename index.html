@@ -584,6 +584,12 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #busyOverlay.show{display:flex;}
 #busyBox{display:flex;align-items:center;gap:11px;max-width:min(82vw,360px);padding:12px 16px;border-radius:14px;background:rgba(25,25,25,.96);color:#fff;border:1px solid rgba(255,255,255,.32);box-shadow:0 12px 30px rgba(0,0,0,.4);font-size:14px;font-weight:800;}
 #busySpinner{width:21px;height:21px;flex:0 0 21px;border-radius:50%;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;animation:busySpin .75s linear infinite;}
+#busyContent{display:grid;gap:7px;min-width:min(58vw,230px);}
+#busyProgress[hidden]{display:none;}
+#busyProgress{display:grid;gap:4px;width:100%;}
+#busyProgressInfo{display:flex;align-items:center;justify-content:space-between;gap:14px;font-size:12px;font-variant-numeric:tabular-nums;}
+#busyProgressTrack{height:7px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.22);}
+#busyProgressFill{display:block;width:0;height:100%;border-radius:inherit;background:#2f80ff;transition:width .16s ease-out;}
 @keyframes busySpin{to{transform:rotate(360deg);}}
 #startupBox{
   position:relative;z-index:1;
@@ -1967,7 +1973,7 @@ gtag('config', 'G-88B9YPJXWP');
   <div id="desktopCadCrosshair" aria-hidden="true"></div>
   <div id="toast"></div>
   <div id="busyOverlay" role="status" aria-live="assertive" aria-busy="true">
-    <div id="busyBox"><span id="busySpinner" aria-hidden="true"></span><span id="busyMessage">処理中…</span></div>
+    <div id="busyBox"><span id="busySpinner" aria-hidden="true"></span><div id="busyContent"><span id="busyMessage">処理中…</span><div id="busyProgress" hidden><div id="busyProgressInfo"><span id="busyProgressCount">0／0枚</span><span id="busyProgressPercent">0％</span></div><div id="busyProgressTrack"><span id="busyProgressFill"></span></div></div></div></div>
   </div>
 </div>
 
@@ -2072,6 +2078,10 @@ function getCanvasLocalPointFromClient(clientX, clientY){
 const toastEl = document.getElementById("toast");
 const busyOverlay = document.getElementById("busyOverlay");
 const busyMessage = document.getElementById("busyMessage");
+const busyProgress = document.getElementById("busyProgress");
+const busyProgressCount = document.getElementById("busyProgressCount");
+const busyProgressPercent = document.getElementById("busyProgressPercent");
+const busyProgressFill = document.getElementById("busyProgressFill");
 const modeStatus = document.getElementById("modeStatus");
 const layerPanel = document.getElementById("layerPanel");
 const layerFab = document.getElementById("layerFab");
@@ -6105,13 +6115,28 @@ function resetFirstUseHints(){
   showToast("操作案内をリセットしました",1800);
 }
 function showBusy(message="処理中…"){
+  clearBusyProgress();
   if(busyMessage) busyMessage.textContent=String(message||"処理中…");
   if(busyOverlay) busyOverlay.classList.add("show");
 }
 function updateBusy(message){
   if(busyMessage) busyMessage.textContent=String(message||"処理中…");
 }
+function clearBusyProgress(){
+  if(busyProgress)busyProgress.hidden=true;
+  if(busyProgressFill)busyProgressFill.style.width="0%";
+}
+function updateBusyPhotoCount(completed,total){
+  const safeTotal=Math.max(0,Math.floor(Number(total)||0));
+  const safeCompleted=Math.max(0,Math.min(safeTotal,Math.floor(Number(completed)||0)));
+  const percent=safeTotal?Math.round(safeCompleted/safeTotal*100):0;
+  if(busyProgress)busyProgress.hidden=false;
+  if(busyProgressCount)busyProgressCount.textContent=`${safeCompleted}／${safeTotal}枚`;
+  if(busyProgressPercent)busyProgressPercent.textContent=`${percent}％`;
+  if(busyProgressFill)busyProgressFill.style.width=`${percent}%`;
+}
 function hideBusy(){
+  clearBusyProgress();
   if(busyOverlay) busyOverlay.classList.remove("show");
 }
 function waitForUiPaint(){
@@ -13318,7 +13343,7 @@ function fitPhotoAlbumImage(image,rect){
   const width=Math.max(1,image.width*scale),height=Math.max(1,image.height*scale);
   return {x:rect.x+(rect.width-width)/2,y:rect.y+(rect.height-height)/2,width,height};
 }
-async function buildPhotoAlbumXlsx(settings){
+async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
   await ensurePhotoDemElevations();
   const sources=photoAnnotations.map(item=>photoSourceFiles.get(photoAlbumSourceKey(item.fileName))||null);
   const missing=sources.reduce((count,source)=>count+(source?0:1),0);
@@ -13403,7 +13428,10 @@ async function buildPhotoAlbumXlsx(settings){
         for(let guideRow=slotTop+7;guideRow<=slotBottom;guideRow++)mergeComment(guideRow,commentColStart,guideRow,commentColEnd,"",false);
       }
     }
-    if(index%3===2)await new Promise(resolve=>setTimeout(resolve,0));
+    if(typeof onProgress==="function"){
+      onProgress(index+1,photoAnnotations.length);
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+    }else if(index%3===2)await new Promise(resolve=>setTimeout(resolve,0));
   }
   const rows=[];
   for(let row=1;row<=totalRows;row++){
@@ -13448,6 +13476,8 @@ async function buildPhotoAlbumXlsx(settings){
     {name:"xl/drawings/_rels/drawing1.xml.rels",blob:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${drawingRels.join("")}</Relationships>`},
     ...media
   ];
+  if(typeof onStage==="function")onStage("excel");
+  await new Promise(resolve=>requestAnimationFrame(resolve));
   return createZipFromFiles(files);
 }
 async function exportPhotoAlbumExcel(){
@@ -13465,10 +13495,14 @@ async function exportPhotoAlbumExcel(){
       console.error(error);showToast("保存先を選択できませんでした",3200);return;
     }
   }
-  showBusy("写真帳を作成中…");await waitForUiPaint();
+  showBusy("写真帳を作成中…");updateBusyPhotoCount(0,photoAnnotations.length);await waitForUiPaint();
   try{
-    const blob=await buildPhotoAlbumXlsx(settings);
-    if(saveHandle){updateBusy("写真帳を保存中…");await writeBlobToHandle(saveHandle,blob);hideBusy();showToast("写真帳を保存しました");return;}
+    const blob=await buildPhotoAlbumXlsx(
+      settings,
+      (completed,total)=>updateBusyPhotoCount(completed,total),
+      stage=>{if(stage==="excel"){clearBusyProgress();updateBusy("Excel作成中…");}}
+    );
+    if(saveHandle){clearBusyProgress();updateBusy("保存中…");await writeBlobToHandle(saveHandle,blob);hideBusy();showToast("写真帳を保存しました");return;}
     hideBusy();
     downloadBlob(blob,fileName);showToast("写真帳を作成しました");
   }catch(error){hideBusy();console.error(error);showToast(error&&error.message||"写真帳を作成できませんでした",3600);}

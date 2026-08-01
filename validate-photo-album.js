@@ -47,7 +47,10 @@ const checks = [
   ["写真位置を座標へ反映", /function applyPhotoAdjustedWorldPosition\(item,worldX,worldY\)[\s\S]*item\.xNorth=plane\.xNorth;item\.yEast=plane\.yEast/],
   ["矢印先端で方向回転", /item\.direction=\(\(Math\.atan2\(dy,dx\)\*180\/Math\.PI\)\%360\+360\)\%360/],
   ["調整後の8方向を一覧Excelへ出力", /["番号","ファイル名","撮影時間","X座標","Y座標","DEM標高","使用DEM","撮影方向"]/],
-  ["保存先を生成前に指定", /let saveHandle=null;[\s\S]*showSaveFilePicker[\s\S]*showBusy\("写真帳を作成中…"\)[\s\S]*buildPhotoAlbumXlsx\(settings\)/],
+  ["保存先を生成前に指定", /let saveHandle=null;[\s\S]*showSaveFilePicker[\s\S]*showBusy\("写真帳を作成中…"\)[\s\S]*buildPhotoAlbumXlsx\(/],
+  ["写真帳の枚数進捗表示", /id="busyProgressCount">0／0枚<[\s\S]*function updateBusyPhotoCount\(completed,total\)[\s\S]*safeCompleted[\s\S]*safeTotal/],
+  ["写真1枚ごとに進捗更新", /onProgress\(index\+1,photoAnnotations\.length\)/],
+  ["Excel作成と保存の段階表示", /onStage\("excel"\)[\s\S]*updateBusy\("Excel作成中…"\)[\s\S]*updateBusy\("保存中…"\)/],
   ["保存先選択失敗時に自動ダウンロードしない", /showToast\("保存先を選択できませんでした",3200\);return;/],
 ];
 

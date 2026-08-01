@@ -55,7 +55,9 @@ let browser;
     }
     const settings={comment1:'number',comment2:'fileName',comment3:'capturedAt',custom1:'',custom2:'',custom3:'',miniMap:true};
     const encode=async blob=>{const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(binary);};
-    return {three:await encode(await buildPhotoAlbumXlsx({...settings,layout:'3'})),four:await encode(await buildPhotoAlbumXlsx({...settings,layout:'4'})),spread:await encode(await buildPhotoAlbumXlsx({...settings,layout:'spread'}))};
+    const progress=[],stages=[];
+    const threeBlob=await buildPhotoAlbumXlsx({...settings,layout:'3'},(completed,total)=>progress.push(completed+'/'+total),stage=>stages.push(stage));
+    return {three:await encode(threeBlob),four:await encode(await buildPhotoAlbumXlsx({...settings,layout:'4'})),spread:await encode(await buildPhotoAlbumXlsx({...settings,layout:'spread'})),progress,stages};
   })()`));
   const three=await inspectWorkbook(decodeBase64(output.three),"M",8);
   const four=await inspectWorkbook(decodeBase64(output.four),"M",8);
@@ -69,6 +71,14 @@ let browser;
   if(!spread.sheet.includes('<col min="1" max="9" width="4.27"')||!spread.sheet.includes('<col min="17" max="25" width="4.27"'))throw new Error("見開きが以前の3枚形式と同じ幅ではありません");
   if(!three.sheet.includes('<col min="1" max="6" width="9.6"')||!three.sheet.includes('<col min="8" max="13" width="6.4"'))throw new Error("3枚形式が以前の写真・コメント幅ではありません");
   if(!four.sheet.includes('<col min="1" max="6" width="8"')||!four.sheet.includes('<col min="8" max="13" width="6.4"'))throw new Error("4枚形式の写真幅またはコメント幅が正しくありません");
+  if(output.progress.join(",")!=="1/4,2/4,3/4,4/4")throw new Error(`写真枚数の進捗が正しくありません: ${output.progress.join(",")}`);
+  if(output.stages.join(",")!=="excel")throw new Error(`Excel作成段階へ切り替わりません: ${output.stages.join(",")}`);
+  const progressUi=await page.evaluate(()=>{
+    showBusy("写真帳を作成中…");updateBusyPhotoCount(7,17);
+    const result={hidden:busyProgress.hidden,count:busyProgressCount.textContent,percent:busyProgressPercent.textContent,width:busyProgressFill.style.width};
+    hideBusy();return result;
+  });
+  if(progressUi.hidden||progressUi.count!=="7／17枚"||progressUi.percent!=="41％"||progressUi.width!=="41%")throw new Error(`進捗バー表示が正しくありません: ${JSON.stringify(progressUi)}`);
   console.log(`photo album runtime checks passed (3-photo media=${three.media}, 4-photo media=${four.media}, spread media=${spread.media})`);
   await browser.close();server.close();
 })().catch(async error=>{console.error(error);try{await browser?.close();}catch(_error){}server.close();process.exitCode=1;});
