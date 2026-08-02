@@ -14384,6 +14384,7 @@ function buildInkPolylineFeatureText(baseText){
   id=widthBuild.nextId;
 
   const preludeParts=[];
+  const preludeHatchParts=[];
   const lineParts = [];
   const allExportPoints=[];
   const generatedGeometryPoints=[];
@@ -14447,8 +14448,12 @@ SXF*/`);
 #${id} = composite_curve_org_feature('${colorCode}','${typeCode}','${widthCode}','0')
 SXF*/`);
         id+=1;
-        lineParts.push(`/*SXF
-#${id} = fill_area_style_colour_feature('${layerCode}','${colorCode}','${nextCompositeCurveCode}','0','()')
+        // TREND-ONE writes background masks as an Area_control external hatch.
+        // The referenced value is the composite-curve assembly code, not the
+        // boundary feature ID.  Keeping the same representation avoids the
+        // stricter TREND-ONE reader rejecting a solid-fill boundary.
+        preludeHatchParts.push(`/*SXF
+#${id} = externally_defined_hatch_feature('${layerCode}',\\'Area_control\\','${nextCompositeCurveCode}','0','()')
 SXF*/`);
         id+=1;
         nextCompositeCurveCode+=1;
@@ -14498,7 +14503,7 @@ SXF*/`);
       appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
     }
   }
-  return { colorText, layerText, widthText, fontText, preludeText:preludeParts.join("\r\n"), lineText: lineParts.join("\r\n"), expectedFeatureCount:normalized.length, exportPoints:allExportPoints };
+  return { colorText, layerText, widthText, fontText, preludeText:[...preludeParts,...preludeHatchParts].join("\r\n"), lineText: lineParts.join("\r\n"), expectedFeatureCount:normalized.length, exportPoints:allExportPoints };
 }
 function stripEmbeddedAnnotations(srcText){
   let text = String(srcText || "");
@@ -14819,7 +14824,7 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   const records=parseSxfFeatureRecords(getFlatSxfText(generatedBlocks.join("\r\n")));
   const geometries=records.filter(r=>r.name==="polyline_feature"||r.name==="circle_feature");
   const textFeatures=records.filter(r=>r.name==="text_string_feature");
-  const fillFeatures=records.filter(r=>r.name==="fill_area_style_colour_feature");
+  const fillFeatures=records.filter(r=>r.name==="fill_area_style_colour_feature"||r.name==="externally_defined_hatch_feature");
   if(geometries.length<expectedFeatureCount){
     return {ok:false,reason:`手書き図形の書出し件数が不足しています（${geometries.length}/${expectedFeatureCount}）。`};
   }
@@ -14830,11 +14835,15 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   const predefinedColorNames=new Set(parsePredefinedColourFeatureDefsFlat(flat).map(d=>d.name));
   const allRecords=parseSxfFeatureRecords(flat);
   const compositeAssemblyCodes=new Set();
+  const compositeAssemblies=new Map();
   let assemblyCode=0;
   for(const record of allRecords){
     if(!SXF_ASSEMBLY_ORIGIN_NAMES.has(record.name))continue;
     assemblyCode+=1;
-    if(record.name==="composite_curve_org_feature")compositeAssemblyCodes.add(assemblyCode);
+    if(record.name==="composite_curve_org_feature"){
+      compositeAssemblyCodes.add(assemblyCode);
+      compositeAssemblies.set(assemblyCode,record);
+    }
   }
   for(const rec of geometries){
     const layer=Number(unquoteSxfValue(rec.args[0]));
@@ -14888,18 +14897,23 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   }
   for(const rec of fillFeatures){
     const layer=Number(unquoteSxfValue(rec.args[0]));
-    const color=Number(unquoteSxfValue(rec.args[1]));
+    const external=rec.name==="externally_defined_hatch_feature";
+    const styleName=external?String(unquoteSxfValue(rec.args[1])||""):"";
     const outer=Number(unquoteSxfValue(rec.args[2]));
+    const color=external
+      ?Number(unquoteSxfValue(compositeAssemblies.get(outer)?.args?.[0]))
+      :Number(unquoteSxfValue(rec.args[1]));
     const holeCount=Number(unquoteSxfValue(rec.args[3]));
     const holeIds=String(unquoteSxfValue(rec.args[4])||"").replace(/^\(|\)$/g,"").split(",").map(value=>value.trim()).filter(Boolean);
     if(!Number.isInteger(layer)||layer<1||layer>layerCount)return {ok:false,reason:`背面マスクのレイヤー参照が不正です（${layer}）。`};
     if(!Number.isInteger(color)||color<1||color>16)return {ok:false,reason:`背面マスクの色コードが不正です（${color}）。`};
+    if(external&&styleName!=="Area_control")return {ok:false,reason:`背面マスクの領域制御名が不正です（${styleName}）。`};
     if(!compositeAssemblyCodes.has(outer))return {ok:false,reason:`背面マスクの外形参照が不正です（${outer}）。`};
     if(!Number.isInteger(holeCount)||holeCount<0||holeCount!==holeIds.length)return {ok:false,reason:"背面マスクの中抜き定義が不正です。"};
   }
   return {ok:true};
 }
-const SFC_LAYER_DRAWABLE_FEATURES=new Set(["line_feature","polyline_feature","spline_feature","circle_feature","arc_feature","ellipse_feature","ellipse_arc_feature","point_marker_feature","text_string_feature","fill_area_style_colour_feature"]);
+const SFC_LAYER_DRAWABLE_FEATURES=new Set(["line_feature","polyline_feature","spline_feature","circle_feature","arc_feature","ellipse_feature","ellipse_arc_feature","point_marker_feature","text_string_feature","fill_area_style_colour_feature","externally_defined_hatch_feature"]);
 function stripDeletedLayersFromSfc(srcText){
   let text=String(srcText||"");
   const namesToRemove=new Set([...deletedLayerNames,...removedSourceLayerNames]);
@@ -14989,17 +15003,22 @@ function getExportableAerialCadImages(){
 }
 function sanitizeInvalidSxfExternalHatches(srcText){
   const text=String(srcText||"");
-  const records=parseSxfFeatureRecords(getFlatSxfText(text));
-  const boundaryNames=new Set([
-    "polyline_feature","spline_feature","circle_feature","ellipse_feature",
-    "composite_curve_feature","closed_curve_feature"
-  ]);
-  const boundaryIds=new Set(records.filter(rec=>boundaryNames.has(rec.name)).map(rec=>String(rec.id)));
+  const records=parseSxfFeatureRecords(getFlatSxfTextIncludingGenerated(text));
+  // SXF defines out_id as a composite-curve assembly code.  It is not a
+  // polyline/circle feature ID.  Assembly codes are assigned in encounter
+  // order across every assembly origin (sheet, partial figure and curve).
+  const compositeCurveCodes=new Set();
+  let assemblyCode=0;
+  for(const record of records){
+    if(!SXF_ASSEMBLY_ORIGIN_NAMES.has(record.name))continue;
+    assemblyCode+=1;
+    if(record.name==="composite_curve_org_feature")compositeCurveCodes.add(String(assemblyCode));
+  }
   const invalidIds=new Set();
   for(const rec of records){
     if(rec.name!=="externally_defined_hatch_feature")continue;
     const outerId=String(unquoteSxfValue(rec.args[2]||"")).trim();
-    if(!outerId||!boundaryIds.has(outerId))invalidIds.add(String(rec.id));
+    if(!outerId||!compositeCurveCodes.has(outerId))invalidIds.add(String(rec.id));
   }
   if(!invalidIds.size)return text;
   return text.replace(/\/\*SXF(?:3(?:\.1)?)?\r?\n([\s\S]*?)\r?\nSXF(?:3(?:\.1)?)?\*\//g,(block,inner)=>{
