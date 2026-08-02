@@ -552,6 +552,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .registryActions button,.registryFileLabel{min-height:36px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--btn);color:var(--fg);font-size:13px;font-weight:800;box-sizing:border-box;cursor:pointer;}
 #registryMapAutoBtn{grid-column:1/-1;background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #registryMapAppendBtn{grid-column:1/-1;}
+#registryMapAppendBtn.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #registryMapAutoBtn:disabled{opacity:.55;cursor:default;}
 #registryMapAppendBtn:disabled{opacity:.42;cursor:default;}
 #registryLayerList{border-top:1px solid rgba(128,128,128,.24);margin-top:7px;}
@@ -1615,7 +1616,7 @@ gtag('config', 'G-88B9YPJXWP');
     <div class="registryHeader"><div class="registryTitle">法務局地図・境界</div><button id="registryMapCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <div class="registryActions">
       <button id="registryMapAutoBtn" type="button">図面範囲を取得</button>
-      <button id="registryMapAppendBtn" type="button" disabled>表示範囲を追加取得</button>
+      <button id="registryMapAppendBtn" type="button" disabled>地点を指定して追加取得</button>
       <label class="registryFileLabel" for="registryMapFileInput">ファイル読込</label>
       <button id="registryMapClearBtn" type="button">解除</button>
     </div>
@@ -1981,7 +1982,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">背景色</div>上部の <b>背景</b> を押し、黒・白のうち表示したい背景色を選びます。青色になっている方が現在の設定です。</div>
               <div class="helpBlock"><div class="helpHead">航空写真</div><b>航空写真</b> のスイッチをONにすると、現在の場所で実際に利用できる写真年代を自動確認します。OFFの状態でもスライダーを操作すると自動的にONになります。</div>
               <div class="helpBlock"><div class="helpHead">地図</div><b>地図（道路・建物・地名・鉄道・行政界・水域）</b>をONにすると、図面と同じ位置の地理院地図Vectorを重ねます。表示中の範囲だけ通信で取得し、等高線など地形解析の要素は混ぜません。</div>
-      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開くと、最初は図面範囲に周囲1画面分を加えた範囲を取得します。横など別の範囲が必要な場合は図面を移動し、<b>表示範囲を追加取得</b>を押すと、その時点の表示範囲を再計算して未取得部分を追加します。現在の表示範囲が取得済みでも、取得済み範囲の外周をさらに1画面分広げます。取得済みデータは残し、重複する筆・筆界・筆界点・地番は自動で除外します。通信量を抑えるため圧縮SHPを優先し、圧縮版がない場合のみGeoJSONを使用します。自動取得できない場合は、法務省XML・GeoJSON・圧縮SHPを手動で読み込めます。筆ポリゴン・筆界線・筆界点・地番文字を個別に表示でき、筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
+      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開くと、最初は図面範囲に周囲1画面分を加えた範囲を取得します。横など別の範囲が必要な場合は、<b>地点を指定して追加取得</b>を押し、欲しい場所をPCではクリック、スマホではタップします。指定地点の周辺だけを解析して既存データへ追加し、重複する筆・筆界・筆界点・地番は自動で除外します。同じ市区町村の取得済みファイルは再利用します。通信量を抑えるため圧縮SHPを優先し、圧縮版がない場合のみGeoJSONを使用します。自動取得できない場合は、法務省XML・GeoJSON・圧縮SHPを手動で読み込めます。筆ポリゴン・筆界線・筆界点・地番文字を個別に表示でき、筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
               <div class="helpBlock"><div class="helpHead">ハザードマップ</div><b>ハザードマップ</b>から洪水・土砂災害・高潮・津波を1種類ずつ表示できます。選択中の青いボタンをもう一度押すと解除します。国土地理院ハザードマップポータルサイトの公開タイルを表示範囲だけ取得します。表示は参考情報のため、避難判断は自治体のハザードマップと最新の防災情報で確認してください。</div>
       <div class="helpBlock"><div class="helpHead">基準点・水準点</div><b>基準点・水準点</b>をONにすると、国土地理院の公開位置情報を図面へ重ね、図面上に種類の凡例を表示します。三角点・その他の基準点、水準点、電子基準点を個別に表示できます。記号をタップすると、点名・種類・基準点コード・成果状態を確認できます。表示位置は検索・現地確認の参考です。正式な成果値は国土地理院の基準点成果等閲覧サービスで確認してください。</div>
               <div class="helpBlock"><div class="helpHead">年代の変更</div>つまみは指に合わせて滑らかに動き、移動中は最も近い利用可能な年代の写真へ切り替わります。指を離すと、その年代の位置へ吸着します。左端が最新で、右へ動かすほど古くなります。</div>
@@ -2471,6 +2472,8 @@ let registryMapState = {
   resourceUrls:[]
 };
 let registryMapAutoBusy=false;
+let registryMapPointPickMode=false;
+let registryMapPointPickTouchCandidate=null;
 const REGISTRY_MOBILE_FEATURE_LIMIT=12000;
 const REGISTRY_DESKTOP_FEATURE_LIMIT=30000;
 const REGISTRY_MOBILE_POINT_LIMIT=360000;
@@ -11059,6 +11062,28 @@ function registryAdditionalTargetBounds(zone,state=registryMapState){
   }
   return target;
 }
+function registryTargetBoundsAroundWorldPoint(worldPoint,zone){
+  if(!worldPoint||!Number.isFinite(+worldPoint.x)||!Number.isFinite(+worldPoint.y))throw new Error("追加する地点を確認できません");
+  const centerPlane=sfcWorldToPlane(+worldPoint.x,+worldPoint.y);
+  if(!Number.isFinite(centerPlane.xNorth)||!Number.isFinite(centerPlane.yEast))throw new Error("追加する地点の座標を確認できません");
+  const visiblePlane=registryPlaneTargetBoundsLight(registryAutoTargetBounds(zone),zone);
+  const mobile=isTouchMobileLike();
+  const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+  // Parse roughly one visible screen around the selected point, with a cap
+  // that keeps parcel/vertex counts practical on phones and large drawings.
+  const halfEast=clamp((visiblePlane.maxX-visiblePlane.minX)*.45,180,mobile?320:500);
+  const halfNorth=clamp((visiblePlane.maxY-visiblePlane.minY)*.45,180,mobile?320:500);
+  const corners=[
+    [centerPlane.xNorth-halfNorth,centerPlane.yEast-halfEast],
+    [centerPlane.xNorth-halfNorth,centerPlane.yEast+halfEast],
+    [centerPlane.xNorth+halfNorth,centerPlane.yEast-halfEast],
+    [centerPlane.xNorth+halfNorth,centerPlane.yEast+halfEast]
+  ].map(([xNorth,yEast])=>jgd2024XYToLatLon(xNorth,yEast,zone));
+  return registryNormalizeGeoBounds({
+    minLon:Math.min(...corners.map(point=>point.lon)),minLat:Math.min(...corners.map(point=>point.lat)),
+    maxLon:Math.max(...corners.map(point=>point.lon)),maxLat:Math.max(...corners.map(point=>point.lat))
+  });
+}
 function registryRoundedWorldKey(value){return String(Math.round((Number(value)||0)/10));}
 function registryPointMergeKey(point){return `${registryRoundedWorldKey(point?.x)},${registryRoundedWorldKey(point?.y)}`;}
 function registryParcelMergeKey(parcel){
@@ -11603,15 +11628,18 @@ async function registryReadShpZipAreaLight(response,targetBounds,onProgress,expe
 }
 async function loadRegistryMapAutomatically(options={}){
   const append=options===true||options?.append===true;
+  const requestedWorld=options&&typeof options==="object"?options.worldPoint:null;
   if(registryMapAutoBusy)return;
   if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
   const previousState=registryMapState;
   registryMapAutoBusy=true;updateRegistryMapUi();
   try{
-    if(registryMapStatus)registryMapStatus.textContent=append?"追加する表示範囲を確認しています…":"図面周辺の取得範囲を確認しています…";
+    if(registryMapStatus)registryMapStatus.textContent=append?(requestedWorld?"指定地点の周辺を確認しています…":"追加する表示範囲を確認しています…"):"図面周辺の取得範囲を確認しています…";
     const zone=await resolveProfileZone();
     if(!zone)throw new Error("座標系を判定できません");
-    const target=append?registryAdditionalTargetBounds(zone,previousState):registryInitialTargetBounds(zone);
+    const target=append
+      ?(requestedWorld?registryTargetBoundsAroundWorldPoint(requestedWorld,zone):registryAdditionalTargetBounds(zone,previousState))
+      :registryInitialTargetBounds(zone);
     registryAssertAutoTargetSize(target,zone);
     if(append&&registryTargetAlreadyAcquired(target,previousState)){
       showToast("この表示範囲は取得済みです",1800);
@@ -11634,7 +11662,9 @@ async function loadRegistryMapAutomatically(options={}){
     const selected=chooseRegistryDownloadResource(packageJson.result?.resources,zone);
     const resource=selected?.resource;
     if(!resource?.url)throw new Error("この地域の境界データが見つかりません");
-    const accepted=await confirmRegistryDownload(resource,String(packageJson.result?.title||locality||municipalityCode));
+    const resourceUrl=String(resource.url||"");
+    const alreadyDownloaded=append&&(previousState.resourceUrls||[]).includes(resourceUrl);
+    const accepted=alreadyDownloaded||await confirmRegistryDownload(resource,String(packageJson.result?.title||locality||municipalityCode));
     if(!accepted){
       if(registryMapStatus)registryMapStatus.textContent="ダウンロードを中止しました。";
       return;
@@ -11665,7 +11695,7 @@ async function loadRegistryMapAutomatically(options={}){
     registryMapState=registryMergeMapStates(append?previousState:registryEmptyState(),incoming,target,String(resource.url||""));
     updateRegistryMapUi();scheduleDraw();
     showToast(append
-      ?`表示範囲を追加しました（合計 ${registryMapState.parcels.length}筆）`
+      ?`${requestedWorld?"指定地点周辺":"表示範囲"}を追加しました（合計 ${registryMapState.parcels.length}筆）`
       :`図面範囲を取得しました（筆 ${registryMapState.parcels.length}件）`,2400);
     if(!append){
       if(registryMapPanel)registryMapPanel.style.display="none";
@@ -11810,6 +11840,24 @@ function registryMapSummary(state=registryMapState){
   const areas=(state.acquiredBounds||[]).length;
   return `${state.sourceName}　筆 ${state.parcels.length}件／筆界線 ${state.looseLines.length}件／筆界点 ${state.points.length}点　${coordinate}${areas?`　取得範囲 ${areas}件`:""}`;
 }
+function setRegistryMapPointPickMode(active){
+  const next=!!active&&!!registryMapState.loaded&&!registryMapAutoBusy;
+  registryMapPointPickMode=next;
+  registryMapPointPickTouchCandidate=null;
+  if(!next)hoverCursorScreen=null;
+  if(canvas&&!photoPositionAdjustIsActive())canvas.style.cursor="";
+  updateRegistryMapUi();
+  updateToolbarActivationUI();
+  scheduleInteractionDraw();
+}
+function selectRegistryMapAdditionalPoint(screenX,screenY){
+  if(!registryMapPointPickMode||registryMapAutoBusy)return false;
+  const world=screenToWorld(screenX,screenY);
+  if(!Number.isFinite(world[0])||!Number.isFinite(world[1]))return false;
+  setRegistryMapPointPickMode(false);
+  loadRegistryMapAutomatically({append:true,worldPoint:{x:world[0],y:world[1]}});
+  return true;
+}
 function updateRegistryMapUi(){
   if(registryMapStatus&&!registryMapAutoBusy)registryMapStatus.textContent=registryMapSummary();
   if(registryMapCredit)registryMapCredit.style.display=registryMapState.loaded?"block":"none";
@@ -11822,7 +11870,9 @@ function updateRegistryMapUi(){
   }
   if(registryMapAppendBtn){
     registryMapAppendBtn.disabled=registryMapAutoBusy||!registryMapState.loaded;
-    registryMapAppendBtn.textContent=registryMapAutoBusy?"取得中…":"表示範囲を追加取得";
+    registryMapAppendBtn.classList.toggle("active",registryMapPointPickMode);
+    registryMapAppendBtn.setAttribute("aria-pressed",registryMapPointPickMode?"true":"false");
+    registryMapAppendBtn.textContent=registryMapAutoBusy?"取得中…":registryMapPointPickMode?"地図上の地点をタップ":"地点を指定して追加取得";
   }
   if(registryMapFileInput)registryMapFileInput.disabled=registryMapAutoBusy;
   const toggles={parcel:"registryParcelLayerToggle",boundary:"registryBoundaryLayerToggle",point:"registryPointLayerToggle",label:"registryLabelLayerToggle"};
@@ -11832,6 +11882,7 @@ function updateRegistryMapUi(){
   }
 }
 function clearRegistryMap(){
+  setRegistryMapPointPickMode(false);
   registryMapState=registryEmptyState();
   if(registryMapFileInput)registryMapFileInput.value="";
   if(registryParcelModal)registryParcelModal.style.display="none";
@@ -12098,6 +12149,23 @@ function drawInteractionOverlay(){
   drawProfileInteractionOverlay(interactionCtx);
   if(currentStroke)drawInkStroke(currentStroke,interactionCtx);
   drawMeasureInteractionOverlay(interactionCtx);
+  if(registryMapPointPickMode){
+    const point=registryMapPointPickTouchCandidate
+      ?{x:registryMapPointPickTouchCandidate.screenX,y:registryMapPointPickTouchCandidate.screenY}
+      :hoverCursorScreen;
+    if(point){
+      interactionCtx.save();
+      interactionCtx.strokeStyle="#00d9ff";
+      interactionCtx.fillStyle="rgba(0,217,255,.16)";
+      interactionCtx.lineWidth=2;
+      interactionCtx.beginPath();interactionCtx.arc(point.x,point.y,13,0,Math.PI*2);interactionCtx.fill();interactionCtx.stroke();
+      interactionCtx.beginPath();
+      interactionCtx.moveTo(point.x-19,point.y);interactionCtx.lineTo(point.x+19,point.y);
+      interactionCtx.moveTo(point.x,point.y-19);interactionCtx.lineTo(point.x,point.y+19);
+      interactionCtx.stroke();
+      interactionCtx.restore();
+    }
+  }
 }
 function draw(){
   // ホイール操作中は、直前の描画をCSSで即時拡大縮小する。
@@ -12310,6 +12378,7 @@ function updateDrawingDependentUi(){
 }
 
 function closePanelsExcept(except){
+  if(except!=="registryMap"&&registryMapPointPickMode)setRegistryMapPointPickMode(false);
   if(except!=="coordinateInspect")closeCoordinateInspectModal();
   if(except!=='layer') layerPanel.style.display='none';
   if(except!=='photoList') setPhotoListPanelOpen(false);
@@ -17798,6 +17867,7 @@ function togglePickMode(mode){
   scheduleInteractionDraw();
 }
 function cancelTransientOperations(except=""){
+  if(except!=="registryMap"&&registryMapPointPickMode)setRegistryMapPointPickMode(false);
   const requiresBaseRedraw=(except!=="terrainCad"&&terrainCadSelectionMode)||(except!=="search"&&textSearchPopupOpen);
   if(except!=="terrainCad"&&terrainCadSelectionMode)setTerrainCadSelectionOpen(false);
   if(except!=="search" && textSearchPopupOpen) closeTextSearchPopup();
@@ -17844,6 +17914,7 @@ function cancelTransientOperations(except=""){
   else scheduleInteractionDraw();
 }
 function handleEscapeBackStep(){
+  if(registryMapPointPickMode){setRegistryMapPointPickMode(false);showToast("地点指定を中止しました",1400);return true;}
   if(coordinateInspectModalIsOpen()){closeCoordinateInspectModal();return true;}
   if(textLayerModalIsOpen()){closeTextLayerModal();return true;}
   const photoAlbumModal=document.getElementById("photoAlbumModal");
@@ -17908,7 +17979,7 @@ function updateToolbarActivationUI(){
     openIconBtn:visible(document.getElementById("saveMenuModal"))||visible(document.getElementById("saveAsChoiceModal")),
     bgBtn:visible(aerialPhotoPanel)||(!isDesktopPhotoTool()&&(visible(terrainPanel)||visible(registryMapPanel)||visible(hazardMapPanel)||visible(controlPointPanel)))||(terrainCadSelectionMode&&polygonSelectionPurpose==="aerial"),
     terrainToolbarBtn:isDesktopPhotoTool()&&(visible(terrainPanel)||!!terrainLoading||!!terrainMode),
-    registryToolbarBtn:isDesktopPhotoTool()&&(visible(registryMapPanel)||!!registryMapState.loaded||!!registryMapAutoBusy),
+    registryToolbarBtn:isDesktopPhotoTool()&&(visible(registryMapPanel)||!!registryMapState.loaded||!!registryMapAutoBusy||registryMapPointPickMode),
     controlPointToolbarBtn:isDesktopPhotoTool()&&(visible(controlPointPanel)||!!controlPointEnabled||!!controlPointResolveBusy),
     hazardToolbarBtn:isDesktopPhotoTool()&&(visible(hazardMapPanel)||!!hazardMapMode||!!hazardMapResolveBusy),
     measureBtn:!!(measureMode||visible(measureModePanel)||visible(measureBox)),
@@ -18051,14 +18122,31 @@ registryMapOpenBtn?.addEventListener("click",()=>{
   if(!registryMapState.loaded&&!registryMapAutoBusy)loadRegistryMapAutomatically();
 });
 document.getElementById("registryMapCloseBtn")?.addEventListener("click",()=>{
+  setRegistryMapPointPickMode(false);
   if(registryMapPanel)registryMapPanel.style.display="none";
   if(!isDesktopPhotoTool()&&aerialPhotoPanel){aerialPhotoPanel.style.display="block";updateAerialPhotoUi();}
   updateRegistryMapUi();
   updateToolbarActivationUI();
 });
 document.getElementById("registryMapClearBtn")?.addEventListener("click",clearRegistryMap);
-registryMapAutoBtn?.addEventListener("click",()=>loadRegistryMapAutomatically({append:false}));
-registryMapAppendBtn?.addEventListener("click",()=>loadRegistryMapAutomatically({append:true}));
+registryMapAutoBtn?.addEventListener("click",()=>{
+  setRegistryMapPointPickMode(false);
+  loadRegistryMapAutomatically({append:false});
+});
+registryMapAppendBtn?.addEventListener("click",()=>{
+  if(registryMapAutoBusy||!registryMapState.loaded)return;
+  if(registryMapPointPickMode){
+    setRegistryMapPointPickMode(false);
+    showToast("地点指定を中止しました",1400);
+    return;
+  }
+  cancelTransientOperations("registryMap");
+  setRegistryMapPointPickMode(true);
+  if(registryMapPanel)registryMapPanel.style.display="none";
+  if(!isDesktopPhotoTool()&&aerialPhotoPanel)aerialPhotoPanel.style.display="none";
+  updateRegistryMapUi();
+  showToast(isTouchMobileLike()?"追加する地点を地図上でタップしてください":"追加する地点を図面上でクリックしてください",2600);
+});
 document.getElementById("registryDownloadConfirmNoBtn")?.addEventListener("click",()=>closeRegistryDownloadConfirm(false));
 document.getElementById("registryDownloadConfirmYesBtn")?.addEventListener("click",()=>closeRegistryDownloadConfirm(true));
 registryMapFileInput?.addEventListener("change",()=>{
@@ -18512,6 +18600,15 @@ document.addEventListener("click", (e)=>{
 
 canvas.addEventListener("mousedown", e=>{
   if(!isTouchMobileLike())finishDesktopWheelZoomPreview();
+  if(registryMapPointPickMode&&e.button===0){
+    const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
+    hoverCursorScreen={x:local.x,y:local.y};
+    clearTextLongPressTimer();
+    dragging=false;
+    e.preventDefault();
+    scheduleInteractionDraw();
+    return;
+  }
   if(e.button===0){
     const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
     if(!isTouchMobileLike()&&canUseDesktopCadObjectInteraction()){
@@ -18632,6 +18729,13 @@ window.addEventListener("mousemove", e=>{
   const ox=local.x,oy=local.y;
   const cursorInsideCanvas=ox>=0&&ox<=canvas.clientWidth&&oy>=0&&oy<=canvas.clientHeight;
   hoverCursorScreen=cursorInsideCanvas?{x:ox,y:oy}:null;
+  if(registryMapPointPickMode){
+    clearDesktopCadObjectHover();
+    updateDesktopCadCrosshair(ox,oy,cursorInsideCanvas,cursorInsideCanvas);
+    canvas.style.cursor="none";
+    scheduleInteractionDraw();
+    return;
+  }
   const profileHoverKind=cursorInsideCanvas&&!isTouchMobileLike()&&!profileMode&&!profileLineDrag&&!photoPositionAdjustIsActive()
     ?profileLineHitAtScreen(ox,oy):"";
   if(profileLineDrag&&profileLineDrag.pointerType==="mouse"){
@@ -18683,7 +18787,7 @@ window.addEventListener("mousemove", e=>{
     hoverMeasurePoint = null;
   }
 });
-canvas.addEventListener("mouseleave", ()=>{ hoverCursorScreen=null; hoverMeasurePoint=null; clearDesktopCadObjectHover(); updateDesktopCadCrosshair(0,0,false,false); if(!photoPositionAdjustIsActive())canvas.style.cursor=""; if(measureMode)scheduleInteractionDraw(); });
+canvas.addEventListener("mouseleave", ()=>{ hoverCursorScreen=null; hoverMeasurePoint=null; clearDesktopCadObjectHover(); updateDesktopCadCrosshair(0,0,false,false); if(!photoPositionAdjustIsActive())canvas.style.cursor=""; if(measureMode||registryMapPointPickMode)scheduleInteractionDraw(); });
 canvas.addEventListener("contextmenu", e=> e.preventDefault());
 canvas.addEventListener("wheel", e=>{
   e.preventDefault();
@@ -18723,6 +18827,11 @@ document.addEventListener("dblclick", e=>{ e.preventDefault(); }, {capture:true,
 
 canvas.addEventListener("click", e=>{
   if(Date.now() < suppressClickUntil) return;
+  if(registryMapPointPickMode&&e.button===0){
+    const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
+    selectRegistryMapAdditionalPoint(local.x,local.y);
+    return;
+  }
   if(e.button===0&&!isTouchMobileLike()&&canUseDesktopCadObjectInteraction()){
     const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
     const target=findDesktopCadInteractiveTarget(local.x,local.y);
@@ -18796,6 +18905,17 @@ canvas.addEventListener("touchstart", e=>{
   finishTouchPanPreview(false);
   const ptLocal = getCanvasLocalPointFromClient(e.touches[0].clientX, e.touches[0].clientY);
   const x=ptLocal.x, y=ptLocal.y;
+
+  if(registryMapPointPickMode){
+    clearTextLongPressTimer();
+    registryMapPointPickTouchCandidate={
+      clientX:e.touches[0].clientX,clientY:e.touches[0].clientY,screenX:x,screenY:y
+    };
+    touchPanCandidate=null;touchPanMoved=false;
+    e.preventDefault();
+    scheduleInteractionDraw();
+    return;
+  }
 
   if(terrainCadSelectionMode){
     terrainCadTouchCandidate={clientX:e.touches[0].clientX,clientY:e.touches[0].clientY,screenX:x,screenY:y};
@@ -18901,6 +19021,16 @@ canvas.addEventListener("touchmove", e=>{
   const ptLocal = getCanvasLocalPointFromClient(e.touches[0].clientX, e.touches[0].clientY);
   const x=ptLocal.x, y=ptLocal.y;
 
+  if(registryMapPointPickMode){
+    if(registryMapPointPickTouchCandidate&&Math.hypot(
+      e.touches[0].clientX-registryMapPointPickTouchCandidate.clientX,
+      e.touches[0].clientY-registryMapPointPickTouchCandidate.clientY
+    )>12)registryMapPointPickTouchCandidate=null;
+    e.preventDefault();
+    scheduleInteractionDraw();
+    return;
+  }
+
   if(terrainCadSelectionMode&&terrainCadTouchCandidate){
     if(Math.hypot(e.touches[0].clientX-terrainCadTouchCandidate.clientX,e.touches[0].clientY-terrainCadTouchCandidate.clientY)>12)terrainCadTouchCandidate=null;
     return;
@@ -19002,6 +19132,16 @@ canvas.addEventListener("touchmove", e=>{
 
 canvas.addEventListener("touchend", e=>{
   clearTextLongPressTimer();
+  if(registryMapPointPickMode&&e.touches.length===0){
+    const candidate=registryMapPointPickTouchCandidate;
+    const changed=e.changedTouches&&e.changedTouches[0];
+    registryMapPointPickTouchCandidate=null;
+    if(candidate&&changed&&Math.hypot(changed.clientX-candidate.clientX,changed.clientY-candidate.clientY)<=12){
+      suppressClickUntil=Date.now()+700;
+      selectRegistryMapAdditionalPoint(candidate.screenX,candidate.screenY);
+    }else scheduleInteractionDraw();
+    return;
+  }
   if(textLongPressTriggered&&e.touches.length===0){
     finishTouchPanPreview(false);
     textLongPressTriggered=false;touchPanCandidate=null;touchPanMoved=false;suppressClickUntil=0;return;
@@ -19130,6 +19270,7 @@ canvas.addEventListener("touchend", e=>{
 // の本処理は従来のTouch Events側だけで行う。
 canvas.addEventListener("pointerdown",event=>{
   if(event.pointerType!=="touch"||event.isPrimary===false)return;
+  if(registryMapPointPickMode)return;
   textLongPressPointerId=event.pointerId;
   if(!textLongPressTimer&&!textLongPressTriggered){
     startTextLongPress(event.clientX,event.clientY,"touch");
@@ -19157,6 +19298,7 @@ canvas.addEventListener("touchcancel", ()=>{
   pendingTouchInk = null;
   suppressTouchInkUntil = Date.now() + 420;
   touchMode = "";
+  registryMapPointPickTouchCandidate=null;
   if(profileLineDrag&&profileLineDrag.pointerType==="touch") finishProfileLineDrag();
   if(inkDrawing && currentStroke){
     if (currentStroke.points && currentStroke.points.length>=2) {

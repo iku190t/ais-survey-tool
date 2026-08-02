@@ -6,7 +6,8 @@ const {chromium}=require("playwright");
 const source=fs.readFileSync("index.html","utf8");
 const required=[
   'content="Ez Viewer"',
-  'id="viewerLabel">Ez Viewer</div>',
+  'id="viewerLabel"',
+  '>Ez Viewer</div>',
   '<div class="panelTitle">Ez Viewer</div>',
   'const subject="Ez Viewer 不具合・改善案"',
   'const profileAppName=encodeSfcText("Ez Viewer")',

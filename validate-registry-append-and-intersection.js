@@ -10,6 +10,11 @@ for(const token of [
   'function registryDrawingTargetBounds(zone)',
   'function registryInitialTargetBounds(zone)',
   'function registryAdditionalTargetBounds(zone,state=registryMapState)',
+  'function registryTargetBoundsAroundWorldPoint(worldPoint,zone)',
+  'function setRegistryMapPointPickMode(active)',
+  'function selectRegistryMapAdditionalPoint(screenX,screenY)',
+  'registryMapPointPickTouchCandidate',
+  '地点を指定して追加取得',
   'function registryExpandGeoBoundsByViewport(bounds,visibleBounds,screenShare=.5)',
   'function registryMergeMapStates(base,incoming,targetBounds,resourceUrl="")',
   'fetch(resource.url,{cache:"force-cache"})',
@@ -65,6 +70,22 @@ let browser;
     const additional=registryAdditionalTargetBounds(4,merged);
     registryAutoTargetBounds=originalAutoTargetBounds;
 
+    const originalWorldToPlane=sfcWorldToPlane;
+    const originalPlaneTargetBoundsLight=registryPlaneTargetBoundsLight;
+    const originalJgd2024XYToLatLon=jgd2024XYToLatLon;
+    sfcWorldToPlane=()=>({xNorth:1000,yEast:2000});
+    registryAutoTargetBounds=()=>({
+      minLon:134,minLat:34,maxLon:134.004,maxLat:34.004,
+      center:{lon:134.002,lat:34.002}
+    });
+    registryPlaneTargetBoundsLight=()=>({minX:0,minY:0,maxX:400,maxY:400});
+    jgd2024XYToLatLon=(xNorth,yEast)=>({lat:34+xNorth/100000,lon:134+yEast/100000});
+    const selectedTarget=registryTargetBoundsAroundWorldPoint({x:12,y:34},4);
+    sfcWorldToPlane=originalWorldToPlane;
+    registryAutoTargetBounds=originalAutoTargetBounds;
+    registryPlaneTargetBoundsLight=originalPlaneTargetBoundsLight;
+    jgd2024XYToLatLon=originalJgd2024XYToLatLon;
+
     data.lines=[];data.polys=[];data.splines=[];data._lineRenderRuns=[];data._polyRenderRuns=[];data._splineRenderRuns=[];
     layerVisibility={"1":true};view.scale=10;view.tx=400;view.ty=300;rotationDeg=0;
     const hitFor=lines=>{
@@ -82,6 +103,20 @@ let browser;
     const pencilOff=!document.body.classList.contains("desktopInkPencilActive")&&!canvas.classList.contains("desktopInkPencilCursor");
 
     registryMapState=merged;updateRegistryMapUi();
+    setRegistryMapPointPickMode(true);
+    const pointPickActive=registryMapPointPickMode
+      &&document.getElementById("registryMapAppendBtn").classList.contains("active")
+      &&document.getElementById("registryMapAppendBtn").getAttribute("aria-pressed")==="true";
+    setRegistryMapPointPickMode(false);
+    const pointPickInactive=!registryMapPointPickMode
+      &&!document.getElementById("registryMapAppendBtn").classList.contains("active")
+      &&document.getElementById("registryMapAppendBtn").getAttribute("aria-pressed")==="false";
+    const originalLoadRegistryMapAutomatically=loadRegistryMapAutomatically;
+    let selectedRequest=null;
+    loadRegistryMapAutomatically=options=>{selectedRequest=options;};
+    setRegistryMapPointPickMode(true);
+    const selectedByClick=selectRegistryMapAdditionalPoint(400,300);
+    loadRegistryMapAutomatically=originalLoadRegistryMapAutomatically;
     return {
       counts:[merged.parcels.length,merged.looseLines.length,merged.points.length],
       covered:registryTargetAlreadyAcquired({minLon:134.001,minLat:34.001,maxLon:134.009,maxLat:34.009},merged),
@@ -93,6 +128,14 @@ let browser;
       additional:{
         minLon:additional.minLon,minLat:additional.minLat,maxLon:additional.maxLon,maxLat:additional.maxLat
       },
+      selectedTarget:{
+        minLon:selectedTarget.minLon,minLat:selectedTarget.minLat,maxLon:selectedTarget.maxLon,maxLat:selectedTarget.maxLat
+      },
+      pointPickActive,pointPickInactive,selectedByClick,
+      selectedRequestValid:!!selectedRequest?.append
+        &&Number.isFinite(selectedRequest?.worldPoint?.x)
+        &&Number.isFinite(selectedRequest?.worldPoint?.y)
+        &&!registryMapPointPickMode,
       intersections:{plus:!!plus,tee:!!tee,corner:!!corner},
       pencilOn,pencilOff,
       selectable:getComputedStyle(document.getElementById("registryMapStatus")).userSelect
@@ -102,11 +145,13 @@ let browser;
   if(!result.covered||result.outside||!result.appendEnabled)throw new Error(`registry coverage/UI failed: ${JSON.stringify(result)}`);
   if(!(result.expanded.minLon<134&&result.expanded.minLat<34&&result.expanded.maxLon>134.01&&result.expanded.maxLat>34.01))throw new Error(`registry expansion failed: ${JSON.stringify(result.expanded)}`);
   if(!(result.additional.minLon<134&&result.additional.minLat<34&&result.additional.maxLon>134.01&&result.additional.maxLat>34.01))throw new Error(`registry additional range did not extend acquired coverage: ${JSON.stringify(result.additional)}`);
+  if(!(result.selectedTarget.minLon<134.02&&result.selectedTarget.maxLon>134.02&&result.selectedTarget.minLat<34.01&&result.selectedTarget.maxLat>34.01))throw new Error(`registry selected-point range failed: ${JSON.stringify(result.selectedTarget)}`);
+  if(!result.pointPickActive||!result.pointPickInactive||!result.selectedByClick||!result.selectedRequestValid)throw new Error(`registry point-pick UI failed: ${JSON.stringify(result)}`);
   if(!result.intersections.plus||!result.intersections.tee||result.intersections.corner)throw new Error(`intersection modes failed: ${JSON.stringify(result.intersections)}`);
   if(!result.pencilOn||!result.pencilOff)throw new Error(`pencil cursor failed: ${JSON.stringify(result)}`);
   if(result.selectable!=="text")throw new Error(`panel text is not selectable: ${result.selectable}`);
   if(errors.length)throw new Error(`page errors: ${errors.join(" | ")}`);
-  console.log("Registry append, T-intersection, pencil cursor and selectable text validated");
+  console.log("Registry point append, T-intersection, pencil cursor and selectable text validated");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   if(browser)await browser.close();
   server.close();
