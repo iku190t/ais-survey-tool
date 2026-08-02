@@ -62,8 +62,22 @@ let browser;
     const fills=records.filter(record=>record.name==="fill_area_style_colour_feature"&&Number(unquoteSxfValue(record.args[0]))===maskCode);
     const generatedPrelude=parseSxfFeatureRecords(getFlatSxfText(ann.preludeText));
     const boundaries=generatedPrelude.filter(record=>record.name==="polyline_feature"&&record.args.slice(0,4).every(value=>Number(unquoteSxfValue(value))===0));
+    const backgroundFigures=records.filter(record=>record.name==="sfig_org_feature"&&/^\$\$ATRU\$\$\d+\$\$/.test(String(unquoteSxfValue(record.args[0])||"")));
+    const backgroundNames=new Set(backgroundFigures.map(record=>String(unquoteSxfValue(record.args[0])||"")));
+    const backgroundPlacements=records.filter(record=>record.name==="sfig_locate_feature"&&backgroundNames.has(String(unquoteSxfValue(record.args[1])||"")));
+    const userColours=parseUserDefinedColourFeatureDefsFlat(flat);
     let code=0;const compositeCodes=[];
     for(const record of records){if(SXF_ASSEMBLY_ORIGIN_NAMES.has(record.name)){code+=1;if(record.name==="composite_curve_org_feature")compositeCodes.push(code);}}
+    await load(saved.text,"roundtrip.sfc",null,{restoreRecovery:false});
+    ensureLayerVisibility();
+    photoSettings={...photoSettings,backMaskEnabled:true};
+    layerVisibility[PHOTO_BACK_MASK_LAYER_ID]=true;
+    deletedLayerNames.delete(PHOTO_BACK_MASK_LAYER_NAME);
+    const roundtrip=buildSfcExportBlobAndName();
+    if(!roundtrip.ok)return {ok:false,reason:roundtrip.reason};
+    const roundtripRecords=parseSxfFeatureRecords(getFlatSxfTextIncludingGenerated(roundtrip.text));
+    const roundtripDefs=parseLayerFeatureDefsFlat(getFlatSxfTextIncludingGenerated(roundtrip.text));
+    const roundtripMaskCode=roundtripDefs.findIndex(def=>def.name===PHOTO_BACK_MASK_LAYER_NAME||def.rawName===getMemoLayerSpecById(PHOTO_BACK_MASK_LAYER_ID).rawName)+1;
     return {
       ok:true,
       photoCount:photoAnnotations.length,
@@ -76,6 +90,12 @@ let browser;
       generatedExternalMaskCount:externalHatches.filter(record=>Number(unquoteSxfValue(record.args[0]))===maskCode).length,
       fillCount:fills.length,
       boundaryCount:boundaries.length,
+      backgroundFigureCount:backgroundFigures.length,
+      backgroundPlacementCount:backgroundPlacements.length,
+      explicitBlackCount:userColours.filter(def=>def.r===0&&def.g===0&&def.b===0).length,
+      roundtripMaskFillCount:roundtripRecords.filter(record=>record.name==="fill_area_style_colour_feature"&&Number(unquoteSxfValue(record.args[0]))===roundtripMaskCode).length,
+      roundtripMaskAreaControlCount:roundtripRecords.filter(record=>record.name==="externally_defined_hatch_feature"&&Number(unquoteSxfValue(record.args[0]))===roundtripMaskCode&&String(unquoteSxfValue(record.args[1]))==="Area_control").length,
+      roundtripValidation:validateGeneratedMemoSfc(roundtrip.text,buildSfcAnnotations(stripEmbeddedAnnotations(saved.text)).expectedFeatureCount||0),
       generatedFillArgs:fills.map(record=>record.args.map(unquoteSxfValue)),
       generatedPrelude:generatedPrelude.map(record=>({name:record.name,args:record.args.map(unquoteSxfValue)})),
       lastCompositeCodes:compositeCodes.slice(-5),
@@ -84,7 +104,8 @@ let browser;
   },{sfc,name:path.basename(entry.name)});
   if(!result.ok)throw new Error(result.reason||"書出しに失敗しました");
   if(result.photoCount<1)throw new Error("添付SFZから写真位置を復元できません");
-  if(result.maskCode<1||result.fillCount!==result.photoCount||result.boundaryCount!==result.photoCount||result.generatedExternalMaskCount!==0||result.externalHatchCount!==result.originalExternalHatchCount)throw new Error(`背面マスクの書出し件数が不正です: ${JSON.stringify(result)}`);
+  if(result.maskCode<1||result.fillCount!==result.photoCount||result.boundaryCount!==result.photoCount||result.generatedExternalMaskCount!==1||result.externalHatchCount!==result.originalExternalHatchCount+1||result.backgroundFigureCount<1||result.backgroundPlacementCount<1||result.explicitBlackCount<1)throw new Error(`背面マスクの書出し件数が不正です: ${JSON.stringify(result)}`);
+  if(result.roundtripMaskFillCount!==result.photoCount||result.roundtripMaskAreaControlCount!==1||!result.roundtripValidation?.ok)throw new Error(`再保存後の背面マスク構造が不正です: ${JSON.stringify(result)}`);
   if(!result.validation?.ok)throw new Error(`SXF検証に失敗しました: ${JSON.stringify(result)}`);
   console.log(JSON.stringify(result));
   await browser.close();server.close();

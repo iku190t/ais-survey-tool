@@ -85,6 +85,17 @@ let browser;
     const fill=records.find(record=>record.name==='fill_area_style_colour_feature');
     const composite=records.find(record=>record.name==='composite_curve_org_feature');
     const boundary=records.find(record=>record.name==='polyline_feature');
+    const areaControl=records.find(record=>record.name==='externally_defined_hatch_feature'&&unquoteSxfValue(record.args[1])==='Area_control');
+    const backgroundFigure=records.find(record=>record.name==='sfig_org_feature');
+    const originalTheme=darkTheme;
+    darkTheme=false;
+    const lightBg=bgColor();
+    const lightStrokeColor=buildPhotoAnnotationExportStrokes().find(stroke=>stroke.isPhotoBackMask)?.color||'';
+    const lightAnn=buildInkPolylineFeatureText('test');
+    const lightRecords=parseSxfFeatureRecords(getFlatSxfText(lightAnn.colorText+'\\n'+lightAnn.preludeText));
+    const lightRgb=lightRecords.find(record=>record.name==='user_defined_colour_feature');
+    const lightFill=lightRecords.find(record=>record.name==='fill_area_style_colour_feature');
+    darkTheme=originalTheme;
     const savedPlacement=data._mainDrawingPlacement;
     data._mainDrawingPlacement={name:'MAIN',angle:0,sx:1,sy:1};
     const synthetic=[
@@ -124,6 +135,10 @@ let browser;
       decodedLayerText:decodeShiftJisFromLatin1(ann.layerText),
       fillArgs:fill?.args.map(unquoteSxfValue)||[],
       compositeCount:records.filter(record=>record.name==='composite_curve_org_feature').length,
+      hasAreaControl:!!areaControl,
+      hasBackgroundFigure:!!backgroundFigure,
+      hasRootPlacement:ann.rootPlacementText.includes('sfig_locate_feature')&&ann.rootPlacementText.includes('$$ATRU$$'),
+      lightMask:{bg:lightBg,stroke:lightStrokeColor,rgb:lightRgb?.args.map(unquoteSxfValue)||[],fillColor:unquoteSxfValue(lightFill?.args[1]||''),name:lightAnn.backgroundMaskName},
       boundaryHasCompositeStyle:boundary?boundary.args.slice(0,4).every(value=>Number(unquoteSxfValue(value))===0):false,
       closedBoundary:boundary?unquoteSxfValue(boundary.args[4])===String(String(unquoteSxfValue(boundary.args[5])).split(',').filter(Boolean).length):false,
       order:ann.preludeText.indexOf('fill_area_style_colour_feature')>ann.preludeText.indexOf('composite_curve_org_feature')&&ann.lineText.indexOf('circle_feature')>=0,
@@ -133,9 +148,10 @@ let browser;
     };
   })()`));
   if(maskExport.maskIndex<0||maskExport.circleIndex<0||maskExport.maskIndex>=maskExport.circleIndex)throw new Error(`背面マスクが写真番号より先に作成されません: ${JSON.stringify(maskExport)}`);
-  if(!maskExport.decodedLayerText.includes("写真方向番号背面マスク")||maskExport.fillArgs.length!==5||maskExport.fillArgs[1]!=="1"||maskExport.compositeCount!==1||!maskExport.boundaryHasCompositeStyle||!maskExport.closedBoundary||!maskExport.order||!maskExport.splitPrelude)throw new Error(`SFC背面マスクの書出しが不正です: ${JSON.stringify(maskExport)}`);
+  if(!maskExport.decodedLayerText.includes("写真方向番号背面マスク")||maskExport.fillArgs.length!==5||maskExport.fillArgs[1]!=="17"||maskExport.compositeCount!==2||!maskExport.hasAreaControl||!maskExport.hasBackgroundFigure||!maskExport.hasRootPlacement||!maskExport.boundaryHasCompositeStyle||!maskExport.closedBoundary||!maskExport.order||!maskExport.splitPrelude)throw new Error(`SFC背面マスクの書出しが不正です: ${JSON.stringify(maskExport)}`);
+  if(maskExport.lightMask.rgb.join(',')!=="255,255,255"||maskExport.lightMask.fillColor!=="17"||!maskExport.lightMask.name.endsWith("$$255_255_255"))throw new Error(`白背景の背面マスク色が不正です: ${JSON.stringify(maskExport.lightMask)}`);
   const assemblyOrder=maskExport.assemblyOrder;
-  if(assemblyOrder.outId!==4||assemblyOrder.retainedSourceOuter!==3||assemblyOrder.shiftedSourceOuter!==6||!(assemblyOrder.previous<assemblyOrder.existing&&assemblyOrder.existing<assemblyOrder.boundary&&assemblyOrder.boundary<assemblyOrder.fill&&assemblyOrder.fill<assemblyOrder.main))throw new Error(`SXFアセンブリ順と背面マスクの挿入位置が不正です: ${JSON.stringify(assemblyOrder)}`);
+  if(assemblyOrder.outId!==4||assemblyOrder.retainedSourceOuter!==3||assemblyOrder.shiftedSourceOuter!==8||!(assemblyOrder.previous<assemblyOrder.existing&&assemblyOrder.existing<assemblyOrder.boundary&&assemblyOrder.boundary<assemblyOrder.fill&&assemblyOrder.fill<assemblyOrder.main))throw new Error(`SXFアセンブリ順と背面マスクの挿入位置が不正です: ${JSON.stringify(assemblyOrder)}`);
   if(maskExport.meta?.photoBackMaskEnabled!==true)throw new Error("背面マスク設定がSFCに保存されません");
   const rect=await page.locator("#canvas").boundingBox();
   await page.mouse.move(rect.x+initial.center[0],rect.y+initial.center[1]);
