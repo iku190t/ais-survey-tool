@@ -6,6 +6,7 @@ const {chromium}=require("playwright");
 const source=fs.readFileSync("index.html","utf8");
 const required=[
   'id="coordinateInspectCopyAllBtn"',
+  '<button id="coordinateInspectCopyAllBtn" class="panelUtilityBtn" type="button">コピー</button>',
   'id="coordinateInspectDifference"',
   'setCoordinateInspectDifferenceResult(dem1a,dem5a)',
   'const [dem1a,dem5a]=await Promise.all([sample(dem1aSource),sample(dem5aSource)])',

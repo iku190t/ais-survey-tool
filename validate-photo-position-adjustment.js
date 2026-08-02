@@ -16,7 +16,8 @@ const required=[
   ["方向回転処理","Math.atan2(dy,dx)*180/Math.PI"],
   ["DEM再取得","resolvePhotoDemElevation(drag.item)"],
   ["8方向Excel","formatPhotoDirection8(item.direction)"],
-  ["選択行の中央スクロール",'scrollPhotoListItemToCenter(hit.item,"smooth")'],
+  ["選択行を左端へ戻して中央スクロール",'scrollPhotoListItemToCenter(hit.item,"smooth","start")'],
+  ["位置移動後にX座標を表示",'drag.kind==="rotate"?"end":"x"'],
   ["Undo登録",'label:drag.kind==="rotate"?"写真方向調整":"写真位置調整"']
 ];
 for(const [name,token] of required)if(!html.includes(token))throw new Error(`${name}がありません`);
@@ -78,12 +79,28 @@ let browser;
     photoAnnotations=Array.from({length:24},(_,index)=>({...source,number:index+1,fileName:'P'+String(index+1).padStart(2,'0')+'.jpg',markerX:index*80,worldX:index*80}));
     selectedPhotoPositionItem=photoAnnotations[11];renderPhotoListPanel();
     const scroll=document.getElementById('photoListTableScroll');scroll.scrollTop=0;
-    const ok=scrollPhotoListItemToCenter(selectedPhotoPositionItem,'auto');
+    const ok=scrollPhotoListItemToCenter(selectedPhotoPositionItem,'auto','start');
     const row=[...document.getElementById('photoListRows').children].find(candidate=>candidate._photoAnnotation===selectedPhotoPositionItem);
     const scrollRect=scroll.getBoundingClientRect(),rowRect=row.getBoundingClientRect();
     return {ok,scrollTop:scroll.scrollTop,centerDifference:Math.abs((rowRect.top+rowRect.bottom)/2-(scrollRect.top+scrollRect.bottom)/2),outlined:row.classList.contains('photoPositionSelectedRow')};
   })()`));
   if(!scrollCheck.ok||scrollCheck.scrollTop<=0||scrollCheck.centerDifference>25||!scrollCheck.outlined)throw new Error(`選択した写真行が一覧中央へ移動しません: ${JSON.stringify(scrollCheck)}`);
+  const horizontalScroll=await page.evaluate(()=>window.eval(`(()=>{
+    const item=selectedPhotoPositionItem,scroll=document.getElementById('photoListTableScroll');
+    scrollPhotoListItemToCenter(item,'auto','x');const xLeft=scroll.scrollLeft;
+    scrollPhotoListItemToCenter(item,'auto','end');const end=scroll.scrollLeft,max=Math.max(0,scroll.scrollWidth-scroll.clientWidth);
+    scrollPhotoListItemToCenter(item,'auto','start');const start=scroll.scrollLeft;
+    return {xLeft,end,max,start};
+  })()`));
+  if(horizontalScroll.xLeft<=0||Math.abs(horizontalScroll.end-horizontalScroll.max)>1||horizontalScroll.start!==0)throw new Error(`写真位置一覧の横スクロールが正しくありません: ${JSON.stringify(horizontalScroll)}`);
+  const popupExclusive=await page.evaluate(()=>window.eval(`(()=>{
+    data.texts=[{x:0,y:0,w:10,h:4,sp:0,angle:0,align1:1,text:'測点',layer:'1',_sxfFeatureId:1001}];
+    data.layerNames={'1':'文字'};document.getElementById('photoListPanel').style.display='flex';setPhotoPositionAdjustMode(true);
+    openTextLayerModal(data.texts[0]);
+    return {photo:getComputedStyle(document.getElementById('photoListPanel')).display,text:getComputedStyle(document.getElementById('textLayerModal')).display};
+  })()`));
+  if(popupExclusive.photo!=="none"||popupExclusive.text!=="flex")throw new Error(`文字変更時に写真位置を閉じません: ${JSON.stringify(popupExclusive)}`);
+  await page.evaluate(()=>window.eval(`(()=>{closeTextLayerModal();setPhotoListPanelOpen(true);})()`));
   await page.locator("#photoExcelBtn").click();
   const excelChoice=await page.evaluate(()=>{
     const list=document.getElementById("photoExcelListChoiceBtn"),album=document.getElementById("photoExcelAlbumChoiceBtn");
