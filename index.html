@@ -704,8 +704,6 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .photoSettingRow{display:grid;grid-template-columns:92px 1fr 54px;align-items:center;gap:7px;font-size:12px;font-weight:700;}
 .photoSettingRow input[type=range]{width:100%;min-width:0;}
 .photoSettingRow output{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;}
-#photoBackMask{width:112px;min-height:32px;padding:5px 7px;font-size:12px;font-weight:700;justify-self:start;}
-#photoBackMask.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #photoListSummary{font-size:12px;color:var(--muted);margin:0 0 7px;}
 #photoListTableScroll{width:100%;flex:1 1 auto;min-height:120px;overflow-x:scroll;overflow-y:scroll;padding-bottom:3px;-webkit-overflow-scrolling:touch;scrollbar-width:auto;scrollbar-color:#8a8a8a rgba(0,0,0,.18);}
 #photoListTableScroll::-webkit-scrollbar{height:12px;}
@@ -1390,7 +1388,6 @@ gtag('config', 'G-88B9YPJXWP');
         <label class="photoSettingRow"><span>文字の大きさ</span><input id="photoTextSize" type="range" min="1" max="10" step="0.1" value="2.5"><output id="photoTextSizeValue">2.5 mm</output></label>
         <label class="photoSettingRow"><span>矢印の長さ</span><input id="photoArrowLength" type="range" min="2" max="30" step="0.5" value="10"><output id="photoArrowLengthValue">10.0 mm</output></label>
         <label class="photoSettingRow"><span>矢印先端の幅</span><input id="photoArrowHeadWidth" type="range" min="0.2" max="5" step="0.1" value="0.5"><output id="photoArrowHeadWidthValue">0.5 mm</output></label>
-        <button id="photoBackMask" class="active" type="button" aria-pressed="true">背面マスク</button>
       </div>
       <div id="photoListSummary"></div>
       <div id="photoListTableScroll">
@@ -1865,7 +1862,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開く・保存</div><b>ファイル</b> を押し、<b>開く</b>、<b>上書き保存</b>、<b>名前を付けて保存</b>から選びます。PCでは通常の保存画面を使い、メール送信画面は表示しません。</div>
               <div class="helpBlock"><div class="helpHead">PCでドラッグして開く</div>PCではSFCを図面画面へドラッグし、「ここにドロップして開く」の表示上で離すと、そのまま図面を開けます。</div>
-              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>背面マスク</b>は初期状態でONになり、写真番号の丸の内側だけを現在の背景色で隠して番号を読みやすくします。OFFにすると元の図形を消さずにマスクだけを解除します。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置を選べます。<b>見開きにする</b> は3枚・4枚だけ選択でき、2枚・6枚・8枚では選択できません。見開きでは、表ページを写真・コメント、裏ページをコメント・写真の順にして、綴じたときにコメント欄が中央へ向くよう自動で反転します。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4・6枚では豆図を付けられますが、8枚では豆図を選択できません。通常配置では2・6・8枚は写真を上、コメントを下へ配置し、3・4枚は写真を左、コメントを右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4・6枚の空き領域に合わせて大きくし、高解像度で作成します。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置を選べます。<b>見開きにする</b> は3枚・4枚だけ選択でき、2枚・6枚・8枚では選択できません。見開きでは、表ページを写真・コメント、裏ページをコメント・写真の順にして、綴じたときにコメント欄が中央へ向くよう自動で反転します。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4・6枚では豆図を付けられますが、8枚では豆図を選択できません。通常配置では2・6・8枚は写真を上、コメントを下へ配置し、3・4枚は写真を左、コメントを右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4・6枚の空き領域に合わせて大きくし、高解像度で作成します。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容を、開いているSFCへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">名前を付けて保存</div>PCではエクスプローラーの保存画面からSFC名を指定します。CAD化した航空写真がある場合は保存先フォルダーを選び、SFCと参照JPEGを同じフォルダーへ保存します。SFCとJPEGは移動するときも同じフォルダーに置いてください。</div>
               <div class="helpBlock"><div class="helpHead">ZIPで送る理由</div>SFCは一般的なメール添付形式として登録されていないため、iPhone・Android・Gmailなどが添付を拒否する場合があります。ZIPは広く対応しており、SFCのファイル名と内容を変えずに安全に添付できます。受信後はZIPを展開するとSFCファイルが1個入っています。</div>
@@ -2348,11 +2345,9 @@ let aerialCadImages = [];
 const aerialCadImageRuntime = new Map();
 const PHOTO_POSITION_LAYER_ID = "photo:positions";
 const PHOTO_LIST_LAYER_ID = "photo:list";
-const PHOTO_BACK_MASK_LAYER_ID = "photo:position-back-mask";
 const PHOTO_POSITION_LAYER_NAME = "写真位置";
 const PHOTO_LIST_LAYER_NAME = "写真一覧";
-const PHOTO_BACK_MASK_LAYER_NAME = "写真方向番号背面マスク";
-const PHOTO_RELATED_LAYER_NAMES = [PHOTO_POSITION_LAYER_NAME,PHOTO_LIST_LAYER_NAME,PHOTO_BACK_MASK_LAYER_NAME];
+const PHOTO_RELATED_LAYER_NAMES = [PHOTO_POSITION_LAYER_NAME,PHOTO_LIST_LAYER_NAME];
 let photoAnnotations = [];
 const selectedPhotoAnnotations = new Set();
 const photoSourceFiles = new Map();
@@ -2361,7 +2356,7 @@ let photoPositionAdjustMode = false;
 let selectedPhotoPositionItem = null;
 let photoPositionAdjustDrag = null;
 const PHOTO_SETTINGS_KEY = "sfcviewer-photo-settings-v1";
-const PHOTO_DEFAULT_SETTINGS = {circleDiameterMm:5,textHeightMm:2.5,arrowLengthMm:10,arrowHeadWidthMm:.5,backMaskEnabled:true};
+const PHOTO_DEFAULT_SETTINGS = {circleDiameterMm:5,textHeightMm:2.5,arrowLengthMm:10,arrowHeadWidthMm:.5};
 const PHOTO_LIST_TEXT_HEIGHT_MM = 2.5;
 const PHOTO_LIST_ROW_HEIGHT_MM = 4.2;
 const PHOTO_LIST_LINE_WIDTH_MM = 44;
@@ -2373,8 +2368,7 @@ function loadPhotoSettings(){
       circleDiameterMm:Math.min(20,Math.max(1,+saved.circleDiameterMm||PHOTO_DEFAULT_SETTINGS.circleDiameterMm)),
       textHeightMm:Math.min(10,Math.max(1,+saved.textHeightMm||PHOTO_DEFAULT_SETTINGS.textHeightMm)),
       arrowLengthMm:Math.min(30,Math.max(2,+saved.arrowLengthMm||PHOTO_DEFAULT_SETTINGS.arrowLengthMm)),
-      arrowHeadWidthMm:Math.min(5,Math.max(.2,+saved.arrowHeadWidthMm||PHOTO_DEFAULT_SETTINGS.arrowHeadWidthMm)),
-      backMaskEnabled:saved.backMaskEnabled!==false
+      arrowHeadWidthMm:Math.min(5,Math.max(.2,+saved.arrowHeadWidthMm||PHOTO_DEFAULT_SETTINGS.arrowHeadWidthMm))
     };
   }catch(_error){return {...PHOTO_DEFAULT_SETTINGS};}
 }
@@ -6680,13 +6674,6 @@ function applyEditAction(action,undo){
         setPhotoPositionAdjustMode(false);
       }
     }
-    if(action.name===PHOTO_BACK_MASK_LAYER_NAME){
-      const enabled=!!undo;
-      photoSettings={...photoSettings,backMaskEnabled:enabled};
-      layerVisibility[PHOTO_BACK_MASK_LAYER_ID]=enabled;
-      savePhotoSettings();
-      syncPhotoSettingsUi();
-    }
   }else if(action.type==="text-layer-change"){
     applyTextLayerChangeHistory(action,undo);
   }else if(action.type==="photo-change"){
@@ -8537,7 +8524,6 @@ function getLayerLabel(layer){
   const key=String(layer);
   if(key===PHOTO_POSITION_LAYER_ID)return PHOTO_POSITION_LAYER_NAME;
   if(key===PHOTO_LIST_LAYER_ID)return PHOTO_LIST_LAYER_NAME;
-  if(key===PHOTO_BACK_MASK_LAYER_ID)return PHOTO_BACK_MASK_LAYER_NAME;
   const aerialName=getAerialCadLayerNameById(key);
   if(aerialName)return aerialName;
   const memoSpec=getMemoLayerSpecById(key);
@@ -8563,7 +8549,6 @@ function getAllLayers(){
   if(photoAnnotations.length){
     set.add(PHOTO_POSITION_LAYER_ID);
     set.add(PHOTO_LIST_LAYER_ID);
-    set.add(PHOTO_BACK_MASK_LAYER_ID);
   }
   return Array.from(set).filter(layer=>!deletedLayerNames.has(String(getLayerLabel(layer)||""))).sort((a,b)=>{
     const an=Number(a),bn=Number(b),af=Number.isFinite(an),bf=Number.isFinite(bn);
@@ -8577,8 +8562,7 @@ function ensureLayerVisibility(){
 }
 function isLayerVisible(layer){ return !deletedLayerNames.has(String(getLayerLabel(layer)||""))&&layerVisibility[layer]===true; }
 function getLayerBaseColor(layer){
-  if(String(layer)===PHOTO_BACK_MASK_LAYER_ID)return bgColor();
-  if(String(layer)===PHOTO_POSITION_LAYER_ID)return "#ff9800";
+  if(String(layer)===PHOTO_POSITION_LAYER_ID)return "#ff3030";
   if(String(layer)===PHOTO_LIST_LAYER_ID)return "#00bcd4";
   if(getAerialCadLayerNameById(layer))return "#87cefa";
   const memoSpec=getMemoLayerSpecByLayer(layer);
@@ -8620,7 +8604,6 @@ function setLayerColorOverride(layer,color){
   for(const key of getEquivalentLayerColorKeys(layer))layerColorOverrides[String(key)]=value;
 }
 function getCurrentLayerColor(layer,fallback=null){
-  if(String(layer)===PHOTO_BACK_MASK_LAYER_ID)return bgColor();
   return getLayerColorOverride(layer)||fallback||getLayerBaseColor(layer);
 }
 const LAYER_COLOR_PALETTE = [
@@ -9361,12 +9344,6 @@ function deleteLayerByName(name){
   const removedSourceNames=isPhotoContentLayer?relatedLayerNames.slice():(dataEntries.length?relatedLayerNames.slice():[]);
   for(const relatedName of removedSourceNames)removedSourceLayerNames.add(relatedName);
   for(const relatedName of relatedLayerNames)deletedLayerNames.add(relatedName);
-  if(name===PHOTO_BACK_MASK_LAYER_NAME){
-    photoSettings={...photoSettings,backMaskEnabled:false};
-    layerVisibility[PHOTO_BACK_MASK_LAYER_ID]=false;
-    savePhotoSettings();
-    syncPhotoSettingsUi();
-  }
   recordEditAction({type:"layer-delete",name,relatedLayerNames,entries,aerialEntries,photoEntries,photoSourceEntries,dataEntries,removedSourceNames,label:"レイヤー削除"});
   cachedMeasurePointsDirty=true;ensureLayerVisibility();renderLayerList();
   if(keepLayerPanelOpen){
@@ -9409,12 +9386,6 @@ function renderLayerList(){
     sp.setAttribute("aria-label",`${getLayerLabel(layer)}を削除`);
     const applyLayerVisibility=()=>{
       layerVisibility[layer]=cb.checked;
-      if(String(layer)===PHOTO_BACK_MASK_LAYER_ID){
-        photoSettings={...photoSettings,backMaskEnabled:cb.checked};
-        if(cb.checked)deletedLayerNames.delete(PHOTO_BACK_MASK_LAYER_NAME);
-        savePhotoSettings();
-        syncPhotoSettingsUi();
-      }
       cachedMeasurePointsDirty=true;
       draw();
       scheduleRecoverySnapshot(180);
@@ -9427,8 +9398,7 @@ function renderLayerList(){
     const currentColor=getCurrentLayerColor(layer).toLowerCase();
     color.style.setProperty("--layer-color",currentColor);
     color.setAttribute("aria-label",`${getLayerLabel(layer)}の表示色を変更`);
-    if(String(layer)===PHOTO_BACK_MASK_LAYER_ID){color.disabled=true;color.title="背景色に連動";color.setAttribute("aria-label","背景色に連動");}
-    else color.addEventListener("click",()=>openLayerColorPalette({type:"layer",layer},currentColor));
+    color.addEventListener("click",()=>openLayerColorPalette({type:"layer",layer},currentColor));
     content.appendChild(cb);content.appendChild(sp);content.appendChild(color);row.appendChild(deleteBtn);row.appendChild(content);layerList.appendChild(row);
     content.addEventListener("click",event=>{
       if(event.target===cb||event.target.closest(".layerColorButton"))return;
@@ -12559,7 +12529,6 @@ function normalizeInkStrokeForSave(s){
     terrainSourceLabel: s.terrainSourceLabel || null,
     photoLayerId: s.photoLayerId || null,
     photoTextLabel: s.photoTextLabel || null,
-    isPhotoBackMask: !!s.isPhotoBackMask,
     points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})) : []
   };
 }
@@ -12598,7 +12567,6 @@ function strokeToWorldPolyline(stroke){
     terrainSourceLabel: stroke.terrainSourceLabel || null,
     photoLayerId: stroke.photoLayerId || null,
     photoTextLabel: stroke.photoTextLabel || null,
-    isPhotoBackMask: !!stroke.isPhotoBackMask,
     points: stroke.points.map(p => ({x:+p.x||0, y:+p.y||0}))
   };
 }
@@ -12649,9 +12617,8 @@ const MEMO_LINE_LAYER_NAME_SJIS_LATIN1 = "\x90\xfc";
 const MEMO_CIRCLE_LAYER_NAME = "丸";
 const MEMO_CIRCLE_LAYER_NAME_SJIS_LATIN1 = "\x8a\xdb";
 const MEMO_LAYER_SPECS = [
-  {id:PHOTO_POSITION_LAYER_ID,shape:"photo-position",colorKey:"yellow",colorName:"黄",color:"#ffd400",name:PHOTO_POSITION_LAYER_NAME,rawName:"\x8e\xca\x90\x5e\x88\xca\x92\x75"},
+  {id:PHOTO_POSITION_LAYER_ID,shape:"photo-position",colorKey:"red",colorName:"赤",color:"#ff3030",name:PHOTO_POSITION_LAYER_NAME,rawName:"\x8e\xca\x90\x5e\x88\xca\x92\x75"},
   {id:PHOTO_LIST_LAYER_ID,shape:"photo-list",colorKey:"blue",colorName:"青",color:"#007aff",name:PHOTO_LIST_LAYER_NAME,rawName:"\x8e\xca\x90\x5e\x88\xea\x97\x97"},
-  {id:PHOTO_BACK_MASK_LAYER_ID,shape:"photo-back-mask",colorKey:"black",colorName:"背景",color:"#000000",name:PHOTO_BACK_MASK_LAYER_NAME,rawName:"\x8e\xca\x90\x5e\x95\xfb\x8c\xfc\x94\xd4\x8d\x86\x94\x77\x96\xca\x83\x7d\x83\x58\x83\x4e"},
   {id:"terrain:DEM1A:regular",shape:"terrain-regular",colorKey:"yellow",colorName:"黄",color:"#ffd400",name:"等高線_DEM1A_主曲線",rawName:"\x93\x99\x8d\x82\x90\xfc\x5f\x44\x45\x4d\x31\x41\x5f\x8e\xe5\x8b\xc8\x90\xfc"},
   {id:"terrain:DEM1A:index",shape:"terrain-index",colorKey:"red",colorName:"赤",color:"#ff3030",name:"等高線_DEM1A_計曲線",rawName:"\x93\x99\x8d\x82\x90\xfc\x5f\x44\x45\x4d\x31\x41\x5f\x8c\x76\x8b\xc8\x90\xfc"},
   {id:"terrain:DEM5A:regular",shape:"terrain-regular",colorKey:"yellow",colorName:"黄",color:"#ffd400",name:"等高線_DEM5A_主曲線",rawName:"\x93\x99\x8d\x82\x90\xfc\x5f\x44\x45\x4d\x35\x41\x5f\x8e\xe5\x8b\xc8\x90\xfc"},
@@ -12885,11 +12852,9 @@ function parseUserDefinedColourFeatureDefsFlat(flat){
 function buildMemoColorDefinitionText(baseText, startId, strokes){
   const flat = getFlatSxfText(baseText);
   const defs = parsePredefinedColourFeatureDefsFlat(flat).slice();
-  const userDefs=parseUserDefinedColourFeatureDefsFlat(flat);
   const needed = [];
   const codes = {};
   for (const s of Array.isArray(strokes) ? strokes : []) {
-    if(s&&s.isPhotoBackMask)continue;
     const key = getMemoExportColor(s);
     const name = MEMO_COLOR_TO_PREDEFINED_NAME[key];
     if (!name) continue;
@@ -12903,27 +12868,7 @@ function buildMemoColorDefinitionText(baseText, startId, strokes){
     codes[key] = code;
     needed.push({ key, code, name });
   }
-  const maskStroke=(Array.isArray(strokes)?strokes:[]).find(stroke=>stroke&&stroke.isPhotoBackMask);
-  const maskHex=String(maskStroke?.color||bgColor()||"").trim();
-  const expandedMaskHex=/^#[0-9a-f]{3}$/i.test(maskHex)
-    ?`#${maskHex[1]}${maskHex[1]}${maskHex[2]}${maskHex[2]}${maskHex[3]}${maskHex[3]}`
-    :maskHex;
-  const maskRgb=maskStroke
-    ?(hexToRgbTuple(expandedMaskHex)||[0,0,0]).map(value=>Math.max(0,Math.min(255,Math.round(value))))
-    :null;
-  let maskColorCode="";
-  let newMaskRgb=null;
-  if(maskRgb){
-    // Use an explicit RGB colour for a background mask. Predefined black/white
-    // can be display-contrast aware in some CADs and may be inverted.
-    const existing=userDefs.find(def=>def.r===maskRgb[0]&&def.g===maskRgb[1]&&def.b===maskRgb[2]);
-    if(existing)maskColorCode=String(existing.code);
-    else{
-      maskColorCode=String(17+userDefs.length);
-      newMaskRgb=maskRgb;
-    }
-  }
-  if (!needed.length&&!newMaskRgb) return { colorText:'', nextId:startId, codes, maskColorCode, maskRgb };
+  if (!needed.length) return { colorText:'', nextId:startId, codes };
   let id = startId;
   const parts = ['/* --- sfc_memo_colordef_begin --- */'];
   for (const item of needed) {
@@ -12932,14 +12877,8 @@ function buildMemoColorDefinitionText(baseText, startId, strokes){
 SXF*/`);
     id += 1;
   }
-  if(newMaskRgb){
-    parts.push(`/*SXF
-#${id} = user_defined_colour_feature('${newMaskRgb[0]}','${newMaskRgb[1]}','${newMaskRgb[2]}')
-SXF*/`);
-    id+=1;
-  }
   parts.push('/* --- sfc_memo_colordef_end --- */');
-  return { colorText: parts.join("\r\n"), nextId:id, codes, maskColorCode, maskRgb };
+  return { colorText: parts.join("\r\n"), nextId:id, codes };
 }
 
 function parseSourceFeatureSegmentsFlat(flat){
@@ -13454,22 +13393,11 @@ function buildPhotoAnnotationExportStrokes(){
   const units=getMemoWorldUnitsPerPaperMm(),out=[];
   const positionDeleted=deletedLayerNames.has(PHOTO_POSITION_LAYER_NAME);
   const listDeleted=deletedLayerNames.has(PHOTO_LIST_LAYER_NAME);
-  const maskDeleted=deletedLayerNames.has(PHOTO_BACK_MASK_LAYER_NAME);
   const addLine=(points,layerId,label=null)=>out.push({
     type:"freehand",color:getCurrentLayerColor(layerId),opacity:1,eraser:false,
     screenWidthPx:null,worldWidthMm:0.13,width:13,photoLayerId:layerId,photoTextLabel:label,points
   });
   if(!positionDeleted){
-    if(photoSettings.backMaskEnabled!==false&&isLayerVisible(PHOTO_BACK_MASK_LAYER_ID)&&!maskDeleted){
-      for(const item of photoAnnotations){
-        const radius=(photoSettings.circleDiameterMm/2)*units;
-        out.push({
-          type:"freehand",color:bgColor(),opacity:1,eraser:false,screenWidthPx:null,worldWidthMm:0.13,width:13,
-          isPhotoBackMask:true,photoLayerId:PHOTO_BACK_MASK_LAYER_ID,
-          points:makePhotoCirclePoints(item.markerX,item.markerY,radius)
-        });
-      }
-    }
     for(const item of photoAnnotations){
       const radius=(photoSettings.circleDiameterMm/2)*units,cx=item.markerX,cy=item.markerY;
       out.push({
@@ -13567,13 +13495,6 @@ function drawPhotoAnnotationsOverlay(){
     for(const item of photoAnnotations){
       const center=worldToScreen(item.markerX,item.markerY);
       const radius=Math.max(1.5,(photoSettings.circleDiameterMm/2)*units*view.scale);
-      if(photoSettings.backMaskEnabled!==false&&isLayerVisible(PHOTO_BACK_MASK_LAYER_ID)){
-        ctx.save();
-        ctx.globalAlpha=1;
-        ctx.fillStyle=bgColor();
-        ctx.beginPath();ctx.arc(center[0],center[1],radius,0,Math.PI*2);ctx.fill();
-        ctx.restore();
-      }
       ctx.beginPath();ctx.arc(center[0],center[1],radius,0,Math.PI*2);ctx.stroke();
       const vector=photoDirectionWorldVector(item);
       if(vector){
@@ -13894,12 +13815,6 @@ function syncPhotoSettingsUi(){
     const input=document.getElementById(inputId),output=document.getElementById(outputId);
     if(input&&document.activeElement!==input)input.value=String(photoSettings[key]);
     if(output)output.textContent=`${(+photoSettings[key]).toFixed(1)} mm`;
-  }
-  const backMask=document.getElementById("photoBackMask");
-  if(backMask){
-    const enabled=photoSettings.backMaskEnabled!==false;
-    backMask.classList.toggle("active",enabled);
-    backMask.setAttribute("aria-pressed",String(enabled));
   }
 }
 function savePhotoSettings(){
@@ -14471,8 +14386,7 @@ async function importGeotaggedPhotos(files){
   layoutPhotoListOutsideDrawing();
   deletedLayerNames.delete(PHOTO_POSITION_LAYER_NAME);
   deletedLayerNames.delete(PHOTO_LIST_LAYER_NAME);
-  deletedLayerNames.delete(PHOTO_BACK_MASK_LAYER_NAME);
-  ensureLayerVisibility();layerVisibility[PHOTO_POSITION_LAYER_ID]=true;layerVisibility[PHOTO_LIST_LAYER_ID]=true;layerVisibility[PHOTO_BACK_MASK_LAYER_ID]=photoSettings.backMaskEnabled!==false;
+  ensureLayerVisibility();layerVisibility[PHOTO_POSITION_LAYER_ID]=true;layerVisibility[PHOTO_LIST_LAYER_ID]=true;
   renderLayerList();renderPhotoListPanel();scheduleDraw();saveRecoverySnapshot({immediate:true});
   requestAnimationFrame(()=>requestAnimationFrame(fitPhotoListToScreen));
   const suffix=failed.length?`（位置情報なし ${failed.length}枚を除外）`:"";
@@ -14835,21 +14749,12 @@ function buildInkPolylineFeatureText(baseText){
   const widthText=widthBuild.widthText;
   id=widthBuild.nextId;
 
-  const preludeParts=[];
-  const maskFillSpecs=[];
   const lineParts = [];
   const allExportPoints=[];
   const generatedGeometryPoints=[];
   for(const stroke of normalized)for(const point of stroke.points||[]){
     if(Number.isFinite(+point.x)&&Number.isFinite(+point.y))generatedGeometryPoints.push({x:+point.x,y:+point.y});
   }
-  const geometryPlacement=findMemoGeometryInsertion(baseText,generatedGeometryPoints);
-  // Keep the composite-curve definitions immediately beside the generated
-  // fills and visible photo geometry.  Inserting them at the beginning of the
-  // selected partial figure splits existing SFIG contents (for example
-  // TREND-ONE's ~4869 figure) and makes the final fill boundary unresolved.
-  const preludeInsertion=geometryPlacement.index;
-  let nextCompositeCurveCode=countSxfCompositeCurvesBefore(baseText,preludeInsertion)+1;
   const horizontalTextAngle=getGeneratedHorizontalSxfTextAngle(baseText,generatedGeometryPoints);
   const appendTextLabel=(label,layerCode,colorCode,forceHorizontal=false)=>{
     if(!label||!String(label.text||"").trim())return;
@@ -14867,26 +14772,7 @@ SXF*/`);
     id+=1;
   };
 
-  // Keep every mask before its visible circle, number and arrow. This also
-  // lets feature IDs remain monotonic in the emitted SXF stream.
-  const orderedNormalized=[
-    ...normalized.filter(s=>s.isPhotoBackMask),
-    ...normalized.filter(s=>!s.isPhotoBackMask)
-  ];
-  let maskFillsEmitted=false;
-  const emitStandardMaskFills=()=>{
-    if(maskFillsEmitted)return;
-    for(const fill of maskFillSpecs){
-      lineParts.push(`/*SXF
-#${id} = fill_area_style_colour_feature('${fill.layerCode}','${fill.colorCode}','${fill.outerCode}','0','()')
-SXF*/`);
-      id+=1;
-    }
-    maskFillsEmitted=true;
-  };
-
-  for (const s of orderedNormalized) {
-    if(!s.isPhotoBackMask)emitStandardMaskFills();
+  for (const s of normalized) {
     const exportPts = Array.isArray(s.points)
       ? s.points.map(p => ({ x:+p.x||0, y:+p.y||0 })).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
       : [];
@@ -14897,43 +14783,12 @@ SXF*/`);
     const resolvedLayerCode=layerBuild.codes[memoSpec.id];
     const layerCode = String(resolvedLayerCode == null ? getAnnotationLayer() : resolvedLayerCode);
     const exportColor = getMemoExportColor(s);
-    const colorCode = String(s.isPhotoBackMask
-      ?(colorBuild.maskColorCode||colorBuild.codes[exportColor]||"1")
-      :(colorBuild.codes[exportColor]||"1"));
+    const colorCode = String(colorBuild.codes[exportColor]||"1");
     // These generated objects have no linetype selector in the UI. Export them
     // as the SXF predefined continuous linetype (code 1). Inheriting a nearby
     // source feature could otherwise leak an unrelated custom/dashed code.
     const typeCode = MEMO_FILE_TYPE_CODE;
     const widthCode = String(widthBuild.codes[getStrokeWidthMm(s).toFixed(6)] || getMemoWidthInfo(baseText).code || "1");
-
-    if(s.isPhotoBackMask){
-      const compact=[];
-      for(const p of exportPts){
-        const prev=compact[compact.length-1];
-        if(!prev||Math.abs(p.x-prev.x)>=1e-9||Math.abs(p.y-prev.y)>=1e-9)compact.push(p);
-      }
-      if(compact.length>=3){
-        const first=compact[0],last=compact[compact.length-1];
-        if(Math.hypot(first.x-last.x,first.y-last.y)>=1e-7)compact.push({x:first.x,y:first.y});
-        const xs=compact.map(p=>(+p.x).toFixed(6)).join(',');
-        const ys=compact.map(p=>(+p.y).toFixed(6)).join(',');
-        // SXF composite-curve children have no independent drawing style.
-        // The following composite_curve_org_feature supplies those attributes.
-        preludeParts.push(`/*SXF
-#${id} = polyline_feature('0','0','0','0','${compact.length}','(${xs})','(${ys})')
-SXF*/`);
-        id+=1;
-        preludeParts.push(`/*SXF
-#${id} = composite_curve_org_feature('${colorCode}','${typeCode}','${widthCode}','0')
-SXF*/`);
-        id+=1;
-        // The SXF fill boundary is this closed composite curve. Do not add the
-        // vendor-specific Area_control or attribute partial-figure convention.
-        maskFillSpecs.push({layerCode,colorCode,outerCode:nextCompositeCurveCode,widthCode});
-        nextCompositeCurveCode+=1;
-      }
-      continue;
-    }
 
     if (s.isCircleMemo) {
       const first = exportPts[0], last = exportPts[exportPts.length - 1];
@@ -14977,12 +14832,13 @@ SXF*/`);
       appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
     }
   }
-  emitStandardMaskFills();
   return {
     colorText,layerText,widthText,fontText,
-    preludeText:preludeParts.join("\r\n"),
+    preludeText:"",
     rootPlacementText:"",backgroundMaskName:"",
-    lineText:lineParts.join("\r\n"),expectedFeatureCount:normalized.length,exportPoints:allExportPoints
+    lineText:lineParts.join("\r\n"),
+    expectedFeatureCount:normalized.length,
+    exportPoints:allExportPoints
   };
 }
 function stripEmbeddedAnnotations(srcText){
@@ -15005,10 +14861,15 @@ function getSfcRenderSourceText(srcText){
     if(spec){coveredNames.add(String(spec.name||""));coveredNames.add(String(spec.rawName||""));}
   }
   if(hasPhotoMetadata){
-    for(const id of [PHOTO_POSITION_LAYER_ID,PHOTO_LIST_LAYER_ID,PHOTO_BACK_MASK_LAYER_ID]){
+    for(const id of [PHOTO_POSITION_LAYER_ID,PHOTO_LIST_LAYER_ID]){
       const spec=getMemoLayerSpecById(id);
       if(spec){coveredNames.add(String(spec.name||""));coveredNames.add(String(spec.rawName||""));}
     }
+    // Files exported by older Ez Viewer versions may contain the removed
+    // photo back-mask layer. Hide only that legacy generated layer while the
+    // editable photo metadata restores the actual photo annotations.
+    coveredNames.add("写真方向番号背面マスク");
+    coveredNames.add("\x8e\xca\x90\x5e\x95\xfb\x8c\xfc\x94\xd4\x8d\x86\x94\x77\x96\xca\x83\x7d\x83\x58\x83\x4e");
   }
   const defs=parseLayerFeatureDefsFlat(getFlatSxfText(text));
   const coveredCodes=new Set();
@@ -15066,10 +14927,6 @@ function restorePhotoAnnotationsFromSourceText(srcText){
   const payload=parseMemoMetaPayload(srcText);
   return Array.isArray(payload&&payload.photoAnnotations)?payload.photoAnnotations:[];
 }
-function restorePhotoBackMaskSettingFromSourceText(srcText){
-  const payload=parseMemoMetaPayload(srcText);
-  return payload&&typeof payload.photoBackMaskEnabled==="boolean"?payload.photoBackMaskEnabled:null;
-}
 function buildMemoMetaComment(){
   try{
     const strokes = inkStrokes.map(strokeToWorldPolyline).filter(s => s && Array.isArray(s.points) && s.points.length >= 2 && !deletedLayerNames.has(getMemoLayerSpecForStroke(s).name)).map(s => ({
@@ -15091,7 +14948,7 @@ function buildMemoMetaComment(){
       terrainSourceLabel: s.terrainSourceLabel || null,
       points: s.points.map(p => ({x:+p.x||0, y:+p.y||0}))
     }));
-    const payload = { version:4, strokes, photoAnnotations:serializePhotoAnnotations(), photoBackMaskEnabled:photoSettings.backMaskEnabled!==false, deletedLayerNames:[...deletedLayerNames] };
+    const payload = { version:4, strokes, photoAnnotations:serializePhotoAnnotations(), deletedLayerNames:[...deletedLayerNames] };
     const json = JSON.stringify(payload);
     const b64 = btoa(unescape(encodeURIComponent(json)));
     return `/* SFCVIEWER_MEMO_META_V1:${b64} */`;
@@ -15459,7 +15316,7 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
     if(!Number.isInteger(layer)||layer<1||layer>layerCount){
       return {ok:false,reason:`書出し文字のレイヤー参照が不正です（${layer}）。`};
     }
-    if(!Number.isInteger(color)||color<1||color>16){
+    if(!isDefinedColorCode(color)){
       return {ok:false,reason:`書出し文字の色コードが不正です（${color}）。`};
     }
     const expectedColorName=SXF_PREDEFINED_COLOR_NAMES_BY_CODE[color];
@@ -15485,12 +15342,12 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
       :Number(unquoteSxfValue(rec.args[1]));
     const holeCount=Number(unquoteSxfValue(rec.args[3]));
     const holeIds=String(unquoteSxfValue(rec.args[4])||"").replace(/^\(|\)$/g,"").split(",").map(value=>value.trim()).filter(Boolean);
-    if(!Number.isInteger(layer)||layer<1||layer>layerCount)return {ok:false,reason:`背面マスクのレイヤー参照が不正です（${layer}）。`};
-    if(!isDefinedColorCode(color))return {ok:false,reason:`背面マスクの色コードが不正です（${color}）。`};
-    if(!compositeAssemblyCodes.has(outer))return {ok:false,reason:`背面マスクの外形参照が不正です（${outer}）。`};
-    if(!Number.isInteger(holeCount)||holeCount<0||holeCount!==holeIds.length)return {ok:false,reason:"背面マスクの中抜き定義が不正です。"};
+    if(!Number.isInteger(layer)||layer<1||layer>layerCount)return {ok:false,reason:`ハッチングのレイヤー参照が不正です（${layer}）。`};
+    if(!isDefinedColorCode(color))return {ok:false,reason:`ハッチングの色コードが不正です（${color}）。`};
+    if(!compositeAssemblyCodes.has(outer))return {ok:false,reason:`ハッチングの外形参照が不正です（${outer}）。`};
+    if(!Number.isInteger(holeCount)||holeCount<0||holeCount!==holeIds.length)return {ok:false,reason:"ハッチングの中抜き定義が不正です。"};
     for(const holeId of holeIds){
-      if(!compositeAssemblyCodes.has(Number(holeId)))return {ok:false,reason:`背面マスクの中抜き参照が不正です（${holeId}）。`};
+      if(!compositeAssemblyCodes.has(Number(holeId)))return {ok:false,reason:`ハッチングの中抜き参照が不正です（${holeId}）。`};
     }
   }
   const allHatches=allRecords.filter(record=>record.name==="fill_area_style_colour_feature"||record.name==="externally_defined_hatch_feature"||record.name==="fill_area_style_hatching_feature"||record.name==="fill_area_style_tiles_feature");
@@ -15511,15 +15368,6 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   for(const locate of allRecords.filter(record=>record.name==="sfig_locate_feature")){
     const name=String(unquoteSxfValue(locate.args[1])||"");
     if(!sfigNames.has(name))return {ok:false,reason:`複合図形「${name}」の定義がありません。`};
-  }
-  const generatedSolidMasks=records.filter(record=>record.name==="fill_area_style_colour_feature");
-  if(generatedSolidMasks.length){
-    const vendorMaskRecords=records.filter(record=>
-      (record.name==="externally_defined_hatch_feature"&&String(unquoteSxfValue(record.args[1])||"")==="Area_control")||
-      (record.name==="sfig_org_feature"&&/^\$\$ATRU\$\$\d+\$\$/.test(String(unquoteSxfValue(record.args[0])||"")))||
-      (record.name==="sfig_locate_feature"&&/^\$\$ATRU\$\$\d+\$\$/.test(String(unquoteSxfValue(record.args[1])||"")))
-    );
-    if(vendorMaskRecords.length)return {ok:false,reason:"背面マスクにSXF標準外の外部ハッチまたは属性部分図が含まれています。"};
   }
   return {ok:true};
 }
@@ -16827,12 +16675,6 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   resetSessionFromLoad();
   inkStrokes = restoreInkStrokesFromSourceText(srcText);
   restorePhotoAnnotations(restorePhotoAnnotationsFromSourceText(srcText));
-  const restoredPhotoBackMask=restorePhotoBackMaskSettingFromSourceText(srcText);
-  if(restoredPhotoBackMask!==null){
-    photoSettings={...photoSettings,backMaskEnabled:restoredPhotoBackMask};
-    layerVisibility[PHOTO_BACK_MASK_LAYER_ID]=restoredPhotoBackMask;
-    syncPhotoSettingsUi();
-  }
   deletedLayerNames = restoreDeletedLayerNamesFromSourceText(srcText);
   removedSourceLayerNames = new Set();
   // If geometry is present in metadata it wins over a stale deleted flag.
@@ -17718,19 +17560,6 @@ document.getElementById("photoListTable")?.addEventListener("copy",event=>{
 ].forEach(([id,key])=>{
   const input=document.getElementById(id);
   if(input)input.addEventListener("input",()=>applyPhotoSettingFromInput(input,key));
-});
-document.getElementById("photoBackMask")?.addEventListener("click",()=>{
-  const enabled=photoSettings.backMaskEnabled===false;
-  photoSettings={...photoSettings,backMaskEnabled:enabled};
-  layerVisibility[PHOTO_BACK_MASK_LAYER_ID]=enabled;
-  if(enabled){
-    deletedLayerNames.delete(PHOTO_BACK_MASK_LAYER_NAME);
-  }
-  savePhotoSettings();
-  syncPhotoSettingsUi();
-  renderLayerList();
-  scheduleDraw();
-  saveRecoverySnapshot();
 });
 function resolveGmailSaveChoice(mode){
   if(!getGmailOAuthClientId()){
