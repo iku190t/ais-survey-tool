@@ -656,8 +656,8 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .photoSettingRow{display:grid;grid-template-columns:92px 1fr 54px;align-items:center;gap:7px;font-size:12px;font-weight:700;}
 .photoSettingRow input[type=range]{width:100%;min-width:0;}
 .photoSettingRow output{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;}
-.photoSettingToggle{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:28px;font-size:12px;font-weight:700;cursor:pointer;}
-.photoSettingToggle input{width:20px;height:20px;margin:0;accent-color:#1677ff;cursor:pointer;}
+#photoBackMask{width:100%;min-height:34px;font-size:12px;font-weight:700;}
+#photoBackMask.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #photoListSummary{font-size:12px;color:var(--muted);margin:0 0 7px;}
 #photoListTableScroll{width:100%;flex:1 1 auto;min-height:120px;overflow-x:scroll;overflow-y:scroll;padding-bottom:3px;-webkit-overflow-scrolling:touch;scrollbar-width:auto;scrollbar-color:#8a8a8a rgba(0,0,0,.18);}
 #photoListTableScroll::-webkit-scrollbar{height:12px;}
@@ -1305,7 +1305,7 @@ gtag('config', 'G-88B9YPJXWP');
         <label class="photoSettingRow"><span>文字の大きさ</span><input id="photoTextSize" type="range" min="1" max="10" step="0.1" value="2.5"><output id="photoTextSizeValue">2.5 mm</output></label>
         <label class="photoSettingRow"><span>矢印の長さ</span><input id="photoArrowLength" type="range" min="2" max="30" step="0.5" value="10"><output id="photoArrowLengthValue">10.0 mm</output></label>
         <label class="photoSettingRow"><span>矢印先端の幅</span><input id="photoArrowHeadWidth" type="range" min="0.2" max="5" step="0.1" value="0.5"><output id="photoArrowHeadWidthValue">0.5 mm</output></label>
-        <label class="photoSettingToggle" for="photoBackMask"><span>背面マスク</span><input id="photoBackMask" type="checkbox" checked></label>
+        <button id="photoBackMask" class="active" type="button" aria-pressed="true">背面マスク</button>
       </div>
       <div id="photoListSummary"></div>
       <div id="photoListTableScroll">
@@ -13480,7 +13480,11 @@ function syncPhotoSettingsUi(){
     if(output)output.textContent=`${(+photoSettings[key]).toFixed(1)} mm`;
   }
   const backMask=document.getElementById("photoBackMask");
-  if(backMask)backMask.checked=photoSettings.backMaskEnabled!==false;
+  if(backMask){
+    const enabled=photoSettings.backMaskEnabled!==false;
+    backMask.classList.toggle("active",enabled);
+    backMask.setAttribute("aria-pressed",String(enabled));
+  }
 }
 function savePhotoSettings(){
   try{localStorage.setItem(PHOTO_SETTINGS_KEY,JSON.stringify(photoSettings));}catch(_error){}
@@ -16961,13 +16965,15 @@ document.getElementById("photoListTable")?.addEventListener("copy",event=>{
   const input=document.getElementById(id);
   if(input)input.addEventListener("input",()=>applyPhotoSettingFromInput(input,key));
 });
-document.getElementById("photoBackMask")?.addEventListener("change",event=>{
-  photoSettings={...photoSettings,backMaskEnabled:event.currentTarget.checked};
-  layerVisibility[PHOTO_BACK_MASK_LAYER_ID]=event.currentTarget.checked;
-  if(event.currentTarget.checked){
+document.getElementById("photoBackMask")?.addEventListener("click",()=>{
+  const enabled=photoSettings.backMaskEnabled===false;
+  photoSettings={...photoSettings,backMaskEnabled:enabled};
+  layerVisibility[PHOTO_BACK_MASK_LAYER_ID]=enabled;
+  if(enabled){
     deletedLayerNames.delete(PHOTO_BACK_MASK_LAYER_NAME);
   }
   savePhotoSettings();
+  syncPhotoSettingsUi();
   renderLayerList();
   scheduleDraw();
   saveRecoverySnapshot();

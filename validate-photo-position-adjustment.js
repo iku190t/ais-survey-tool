@@ -18,7 +18,7 @@ const required=[
   ["8方向Excel","formatPhotoDirection8(item.direction)"],
   ["CAD選択時は左端へ戻して対象行を縦中央表示",'scrollPhotoListItemToCenter(hit.item,"smooth","start","center")'],
   ["写真一覧ヘッダー固定",'#photoListTable thead th{position:sticky;top:0;'],
-  ["背面マスク設定",'id="photoBackMask" type="checkbox" checked'],
+  ["背面マスク設定",'id="photoBackMask" class="active" type="button" aria-pressed="true"'],
   ["背面マスク初期ON","backMaskEnabled:true"],
   ["丸内だけを背景色でマスク","ctx.fillStyle=bgColor()"],
   ["位置移動後にX座標を表示",'drag.kind==="rotate"?"end":"x"'],
@@ -64,14 +64,14 @@ let browser;
     return {center:g.center,button:document.getElementById("photoPositionAdjustBtn").textContent,active:photoPositionAdjustIsActive(),hit:hitTestPhotoPositionAdjust(g.center[0],g.center[1])?.kind};
   })()`));
   if(initial.button!=="位置調整中"||!initial.active||initial.hit!=="move")throw new Error(`位置調整ボタンが起動状態になりません: ${JSON.stringify(initial)}`);
-  const backMaskInitial=await page.evaluate(()=>window.eval(`(()=>{ensureLayerVisibility();syncPhotoSettingsUi();return {checked:document.getElementById('photoBackMask').checked,enabled:photoSettings.backMaskEnabled,visible:isLayerVisible(PHOTO_BACK_MASK_LAYER_ID)};})()`));
-  if(!backMaskInitial.checked||!backMaskInitial.enabled||!backMaskInitial.visible)throw new Error(`背面マスクが初期ONではありません: ${JSON.stringify(backMaskInitial)}`);
-  await page.locator("#photoBackMask").uncheck();
-  const backMaskOff=await page.evaluate(()=>window.eval(`({checked:document.getElementById('photoBackMask').checked,enabled:photoSettings.backMaskEnabled,visible:isLayerVisible(PHOTO_BACK_MASK_LAYER_ID)})`));
-  if(backMaskOff.checked||backMaskOff.enabled||backMaskOff.visible)throw new Error(`背面マスクをOFFにできません: ${JSON.stringify(backMaskOff)}`);
-  await page.locator("#photoBackMask").check();
-  const backMaskOn=await page.evaluate(()=>window.eval(`({checked:document.getElementById('photoBackMask').checked,enabled:photoSettings.backMaskEnabled,visible:isLayerVisible(PHOTO_BACK_MASK_LAYER_ID)})`));
-  if(!backMaskOn.checked||!backMaskOn.enabled||!backMaskOn.visible)throw new Error(`背面マスクを再びONにできません: ${JSON.stringify(backMaskOn)}`);
+  const backMaskInitial=await page.evaluate(()=>window.eval(`(()=>{ensureLayerVisibility();syncPhotoSettingsUi();const button=document.getElementById('photoBackMask');return {active:button.classList.contains('active'),pressed:button.getAttribute('aria-pressed'),enabled:photoSettings.backMaskEnabled,visible:isLayerVisible(PHOTO_BACK_MASK_LAYER_ID)};})()`));
+  if(!backMaskInitial.active||backMaskInitial.pressed!=="true"||!backMaskInitial.enabled||!backMaskInitial.visible)throw new Error(`背面マスクが初期ONではありません: ${JSON.stringify(backMaskInitial)}`);
+  await page.locator("#photoBackMask").click();
+  const backMaskOff=await page.evaluate(()=>window.eval(`(()=>{const button=document.getElementById('photoBackMask');return {active:button.classList.contains('active'),pressed:button.getAttribute('aria-pressed'),enabled:photoSettings.backMaskEnabled,visible:isLayerVisible(PHOTO_BACK_MASK_LAYER_ID)};})()`));
+  if(backMaskOff.active||backMaskOff.pressed!=="false"||backMaskOff.enabled||backMaskOff.visible)throw new Error(`背面マスクをOFFにできません: ${JSON.stringify(backMaskOff)}`);
+  await page.locator("#photoBackMask").click();
+  const backMaskOn=await page.evaluate(()=>window.eval(`(()=>{const button=document.getElementById('photoBackMask');return {active:button.classList.contains('active'),pressed:button.getAttribute('aria-pressed'),enabled:photoSettings.backMaskEnabled,visible:isLayerVisible(PHOTO_BACK_MASK_LAYER_ID)};})()`));
+  if(!backMaskOn.active||backMaskOn.pressed!=="true"||!backMaskOn.enabled||!backMaskOn.visible)throw new Error(`背面マスクを再びONにできません: ${JSON.stringify(backMaskOn)}`);
   const rect=await page.locator("#canvas").boundingBox();
   await page.mouse.move(rect.x+initial.center[0],rect.y+initial.center[1]);
   await page.mouse.down();await page.mouse.move(rect.x+initial.center[0]+30,rect.y+initial.center[1]+18,{steps:3});await page.mouse.up();
