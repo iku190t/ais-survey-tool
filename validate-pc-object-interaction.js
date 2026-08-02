@@ -12,7 +12,9 @@ for(const token of [
   "desktopCadCrosshairHit",
   'startTextLongPress(e.clientX,e.clientY,"mouse")',
   "setTouchPanPreview(e.clientX-lastX,e.clientY-lastY)",
-  "updateDesktopWheelZoomPreview(mx,my,view.scale*factor)",
+  "updateDesktopWheelZoomPreview(mx,my,view.scale*factor,layoutRect)",
+  'id="interactionCanvas"',
+  "function scheduleInteractionDraw()",
   "if(desktopWheelZoomPreviewBase)return;",
   "if(textLayerModalIsOpen())closeTextLayerModal();",
   'startTextLongPress(e.touches[0].clientX,e.touches[0].clientY,"touch")'
@@ -123,13 +125,48 @@ let browser;
     finishDesktopWheelZoomPreview();
     view.scale=2;view.tx=100;view.ty=200;
     const r=canvas.getBoundingClientRect(),x=r.left+360,y=r.top+280;
-    canvas.dispatchEvent(new WheelEvent("wheel",{bubbles:true,cancelable:true,deltaY:-100,clientX:x,clientY:y}));
-    return {scale:view.scale,transform:canvas.style.transform,active:!!desktopWheelZoomPreviewBase};
+    const before=screenToWorld(360,280);
+    for(let i=0;i<6;i++)canvas.dispatchEvent(new WheelEvent("wheel",{bubbles:true,cancelable:true,deltaY:-100,clientX:x,clientY:y}));
+    const during=screenToWorld(360,280);
+    return {scale:view.scale,transform:canvas.style.transform,active:!!desktopWheelZoomPreviewBase,before,during};
   })()`));
   if(!(wheelPreview.scale>2)||!wheelPreview.active||!wheelPreview.transform.startsWith("matrix("))throw new Error(`wheel zoom preview did not start: ${JSON.stringify(wheelPreview)}`);
+  if(Math.hypot(wheelPreview.before[0]-wheelPreview.during[0],wheelPreview.before[1]-wheelPreview.during[1])>1e-8)throw new Error(`wheel zoom anchor drifted during repeated zoom: ${JSON.stringify(wheelPreview)}`);
   await page.waitForTimeout(140);
-  const wheelCommitted=await page.evaluate(()=>window.eval(`({transform:canvas.style.transform,active:!!desktopWheelZoomPreviewBase})`));
+  const wheelCommitted=await page.evaluate(()=>window.eval(`({transform:canvas.style.transform,active:!!desktopWheelZoomPreviewBase,after:screenToWorld(360,280)})`));
   if(wheelCommitted.active||wheelCommitted.transform!=="")throw new Error(`wheel zoom preview did not commit: ${JSON.stringify(wheelCommitted)}`);
+  if(Math.hypot(wheelPreview.before[0]-wheelCommitted.after[0],wheelPreview.before[1]-wheelCommitted.after[1])>1e-8)throw new Error(`wheel zoom anchor drifted after commit: ${JSON.stringify({wheelPreview,wheelCommitted})}`);
+
+  const lightweight=await page.evaluate(()=>window.eval(`(async()=>{
+    finishDesktopWheelZoomPreview();
+    const originalDraw=draw,originalOverlay=drawInteractionOverlay;
+    let baseDraws=0,overlayDraws=0;
+    draw=()=>{baseDraws++;return originalDraw();};
+    drawInteractionOverlay=()=>{overlayDraws++;return originalOverlay();};
+    const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const sendMoves=(r)=>{for(let i=0;i<20;i++)window.dispatchEvent(new MouseEvent("mousemove",{bubbles:true,clientX:r.left+300+i,clientY:r.top+260+i}));};
+    const r=canvas.getBoundingClientRect();
+
+    measureMode=true;profileMode=false;inkDrawing=false;activePickModes=["free"];
+    sendMoves(r);await settle();
+    const measure={baseDraws,overlayDraws};
+
+    baseDraws=0;overlayDraws=0;measureMode=false;hoverMeasurePoint=null;profileMode=true;profileStartWorld={x:0,y:0};profileEndWorld=null;
+    sendMoves(r);await settle();
+    const profile={baseDraws,overlayDraws};
+
+    baseDraws=0;overlayDraws=0;profileMode=false;profileStartWorld=null;profileHoverWorld=null;inkDrawing=true;
+    currentStroke={type:"freehand",color:"#f00",width:1,opacity:1,eraser:false,points:[{x:0,y:0}]};
+    sendMoves(r);await settle();
+    const ink={baseDraws,overlayDraws};
+
+    inkDrawing=false;currentStroke=null;draw=originalDraw;drawInteractionOverlay=originalOverlay;
+    return {measure,profile,ink,overlaySize:[interactionCanvas.width,interactionCanvas.height],canvasSize:[canvas.width,canvas.height]};
+  })()`));
+  for(const [mode,result] of Object.entries({measure:lightweight.measure,profile:lightweight.profile,ink:lightweight.ink})){
+    if(result.baseDraws!==0||result.overlayDraws<1||result.overlayDraws>3)throw new Error(`${mode} interaction still redraws the full drawing: ${JSON.stringify(lightweight)}`);
+  }
+  if(JSON.stringify(lightweight.overlaySize)!==JSON.stringify(lightweight.canvasSize))throw new Error(`interaction overlay size mismatch: ${JSON.stringify(lightweight)}`);
   if(pageErrors.length)throw new Error(`page errors: ${pageErrors.join(" | ")}`);
   console.log("PC object interaction and pan checks passed");
   await browser.close();server.close();

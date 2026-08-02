@@ -314,7 +314,9 @@ label.fileBtn{
 }
 #fileInput,#photoInput{display:none;}
 #wrap{position:relative;width:100vw;flex:1 1 auto;min-height:0;background:var(--bg);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
-#canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;background:var(--bg);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+#canvas,#interactionCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+#canvas{touch-action:none;background:var(--bg);}
+#interactionCanvas{z-index:1;pointer-events:none;background:transparent;}
 #fileDropOverlay{display:none;position:absolute;inset:10px;z-index:190;align-items:center;justify-content:center;pointer-events:none;border:3px dashed #2f7dff;border-radius:16px;background:rgba(18,78,145,.82);color:#fff;font-size:22px;font-weight:850;letter-spacing:.02em;text-align:center;box-sizing:border-box;box-shadow:inset 0 0 0 2px rgba(255,255,255,.16);}
 #fileDropOverlay.show{display:flex;}
 #fileDropOverlay span{padding:16px 22px;border-radius:14px;background:rgba(0,0,0,.24);}
@@ -1974,6 +1976,7 @@ gtag('config', 'G-88B9YPJXWP');
   </div>
 
   <canvas id="canvas"></canvas>
+  <canvas id="interactionCanvas" aria-hidden="true"></canvas>
   <div id="desktopCadCrosshair" aria-hidden="true"><span class="desktopCadCrosshairHit"></span></div>
   <div id="toast"></div>
   <div id="busyOverlay" role="status" aria-live="assertive" aria-busy="true">
@@ -2039,6 +2042,8 @@ window.addEventListener("load", ()=>{
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+const interactionCanvas = document.getElementById("interactionCanvas");
+const interactionCtx = interactionCanvas.getContext("2d");
 const wrap = document.getElementById("wrap");
 
 let keyboardResizeLock = false;
@@ -2076,8 +2081,11 @@ function isLikelyKeyboardResize(){
   return isEditableFocused() && getViewportKeyboardDelta() > 140;
 }
 function getCanvasLocalPointFromClient(clientX, clientY){
-  const rect = canvas.getBoundingClientRect();
-  return { x: clientX - rect.left, y: clientY - rect.top };
+  if(desktopWheelZoomPreviewBase&&Number.isFinite(desktopWheelZoomPreviewBase.rectLeft)&&Number.isFinite(desktopWheelZoomPreviewBase.rectTop)){
+    return {x:clientX-desktopWheelZoomPreviewBase.rectLeft,y:clientY-desktopWheelZoomPreviewBase.rectTop};
+  }
+  const rect=canvas.getBoundingClientRect();
+  return {x:clientX-rect.left,y:clientY-rect.top};
 }
 const toastEl = document.getElementById("toast");
 const busyOverlay = document.getElementById("busyOverlay");
@@ -2191,6 +2199,9 @@ let touchPanPreviewDy = 0;
 let touchPanPreviewActive = false;
 let desktopWheelZoomPreviewBase = null;
 let desktopWheelZoomTimer = null;
+let interactionNeedsDraw = false;
+let measureHoverRaf = 0;
+let pendingMeasureHoverScreen = null;
 let lastOneFingerTap = null;
 let oneFingerZoomGesture = null;
 let suppressClickUntil = 0;
@@ -5245,7 +5256,7 @@ function closeProfileModal(){
   profileGraphPointers.clear();
   profileGraphGesture=null;
   updateStopBtnUI();
-  scheduleDraw();
+  scheduleInteractionDraw();
 }
 function openProfileModal(loading){
   if(!profileModal) return;
@@ -5656,7 +5667,7 @@ async function runQueuedProfileRefresh(){
     resetProfileGraphView();
     updateProfileSummary();
     drawProfileChart();
-    scheduleDraw();
+    scheduleInteractionDraw();
   }else if(!next&&isLatest){
     updateProfileSummary();
     showToast("標高データを更新できませんでした",1800);
@@ -5736,7 +5747,7 @@ function moveProfileLineDrag(screenX,screenY){
     profileEndWorld={x:profileLineDrag.originalEnd.x+dx,y:profileLineDrag.originalEnd.y+dy};
   }
   queueProfileRefresh(false);
-  scheduleDraw();
+  scheduleInteractionDraw();
   return true;
 }
 function finishProfileLineDrag(){
@@ -5744,7 +5755,7 @@ function finishProfileLineDrag(){
   profileLineDrag=null;
   suppressClickUntil=Date.now()+500;
   queueProfileRefresh(true);
-  scheduleDraw();
+  scheduleInteractionDraw();
   return true;
 }
 async function completeProfileSelection(){
@@ -5769,7 +5780,7 @@ async function completeProfileSelection(){
     closeProfileModal();showToast("標高データを取得できません",2600);return;
   }
   if(!isLatest){ queueProfileRefresh(true);return; }
-  updateProfileSummary();drawProfileChart();scheduleDraw();
+  updateProfileSummary();drawProfileChart();scheduleInteractionDraw();
   updateStopBtnUI();
 }
 function selectProfileWorldPoint(world){
@@ -5778,9 +5789,9 @@ function selectProfileWorldPoint(world){
     profileStartWorld={x:world.x,y:world.y};profileEndWorld=null;profileData=null;profileHoverWorld=null;
     setProfilePrompt("断面の終点をタップしてください");
     updateModeStatus();
-    scheduleDraw();return;
+    scheduleInteractionDraw();return;
   }
-  profileEndWorld={x:world.x,y:world.y};profileHoverWorld=null;scheduleDraw();completeProfileSelection();
+  profileEndWorld={x:world.x,y:world.y};profileHoverWorld=null;scheduleInteractionDraw();completeProfileSelection();
 }
 async function beginProfileMode(){
   if(!hasLoadedDrawing()) return;
@@ -5805,7 +5816,7 @@ async function beginProfileMode(){
     updateProfileUi();setProfilePrompt(msg,true,6000);showToast(msg,6000);return;
   }
   profileMode=true;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;
-  updateProfileUi();updateStopBtnUI();setProfilePrompt("断面の起点をタップしてください");scheduleDraw();
+  updateProfileUi();updateStopBtnUI();setProfilePrompt("断面の起点をタップしてください");scheduleInteractionDraw();
   showFirstUseHint("profile","図面上で断面の起点と終点を順に選んでください",3600,120);
 }
 function getGpsEnvironmentMessage(){
@@ -6390,6 +6401,14 @@ function scheduleDraw(){
   needsDraw = true;
   requestAnimationFrame(()=>{ needsDraw = false; draw(); });
 }
+function scheduleInteractionDraw(){
+  if(interactionNeedsDraw)return;
+  interactionNeedsDraw=true;
+  requestAnimationFrame(()=>{
+    interactionNeedsDraw=false;
+    drawInteractionOverlay();
+  });
+}
 const TOUCH_PAN_ACTIVATION_PX=16;
 function setTouchPanPreview(dx,dy){
   touchPanPreviewDx=Number.isFinite(dx)?dx:0;
@@ -6400,10 +6419,16 @@ function setTouchPanPreview(dx,dy){
   // the authoritative view once when the gesture ends.
   canvas.style.transformOrigin="0 0";
   canvas.style.transform=`translate3d(${touchPanPreviewDx}px,${touchPanPreviewDy}px,0)`;
+  interactionCanvas.style.transformOrigin="0 0";
+  interactionCanvas.style.transform=`translate3d(${touchPanPreviewDx}px,${touchPanPreviewDy}px,0)`;
 }
-function updateDesktopWheelZoomPreview(mx,my,newScale){
+function updateDesktopWheelZoomPreview(mx,my,newScale,layoutRect){
   if(!desktopWheelZoomPreviewBase){
-    desktopWheelZoomPreviewBase={scale:view.scale,tx:view.tx,ty:view.ty};
+    desktopWheelZoomPreviewBase={
+      scale:view.scale,tx:view.tx,ty:view.ty,
+      rectLeft:Number.isFinite(layoutRect?.left)?layoutRect.left:canvas.getBoundingClientRect().left,
+      rectTop:Number.isFinite(layoutRect?.top)?layoutRect.top:canvas.getBoundingClientRect().top
+    };
   }
   setScaleAroundScreenPoint(mx,my,newScale);
   const base=desktopWheelZoomPreviewBase;
@@ -6411,6 +6436,8 @@ function updateDesktopWheelZoomPreview(mx,my,newScale){
   const dx=view.tx-ratio*base.tx,dy=view.ty-ratio*base.ty;
   canvas.style.transformOrigin="0 0";
   canvas.style.transform=`matrix(${ratio},0,0,${ratio},${dx},${dy})`;
+  interactionCanvas.style.transformOrigin="0 0";
+  interactionCanvas.style.transform=`matrix(${ratio},0,0,${ratio},${dx},${dy})`;
   if(desktopWheelZoomTimer)clearTimeout(desktopWheelZoomTimer);
   desktopWheelZoomTimer=setTimeout(()=>finishDesktopWheelZoomPreview(),90);
 }
@@ -6420,6 +6447,8 @@ function finishDesktopWheelZoomPreview(){
   desktopWheelZoomPreviewBase=null;
   canvas.style.transform="";
   canvas.style.transformOrigin="";
+  interactionCanvas.style.transform="";
+  interactionCanvas.style.transformOrigin="";
   scheduleDraw();
   scheduleRecoverySnapshot();
 }
@@ -6433,6 +6462,8 @@ function finishTouchPanPreview(commit=true){
   touchPanPreviewActive=false;
   canvas.style.transform="";
   canvas.style.transformOrigin="";
+  interactionCanvas.style.transform="";
+  interactionCanvas.style.transformOrigin="";
 }
 function bgColor(){ return darkTheme ? "#000" : "#fff"; }
 function mutedColor(){ return darkTheme ? "#888" : "#666"; }
@@ -8808,11 +8839,12 @@ function copyCoordinateInspectSelectionAsPlainText(event){
   event.clipboardData.setData("text/plain",value);
 }
 function closeCoordinateInspectModal(){
+  const modal=document.getElementById("coordinateInspectModal");
+  const wasVisible=!!coordinateInspectPoint||!!(modal&&getComputedStyle(modal).display!=="none");
   coordinateInspectRequestVersion++;
   coordinateInspectPoint=null;
-  const modal=document.getElementById("coordinateInspectModal");
   if(modal)modal.style.display="none";
-  scheduleDraw();
+  if(wasVisible)scheduleDraw();
 }
 function canStartCoordinateInspectLongPress(){
   return hasLoadedDrawing()&&!measureMode&&!profileMode&&!profileLineDrag&&
@@ -9612,6 +9644,51 @@ function getVisibleSegmentsNearScreen(screenX,screenY,threshold=26){
   nearby.sort((a,b)=>a.distance-b.distance);
   return nearby.slice(0,120);
 }
+function findNearestVisibleCircleCenter(screenX,screenY,threshold=28){
+  const corners=[screenToWorld(screenX-threshold,screenY-threshold),screenToWorld(screenX+threshold,screenY+threshold)];
+  const queryBounds={minx:Math.min(corners[0][0],corners[1][0]),miny:Math.min(corners[0][1],corners[1][1]),maxx:Math.max(corners[0][0],corners[1][0]),maxy:Math.max(corners[0][1],corners[1][1])};
+  let best=null,bestDistance=Infinity;
+  for(const item of data.circles||[]){
+    const [x,y,r,layer]=item;
+    if(!isLayerVisible(layer))continue;
+    const bounds=item._renderBounds||{minx:x-Math.abs(r),miny:y-Math.abs(r),maxx:x+Math.abs(r),maxy:y+Math.abs(r)};
+    if(bounds.maxx<queryBounds.minx||bounds.minx>queryBounds.maxx||bounds.maxy<queryBounds.miny||bounds.miny>queryBounds.maxy)continue;
+    const screen=worldToScreen(x,y),distance=Math.hypot(screen[0]-screenX,screen[1]-screenY);
+    if(distance<bestDistance){bestDistance=distance;best=Object.assign(sxfMeasurePointForItem(item,0,x,y,layer),{circle:true});}
+  }
+  return bestDistance<=threshold?best:null;
+}
+function findNearestVisibleEndpoint(screenX,screenY,threshold=22){
+  const segments=getVisibleSegmentsNearScreen(screenX,screenY,threshold+6);
+  let best=null,bestDistance=Infinity;
+  for(const segment of segments){
+    for(const [point,model] of [[segment.a,segment.modelA],[segment.b,segment.modelB]]){
+      const screen=worldToScreen(point.x,point.y),distance=Math.hypot(screen[0]-screenX,screen[1]-screenY);
+      if(distance<bestDistance){
+        bestDistance=distance;best={x:point.x,y:point.y,layer:segment.layer,end:true};
+        if(segment._sxfPartId&&model){best._sxfPartId=segment._sxfPartId;best._sxfPartName=segment._sxfPartName||"";best._sxfPartIsMain=!!segment._sxfPartIsMain;best._sxfModelX=model[0];best._sxfModelY=model[1];}
+      }
+    }
+  }
+  return bestDistance<=threshold?best:null;
+}
+function projectPointToNearestIndexedSegment(screenX,screenY,threshold=18){
+  const segment=getVisibleSegmentsNearScreen(screenX,screenY,threshold+4)[0];
+  if(!segment)return null;
+  const a=worldToScreen(segment.a.x,segment.a.y),b=worldToScreen(segment.b.x,segment.b.y);
+  const vx=b[0]-a[0],vy=b[1]-a[1],len2=vx*vx+vy*vy;
+  if(len2<=1e-12)return null;
+  const t=Math.max(0,Math.min(1,((screenX-a[0])*vx+(screenY-a[1])*vy)/len2));
+  const distance=Math.hypot(a[0]+t*vx-screenX,a[1]+t*vy-screenY);
+  if(distance>threshold)return null;
+  const point={x:segment.a.x+t*(segment.b.x-segment.a.x),y:segment.a.y+t*(segment.b.y-segment.a.y),layer:segment.layer,line:true};
+  if(segment._sxfPartId&&segment.modelA&&segment.modelB){
+    point._sxfPartId=segment._sxfPartId;point._sxfPartName=segment._sxfPartName||"";point._sxfPartIsMain=!!segment._sxfPartIsMain;
+    point._sxfModelX=segment.modelA[0]+t*(segment.modelB[0]-segment.modelA[0]);
+    point._sxfModelY=segment.modelA[1]+t*(segment.modelB[1]-segment.modelA[1]);
+  }
+  return point;
+}
 function findNearestVisibleIntersection(screenX,screenY,threshold=24){
   const segments=getVisibleSegmentsNearScreen(screenX,screenY,threshold+4);
   let best=null,bestDistance=Infinity;
@@ -9657,7 +9734,7 @@ function chooseMeasurePointByMode(screenX,screenY){
   if (gpsHit) return gpsHit;
   for (const mode of activePickModes){
     if (mode === "center"){
-      const p = nearestFromList(screenX, screenY, getVisibleCircleCenters(), 28);
+      const p = findNearestVisibleCircleCenter(screenX,screenY,28);
       if (p) return p;
       continue;
     }
@@ -9667,16 +9744,13 @@ function chooseMeasurePointByMode(screenX,screenY){
       continue;
     }
     if (mode === "end"){
-      const p = nearestFromList(screenX, screenY, getVisibleLineEndpoints(), 22);
+      const p = findNearestVisibleEndpoint(screenX,screenY,22);
       if (p) return p;
       continue;
     }
     if (mode === "line"){
-      const p = projectPointToNearestVisibleSegment(screenX,screenY);
-      if (p){
-        const [sx,sy] = worldToScreen(p.x,p.y);
-        if (Math.hypot(sx-screenX, sy-screenY) <= 18) return p;
-      }
+      const p=projectPointToNearestIndexedSegment(screenX,screenY,18);
+      if(p)return p;
       continue;
     }
     if (mode === "free"){
@@ -9781,36 +9855,36 @@ function updateMeasureBox(){
     }
   }
 }
-function drawInkStroke(stroke){
+function drawInkStroke(stroke,drawCtx=ctx){
   const inkLayer=getInkStrokeLayerId(stroke);
   if(inkLayer!=null && !isLayerVisible(inkLayer))return;
   const defaultColor=stroke?.isTerrainContour&&stroke.terrainContourKind==="regular"
     ?terrainContourRegularColor()
     :getMemoExportColor(stroke);
   const strokeColor=adaptContrastColor(inkLayer==null?defaultColor:getCurrentLayerColor(inkLayer,defaultColor));
-  ctx.save();
-  ctx.lineCap="round";
-  ctx.lineJoin="round";
-  ctx.globalCompositeOperation = stroke.eraser ? "destination-out" : "source-over";
-  ctx.strokeStyle = strokeColor;
-  ctx.fillStyle = strokeColor;
-  ctx.globalAlpha = stroke.opacity == null ? 1 : stroke.opacity;
+  drawCtx.save();
+  drawCtx.lineCap="round";
+  drawCtx.lineJoin="round";
+  drawCtx.globalCompositeOperation = stroke.eraser ? "destination-out" : "source-over";
+  drawCtx.strokeStyle = strokeColor;
+  drawCtx.fillStyle = strokeColor;
+  drawCtx.globalAlpha = stroke.opacity == null ? 1 : stroke.opacity;
 
   // SFCへ保存する紙面mmと、スマホで確認する表示幅は別物として扱う。
   // 表示幅は全体表示を基準に1～100の差を保ち、ズームにも追従する。
   const lineW = getMemoPreviewLineWidthPx(stroke);
-  ctx.lineWidth = lineW;
+  drawCtx.lineWidth = lineW;
 
-  if(!stroke.points || stroke.points.length<2){ ctx.restore(); return; }
-  ctx.beginPath();
+  if(!stroke.points || stroke.points.length<2){ drawCtx.restore(); return; }
+  drawCtx.beginPath();
   const p0 = worldToScreen(stroke.points[0].x, stroke.points[0].y);
-  ctx.moveTo(p0[0], p0[1]);
+  drawCtx.moveTo(p0[0], p0[1]);
   for(let i=1;i<stroke.points.length;i++){
     const p = worldToScreen(stroke.points[i].x, stroke.points[i].y);
-    ctx.lineTo(p[0], p[1]);
+    drawCtx.lineTo(p[0], p[1]);
   }
-  ctx.stroke();
-  ctx.restore();
+  drawCtx.stroke();
+  drawCtx.restore();
 }
 
 function hitTestInkObject(worldPt){
@@ -10173,6 +10247,18 @@ function terrainCadLabelForPolyline(points,level){
     covered+=segment;
   }
   return null;
+}
+function scheduleMeasureHoverUpdate(screenX,screenY){
+  pendingMeasureHoverScreen={x:screenX,y:screenY};
+  if(measureHoverRaf)return;
+  measureHoverRaf=requestAnimationFrame(()=>{
+    measureHoverRaf=0;
+    const point=pendingMeasureHoverScreen;
+    pendingMeasureHoverScreen=null;
+    if(!measureMode||!point)return;
+    hoverMeasurePoint=chooseMeasurePointByMode(point.x,point.y)||null;
+    scheduleInteractionDraw();
+  });
 }
 function terrainCadPlaneBoundsFromWorldPolygon(worldPolygon){
   const planePolygon=worldPolygon.map(point=>{
@@ -11504,6 +11590,73 @@ function closeRegistryParcelDetails(){
   registryMapState.selectedParcel=null;
   scheduleDraw();
 }
+function clearInteractionCanvas(){
+  interactionCtx.save();
+  interactionCtx.setTransform(1,0,0,1,0,0);
+  interactionCtx.clearRect(0,0,interactionCanvas.width,interactionCanvas.height);
+  interactionCtx.restore();
+}
+function drawProfileInteractionOverlay(drawCtx){
+  if(profileStartWorld){
+    const a=worldToScreen(profileStartWorld.x,profileStartWorld.y);
+    const end=profileEndWorld||profileHoverWorld;
+    let b=null;
+    drawCtx.save();
+    if(end){
+      b=worldToScreen(end.x,end.y);
+      drawCtx.beginPath();drawCtx.moveTo(a[0],a[1]);drawCtx.lineTo(b[0],b[1]);
+      drawCtx.strokeStyle="#ff9800";drawCtx.lineWidth=2.5;drawCtx.setLineDash([]);drawCtx.stroke();
+      drawCtx.fillStyle="#ff9800";drawCtx.beginPath();drawCtx.arc(b[0],b[1],6,0,Math.PI*2);drawCtx.fill();
+      drawCtx.strokeStyle="#fff";drawCtx.lineWidth=1.5;drawCtx.stroke();
+    }
+    drawCtx.fillStyle="#ff9800";drawCtx.beginPath();drawCtx.arc(a[0],a[1],6,0,Math.PI*2);drawCtx.fill();
+    drawCtx.strokeStyle="#fff";drawCtx.lineWidth=1.5;drawCtx.stroke();
+    drawCtx.restore();
+    if(profileEndWorld&&b){
+      drawProfilePlanEndpointLabel(drawCtx,a,b,"起点");
+      drawProfilePlanEndpointLabel(drawCtx,b,a,"終点");
+    }else{
+      drawProfilePlanEndpointLabel(drawCtx,a,[a[0]+1,a[1]],"起点");
+    }
+  }
+  if(profileHoverWorld&&profileData){
+    const h=worldToScreen(profileHoverWorld.x,profileHoverWorld.y);
+    drawCtx.save();drawCtx.fillStyle="#ffd000";drawCtx.strokeStyle="#111";drawCtx.lineWidth=1.4;
+    drawCtx.beginPath();drawCtx.arc(h[0],h[1],6,0,Math.PI*2);drawCtx.fill();drawCtx.stroke();drawCtx.restore();
+  }
+}
+function drawMeasureInteractionOverlay(drawCtx){
+  if(selectedMeasurePoints.length>=1){
+    for(const p of selectedMeasurePoints){
+      const [sx,sy]=worldToScreen(p.x,p.y);
+      drawCtx.beginPath();drawCtx.arc(sx,sy,5,0,Math.PI*2);
+      drawCtx.fillStyle="#50d2ff";drawCtx.fill();
+    }
+  }
+  if(measureType==="3vertical"&&selectedMeasurePoints.length>=2){
+    const [a,b]=selectedMeasurePoints;
+    const sa=worldToScreen(a.x,a.y),sb=worldToScreen(b.x,b.y);
+    drawCtx.beginPath();drawCtx.moveTo(sa[0],sa[1]);drawCtx.lineTo(sb[0],sb[1]);
+    drawCtx.strokeStyle=darkTheme?"#00ffff":"#007a7a";drawCtx.lineWidth=1.5;drawCtx.stroke();
+    if(selectedMeasurePoints.length>=3){
+      const p=selectedMeasurePoints[2],vx=b.x-a.x,vy=b.y-a.y;
+      const t=((p.x-a.x)*vx+(p.y-a.y)*vy)/((vx*vx+vy*vy)||1);
+      const fx=a.x+t*vx,fy=a.y+t*vy,sp=worldToScreen(p.x,p.y),sf=worldToScreen(fx,fy);
+      drawCtx.beginPath();drawCtx.moveTo(sp[0],sp[1]);drawCtx.lineTo(sf[0],sf[1]);
+      drawCtx.strokeStyle="#ffd400";drawCtx.lineWidth=2;drawCtx.stroke();
+    }
+  }else if(selectedMeasurePoints.length===2){
+    const [a,b]=selectedMeasurePoints,sa=worldToScreen(a.x,a.y),sb=worldToScreen(b.x,b.y);
+    drawCtx.beginPath();drawCtx.moveTo(sa[0],sa[1]);drawCtx.lineTo(sb[0],sb[1]);
+    drawCtx.strokeStyle=darkTheme?"#00ffff":"#007a7a";drawCtx.lineWidth=1.5;drawCtx.stroke();
+  }
+}
+function drawInteractionOverlay(){
+  clearInteractionCanvas();
+  drawProfileInteractionOverlay(interactionCtx);
+  if(currentStroke)drawInkStroke(currentStroke,interactionCtx);
+  drawMeasureInteractionOverlay(interactionCtx);
+}
 function draw(){
   // ホイール操作中は、直前の描画をCSSで即時拡大縮小する。
   // 重いSFC全体の再描画は操作が止まった時に1回だけ行う。
@@ -11591,40 +11744,11 @@ function draw(){
   drawRegistryMapOverlay();
   drawControlPointOverlay(w,h);
 
-  if(profileStartWorld){
-    const a=worldToScreen(profileStartWorld.x,profileStartWorld.y);
-    const end=profileEndWorld||profileHoverWorld;
-    let b=null;
-    ctx.save();
-    if(end){
-      b=worldToScreen(end.x,end.y);
-      ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
-      ctx.strokeStyle="#ff9800";ctx.lineWidth=2.5;ctx.setLineDash([]);ctx.stroke();
-      ctx.fillStyle="#ff9800";ctx.beginPath();ctx.arc(b[0],b[1],6,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke();
-    }
-    ctx.fillStyle="#ff9800";ctx.beginPath();ctx.arc(a[0],a[1],6,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle="#fff";ctx.lineWidth=1.5;ctx.stroke();
-    ctx.restore();
-    if(profileEndWorld&&b){
-      drawProfilePlanEndpointLabel(ctx,a,b,"起点");
-      drawProfilePlanEndpointLabel(ctx,b,a,"終点");
-    }else{
-      drawProfilePlanEndpointLabel(ctx,a,[a[0]+1,a[1]],"起点");
-    }
-  }
-  if(profileHoverWorld&&profileData){
-    const h=worldToScreen(profileHoverWorld.x,profileHoverWorld.y);
-    ctx.save();ctx.fillStyle="#ffd000";ctx.strokeStyle="#111";ctx.lineWidth=1.4;
-    ctx.beginPath();ctx.arc(h[0],h[1],6,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();
-  }
-
   drawTerrainOverlay();
 
   for(const stroke of inkStrokes) drawInkStroke(stroke);
   drawTerrainCadLabels();
   drawPhotoAnnotationsOverlay();
-  if(currentStroke) drawInkStroke(currentStroke);
   drawTerrainCadSelection();
   drawCoordinateInspectMarker();
 
@@ -11671,36 +11795,7 @@ function draw(){
   }
 
   // 計測点は候補・直近タップ・確定点を重ねず、確定した印だけを表示する。
-  if(selectedMeasurePoints.length>=1){
-    for(const p of selectedMeasurePoints){
-      const [sx,sy]=worldToScreen(p.x,p.y);
-      ctx.beginPath(); ctx.arc(sx,sy,5,0,Math.PI*2);
-      ctx.fillStyle="#50d2ff";
-      ctx.fill();
-    }
-  }
-  if(measureType === "3vertical" && selectedMeasurePoints.length>=2){
-    const [a,b]=selectedMeasurePoints;
-    const sa=worldToScreen(a.x,a.y), sb=worldToScreen(b.x,b.y);
-    ctx.beginPath(); ctx.moveTo(sa[0],sa[1]); ctx.lineTo(sb[0],sb[1]);
-    ctx.strokeStyle=darkTheme ? "#00ffff" : "#007a7a";
-    ctx.lineWidth=1.5; ctx.stroke();
-    if (selectedMeasurePoints.length>=3){
-      const p=selectedMeasurePoints[2];
-      const vx=b.x-a.x, vy=b.y-a.y;
-      const t=((p.x-a.x)*vx + (p.y-a.y)*vy)/((vx*vx+vy*vy)||1);
-      const fx=a.x + t*vx, fy=a.y + t*vy;
-      const sp=worldToScreen(p.x,p.y), sf=worldToScreen(fx,fy);
-      ctx.beginPath(); ctx.moveTo(sp[0],sp[1]); ctx.lineTo(sf[0],sf[1]);
-      ctx.strokeStyle="#ffd400"; ctx.lineWidth=2; ctx.stroke();
-    }
-  } else if(selectedMeasurePoints.length===2){
-    const [a,b]=selectedMeasurePoints;
-    const sa=worldToScreen(a.x,a.y), sb=worldToScreen(b.x,b.y);
-    ctx.beginPath(); ctx.moveTo(sa[0],sa[1]); ctx.lineTo(sb[0],sb[1]);
-    ctx.strokeStyle=darkTheme ? "#00ffff" : "#007a7a";
-    ctx.lineWidth=1.5; ctx.stroke();
-  }
+  drawInteractionOverlay();
   drawDesktopCadCrosshair();
 }
 function resize(redraw=true){
@@ -11712,9 +11807,14 @@ function resize(redraw=true){
   const pxH = Math.max(1, Math.round(cssH * dpr));
   if (canvas.width !== pxW) canvas.width = pxW;
   if (canvas.height !== pxH) canvas.height = pxH;
+  if (interactionCanvas.width !== pxW) interactionCanvas.width = pxW;
+  if (interactionCanvas.height !== pxH) interactionCanvas.height = pxH;
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.setTransform(dpr,0,0,dpr,0,0);
+  interactionCtx.setTransform(1,0,0,1,0,0);
+  interactionCtx.clearRect(0,0,interactionCanvas.width,interactionCanvas.height);
+  interactionCtx.setTransform(dpr,0,0,dpr,0,0);
   if(redraw) draw();
 }
 
@@ -16744,9 +16844,10 @@ function togglePickMode(mode){
   updatePickStatus();
   updateMeasureBox();
   saveUiPreferences();
-  scheduleDraw();
+  scheduleInteractionDraw();
 }
 function cancelTransientOperations(except=""){
+  const requiresBaseRedraw=(except!=="terrainCad"&&terrainCadSelectionMode)||(except!=="search"&&textSearchPopupOpen);
   if(except!=="terrainCad"&&terrainCadSelectionMode)setTerrainCadSelectionOpen(false);
   if(except!=="search" && textSearchPopupOpen) closeTextSearchPopup();
   if(except!=="measure"){
@@ -16787,7 +16888,8 @@ function cancelTransientOperations(except=""){
   updateModeIcons();
   updateMeasureBox();
   updateStopBtnUI();
-  scheduleDraw();
+  if(requiresBaseRedraw)scheduleDraw();
+  else scheduleInteractionDraw();
 }
 function updateToolbarActivationUI(){
   const visible=el=>!!(el&&getComputedStyle(el).display!=="none");
@@ -16825,7 +16927,6 @@ const toolbarCommandIds=new Set([
 ]);
 function closeToolbarSurfacesExcept(commandId){
   closeCoordinateInspectForOtherPopup();
-  finishDesktopWheelZoomPreview();
   const transientByCommand={
     measureBtn:"measure",
     profileBtn:"profile",
@@ -16855,8 +16956,7 @@ function closeToolbarSurfacesExcept(commandId){
 document.addEventListener("click",e=>{
   const command=e.target&&e.target.closest?e.target.closest("button,label.fileBtn"):null;
   if(!command||!toolbarCommandIds.has(command.id)) return;
-  finishDesktopWheelZoomPreview();
-  if(command.id==="fitBtn")return;
+  if(command.id==="fitBtn"){finishDesktopWheelZoomPreview();return;}
   closeToolbarSurfacesExcept(command.id);
 },true);
 const homePanelObserver=new MutationObserver(()=>{updateHomeButtonUI();updateToolbarActivationUI();});
@@ -17005,7 +17105,7 @@ if(profileChart){
     const distance=Math.max(0,Math.min(profileData.length,baseX/g.pixelsPerMeter));
     let nearest=profileData.samples[0];
     for(const sample of profileData.samples) if(Math.abs(sample.distance-distance)<Math.abs(nearest.distance-distance))nearest=sample;
-    profileHoverWorld={x:nearest.worldX,y:nearest.worldY};drawProfileChart();scheduleDraw();
+    profileHoverWorld={x:nearest.worldX,y:nearest.worldY};drawProfileChart();scheduleInteractionDraw();
   };
   profileChart.addEventListener("pointerdown",e=>{
     e.preventDefault();profileChart.setPointerCapture?.(e.pointerId);
@@ -17080,7 +17180,7 @@ document.getElementById("measureBtn").addEventListener("click", ()=>{
     updateMeasureBox();
     updateStopBtnUI();
     updateToolbarActivationUI();
-    scheduleDraw();
+    scheduleInteractionDraw();
     return;
   }
   resetMeasureUI();
@@ -17092,7 +17192,7 @@ document.getElementById("measureBtn").addEventListener("click", ()=>{
   if (measureModePanel) measureModePanel.style.display = 'none';
   measureBox.style.display = "block";
   updateStopBtnUI();
-  scheduleDraw();
+  scheduleInteractionDraw();
 });
 
 document.getElementById("measureTypeToggleBtn").addEventListener("click", ()=>{
@@ -17100,7 +17200,7 @@ document.getElementById("measureTypeToggleBtn").addEventListener("click", ()=>{
   measureType = measureType === "3vertical" ? "2point" : "3vertical";
   resetMeasureUI();
   if (measureModePanel) measureModePanel.style.display='none';
-  updateModeIcons(); updateMeasureBox(); measureBox.style.display = "block"; updateStopBtnUI(); scheduleDraw();
+  updateModeIcons(); updateMeasureBox(); measureBox.style.display = "block"; updateStopBtnUI(); scheduleInteractionDraw();
 });
 document.getElementById("measureCloseBtn")?.addEventListener("click", ()=>{
   cancelTransientOperations();
@@ -17115,7 +17215,7 @@ document.getElementById("drawBtn").addEventListener("click", ()=>{
   if(wasDrawing){
     inkEnabled=false;
     if(drawPanel)drawPanel.style.display="none";
-    updateInkUI();updateStopBtnUI();scheduleDraw();
+    updateInkUI();updateStopBtnUI();scheduleInteractionDraw();
     return;
   }
   inkEnabled = true;
@@ -17123,7 +17223,7 @@ document.getElementById("drawBtn").addEventListener("click", ()=>{
   drawPanel.style.display = "block";
   updateInkUI();
   updateStopBtnUI();
-  scheduleDraw();
+  scheduleInteractionDraw();
 });
 document.getElementById("stopBtn")?.addEventListener("click", (e)=>{
   const btn = e.currentTarget;
@@ -17133,7 +17233,7 @@ document.getElementById("stopBtn")?.addEventListener("click", (e)=>{
   const hasWorkToStop = !!(measureMode || inkEnabled || panelOpen || textSearchPopupOpen || profileMode || profileStartWorld || profileEndWorld || profileData);
   if (!hasWorkToStop) {
     updateStopBtnUI();
-    scheduleDraw();
+    scheduleInteractionDraw();
     return;
   }
   cancelTransientOperations();
@@ -17157,7 +17257,7 @@ document.getElementById("lineToolBtn").addEventListener("click", ()=>{
   drawPanel.style.display = "block";
   updateInkUI();
   updateStopBtnUI();
-  scheduleDraw();
+  scheduleInteractionDraw();
   // Let the blue selection feedback paint before closing the settings panel.
   setTimeout(()=>{if(inkEnabled&&!inkEraser&&inkTool==="line")drawPanel.style.display="none";},140);
 });
@@ -17174,7 +17274,7 @@ document.getElementById("circleToolBtn").addEventListener("click", ()=>{
   drawPanel.style.display = "block";
   updateInkUI();
   updateStopBtnUI();
-  scheduleDraw();
+  scheduleInteractionDraw();
   setTimeout(()=>{if(inkEnabled&&!inkEraser&&inkTool==="circle")drawPanel.style.display="none";},140);
 });
 document.getElementById("eraserBtn").addEventListener("click", ()=>{
@@ -17189,7 +17289,7 @@ document.getElementById("eraserBtn").addEventListener("click", ()=>{
   drawPanel.style.display = "block";
   updateInkUI();
   updateStopBtnUI();
-  scheduleDraw();
+  scheduleInteractionDraw();
   setTimeout(()=>{if(inkEnabled&&inkEraser)drawPanel.style.display="none";},140);
 });
 document.getElementById("clearInkBtn").addEventListener("click", ()=>{ document.getElementById("confirmModal").style.display = "flex"; });
@@ -17437,7 +17537,7 @@ canvas.addEventListener("mousedown", e=>{
     inkDrawing = true;
     currentStroke = { type:"freehand", color: inkColor, screenWidthPx: null, worldWidthMm:penWidthMmFromLevel(inkWidth), width: normalizePenWidthLevel(inkWidth), opacity: inkOpacity, eraser: false, points:[{x:snapped.x, y:snapped.y}] };
     drawPanel.style.display = "none";
-    scheduleDraw();
+    scheduleInteractionDraw();
     return;
   }
   // PCでは左ドラッグを選択操作専用にし、通常時のパンを開始しない。
@@ -17502,7 +17602,7 @@ window.addEventListener("mousemove", e=>{
   }
 
   if(profileMode&&!dragging){
-    const p=screenToWorld(ox,oy);profileHoverWorld={x:p[0],y:p[1]};scheduleDraw();return;
+    const p=screenToWorld(ox,oy);profileHoverWorld={x:p[0],y:p[1]};scheduleInteractionDraw();return;
   }
 
   if(inkDrawing && currentStroke){
@@ -17513,28 +17613,31 @@ window.addEventListener("mousemove", e=>{
     if (!prev || Math.hypot((snapped.x - prev.x), (snapped.y - prev.y)) >= 1 / Math.max(view.scale || 1, 0.000001)) {
       currentStroke.points.push({x:snapped.x, y:snapped.y});
     }
-    scheduleDraw();
+    scheduleInteractionDraw();
     return;
   }
   if(measureMode){
-    const pt = chooseMeasurePointByMode(ox, oy);
-    hoverMeasurePoint = pt || null;
+    scheduleMeasureHoverUpdate(ox,oy);
   } else {
     hoverMeasurePoint = null;
   }
-  if(measureMode)scheduleDraw();
 });
-canvas.addEventListener("mouseleave", ()=>{ hoverCursorScreen=null; hoverMeasurePoint=null; clearDesktopCadObjectHover(); updateDesktopCadCrosshair(0,0,false,false); if(measureMode)requestAnimationFrame(draw); });
+canvas.addEventListener("mouseleave", ()=>{ hoverCursorScreen=null; hoverMeasurePoint=null; clearDesktopCadObjectHover(); updateDesktopCadCrosshair(0,0,false,false); if(measureMode)scheduleInteractionDraw(); });
 canvas.addEventListener("contextmenu", e=> e.preventDefault());
 canvas.addEventListener("wheel", e=>{
   e.preventDefault();
   if(dragging)return;
   suspendGpsFollowFromUserGesture();
-  const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
-  const mx=local.x, my=local.y;
+  const layoutRect=desktopWheelZoomPreviewBase
+    ?{left:desktopWheelZoomPreviewBase.rectLeft,top:desktopWheelZoomPreviewBase.rectTop}
+    :canvas.getBoundingClientRect();
+  // Keep the pointer in the original, untransformed canvas coordinate system.
+  // getBoundingClientRect() changes after the CSS preview transform and caused
+  // repeated wheel events to drift away from the point under the mouse.
+  const mx=e.clientX-layoutRect.left,my=e.clientY-layoutRect.top;
   const factor = e.deltaY<0 ? 1.16 : 1/1.16;
   if(!isTouchMobileLike()){
-    updateDesktopWheelZoomPreview(mx,my,view.scale*factor);
+    updateDesktopWheelZoomPreview(mx,my,view.scale*factor,layoutRect);
     return;
   }
   setScaleAroundScreenPoint(mx, my, view.scale * factor);
@@ -17588,7 +17691,7 @@ canvas.addEventListener("click", e=>{
     } else {
       showToast("そのモードでは選べません");
     }
-    updateMeasureBox(); gaTrackMeasureDistanceIfComplete(); draw(); return;
+    updateMeasureBox(); gaTrackMeasureDistanceIfComplete(); scheduleInteractionDraw(); return;
   }
   if(controlPointEnabled){
     const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
@@ -17806,7 +17909,7 @@ canvas.addEventListener("touchmove", e=>{
     if (!prev || Math.hypot((snapped.x - prev.x), (snapped.y - prev.y)) >= 1 / Math.max(view.scale || 1, 0.000001)) {
       currentStroke.points.push({x:snapped.x, y:snapped.y});
     }
-    scheduleDraw();
+    scheduleInteractionDraw();
     return;
   }
 
@@ -17829,14 +17932,12 @@ canvas.addEventListener("touchmove", e=>{
     return;
   }
   hoverCursorScreen={x,y};
-  const pt=chooseMeasurePointByMode(x,y);
-  hoverMeasurePoint=pt||null;
+  scheduleMeasureHoverUpdate(x,y);
   if(touchTapCandidate){
     const mv=Math.hypot(e.touches[0].clientX-touchTapCandidate.x, e.touches[0].clientY-touchTapCandidate.y);
     if(mv>12) touchTapCandidate=null;
   }
   updateCompassUi();
-  scheduleDraw();
 }, {passive:false});
 
 canvas.addEventListener("touchend", e=>{
