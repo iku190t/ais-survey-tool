@@ -1843,7 +1843,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">丸</div>図面をタップすると、その位置へ選んだ大きさの丸を配置します。手書きは常にフリー入力です。</div>
               <div class="helpBlock"><div class="helpHead">保存レイヤー</div>SFC保存時は、線を <b>「線（赤）」「線（青）」「線（緑）」「線（黄）」「線（黒）」</b>、丸を同じ5色の <b>「丸（色名）」</b>へ分けて保存します。同じ名前の既存レイヤーがある場合は重複作成しません。</div>
               <div class="helpBlock"><div class="helpHead">図面操作</div>手書き中でも2本指の移動・拡大縮小・回転を使えます。指を2本置いた時点で、描きかけの線を確定して図面操作へ切り替えます。</div>
-              <div class="helpBlock"><div class="helpHead">消去・やり直し</div><b>消しゴム</b>を選ぶと青くなり、線・丸の選択は解除されます。図面上のメモをなぞると個別に消せます。<b>全消去</b> は確認後に全削除します。図面左上の青い矢印で元に戻す・やり直しができます。</div>
+              <div class="helpBlock"><div class="helpHead">消去・やり直し</div><b>消しゴム</b>を選ぶと青くなり、線・丸の選択は解除されます。PCでは消せる線・丸へカーソルを重ねると、十字の中央に緑の四角が表示されます。図面上のメモをなぞると個別に消せます。<b>全消去</b> は確認後に全削除します。図面左上の青い矢印で元に戻す・やり直しができます。</div>
               <div class="helpBlock"><div class="helpHead">閉じる</div>手書きポップアップの <b>閉じる</b> を押すと、手書き状態を終了して通常表示へ戻ります。色・太さ・丸の大きさ・透過率は次回も保持されます。</div>
             </div>
           </div>
@@ -9043,13 +9043,23 @@ function findDesktopCadInteractiveTarget(screenX,screenY){
   const text=findEditableTextAtScreen(screenX,screenY);
   return text?{type:"text",text}:null;
 }
+function canUseDesktopInkEraserHover(){
+  return !isTouchMobileLike()&&hasLoadedDrawing()&&inkEnabled&&inkEraser&&!inkDrawing&&
+    !measureMode&&!profileWorkflowIsActive()&&!terrainCadSelectionMode&&!controlPointEnabled;
+}
+function findDesktopInkEraserTarget(screenX,screenY){
+  if(!canUseDesktopInkEraserHover())return false;
+  const world=screenToWorld(screenX,screenY);
+  return hitTestInkObject({x:world[0],y:world[1]})>=0;
+}
 function clearDesktopCadObjectHover(){
   desktopCadHoverPoint=null;
   desktopCadHoverInteractive=false;
   if(desktopCadHoverTimer){clearTimeout(desktopCadHoverTimer);desktopCadHoverTimer=null;}
 }
 function scheduleDesktopCadObjectHover(screenX,screenY,insideCanvas){
-  if(!insideCanvas||dragging||photoPositionAdjustDrag||profileLineDrag||inkDrawing||!canUseDesktopCadObjectInteraction()){
+  const eraserHover=canUseDesktopInkEraserHover();
+  if(!insideCanvas||dragging||photoPositionAdjustDrag||profileLineDrag||inkDrawing||(!eraserHover&&!canUseDesktopCadObjectInteraction())){
     clearDesktopCadObjectHover();
     updateDesktopCadCrosshair(screenX,screenY,insideCanvas,false);
     return;
@@ -9061,7 +9071,7 @@ function scheduleDesktopCadObjectHover(screenX,screenY,insideCanvas){
     desktopCadHoverTimer=null;
     const point=desktopCadHoverPoint;
     if(!point)return;
-    desktopCadHoverInteractive=!!findDesktopCadInteractiveTarget(point.x,point.y);
+    desktopCadHoverInteractive=eraserHover?findDesktopInkEraserTarget(point.x,point.y):!!findDesktopCadInteractiveTarget(point.x,point.y);
     updateDesktopCadCrosshair(point.x,point.y,true,desktopCadHoverInteractive);
   },45);
 }
@@ -17710,6 +17720,10 @@ canvas.addEventListener("mousedown", e=>{
         keepOrCompactDrawPanelAfterInkAction();
         scheduleDraw();
         markMemoChanged();
+        if(!isTouchMobileLike()){
+          desktopCadHoverInteractive=findDesktopInkEraserTarget(local.x,local.y);
+          updateDesktopCadCrosshair(local.x,local.y,true,desktopCadHoverInteractive);
+        }
       }
       return;
     }

@@ -9,6 +9,7 @@ for(const token of [
   "function hitTestPhotoPositionMarker(screenX,screenY)",
   "function activatePhotoPositionAdjustment(hit)",
   "function findDesktopCadInteractiveTarget(screenX,screenY)",
+  "function findDesktopInkEraserTarget(screenX,screenY)",
   "desktopCadCrosshairHit",
   'startTextLongPress(e.clientX,e.clientY,"mouse")',
   "setTouchPanPreview(e.clientX-lastX,e.clientY-lastY)",
@@ -66,6 +67,21 @@ let browser;
   await page.waitForTimeout(90);
   const hoverPhoto=await page.evaluate(()=>document.getElementById("desktopCadCrosshair").classList.contains("interactive"));
   if(!hoverPhoto)throw new Error("photo hover target was not indicated");
+
+  const eraserPoint=await page.evaluate(()=>window.eval(`(()=>{
+    inkEnabled=true;inkEraser=true;inkDrawing=false;
+    inkStrokes=[{type:"freehand",color:"#ff3030",opacity:1,eraser:false,worldWidthMm:.25,width:25,points:[{x:30,y:30},{x:90,y:30}]}];
+    const p=worldToScreen(60,30);return {x:p[0],y:p[1]};
+  })()`));
+  await page.mouse.move(rect.x+eraserPoint.x,rect.y+eraserPoint.y);
+  await page.waitForTimeout(90);
+  const hoverEraser=await page.evaluate(()=>document.getElementById("desktopCadCrosshair").classList.contains("interactive"));
+  if(!hoverEraser)throw new Error("eraser hover target was not indicated");
+  await page.mouse.move(rect.x+40,rect.y+40);
+  await page.waitForTimeout(90);
+  const hoverEraserEmpty=await page.evaluate(()=>document.getElementById("desktopCadCrosshair").classList.contains("interactive"));
+  if(hoverEraserEmpty)throw new Error("eraser hover was indicated where no memo exists");
+  await page.evaluate(()=>window.eval(`(()=>{inkEnabled=false;inkEraser=false;inkStrokes=[];})()`));
 
   await page.evaluate(()=>window.eval(`(()=>{
     selectedTextForLayerChange=data.texts[0];
