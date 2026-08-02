@@ -527,10 +527,10 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .mapOverlayStatus{font-size:12px;line-height:1.55;color:var(--muted);min-height:18px;margin-top:8px;}
 .mapOverlayNotice{font-size:11px;line-height:1.55;color:var(--muted);margin-top:7px;}
 .mapOverlayLink{display:block;margin-top:7px;color:#4aa3ff;font-size:11px;line-height:1.45;}
-.controlPointSwitchRow{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:38px;border-bottom:1px solid rgba(128,128,128,.22);font-size:13px;font-weight:800;}
-.controlPointSwitchRow input{width:20px;height:20px;}
-.controlPointTypeRow{display:flex;align-items:center;gap:8px;min-height:36px;font-size:13px;font-weight:700;}
-.controlPointTypeRow input{width:19px;height:19px;}
+.controlPointTypeGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
+.controlPointTypeGrid button{min-width:0;padding:6px 3px;font-size:12px;font-weight:800;white-space:nowrap;}
+.controlPointTypeGrid button.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
+.controlPointTypeGrid button:disabled{opacity:.55;cursor:default;}
 .registryHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;}
 .registryTitle{font-size:15px;font-weight:800;}
 .registryActions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px;}
@@ -1627,10 +1627,11 @@ gtag('config', 'G-88B9YPJXWP');
 
   <div id="controlPointPanel" class="panel">
     <div class="mapOverlayHeader"><div class="mapOverlayTitle">基準点・水準点</div><button id="controlPointCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
-    <label class="controlPointSwitchRow"><span>地図上に表示</span><input id="controlPointEnabledToggle" type="checkbox"></label>
-    <label class="controlPointTypeRow"><input id="controlTriangulationToggle" type="checkbox" checked><span>三角点・その他の基準点</span></label>
-    <label class="controlPointTypeRow"><input id="controlBenchmarkToggle" type="checkbox" checked><span>水準点</span></label>
-    <label class="controlPointTypeRow"><input id="controlElectronicToggle" type="checkbox" checked><span>電子基準点</span></label>
+    <div class="controlPointTypeGrid" role="group" aria-label="表示する基準点の種類">
+      <button id="controlTriangulationToggle" type="button" aria-pressed="false">三角点</button>
+      <button id="controlBenchmarkToggle" type="button" aria-pressed="false">水準点</button>
+      <button id="controlElectronicToggle" type="button" aria-pressed="false">電子基準点</button>
+    </div>
     <div id="controlPointStatus" class="mapOverlayStatus">国土地理院の公開位置情報を表示します。</div>
     <div class="mapOverlayNotice">表示位置は検索・現地確認の参考です。測量成果として使用せず、正式な成果値は国土地理院の基準点成果等閲覧サービスで確認してください。</div>
     <a class="mapOverlayLink" href="https://service.gsi.go.jp/kijunten/" target="_blank" rel="noopener">基準点成果等閲覧サービスを確認</a>
@@ -3504,12 +3505,14 @@ function setControlPointStatus(text){
   if(controlPointStatus&&controlPointStatus.textContent!==text)controlPointStatus.textContent=text||"";
 }
 function updateControlPointUi(){
-  const enabledToggle=document.getElementById("controlPointEnabledToggle");
-  if(enabledToggle){enabledToggle.checked=controlPointEnabled;enabledToggle.disabled=controlPointResolveBusy;}
   const filterIds={triangulation:"controlTriangulationToggle",benchmark:"controlBenchmarkToggle",electronic:"controlElectronicToggle"};
   for(const [key,id] of Object.entries(filterIds)){
-    const input=document.getElementById(id);
-    if(input)input.checked=controlPointFilters[key]!==false;
+    const button=document.getElementById(id);
+    if(!button)continue;
+    const active=controlPointEnabled&&controlPointFilters[key]!==false;
+    button.classList.toggle("active",active);
+    button.setAttribute("aria-pressed",active?"true":"false");
+    button.disabled=controlPointResolveBusy;
   }
   if(controlPointOpenBtn)controlPointOpenBtn.classList.toggle("active",controlPointEnabled);
   if(controlPointOpenState)controlPointOpenState.textContent=controlPointResolveBusy?"確認中…":controlPointEnabled?"表示中":"開く";
@@ -6807,9 +6810,12 @@ function isDesktopPhotoTool(){
   return window.innerWidth >= 821 && !isTouchMobileLike();
 }
 function updatePcMapToolbarVisibility(){
-  const display=isDesktopPhotoTool()?(document.body.classList.contains("help-labels")?"inline-grid":"inline-flex"):"none";
+  const desktop=isDesktopPhotoTool();
   ["terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn"].forEach(id=>{
-    document.getElementById(id)?.style.setProperty("display",display,"important");
+    const button=document.getElementById(id);
+    if(!button)return;
+    if(desktop)button.style.removeProperty("display");
+    else button.style.setProperty("display","none","important");
   });
 }
 function isIOSLike(){
@@ -17899,15 +17905,23 @@ document.getElementById("controlPointCloseBtn")?.addEventListener("click",()=>{
   if(!isDesktopPhotoTool()&&aerialPhotoPanel){aerialPhotoPanel.style.display="block";updateAerialPhotoUi();}
   updateToolbarActivationUI();
 });
-document.getElementById("controlPointEnabledToggle")?.addEventListener("change",event=>setControlPointEnabled(!!event.currentTarget.checked));
 for(const [key,id] of Object.entries({
   triangulation:"controlTriangulationToggle",
   benchmark:"controlBenchmarkToggle",
   electronic:"controlElectronicToggle"
 })){
-  document.getElementById(id)?.addEventListener("change",event=>{
-    controlPointFilters[key]=!!event.currentTarget.checked;
-    updateControlPointUi();scheduleDraw();
+  document.getElementById(id)?.addEventListener("click",async()=>{
+    if(controlPointResolveBusy)return;
+    if(!controlPointEnabled){
+      for(const filterKey of Object.keys(controlPointFilters))controlPointFilters[filterKey]=false;
+      controlPointFilters[key]=true;
+      updateControlPointUi();
+      await setControlPointEnabled(true);
+      return;
+    }
+    controlPointFilters[key]=controlPointFilters[key]===false;
+    if(!Object.values(controlPointFilters).some(Boolean))await setControlPointEnabled(false);
+    else{updateControlPointUi();scheduleDraw();}
   });
 }
 for(const [key,id] of Object.entries({

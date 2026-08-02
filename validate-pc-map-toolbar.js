@@ -45,11 +45,28 @@ let browser;
       const button=svg.closest("button"),style=getComputedStyle(button);
       return Number(style.opacity)>=0.6&&getComputedStyle(svg).display!=="none";
     }),
+    pcMapButtons:["terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn"].map(id=>{
+      const button=document.getElementById(id),svg=button?.querySelector("svg");
+      const buttonRect=button?.getBoundingClientRect(),svgRect=svg?.getBoundingClientRect();
+      return {
+        id,
+        display:button?getComputedStyle(button).display:"missing",
+        opacity:button?Number(getComputedStyle(button).opacity):0,
+        label:button?getComputedStyle(button,"::after").content:"none",
+        width:buttonRect?.width||0,
+        height:buttonRect?.height||0,
+        svgWidth:svgRect?.width||0,
+        svgHeight:svgRect?.height||0
+      };
+    }),
     unavailable:Array.from(document.querySelectorAll("#topbar .toolIconBtn:not(#openIconBtn)")).every(button=>button.classList.contains("unavailableTool")),
     terrainPath:document.querySelector("#terrainToolbarBtn svg")?.innerHTML||"",
     profilePath:document.querySelector("#profileBtn svg")?.innerHTML||""
   }));
   if(!startupState.visible||!startupState.unavailable)throw new Error(`startup toolbar icon state failed: ${JSON.stringify(startupState)}`);
+  if(startupState.pcMapButtons.some(item=>item.display==="none"||item.opacity<0.6||item.width<36||item.height<45||item.svgWidth<10||item.svgHeight<10||item.label==="none")){
+    throw new Error(`startup PC map icon/label rendering failed: ${JSON.stringify(startupState.pcMapButtons)}`);
+  }
   if(startupState.terrainPath===startupState.profilePath||!startupState.profilePath||!startupState.terrainPath)throw new Error("terrain/profile icons are not distinct");
   await desktop.evaluate(()=>{
     document.getElementById("startupModal").style.display="none";
