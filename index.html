@@ -30,7 +30,7 @@ Tokushima Japan
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <!-- Gmail直接送信用。Google Cloudの「ウェブ アプリケーション」OAuthクライアントIDをcontentへ設定する。 -->
 <meta name="gmail-oauth-client-id" content="">
-<title>SFC測量現場メモツール | Ezアイズ Survey Tools</title>
+<title>SFCビューア | Ezアイズ Survey Tools</title>
 <style>
 :root{
   --bg:#000;
@@ -513,11 +513,13 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .registrySwatch{width:22px;height:8px;border-radius:3px;flex:0 0 auto;background:var(--registry-color);}
 #registryMapStatus{font-size:12px;line-height:1.55;color:var(--muted);min-height:18px;}
 #registryMapNotice{font-size:11px;line-height:1.55;color:var(--muted);margin-top:7px;}
-#registryMapCredit{display:none;position:absolute;right:8px;bottom:calc(34px + env(safe-area-inset-bottom));z-index:57;max-width:calc(100% - 16px);padding:3px 6px;border-radius:4px;background:rgba(20,20,20,.78);color:#fff;font-size:10px;line-height:1.25;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-#hazardMapCredit,#controlPointCredit{display:none;position:absolute;right:8px;z-index:57;max-width:calc(100% - 16px);padding:3px 6px;border-radius:4px;background:rgba(20,20,20,.78);color:#fff;font-size:10px;line-height:1.25;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-#hazardMapCredit{bottom:calc(50px + env(safe-area-inset-bottom));}
-#controlPointCredit{bottom:calc(66px + env(safe-area-inset-bottom));}
-#controlPointLegend{display:none;position:absolute;left:8px;bottom:calc(34px + env(safe-area-inset-bottom));z-index:58;max-width:calc(100% - 16px);padding:5px 7px;border:1px solid rgba(255,255,255,.18);border-radius:7px;background:rgba(20,20,20,.82);color:#fff;font-size:10px;font-weight:700;line-height:1.3;box-sizing:border-box;box-shadow:0 2px 8px rgba(0,0,0,.28);}
+#mapOverlayInfoStack{position:absolute;right:8px;bottom:calc(52px + env(safe-area-inset-bottom));z-index:58;display:flex;flex-direction:column;align-items:flex-end;gap:4px;max-width:calc(100% - 16px);pointer-events:none;}
+#mapAttributionPanel{display:none;max-width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid rgba(255,255,255,.16);border-radius:7px;background:rgba(20,20,20,.84);box-shadow:0 2px 8px rgba(0,0,0,.28);pointer-events:auto;}
+#mapAttributionPanel.show{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+#photoCredit,#registryMapCredit,#hazardMapCredit,#controlPointCredit{display:none;position:static;max-width:100%;box-sizing:border-box;padding:0;border:0;border-radius:0;background:transparent;color:#fff;font-size:10px;line-height:1.3;text-align:right;text-decoration:none;white-space:normal;overflow-wrap:anywhere;}
+#photoCredit.show{display:block;}
+#controlPointLegend{display:none;position:static;max-width:100%;padding:5px 7px;border:1px solid rgba(255,255,255,.18);border-radius:7px;background:rgba(20,20,20,.84);color:#fff;font-size:10px;font-weight:700;line-height:1.3;box-sizing:border-box;box-shadow:0 2px 8px rgba(0,0,0,.28);pointer-events:auto;}
+@media (min-width:821px) and (hover:hover) and (pointer:fine){#mapOverlayInfoStack{bottom:8px;}}
 .controlPointLegendItems{display:flex;align-items:center;flex-wrap:wrap;gap:5px 10px;}
 .controlPointLegendItem{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
 .controlPointLegendSymbol{position:relative;width:14px;height:14px;display:inline-block;box-sizing:border-box;flex:0 0 auto;}
@@ -569,9 +571,6 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #photoStatus{font-size:11px;line-height:1.35;margin-top:5px;color:var(--muted);}
 #aerialPhotoSfcBtn{width:100%;min-height:36px;margin-top:8px;font-weight:800;}
 #aerialPhotoSfcBtn:disabled{opacity:.42;cursor:not-allowed;}
-#photoCredit{display:none;position:absolute;right:8px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:55;max-width:calc(100% - 16px);box-sizing:border-box;padding:3px 6px;border-radius:5px;background:rgba(0,0,0,.68);color:#fff;font-size:10px;text-decoration:none;pointer-events:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-#photoCredit.show{display:block;}
-@media (display-mode:standalone){#photoCredit{bottom:calc(8px + env(safe-area-inset-bottom));}}
 #supportPanel .panelTitle{margin-bottom:6px;}
 .supportPanelText{font-size:12px; line-height:1.7; color:var(--fg); opacity:0.92; white-space:normal;}
 #supportBtn{opacity:0.78; background:rgba(120,130,140,.18); border-color:rgba(150,160,170,.45);}
@@ -1102,10 +1101,10 @@ body.help-labels button[data-help-label].mobile-hide{
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="screen-orientation" content="portrait">
 <meta name="x5-orientation" content="portrait">
-<meta name="apple-mobile-web-app-title" content="SFCスマホビューアー">
+<meta name="apple-mobile-web-app-title" content="SFCビューア">
 <meta name="theme-color" content="#f2f5f9">
-<meta name="application-name" content="SFCスマホビューアー">
-<meta name="description" content="SFCスマホビューアー">
+<meta name="application-name" content="SFCビューア">
+<meta name="description" content="SFCビューア">
 
 <!-- QR受信情報はアクセス解析や外部読込みより先にURLから除去する。 -->
 <script>
@@ -1226,7 +1225,7 @@ gtag('config', 'G-88B9YPJXWP');
       </svg>
     </button>
     <div id="creditWrap">
-      <div id="viewerLabel">SFCスマホビューアー</div>
+      <div id="viewerLabel">SFCビューア</div>
     </div>
     </div>
   <div id="topbarSub" class="topbar-row" aria-hidden="true"></div>
@@ -1591,15 +1590,19 @@ gtag('config', 'G-88B9YPJXWP');
     <button id="terrainCadCancelBtn" type="button">取消</button>
   </div>
 
-  <a id="photoCredit" href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院　地理院タイル</a>
-  <a id="registryMapCredit" href="https://front.geospatial.jp/moj-chizu-xml-readme/" target="_blank" rel="noopener">出典：法務省　登記所備付地図データ（G空間情報センター）</a>
-  <a id="hazardMapCredit" href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">出典：国土地理院　ハザードマップポータルサイト</a>
-  <a id="controlPointCredit" href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院　地理院タイル（基準点）</a>
-  <div id="controlPointLegend" aria-label="基準点・水準点の凡例">
-    <div class="controlPointLegendItems">
-      <span class="controlPointLegendItem"><span class="controlPointLegendSymbol triangulation"></span>三角点・基準点</span>
-      <span class="controlPointLegendItem"><span class="controlPointLegendSymbol benchmark"></span>水準点</span>
-      <span class="controlPointLegendItem"><span class="controlPointLegendSymbol electronic"></span>電子基準点</span>
+  <div id="mapOverlayInfoStack">
+    <div id="controlPointLegend" aria-label="基準点・水準点の凡例">
+      <div class="controlPointLegendItems">
+        <span class="controlPointLegendItem"><span class="controlPointLegendSymbol triangulation"></span>三角点・基準点</span>
+        <span class="controlPointLegendItem"><span class="controlPointLegendSymbol benchmark"></span>水準点</span>
+        <span class="controlPointLegendItem"><span class="controlPointLegendSymbol electronic"></span>電子基準点</span>
+      </div>
+    </div>
+    <div id="mapAttributionPanel" aria-label="出典">
+      <a id="photoCredit" href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院　地理院タイル</a>
+      <a id="registryMapCredit" href="https://front.geospatial.jp/moj-chizu-xml-readme/" target="_blank" rel="noopener">出典：法務省　登記所備付地図データ（G空間情報センター）</a>
+      <a id="hazardMapCredit" href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">出典：国土地理院　ハザードマップポータルサイト</a>
+      <a id="controlPointCredit" href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院　地理院タイル（基準点）</a>
     </div>
   </div>
 
@@ -1959,7 +1962,7 @@ gtag('config', 'G-88B9YPJXWP');
 
   <div id="viewerSupportModal">
     <div id="viewerSupportBox">
-      <div class="panelTitle">SFCスマホビューアー</div>
+      <div class="panelTitle">SFCビューア</div>
       <div id="viewerSupportCompany" style="font-size:13px;line-height:1.7;margin-bottom:8px;">
         制作：<a href="https://ez-survey.sakura.ne.jp/" target="_blank" rel="noopener noreferrer" style="color:var(--fg);font-weight:800;text-decoration:underline;">株式会社アイズ測量</a>
       </div>
@@ -2378,6 +2381,10 @@ let registryMapState = {
   selectedParcel:null
 };
 let registryMapAutoBusy=false;
+const REGISTRY_MOBILE_FEATURE_LIMIT=12000;
+const REGISTRY_DESKTOP_FEATURE_LIMIT=30000;
+const REGISTRY_MOBILE_POINT_LIMIT=360000;
+const REGISTRY_DESKTOP_POINT_LIMIT=900000;
 
 const HAZARD_MAP_SOURCES = Object.freeze({
   flood:{
@@ -2495,6 +2502,7 @@ const controlPointOpenState = document.getElementById("controlPointOpenState");
 const controlPointStatus = document.getElementById("controlPointStatus");
 const controlPointCredit = document.getElementById("controlPointCredit");
 const controlPointLegend = document.getElementById("controlPointLegend");
+const mapAttributionPanel = document.getElementById("mapAttributionPanel");
 const controlPointModal = document.getElementById("controlPointModal");
 const controlPointTitle = document.getElementById("controlPointTitle");
 const controlPointBody = document.getElementById("controlPointBody");
@@ -2511,6 +2519,13 @@ const aerialPhotoSfcBtn = document.getElementById("aerialPhotoSfcBtn");
 const vectorMapToggleSwitch = document.getElementById("vectorMapToggleSwitch");
 const vectorMapStatus = document.getElementById("vectorMapStatus");
 const photoCredit = document.getElementById("photoCredit");
+function updateMapAttributionLayout(){
+  if(!mapAttributionPanel)return;
+  const visible=[photoCredit,registryMapCredit,hazardMapCredit,controlPointCredit].some(element=>
+    !!element&&(element.classList.contains("show")||element.style.display==="block")
+  );
+  mapAttributionPanel.classList.toggle("show",visible);
+}
 const profileCloseBtn = document.getElementById("profileCloseBtn");
 const profileSizeToggleBtn = document.getElementById("profileSizeToggleBtn");
 const profileSummary = document.getElementById("profileSummary");
@@ -3135,6 +3150,7 @@ function updateAerialPhotoUi(){
     photoCredit.textContent=aerialPhotoEnabled&&vectorBaseMapEnabled?"出典：国土地理院　地理院タイル・地理院地図Vector":(vectorBaseMapEnabled?"出典：国土地理院　地理院地図Vector":GSI_TILE_ATTRIBUTION_TEXT);
     photoCredit.href=vectorBaseMapEnabled?"https://maps.gsi.go.jp/vector/":"https://maps.gsi.go.jp/development/ichiran.html";
   }
+  updateMapAttributionLayout();
   document.getElementById("backgroundBlackBtn")?.classList.toggle("selected",darkTheme);
   document.getElementById("backgroundWhiteBtn")?.classList.toggle("selected",!darkTheme);
   updateBackgroundIconState();
@@ -3362,6 +3378,7 @@ function updateHazardMapUi(){
   if(hazardMapOpenBtn)hazardMapOpenBtn.classList.toggle("active",!!hazardMapMode);
   if(hazardMapOpenState)hazardMapOpenState.textContent=hazardMapResolveBusy?"確認中…":hazardMapMode?"表示中":"開く";
   if(hazardMapCredit)hazardMapCredit.style.display=hazardMapMode?"block":"none";
+  updateMapAttributionLayout();
 }
 async function activateHazardMap(mode){
   if(hazardMapMode===mode){
@@ -3429,6 +3446,7 @@ function updateControlPointUi(){
   if(controlPointOpenState)controlPointOpenState.textContent=controlPointResolveBusy?"確認中…":controlPointEnabled?"表示中":"開く";
   if(controlPointCredit)controlPointCredit.style.display=controlPointEnabled?"block":"none";
   if(controlPointLegend)controlPointLegend.style.display=controlPointEnabled?"block":"none";
+  updateMapAttributionLayout();
 }
 async function setControlPointEnabled(enabled){
   if(controlPointResolveBusy)return;
@@ -10835,10 +10853,25 @@ function registryAutoTargetBounds(zone){
   let minLon=Math.min(...points.map(p=>p.lon)),maxLon=Math.max(...points.map(p=>p.lon));
   let minLat=Math.min(...points.map(p=>p.lat)),maxLat=Math.max(...points.map(p=>p.lat));
   const center={lat:(minLat+maxLat)/2,lon:(minLon+maxLon)/2};
-  const latPad=Math.max(.006,(maxLat-minLat)*.18);
-  const lonPad=Math.max(.008,(maxLon-minLon)*.18);
+  // Keep a small margin around the visible drawing.  The old minimum margin
+  // covered roughly 1–2 km even after zooming in, so a retry could still load
+  // tens of thousands of parcels and exhaust a phone's memory.
+  const latPad=Math.max(.0015,(maxLat-minLat)*.12);
+  const lonPad=Math.max(.002,(maxLon-minLon)*.12);
   minLon-=lonPad;maxLon+=lonPad;minLat-=latPad;maxLat+=latPad;
   return {minLon,minLat,maxLon,maxLat,center};
+}
+function registryAssertAutoTargetSize(target,zone){
+  const plane=registryPlaneTargetBoundsLight(target,zone);
+  const width=Math.max(0,plane.maxX-plane.minX);
+  const height=Math.max(0,plane.maxY-plane.minY);
+  const mobile=isTouchMobileLike();
+  const maxSide=mobile?1800:4000;
+  const maxArea=mobile?1800000:6000000;
+  if(width>maxSide||height>maxSide||width*height>maxArea){
+    throw new Error("表示範囲が広すぎます。図面を拡大してから、もう一度読み込んでください");
+  }
+  return {plane,width,height};
 }
 async function registryReadGeoJsonArea(response,targetBounds,onProgress){
   if(!response.body||typeof response.body.getReader!=="function"){
@@ -11151,6 +11184,9 @@ async function registryReadShpSelectedLight(zipBuffer,entry,targetBounds,onProgr
   const reader=registryZipEntryStreamLight(zipBuffer,entry).getReader();
   let pending=new Uint8Array(0),used=0,headerRead=false,recordIndex=0,readBytes=0,lastYield=0;
   const selected=[];
+  const featureLimit=isTouchMobileLike()?REGISTRY_MOBILE_FEATURE_LIMIT:REGISTRY_DESKTOP_FEATURE_LIMIT;
+  const pointLimit=isTouchMobileLike()?REGISTRY_MOBILE_POINT_LIMIT:REGISTRY_DESKTOP_POINT_LIMIT;
+  let selectedPointCount=0;
   try{
     while(true){
       const {value,done}=await reader.read();
@@ -11170,9 +11206,19 @@ async function registryReadShpSelectedLight(zipBuffer,entry,targetBounds,onProgr
         const feature=registryParseShpPolygonLight(content,recordIndex,targetBounds);
         if(feature){
           selected.push(feature);
-          if(selected.length>30000)throw new Error("表示範囲が広すぎます。図面を拡大してから、もう一度読み込んでください");
+          selectedPointCount+=feature.geometry.coordinates.reduce((sum,ring)=>sum+ring.length,0);
+          if(selected.length>featureLimit||selectedPointCount>pointLimit){
+            selected.length=0;
+            throw new Error("表示範囲が広すぎます。図面を拡大してから、もう一度読み込んでください");
+          }
         }
         recordIndex++;used+=8+contentLength;
+        const parseNow=Date.now();
+        if(recordIndex%250===0&&parseNow-lastYield>16){
+          lastYield=parseNow;
+          if(onProgress)onProgress({parsing:true,phase:"shape",scanned:recordIndex,matched:selected.length,received:readBytes,total:entry.uncompressedSize});
+          await new Promise(resolve=>requestAnimationFrame(resolve));
+        }
       }
       const now=Date.now();
       if(now-lastYield>180){
@@ -11182,6 +11228,7 @@ async function registryReadShpSelectedLight(zipBuffer,entry,targetBounds,onProgr
       }
     }
   }finally{
+    try{await reader.cancel();}catch(_error){}
     try{reader.releaseLock();}catch(_error){}
   }
   if(!headerRead)throw new Error("境界形状ファイルを読み取れません");
@@ -11244,6 +11291,12 @@ async function registryReadDbfSelectedLight(zipBuffer,entry,selected,cpgBytes,on
           const feature=selectedByIndex.get(recordIndex);
           if(feature&&pending[used]!==0x2a)feature.properties=registryDbfPropertiesLight(pending.subarray(used,used+recordLength),fields,decoder);
           recordIndex++;used+=recordLength;
+          const parseNow=Date.now();
+          if(recordIndex%500===0&&parseNow-lastYield>16){
+            lastYield=parseNow;
+            if(onProgress)onProgress({parsing:true,phase:"attribute",scanned:recordIndex,matched:selected.length,received:readBytes,total:entry.uncompressedSize});
+            await new Promise(resolve=>requestAnimationFrame(resolve));
+          }
         }
       }
       const now=Date.now();
@@ -11254,6 +11307,7 @@ async function registryReadDbfSelectedLight(zipBuffer,entry,selected,cpgBytes,on
       }
     }
   }finally{
+    try{await reader.cancel();}catch(_error){}
     try{reader.releaseLock();}catch(_error){}
   }
 }
@@ -11265,17 +11319,26 @@ async function registryParseShpZipBufferLight(buffer,targetPlaneBounds,onProgres
   if(!shpEntry)throw new Error("ZIP内に境界形状（SHP）がありません");
   const cpgBytes=cpgEntry?await registryReadZipEntryBytesLight(buffer,cpgEntry,4096):null;
   const selected=await registryReadShpSelectedLight(buffer,shpEntry,targetPlaneBounds,onProgress);
-  if(dbfEntry&&selected.length)await registryReadDbfSelectedLight(buffer,dbfEntry,selected,cpgBytes,onProgress);
-  return {
-    type:"FeatureCollection",
-    features:selected.map(({geometry,properties})=>({type:"Feature",geometry,properties}))
-  };
+  try{
+    if(dbfEntry&&selected.length)await registryReadDbfSelectedLight(buffer,dbfEntry,selected,cpgBytes,onProgress);
+    return {
+      type:"FeatureCollection",
+      features:selected.map(({geometry,properties})=>({type:"Feature",geometry,properties}))
+    };
+  }catch(error){
+    selected.length=0;
+    throw error;
+  }
 }
 async function registryReadShpZipAreaLight(response,targetBounds,onProgress,expectedSize=0,zone){
   if(typeof DecompressionStream!=="function")throw new Error("この端末では境界ZIPを軽量展開できません");
-  const buffer=await registryReadResponseBuffer(response,onProgress,expectedSize);
-  if(onProgress)onProgress({received:buffer.byteLength,total:buffer.byteLength,parsing:true,phase:"shape"});
-  return registryParseShpZipBufferLight(buffer,registryPlaneTargetBoundsLight(targetBounds,zone),onProgress);
+  let buffer=await registryReadResponseBuffer(response,onProgress,expectedSize);
+  try{
+    if(onProgress)onProgress({received:buffer.byteLength,total:buffer.byteLength,parsing:true,phase:"shape"});
+    return await registryParseShpZipBufferLight(buffer,registryPlaneTargetBoundsLight(targetBounds,zone),onProgress);
+  }finally{
+    buffer=null;
+  }
 }
 async function loadRegistryMapAutomatically(){
   if(registryMapAutoBusy)return;
@@ -11286,6 +11349,7 @@ async function loadRegistryMapAutomatically(){
     const zone=await resolveProfileZone();
     if(!zone)throw new Error("座標系を判定できません");
     const target=registryAutoTargetBounds(zone);
+    registryAssertAutoTargetSize(target,zone);
     const reverseUrl=`https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=${encodeURIComponent(target.center.lat)}&lon=${encodeURIComponent(target.center.lon)}`;
     const reverseResponse=await fetch(reverseUrl);
     if(!reverseResponse.ok)throw new Error("地域を判定できません");
@@ -11472,6 +11536,7 @@ function registryMapSummary(state=registryMapState){
 function updateRegistryMapUi(){
   if(registryMapStatus&&!registryMapAutoBusy)registryMapStatus.textContent=registryMapSummary();
   if(registryMapCredit)registryMapCredit.style.display=registryMapState.loaded?"block":"none";
+  updateMapAttributionLayout();
   if(registryMapOpenBtn)registryMapOpenBtn.classList.toggle("active",!!(registryMapPanel&&getComputedStyle(registryMapPanel).display!=="none"));
   if(registryMapOpenState)registryMapOpenState.textContent=registryMapAutoBusy?"取得中…":registryMapState.loaded?"読込済み":"開く";
   if(registryMapAutoBtn){
@@ -16604,7 +16669,7 @@ if (helpFeedbackMailBtn) helpFeedbackMailBtn.addEventListener("click", ()=>{
   const currentFileName=(typeof data!=="undefined"&&data&&data.source_name)
     ? String(data.source_name)
     : "（未選択）";
-  const subject="SFCスマホビューアー 不具合・改善案";
+  const subject="SFCビューア 不具合・改善案";
   const body=[
     "【内容】",
     "",
