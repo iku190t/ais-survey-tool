@@ -15061,7 +15061,14 @@ function insertMemoGeneralFeatures(baseText, lineText, points, preludeText=""){
   let text = String(baseText || "");
   let placement=findMemoGeometryInsertion(text,points);
   let at=Math.max(0,Math.min(text.length,placement.index));
-  let preludeAt=at;
+  // SXF assembly origins are written after their children. A generated
+  // composite curve must therefore be inserted before the first child of the
+  // target partial figure. Putting it immediately before sfig_org_feature
+  // makes the curve absorb the preceding source geometry and hides the
+  // original drawing in other CAD applications.
+  let preludeAt=preludeText
+    ?Math.max(0,Math.min(at,findSxfAssemblyChildrenStart(text,at)))
+    :at;
   const addedCompositeCurveCount=preludeText
     ?parseSxfFeatureRecords(getFlatSxfText(preludeText)).filter(record=>record.name==="composite_curve_org_feature").length
     :0;
@@ -15073,7 +15080,7 @@ function insertMemoGeneralFeatures(baseText, lineText, points, preludeText=""){
     text=shiftExistingSxfHatchCurveReferences(text,firstShiftCode,addedCompositeCurveCount);
     placement=findMemoGeometryInsertion(text,points);
     at=Math.max(0,Math.min(text.length,placement.index));
-    preludeAt=at;
+    preludeAt=Math.max(0,Math.min(at,findSxfAssemblyChildrenStart(text,at)));
   }
   const preludeBlock=preludeText?`/* --- sfcviewer_generated_begin --- */\r\n${preludeText}\r\n/* --- sfcviewer_generated_end --- */\r\n`:"";
   const block=lineText?`\r\n/* --- sfcviewer_generated_begin --- */\r\n${lineText}\r\n/* --- sfcviewer_generated_end --- */\r\n`:"";

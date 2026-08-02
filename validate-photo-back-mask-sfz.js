@@ -60,6 +60,11 @@ let browser;
     const saved=buildSfcExportBlobAndName();
     if(!saved.ok)return {ok:false,reason:saved.reason};
     const ann=buildSfcAnnotations(stripEmbeddedAnnotations(payload.sfc));
+    const sourceBase=stripEmbeddedAnnotations(payload.sfc);
+    const sourcePlacement=findMemoGeometryInsertion(sourceBase,ann.exportPoints);
+    const sourceChildrenStart=findSxfAssemblyChildrenStart(sourceBase,sourcePlacement.index);
+    const sourceAssemblyChildren=parseSxfFeatureRecords(getFlatSxfText(sourceBase.slice(sourceChildrenStart,sourcePlacement.index)));
+    const firstSourceAssemblyChild=sourceAssemblyChildren[0]||null;
     const flat=getFlatSxfTextIncludingGenerated(saved.text);
     const records=parseSxfFeatureRecords(flat);
     const defs=parseLayerFeatureDefsFlat(flat);
@@ -70,8 +75,15 @@ let browser;
     const generatedBlocks=[...saved.text.matchAll(/\/\*\s*---\s*sfcviewer_generated_begin\s*---\s*\*\/([\s\S]*?)\/\*\s*---\s*sfcviewer_generated_end\s*---\s*\*\//g)];
     const boundaryBlock=generatedBlocks.find(match=>/composite_curve_org_feature\s*\(/.test(match[1]));
     const fillBlock=generatedBlocks.find(match=>/fill_area_style_colour_feature\s*\(/.test(match[1]));
-    const boundaryAndFillAdjacent=!!(boundaryBlock&&fillBlock&&boundaryBlock.index<fillBlock.index&&
-      saved.text.slice(boundaryBlock.index+boundaryBlock[0].length,fillBlock.index).trim()==="");
+    const firstSourceChildLocation=firstSourceAssemblyChild
+      ?locateSxfSourceFeature(saved.text,firstSourceAssemblyChild.id,firstSourceAssemblyChild.name)
+      :null;
+    const maskPreludeBeforeSourceChildren=!!boundaryBlock&&(!firstSourceChildLocation||boundaryBlock.index<firstSourceChildLocation.blockStart);
+    // SXF writes assembly origins after their children. The boundary
+    // definitions must precede the target partial figure's source children,
+    // while the fill itself remains inside that partial figure. Therefore only
+    // ordering, not physical adjacency, is valid here.
+    const boundaryPrecedesFill=!!(boundaryBlock&&fillBlock&&boundaryBlock.index<fillBlock.index);
     const generatedPrelude=parseSxfFeatureRecords(getFlatSxfText(ann.preludeText));
     const generatedRecords=parseSxfFeatureRecords(getFlatSxfText(ann.preludeText+'\n'+ann.lineText+'\n'+ann.rootPlacementText));
     const boundaries=generatedPrelude.filter(record=>record.name==="polyline_feature"&&record.args.slice(0,4).every(value=>Number(unquoteSxfValue(value))===0));
@@ -110,7 +122,8 @@ let browser;
       externalHatchCount:externalHatches.length,
       generatedExternalMaskCount:generatedRecords.filter(record=>record.name==="externally_defined_hatch_feature").length,
       fillCount:fills.length,
-      boundaryAndFillAdjacent,
+      boundaryPrecedesFill,
+      maskPreludeBeforeSourceChildren,
       boundaryCount:boundaries.length,
       backgroundFigureCount:backgroundFigures.length,
       backgroundPlacementCount:backgroundPlacements.length,
@@ -127,7 +140,7 @@ let browser;
   },{sfc,name:entryName});
   if(!result.ok)throw new Error(result.reason||"書出しに失敗しました");
   if(result.photoCount<1)throw new Error("添付SFZから写真位置を復元できません");
-  if(result.maskCode<1||result.fillCount!==result.photoCount||result.boundaryCount!==result.photoCount||!result.boundaryAndFillAdjacent||result.generatedExternalMaskCount!==0||result.externalHatchCount!==result.originalExternalHatchCount||result.backgroundFigureCount!==0||result.backgroundPlacementCount!==0||result.explicitBlackCount<1||result.generatedFillBoundaries.some(item=>!item.resolved))throw new Error(`背面マスクの書出し件数が不正です: ${JSON.stringify(result)}`);
+  if(result.maskCode<1||result.fillCount!==result.photoCount||result.boundaryCount!==result.photoCount||!result.boundaryPrecedesFill||!result.maskPreludeBeforeSourceChildren||result.generatedExternalMaskCount!==0||result.externalHatchCount!==result.originalExternalHatchCount||result.backgroundFigureCount!==0||result.backgroundPlacementCount!==0||result.explicitBlackCount<1||result.generatedFillBoundaries.some(item=>!item.resolved))throw new Error(`背面マスクの書出し件数が不正です: ${JSON.stringify(result)}`);
   if(result.roundtripMaskFillCount!==result.photoCount||result.roundtripMaskAreaControlCount!==0||!result.roundtripValidation?.ok)throw new Error(`再保存後の背面マスク構造が不正です: ${JSON.stringify(result)}`);
   if(!result.validation?.ok)throw new Error(`SXF検証に失敗しました: ${JSON.stringify(result)}`);
   console.log(JSON.stringify(result));
