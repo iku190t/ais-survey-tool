@@ -434,12 +434,12 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .supportLinkBtn:active{transform:translateY(1px) scale(0.98);filter:brightness(0.95);}
 
 #measureModePanel{width:190px; max-width:min(190px, calc(100vw - 16px)); position:absolute; z-index:60;}
-#measureBox{box-sizing:border-box;width:min(280px,calc(100vw - 104px)); right:12px; top:calc(58px + var(--cad-toolbar-offset,0px)); position:absolute; z-index:60;padding:8px;}
+#measureBox{--measure-choice-width:calc((100% - 16px)/5);box-sizing:border-box;width:min(280px,calc(100vw - 104px)); right:12px; top:calc(58px + var(--cad-toolbar-offset,0px)); position:absolute; z-index:60;padding:8px;}
 #measureTypeToggleBtn{display:block;width:100%;min-height:32px;margin:0 0 6px;padding:4px 8px;font-size:13px;font-weight:800;}
 #measurePickRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:0 0 6px;}
-#measureResultRow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;margin-top:2px;}
+#measureResultRow{display:grid;grid-template-columns:minmax(0,1fr) var(--measure-choice-width);align-items:center;gap:6px;margin-top:2px;}
 #measureText{display:flex;align-items:center;min-width:0;min-height:32px;font-size:13px;line-height:1.25;font-weight:700;}
-#measureBackBtn{min-width:46px!important;}
+#measureBackBtn{width:100%!important;min-width:0!important;}
 #measurePickRow button,#measureBackBtn,#drawPanel .toolRow button{min-width:0!important;min-height:38px!important;padding:5px 2px!important;font-size:13px!important;line-height:1.15;white-space:nowrap;color:#fff!important;background:#2a2a2a!important;border-color:#555!important;border-radius:8px!important;font-weight:700;}
 #measurePickRow button,#measureBackBtn{min-height:32px!important;padding:4px 2px!important;}
 #measureBackBtn{color:#48d878!important;}
@@ -701,6 +701,9 @@ body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
 .photoAlbumLayoutChoice{display:flex;align-items:center;justify-content:center;min-height:38px;padding:6px;border:1px solid var(--border);border-radius:8px;background:var(--button);color:var(--buttonText);font-size:12px;font-weight:750;cursor:pointer;}
 .photoAlbumLayoutChoice:has(input:checked){background:#1677ff;color:#fff;border-color:#0f5ec8;}
 .photoAlbumLayoutChoice input{position:absolute;opacity:0;pointer-events:none;}
+#photoAlbumSpreadLabel{display:flex;align-items:center;gap:9px;min-height:36px;margin-top:8px;padding:0 9px;border:1px solid var(--border);border-radius:8px;background:var(--button);font-size:13px;font-weight:750;cursor:pointer;box-sizing:border-box;}
+#photoAlbumSpreadLabel:has(input:checked){background:rgba(22,119,255,.18);border-color:#1677ff;}
+#photoAlbumSpread{width:19px;height:19px;accent-color:#1677ff;}
 .photoAlbumCommentRow{display:grid;grid-template-columns:70px 1fr;align-items:start;gap:8px;margin-top:7px;font-size:12px;font-weight:700;}
 .photoAlbumCommentRow>span:first-child{padding-top:9px;}
 .photoAlbumCommentControl{display:grid;gap:6px;min-width:0;}
@@ -1330,8 +1333,8 @@ gtag('config', 'G-88B9YPJXWP');
         <label class="photoAlbumLayoutChoice"><input type="radio" name="photoAlbumLayout" value="4">4枚</label>
         <label class="photoAlbumLayoutChoice"><input type="radio" name="photoAlbumLayout" value="6">6枚</label>
         <label class="photoAlbumLayoutChoice"><input type="radio" name="photoAlbumLayout" value="8">8枚</label>
-        <label class="photoAlbumLayoutChoice"><input type="radio" name="photoAlbumLayout" value="spread">見開き3枚</label>
       </div>
+      <label id="photoAlbumSpreadLabel"><input id="photoAlbumSpread" type="checkbox">見開きにする</label>
       <div class="photoAlbumSection">
         <div class="photoAlbumSectionTitle">コメント欄（上から3行）</div>
         <label class="photoAlbumCommentRow"><span>1行目</span><span class="photoAlbumCommentControl"><select id="photoAlbumComment1"></select><input id="photoAlbumCustom1" class="photoAlbumCommentCustom" type="text" maxlength="80" placeholder="共通の文字を入力" hidden></span></label>
@@ -1768,7 +1771,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開く・保存</div><b>ファイル</b> を押し、<b>開く</b>、<b>上書き保存</b>、<b>名前を付けて保存</b>から選びます。PCでは通常の保存画面を使い、メール送信画面は表示しません。</div>
               <div class="helpBlock"><div class="helpHead">PCでドラッグして開く</div>PCではSFCを図面画面へドラッグし、「ここにドロップして開く」の表示上で離すと、そのまま図面を開けます。</div>
-              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置と見開き3枚を選べます。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4・6枚と見開きでは豆図を付けられますが、8枚では豆図を選択できません。2・6・8枚は写真を上、コメントを下へ配置し、3・4枚は写真を左、コメントを右へ配置します。見開きの裏面はコメントを左、写真を右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4・6枚の空き領域に合わせて大きくし、高解像度で作成します。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置を選び、必要な場合は <b>見開きにする</b> を選択します。見開きでは、表ページを写真・コメント、裏ページをコメント・写真の順にして、綴じたときにコメント欄が中央へ向くよう自動で反転します。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4・6枚では豆図を付けられますが、8枚では豆図を選択できません。通常配置では2・6・8枚は写真を上、コメントを下へ配置し、3・4枚は写真を左、コメントを右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4・6枚の空き領域に合わせて大きくし、高解像度で作成します。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容を、開いているSFCへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">名前を付けて保存</div>PCではエクスプローラーの保存画面からSFC名を指定します。CAD化した航空写真がある場合は保存先フォルダーを選び、SFCと参照JPEGを同じフォルダーへ保存します。SFCとJPEGは移動するときも同じフォルダーに置いてください。</div>
               <div class="helpBlock"><div class="helpHead">ZIPで送る理由</div>SFCは一般的なメール添付形式として登録されていないため、iPhone・Android・Gmailなどが添付を拒否する場合があります。ZIPは広く対応しており、SFCのファイル名と内容を変えずに安全に添付できます。受信後はZIPを展開するとSFCファイルが1個入っています。</div>
@@ -2279,7 +2282,7 @@ function loadPhotoSettings(){
 let photoSettings=loadPhotoSettings();
 const photoPreviewUrls = new Map();
 const PHOTO_ALBUM_SETTINGS_KEY = "sfcviewer-photo-album-settings-v1";
-const PHOTO_ALBUM_DEFAULT_SETTINGS = Object.freeze({layout:"3",comment1:"number",comment2:"fileName",comment3:"capturedAt",custom1:"",custom2:"",custom3:"",miniMap:true});
+const PHOTO_ALBUM_DEFAULT_SETTINGS = Object.freeze({layout:"3",spread:false,comment1:"number",comment2:"fileName",comment3:"capturedAt",custom1:"",custom2:"",custom3:"",miniMap:true});
 let currentStroke = null;
 let pendingTouchInk = null;
 let suppressTouchInkUntil = 0;
@@ -13436,18 +13439,20 @@ function photoAlbumSourceKey(value){
 function loadPhotoAlbumSettings(){
   try{
     const saved=JSON.parse(localStorage.getItem(PHOTO_ALBUM_SETTINGS_KEY)||"null")||{};
-    const layouts=new Set(["2","3","4","6","8","spread"]);
+    const layouts=new Set(["2","3","4","6","8"]),savedVersion=Number(saved.version);
     const fields=new Set(["none","fileName","number","direction8","capturedAt","xy","xNorth","yEast","demElevation","demSource","blank"]);
-    const currentVersion=3,isCompatible=Number(saved.version)===2||Number(saved.version)===currentVersion;
+    const currentVersion=4,isCompatible=savedVersion>=2&&savedVersion<=currentVersion;
+    const legacySpread=String(saved.layout)==="spread";
     return {
       version:currentVersion,
-      layout:layouts.has(String(saved.layout))?String(saved.layout):PHOTO_ALBUM_DEFAULT_SETTINGS.layout,
+      layout:legacySpread?"3":(layouts.has(String(saved.layout))?String(saved.layout):PHOTO_ALBUM_DEFAULT_SETTINGS.layout),
+      spread:legacySpread||saved.spread===true,
       comment1:isCompatible&&fields.has(String(saved.comment1))?String(saved.comment1):PHOTO_ALBUM_DEFAULT_SETTINGS.comment1,
       comment2:isCompatible&&fields.has(String(saved.comment2))?String(saved.comment2):PHOTO_ALBUM_DEFAULT_SETTINGS.comment2,
       comment3:isCompatible&&fields.has(String(saved.comment3))?String(saved.comment3):PHOTO_ALBUM_DEFAULT_SETTINGS.comment3,
-      custom1:Number(saved.version)===currentVersion?String(saved.custom1||"").slice(0,80):"",
-      custom2:Number(saved.version)===currentVersion?String(saved.custom2||"").slice(0,80):"",
-      custom3:Number(saved.version)===currentVersion?String(saved.custom3||"").slice(0,80):"",
+      custom1:savedVersion>=3?String(saved.custom1||"").slice(0,80):"",
+      custom2:savedVersion>=3?String(saved.custom2||"").slice(0,80):"",
+      custom3:savedVersion>=3?String(saved.custom3||"").slice(0,80):"",
       miniMap:saved.miniMap!==false
     };
   }catch(_error){return {...PHOTO_ALBUM_DEFAULT_SETTINGS};}
@@ -13460,8 +13465,9 @@ function getPhotoAlbumSettingsFromUi(){
   const layout=selected?selected.value:PHOTO_ALBUM_DEFAULT_SETTINGS.layout;
   const mini=document.getElementById("photoAlbumMiniMap");
   return {
-    version:3,
+    version:4,
     layout,
+    spread:!!document.getElementById("photoAlbumSpread")?.checked,
     comment1:document.getElementById("photoAlbumComment1")?.value||PHOTO_ALBUM_DEFAULT_SETTINGS.comment1,
     comment2:document.getElementById("photoAlbumComment2")?.value||PHOTO_ALBUM_DEFAULT_SETTINGS.comment2,
     comment3:document.getElementById("photoAlbumComment3")?.value||PHOTO_ALBUM_DEFAULT_SETTINGS.comment3,
@@ -13505,6 +13511,8 @@ function populatePhotoAlbumSettingsUi(){
   }
   const radio=document.querySelector(`input[name="photoAlbumLayout"][value="${settings.layout}"]`);
   if(radio)radio.checked=true;
+  const spread=document.getElementById("photoAlbumSpread");
+  if(spread)spread.checked=!!settings.spread;
   const mini=document.getElementById("photoAlbumMiniMap");
   if(mini){mini.dataset.preferred=settings.miniMap?"true":"false";mini.checked=settings.miniMap;}
   updatePhotoAlbumCustomInputVisibility(false);
@@ -13633,14 +13641,15 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
   const sources=photoAnnotations.map(item=>photoSourceFiles.get(photoAlbumSourceKey(item.fileName))||null);
   const missing=sources.reduce((count,source)=>count+(source?0:1),0);
   if(missing)throw new Error(`写真帳に使う元写真をもう一度開いてください（${missing}枚）`);
-  const isSpread=settings.layout==="spread",photosPerPage=isSpread?3:Number(settings.layout)||3;
+  const isSpread=!!settings.spread,photosPerPage=Number(settings.layout)||3;
   const twoPhotoStackedLayout=!isSpread&&photosPerPage===2;
-  const compact=photosPerPage>=6,columns=isSpread?1:(compact?2:1),rowsPerPage=isSpread?3:photosPerPage/columns;
+  const compact=!isSpread&&photosPerPage>=6,columns=isSpread?1:(compact?2:1),rowsPerPage=isSpread?photosPerPage:photosPerPage/columns;
   const sixPhotoLayout=!isSpread&&photosPerPage===6;
-  // 豆図は2・3・4・6枚と見開き3枚で使用する。8枚だけは対象外。
-  const miniMapAllowed=isSpread||photosPerPage<=4||sixPhotoLayout;
+  // 豆図は通常・見開き共通で2・3・4・6枚に使用する。8枚だけは対象外。
+  const miniMapAllowed=photosPerPage!==8;
   const useMiniMap=!!settings.miniMap&&miniMapAllowed;
-  const pageRows=60,slotRows=pageRows/rowsPerPage,rowPx=17,pageCount=Math.ceil(photoAnnotations.length/photosPerPage);
+  // 見開き8枚は行数を8で割り切れるよう64行にして、セル座標を整数に保つ。
+  const pageRows=isSpread&&photosPerPage===8?64:60,slotRows=pageRows/rowsPerPage,rowPx=17,pageCount=Math.ceil(photoAnnotations.length/photosPerPage);
   const widePhotoLayout=!isSpread&&photosPerPage===3;
   const fourPhotoLayout=!isSpread&&photosPerPage===4;
   // 3枚は以前の配置を維持。2枚は写真を横幅いっぱい、その下へコメントを置く。
@@ -16790,6 +16799,7 @@ document.getElementById("photoAlbumCancelBtn")?.addEventListener("click",()=>set
 document.getElementById("photoAlbumCreateBtn")?.addEventListener("click",()=>{exportPhotoAlbumExcel();});
 document.getElementById("photoAlbumModal")?.addEventListener("click",event=>{if(event.target.id==="photoAlbumModal")setPhotoAlbumModalOpen(false);});
 document.querySelectorAll('input[name="photoAlbumLayout"]').forEach(input=>input.addEventListener("change",updatePhotoAlbumMiniMapAvailability));
+document.getElementById("photoAlbumSpread")?.addEventListener("change",()=>savePhotoAlbumSettings(getPhotoAlbumSettingsFromUi()));
 ["photoAlbumComment1","photoAlbumComment2","photoAlbumComment3"].forEach(id=>{
   document.getElementById(id)?.addEventListener("change",()=>updatePhotoAlbumCustomInputVisibility(true));
 });

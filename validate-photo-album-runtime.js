@@ -56,18 +56,26 @@ let browser;
       const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.9));
       photoSourceFiles.set(photoAlbumSourceKey(item.fileName),new File([blob],item.fileName,{type:'image/jpeg'}));
     }
-    const settings={comment1:'number',comment2:'fileName',comment3:'capturedAt',custom1:'',custom2:'',custom3:'',miniMap:true};
+    const settings={comment1:'number',comment2:'fileName',comment3:'capturedAt',custom1:'',custom2:'',custom3:'',miniMap:true,spread:false};
     const encode=async blob=>{const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(binary);};
     const progress=[],stages=[];
     const threeBlob=await buildPhotoAlbumXlsx({...settings,layout:'3'},(completed,total)=>progress.push(completed+'/'+total),stage=>stages.push(stage));
-    return {two:await encode(await buildPhotoAlbumXlsx({...settings,layout:'2'})),three:await encode(threeBlob),four:await encode(await buildPhotoAlbumXlsx({...settings,layout:'4'})),six:await encode(await buildPhotoAlbumXlsx({...settings,layout:'6'})),eight:await encode(await buildPhotoAlbumXlsx({...settings,layout:'8'})),spread:await encode(await buildPhotoAlbumXlsx({...settings,layout:'spread'})),progress,stages};
+    return {
+      two:await encode(await buildPhotoAlbumXlsx({...settings,layout:'2'})),three:await encode(threeBlob),four:await encode(await buildPhotoAlbumXlsx({...settings,layout:'4'})),six:await encode(await buildPhotoAlbumXlsx({...settings,layout:'6'})),eight:await encode(await buildPhotoAlbumXlsx({...settings,layout:'8'})),
+      spread2:await encode(await buildPhotoAlbumXlsx({...settings,layout:'2',spread:true})),spread3:await encode(await buildPhotoAlbumXlsx({...settings,layout:'3',spread:true})),spread4:await encode(await buildPhotoAlbumXlsx({...settings,layout:'4',spread:true})),spread6:await encode(await buildPhotoAlbumXlsx({...settings,layout:'6',spread:true})),spread8:await encode(await buildPhotoAlbumXlsx({...settings,layout:'8',spread:true})),
+      progress,stages
+    };
   })()`));
   const two=await inspectWorkbook(decodeBase64(output.two),"M",8);
   const three=await inspectWorkbook(decodeBase64(output.three),"M",8);
   const four=await inspectWorkbook(decodeBase64(output.four),"M",8);
   const six=await inspectWorkbook(decodeBase64(output.six),"M",8);
   const eight=await inspectWorkbook(decodeBase64(output.eight),"M",6);
-  const spread=await inspectWorkbook(decodeBase64(output.spread),"Y",8);
+  const spread2=await inspectWorkbook(decodeBase64(output.spread2),"Y",8);
+  const spread3=await inspectWorkbook(decodeBase64(output.spread3),"Y",8);
+  const spread4=await inspectWorkbook(decodeBase64(output.spread4),"Y",8);
+  const spread6=await inspectWorkbook(decodeBase64(output.spread6),"Y",8);
+  const spread8=await inspectWorkbook(decodeBase64(output.spread8),"Y",6);
   if(process.env.PHOTO_ALBUM_TEST_OUTPUT){
     fs.mkdirSync(process.env.PHOTO_ALBUM_TEST_OUTPUT,{recursive:true});
     fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-2.xlsx"),decodeBase64(output.two));
@@ -75,13 +83,21 @@ let browser;
     fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-4.xlsx"),decodeBase64(output.four));
     fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-6.xlsx"),decodeBase64(output.six));
     fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-8.xlsx"),decodeBase64(output.eight));
-    fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-spread.xlsx"),decodeBase64(output.spread));
+    fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-spread-2.xlsx"),decodeBase64(output.spread2));
+    fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-spread-3.xlsx"),decodeBase64(output.spread3));
+    fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-spread-4.xlsx"),decodeBase64(output.spread4));
+    fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-spread-6.xlsx"),decodeBase64(output.spread6));
+    fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-spread-8.xlsx"),decodeBase64(output.spread8));
   }
   for(const row of [26,27,28,29,30])if(!two.sheet.includes(`<mergeCell ref="B${row}:L${row}"/>`))throw new Error(`2枚形式のコメント${row}行が正しく配置されていません`);
   const twoPhotoAnchor=drawingAnchorForName(two.drawing,"写真 1");
   if(!twoPhotoAnchor.includes("<xdr:col>1</xdr:col>")||!/<xdr:to>[\s\S]*?<xdr:col>11<\/xdr:col>/.test(twoPhotoAnchor))throw new Error("2枚形式の写真とコメントの左右幅がそろっていません");
   if(!two.drawing.includes('name="豆図 1"'))throw new Error("2枚形式のコメント欄に豆図がありません");
-  if(!spread.sheet.includes('<col min="1" max="9" width="4.27"')||!spread.sheet.includes('<col min="17" max="25" width="4.27"'))throw new Error("見開きが以前の3枚形式と同じ幅ではありません");
+  for(const [count,spread] of [[2,spread2],[3,spread3],[4,spread4],[6,spread6],[8,spread8]]){
+    if(!spread.sheet.includes('<col min="1" max="9" width="4.27"')||!spread.sheet.includes('<col min="17" max="25" width="4.27"'))throw new Error(`見開き${count}枚の左右幅が正しくありません`);
+  }
+  const spread2Front=drawingAnchorForName(spread2.drawing,"写真 1"),spread2Back=drawingAnchorForName(spread2.drawing,"写真 3");
+  if(!spread2Front.includes("<xdr:col>0</xdr:col>")||!spread2Back.includes("<xdr:col>10</xdr:col>"))throw new Error("見開きの表裏で写真・コメント位置が反転していません");
   if(!three.sheet.includes('<col min="1" max="6" width="9.6"')||!three.sheet.includes('<col min="8" max="13" width="6.4"'))throw new Error("3枚形式が以前の写真・コメント幅ではありません");
   if(!four.sheet.includes('<col min="1" max="6" width="8"')||!four.sheet.includes('<col min="8" max="13" width="6.4"'))throw new Error("4枚形式の写真幅またはコメント幅が正しくありません");
   if(three.sheet.includes('<c r="H20"')||three.sheet.includes('<c r="H40"')||three.sheet.includes('<c r="H60"'))throw new Error("3枚形式の最下部に余分な罫線が残っています");
@@ -100,6 +116,6 @@ let browser;
     hideBusy();return result;
   });
   if(progressUi.hidden||progressUi.count!=="7／17枚"||progressUi.percent!=="41％"||progressUi.width!=="41%")throw new Error(`進捗バー表示が正しくありません: ${JSON.stringify(progressUi)}`);
-  console.log(`photo album runtime checks passed (2-photo media=${two.media}, 3-photo media=${three.media}, 4-photo media=${four.media}, 6-photo media=${six.media}, 8-photo media=${eight.media}, spread media=${spread.media})`);
+  console.log(`photo album runtime checks passed (2-photo media=${two.media}, 3-photo media=${three.media}, 4-photo media=${four.media}, 6-photo media=${six.media}, 8-photo media=${eight.media}, spread=2/3/4/6/8)`);
   await browser.close();server.close();
 })().catch(async error=>{console.error(error);try{await browser?.close();}catch(_error){}server.close();process.exitCode=1;});
