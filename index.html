@@ -17309,6 +17309,7 @@ canvas.addEventListener("mousedown", e=>{
     if(!isTouchMobileLike()&&canUseDesktopCadObjectInteraction()){
       const photoHit=hitTestPhotoPositionMarker(local.x,local.y);
       if(photoHit){
+        if(textLayerModalIsOpen())closeTextLayerModal();
         activatePhotoPositionAdjustment(photoHit);
         if(beginPhotoPositionAdjustDrag(local.x,local.y)){
           e.preventDefault();
@@ -17316,6 +17317,9 @@ canvas.addEventListener("mousedown", e=>{
           dragging=false;
           return;
         }
+        clearTextLongPressTimer();
+        dragging=false;
+        return;
       }
     }
     if(beginPhotoPositionAdjustDrag(local.x,local.y)){
@@ -17326,9 +17330,12 @@ canvas.addEventListener("mousedown", e=>{
     }
   }
   if ((e.button === 1) || (e.button === 2)) {
+    finishTouchPanPreview(false);
     dragging = true;
     lastX = e.clientX;
     lastY = e.clientY;
+    clearDesktopCadObjectHover();
+    updateDesktopCadCrosshair(0,0,false,false);
     return;
   }
   if(e.button===0){
@@ -17372,16 +17379,22 @@ canvas.addEventListener("mousedown", e=>{
   }
   // PCでは左ドラッグを選択操作専用にし、通常時のパンを開始しない。
   // 中ボタン・右ボタン、タッチ操作、各機能専用のドラッグは従来どおり維持する。
-  if(e.button===0&&!isTouchMobileLike()){dragging=false;return;}
+  if(e.button===0&&!isTouchMobileLike()){
+    startTextLongPress(e.clientX,e.clientY,"mouse");
+    dragging=false;
+    return;
+  }
   dragging=true; lastX=e.clientX; lastY=e.clientY;
 });
 window.addEventListener("mouseup", ()=>{
+  const completedLongPress=textLongPressTriggered;
   clearTextLongPressTimer();
-  if(textLongPressTriggered){textLongPressTriggered=false;suppressClickUntil=0;}
+  if(completedLongPress){textLongPressTriggered=false;suppressClickUntil=Date.now()+700;}
   if(photoPositionAdjustDrag){finishPhotoPositionAdjustDrag();dragging=false;return;}
   const wasDragging=dragging;
   if(profileLineDrag&&profileLineDrag.pointerType==="mouse") finishProfileLineDrag();
   dragging=false;
+  if(wasDragging)finishTouchPanPreview(true);
   if(inkDrawing && currentStroke){
     if (currentStroke.points && currentStroke.points.length>=2) {
       addInkStrokeOperation(currentStroke); updateUndoRedoUI();
@@ -17393,6 +17406,11 @@ window.addEventListener("mouseup", ()=>{
 });
 window.addEventListener("mousemove", e=>{
   cancelTextLongPressIfMoved(e.clientX,e.clientY);
+  if(dragging){
+    suspendGpsFollowFromUserGesture();
+    setTouchPanPreview(e.clientX-lastX,e.clientY-lastY);
+    return;
+  }
   const canvasRect=canvas.getBoundingClientRect();
   const ox=e.clientX-canvasRect.left,oy=e.clientY-canvasRect.top;
   const cursorInsideCanvas=
@@ -17404,11 +17422,6 @@ window.addEventListener("mousemove", e=>{
   if(photoPositionAdjustDrag){
     movePhotoPositionAdjustDrag(ox,oy);
     return;
-  }
-  if(dragging){
-    suspendGpsFollowFromUserGesture();
-    view.tx += e.clientX-lastX; view.ty += e.clientY-lastY;
-    lastX=e.clientX; lastY=e.clientY; scheduleDraw(); return;
   }
   if(photoPositionAdjustIsActive()&&cursorInsideCanvas){
     const photoHit=hitTestPhotoPositionAdjust(ox,oy);
@@ -17482,6 +17495,7 @@ canvas.addEventListener("click", e=>{
     const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
     const target=findDesktopCadInteractiveTarget(local.x,local.y);
     if(target?.type==="photo"){
+      if(textLayerModalIsOpen())closeTextLayerModal();
       activatePhotoPositionAdjustment(target.hit);
       return;
     }

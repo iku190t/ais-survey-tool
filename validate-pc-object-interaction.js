@@ -10,7 +10,9 @@ for(const token of [
   "function activatePhotoPositionAdjustment(hit)",
   "function findDesktopCadInteractiveTarget(screenX,screenY)",
   "desktopCadCrosshairHit",
-  "if(e.button===0&&!isTouchMobileLike()){dragging=false;return;}",
+  'startTextLongPress(e.clientX,e.clientY,"mouse")',
+  "setTouchPanPreview(e.clientX-lastX,e.clientY-lastY)",
+  "if(textLayerModalIsOpen())closeTextLayerModal();",
   'startTextLongPress(e.touches[0].clientX,e.touches[0].clientY,"touch")'
 ])if(!source.includes(token))throw new Error(`missing implementation: ${token}`);
 
@@ -57,6 +59,10 @@ let browser;
   const hoverPhoto=await page.evaluate(()=>document.getElementById("desktopCadCrosshair").classList.contains("interactive"));
   if(!hoverPhoto)throw new Error("photo hover target was not indicated");
 
+  await page.evaluate(()=>window.eval(`(()=>{
+    selectedTextForLayerChange=data.texts[0];
+    document.getElementById("textLayerModal").style.display="flex";
+  })()`));
   await page.mouse.click(px,py);
   const photoClick=await page.evaluate(()=>window.eval(`({panel:photoPositionPanelIsOpen(),active:photoPositionAdjustIsActive(),selected:selectedPhotoPositionItem===photoAnnotations[0],textModal:getComputedStyle(document.getElementById("textLayerModal")).display})`));
   if(!photoClick.panel||!photoClick.active||!photoClick.selected||photoClick.textModal!=="none")throw new Error(`photo click/priority failed: ${JSON.stringify(photoClick)}`);
@@ -69,6 +75,19 @@ let browser;
   })()`));
   if(textClick.selected!==101||textClick.display!=="flex")throw new Error(`text click failed: ${JSON.stringify(textClick)}`);
 
+  await page.evaluate(()=>window.eval(`(()=>{
+    closeTextLayerModal();closeCoordinateInspectModal();
+    data.texts=[];photoAnnotations=[];data.lines=[[0,0,10,10,1,1,1]];
+    suppressClickUntil=0;window.__desktopLongPress=null;
+    openCoordinateInspectModal=(x,y)=>{window.__desktopLongPress={x,y};};
+  })()`));
+  await page.mouse.move(rect.x+760,rect.y+610);
+  await page.mouse.down({button:"left"});
+  await page.waitForTimeout(590);
+  const desktopLongPress=await page.evaluate(()=>window.__desktopLongPress);
+  await page.mouse.up({button:"left"});
+  if(!desktopLongPress)throw new Error("PC left long press did not open coordinate/DEM information");
+
   const pan=await page.evaluate(()=>window.eval(`(()=>{
     document.getElementById("textLayerModal").style.display="none";data.texts=[];
     view.tx=100;view.ty=200;
@@ -79,11 +98,22 @@ let browser;
     const left={tx:view.tx,ty:view.ty};
     canvas.dispatchEvent(new MouseEvent("mousedown",{bubbles:true,button:1,buttons:4,clientX:x,clientY:y}));
     window.dispatchEvent(new MouseEvent("mousemove",{bubbles:true,button:1,buttons:4,clientX:x+50,clientY:y+35}));
+    const preview={tx:view.tx,ty:view.ty,transform:canvas.style.transform,active:touchPanPreviewActive};
     window.dispatchEvent(new MouseEvent("mouseup",{bubbles:true,button:1,buttons:0,clientX:x+50,clientY:y+35}));
-    return {left,middle:{tx:view.tx,ty:view.ty}};
+    const middle={tx:view.tx,ty:view.ty,transform:canvas.style.transform,active:touchPanPreviewActive};
+    view.tx=20;view.ty=30;
+    canvas.dispatchEvent(new MouseEvent("mousedown",{bubbles:true,button:2,buttons:2,clientX:x,clientY:y}));
+    window.dispatchEvent(new MouseEvent("mousemove",{bubbles:true,button:2,buttons:2,clientX:x-25,clientY:y+15}));
+    const rightPreview={tx:view.tx,ty:view.ty,transform:canvas.style.transform,active:touchPanPreviewActive};
+    window.dispatchEvent(new MouseEvent("mouseup",{bubbles:true,button:2,buttons:0,clientX:x-25,clientY:y+15}));
+    const right={tx:view.tx,ty:view.ty,transform:canvas.style.transform,active:touchPanPreviewActive};
+    return {left,preview,middle,rightPreview,right};
   })()`));
   if(pan.left.tx!==100||pan.left.ty!==200)throw new Error(`left click still pans: ${JSON.stringify(pan.left)}`);
-  if(pan.middle.tx!==150||pan.middle.ty!==235)throw new Error(`middle-button pan failed: ${JSON.stringify(pan.middle)}`);
+  if(pan.preview.tx!==100||pan.preview.ty!==200||!pan.preview.active||!pan.preview.transform.includes("50px"))throw new Error(`middle-button preview is not lightweight: ${JSON.stringify(pan.preview)}`);
+  if(pan.middle.tx!==150||pan.middle.ty!==235||pan.middle.active||pan.middle.transform!=="")throw new Error(`middle-button pan failed: ${JSON.stringify(pan.middle)}`);
+  if(pan.rightPreview.tx!==20||pan.rightPreview.ty!==30||!pan.rightPreview.active||!pan.rightPreview.transform.includes("-25px"))throw new Error(`right-button preview is not lightweight: ${JSON.stringify(pan.rightPreview)}`);
+  if(pan.right.tx!==-5||pan.right.ty!==45||pan.right.active||pan.right.transform!=="")throw new Error(`right-button pan failed: ${JSON.stringify(pan.right)}`);
   if(pageErrors.length)throw new Error(`page errors: ${pageErrors.join(" | ")}`);
   console.log("PC object interaction and pan checks passed");
   await browser.close();server.close();
