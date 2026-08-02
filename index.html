@@ -8760,6 +8760,17 @@ async function copyAllCoordinateInspectValues(button){
     showToast("コピーできませんでした");
   }
 }
+function copyCoordinateInspectSelectionAsPlainText(event){
+  const box=document.getElementById("coordinateInspectBox");
+  const selection=typeof window.getSelection==="function"?window.getSelection():null;
+  if(!box||!selection||selection.isCollapsed||!selection.rangeCount||!event.clipboardData)return;
+  const value=String(selection.toString()||"").replace(/\u00a0/g," ");
+  if(!value)return;
+  // Excelへ貼り付けた際に画面の白文字・背景色を持ち込ませない。
+  // HTML形式は設定せず、選択した数値のプレーンテキストだけを渡す。
+  event.preventDefault();
+  event.clipboardData.setData("text/plain",value);
+}
 function closeCoordinateInspectModal(){
   coordinateInspectRequestVersion++;
   coordinateInspectPoint=null;
@@ -16625,6 +16636,7 @@ document.getElementById("textLayerModal")?.addEventListener("selectstart",event=
 document.getElementById("coordinateInspectCloseBtn")?.addEventListener("click",closeCoordinateInspectModal);
 document.getElementById("coordinateInspectCopyAllBtn")?.addEventListener("click",event=>copyAllCoordinateInspectValues(event.currentTarget));
 document.getElementById("coordinateInspectBox")?.addEventListener("click",event=>event.stopPropagation());
+document.getElementById("coordinateInspectBox")?.addEventListener("copy",copyCoordinateInspectSelectionAsPlainText);
 document.getElementById("coordinateInspectModal")?.addEventListener("contextmenu",event=>{
   if(event.target.closest(".coordinateInspectRow strong"))return;
   event.preventDefault();

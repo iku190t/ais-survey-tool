@@ -16,6 +16,7 @@ const required=[
   '#coordinateInspectBox{width:min(238px,86vw)',
   '-webkit-user-select:text;user-select:text;',
   'setCoordinateInspectValue("coordinateInspectElevation",elevation.toFixed(3));',
+  'event.clipboardData.setData("text/plain",value);',
 ];
 for(const token of required)if(!source.includes(token))throw new Error(`missing implementation: ${token}`);
 if(source.includes('id="terrainDifferenceBtn"'))throw new Error("DEM差ボタンが残っています");
@@ -70,13 +71,25 @@ let browser;
     window.dispatchEvent(new MouseEvent("mouseup",{bubbles:true,button:1,buttons:0,clientX:x+45,clientY:y+35}));
     const middle={tx:view.tx,ty:view.ty};
     const values=[...document.querySelectorAll(".coordinateInspectRow strong")];
+    document.getElementById("coordinateInspectModal").style.display="flex";
+    const selection=window.getSelection();
+    selection.removeAllRanges();
+    const range=document.createRange();
+    range.selectNodeContents(document.getElementById("coordinateInspectX"));
+    selection.addRange(range);
+    const copiedTypes={};let selectionCopyPrevented=false;
+    copyCoordinateInspectSelectionAsPlainText({
+      clipboardData:{setData:(type,value)=>{copiedTypes[type]=value;}},
+      preventDefault:()=>{selectionCopyPrevented=true;}
+    });
+    selection.removeAllRanges();
     const compact={
       individualCopies:document.querySelectorAll(".coordinateCopyBtn").length,
       boxWidth:getComputedStyle(document.getElementById("coordinateInspectBox")).width,
       gridGap:getComputedStyle(document.getElementById("coordinateInspectGrid")).gap,
       selectable:values.every(element=>getComputedStyle(element).userSelect==="text")
     };
-    return {copy,difference,left,middle,compact};
+    return {copy,difference,left,middle,compact,selectionCopy:{types:copiedTypes,prevented:selectionCopyPrevented}};
   })()`));
   if(result.copy.value!=="219.458,-49942.675,59.190")throw new Error(`まとめてコピーが不正です: ${JSON.stringify(result.copy)}`);
   if(result.copy.text!=="コピー済み"||result.copy.display!=="inline-flex")throw new Error(`まとめてコピーボタンの表示が不正です: ${JSON.stringify(result.copy)}`);
@@ -84,6 +97,7 @@ let browser;
   if(result.left.tx!==100||result.left.ty!==200)throw new Error(`PC左ドラッグで図面が移動しました: ${JSON.stringify(result.left)}`);
   if(result.middle.tx!==145||result.middle.ty!==235)throw new Error(`中ドラッグの既存パンが動きません: ${JSON.stringify(result.middle)}`);
   if(result.compact.individualCopies!==0||!result.compact.selectable||result.compact.gridGap!=="2px")throw new Error(`情報画面の簡素化が不正です: ${JSON.stringify(result.compact)}`);
+  if(!result.selectionCopy.prevented||result.selectionCopy.types["text/plain"]!=="219.458"||Object.hasOwn(result.selectionCopy.types,"text/html"))throw new Error(`反転コピーに書式が混入します: ${JSON.stringify(result.selectionCopy)}`);
   console.log("coordinate inspect copy and PC pan checks passed");
   await browser.close();server.close();
 })().catch(async error=>{console.error(error);try{await browser?.close();}catch(_error){}server.close();process.exitCode=1;});
