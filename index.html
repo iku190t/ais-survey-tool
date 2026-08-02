@@ -2419,7 +2419,30 @@ let profileGraphScaleX = 1;
 let profileGraphScaleY = 1;
 let profileGraphOffsetX = 0;
 let profileGraphOffsetY = 0;
+// Decoded DEM tiles are about 256 KiB each.  Keep a bounded LRU cache so a
+// wide terrain/contour operation cannot retain hundreds of megabytes for the
+// rest of the session.  An active operation keeps its own tile references,
+// so evicting an old global entry never changes the result being calculated.
+const PROFILE_TILE_MEMORY_CACHE_LIMIT_PC = 200;
+const PROFILE_TILE_MEMORY_CACHE_LIMIT_MOBILE = 80;
 const profileTileMemoryCache = new Map();
+const profileTileMemoryPending = new Set();
+function getProfileTileMemoryCacheLimit(){
+  return isTouchMobileLike()?PROFILE_TILE_MEMORY_CACHE_LIMIT_MOBILE:PROFILE_TILE_MEMORY_CACHE_LIMIT_PC;
+}
+function touchProfileTileMemoryCache(url,promise){
+  profileTileMemoryCache.delete(url);
+  profileTileMemoryCache.set(url,promise);
+}
+function trimProfileTileMemoryCache(){
+  const limit=getProfileTileMemoryCacheLimit();
+  if(profileTileMemoryCache.size<=limit)return;
+  for(const url of profileTileMemoryCache.keys()){
+    if(profileTileMemoryCache.size<=limit)break;
+    if(profileTileMemoryPending.has(url))continue;
+    profileTileMemoryCache.delete(url);
+  }
+}
 const profileGraphPointers = new Map();
 let profileGraphGesture = null;
 let profileLineDrag = null;
@@ -4617,7 +4640,11 @@ async function getProfileTileResponse(url){
   return response;
 }
 async function decodeProfileDemTile(url){
-  if (profileTileMemoryCache.has(url)) return profileTileMemoryCache.get(url);
+  if (profileTileMemoryCache.has(url)){
+    const cached=profileTileMemoryCache.get(url);
+    touchProfileTileMemoryCache(url,cached);
+    return cached;
+  }
   const pending = (async()=>{
     const response = await getProfileTileResponse(url);
     if (!response) return null;
@@ -4644,10 +4671,16 @@ async function decodeProfileDemTile(url){
     }catch(e){ return null; }
   })();
   profileTileMemoryCache.set(url, pending);
+  profileTileMemoryPending.add(url);
   const pixels = await pending;
+  profileTileMemoryPending.delete(url);
   // A temporary network failure must not poison the in-memory cache for the
   // rest of the session. Successful tiles remain shared by nearby profiles.
   if (!pixels) profileTileMemoryCache.delete(url);
+  else{
+    touchProfileTileMemoryCache(url,pending);
+    trimProfileTileMemoryCache();
+  }
   return pixels;
 }
 async function samplePointsFromDemSource(points,source,refProperty,maxTiles=Infinity){
@@ -7751,6 +7784,68 @@ function boundsForPoints(points){
   }
   return Number.isFinite(minx)?{minx,miny,maxx,maxy}:null;
 }
+function buildBoundsSpatialIndex(items,getBounds,targetItemsPerCell=16,maxCellsPerItem=64,trackOrder=false){
+  const valid=[];
+  let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+  for(let order=0;order<(items||[]).length;order++){
+    const item=items[order],bounds=getBounds(item);
+    if(!bounds||![bounds.minx,bounds.miny,bounds.maxx,bounds.maxy].every(Number.isFinite))continue;
+    valid.push({item,bounds,order});
+    minx=Math.min(minx,bounds.minx);miny=Math.min(miny,bounds.miny);
+    maxx=Math.max(maxx,bounds.maxx);maxy=Math.max(maxy,bounds.maxy);
+  }
+  if(!valid.length)return null;
+  const span=Math.max(maxx-minx,maxy-miny,1e-9);
+  const desiredCells=Math.max(4,Math.min(4096,Math.ceil(valid.length/Math.max(1,targetItemsPerCell))));
+  const cellSize=Math.max(1e-9,span/Math.sqrt(desiredCells));
+  const cells=new Map(),oversized=[],orderMap=trackOrder?new Map():null;
+  const key=(x,y)=>`${x}:${y}`;
+  for(const entry of valid){
+    if(orderMap)orderMap.set(entry.item,entry.order);
+    const x0=Math.floor((entry.bounds.minx-minx)/cellSize),x1=Math.floor((entry.bounds.maxx-minx)/cellSize);
+    const y0=Math.floor((entry.bounds.miny-miny)/cellSize),y1=Math.floor((entry.bounds.maxy-miny)/cellSize);
+    if((x1-x0+1)*(y1-y0+1)>maxCellsPerItem){oversized.push(entry.item);continue;}
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+      const cellKey=key(x,y),bucket=cells.get(cellKey);
+      if(bucket)bucket.push(entry.item);else cells.set(cellKey,[entry.item]);
+    }
+  }
+  return {minx,miny,cellSize,cells,oversized,orderMap};
+}
+function queryBoundsSpatialIndex(index,bounds){
+  if(!index||!bounds)return [];
+  const x0=Math.floor((bounds.minx-index.minx)/index.cellSize),x1=Math.floor((bounds.maxx-index.minx)/index.cellSize);
+  const y0=Math.floor((bounds.miny-index.miny)/index.cellSize),y1=Math.floor((bounds.maxy-index.miny)/index.cellSize);
+  const found=new Set(index.oversized||[]);
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    const bucket=index.cells.get(`${x}:${y}`);
+    if(bucket)for(const item of bucket)found.add(item);
+  }
+  const result=[...found];
+  if(index.orderMap)result.sort((a,b)=>(index.orderMap.get(a)||0)-(index.orderMap.get(b)||0));
+  return result;
+}
+function getEditableTextWorldBounds(t){
+  if(!t||!Number.isFinite(+t.x)||!Number.isFinite(+t.y))return t&&t._renderBounds||null;
+  const textHeight=Math.abs(+t.h||0),targetWidth=Math.abs(+t.w||0);
+  if(!(textHeight>0)||!(targetWidth>0))return t._renderBounds||null;
+  const vertical=getTextWritingDirection(t)===2;
+  const boxWidth=targetWidth;
+  const spacing=Math.max(0,Math.abs(+t.sp||0));
+  const glyphHeight=vertical?Math.max(1e-9,Math.min(textHeight,boxWidth*1.08)):textHeight;
+  const boxHeight=vertical
+    ?Math.max(glyphHeight,(glyphHeight*1.02+spacing)*Math.max(1,Array.from(String(t.text||"")).length))
+    :textHeight;
+  const [ox,oy]=getAnchorOffset(t.align1,boxWidth,boxHeight);
+  const angle=(+t.angle||0)*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle);
+  let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+  for(const [x,y] of [[ox,oy],[ox+boxWidth,oy],[ox+boxWidth,oy+boxHeight],[ox,oy+boxHeight]]){
+    const worldX=+t.x+x*c-y*s,worldY=+t.y+x*s+y*c;
+    minx=Math.min(minx,worldX);miny=Math.min(miny,worldY);
+    maxx=Math.max(maxx,worldX);maxy=Math.max(maxy,worldY);
+  }
+  return {minx,miny,maxx,maxy};
+}
 function hasDashPattern(item,dashIndex){
   return Array.isArray(item&&item[dashIndex])&&item[dashIndex].length>0;
 }
@@ -7821,6 +7916,7 @@ function prepareRenderMetadata(target,sourceBytes=0){
     const r=Math.max(Math.abs(+t.h||0)*glyphCount,Math.abs(+t.w||0)*glyphCount,1)*1.5;
     setRenderBounds(t,t.x-r,t.y-r,t.x+r,t.y+r);
   }
+  target._textHitSpatialIndex=buildBoundsSpatialIndex(target.texts,getEditableTextWorldBounds,14,64,true);
   target._polyRenderRuns=addRenderRunBounds(makeAdjacentRenderRuns(target.polys,v=>`${v[1]}|${v[2]}|${v[3]}|${v[4]}`,5));
   target._lineRenderRuns=addRenderRunBounds(makeAdjacentRenderRuns(target.lines,v=>`${v[4]}|${v[5]}|${v[6]}|${v[7]}`,8));
   target._splineRenderRuns=addRenderRunBounds(makeAdjacentRenderRuns(target.splines,v=>`${v[1]}|${v[2]}|${v[3]}|${v[4]}`,5));
@@ -8919,8 +9015,14 @@ function renderTextLayerChoiceList(){
 function findEditableTextAtScreen(screenX,screenY){
   if(!showText||!loadedSfcText||currentLoadedKind!=="sfc")return null;
   let best=null,bestArea=Infinity;
-  for(let i=(data.texts||[]).length-1;i>=0;i--){
-    const t=data.texts[i];
+  const hitPadWorld=22/Math.max(Math.abs(view.scale)||1,1e-9);
+  const world=screenToWorld(screenX,screenY);
+  const indexed=data&&data._textHitSpatialIndex;
+  const candidates=indexed
+    ?queryBoundsSpatialIndex(indexed,{minx:world[0]-hitPadWorld,miny:world[1]-hitPadWorld,maxx:world[0]+hitPadWorld,maxy:world[1]+hitPadWorld})
+    :(data.texts||[]);
+  for(let i=candidates.length-1;i>=0;i--){
+    const t=candidates[i];
     if(!t||!Number.isFinite(+t._sxfFeatureId)||!isLayerVisible(t.layer))continue;
     const [sx,sy]=worldToScreen(t.x,t.y);
     const screenH=Math.abs((+t.h||0)*view.scale),targetW=Math.abs((+t.w||0)*view.scale);
@@ -14109,10 +14211,23 @@ function buildPhotoMiniMapGeometry(){
     for(let i=1;i<points.length;i++)add(points[i-1][0],points[i-1][1],points[i][0],points[i][1]);
   }
   const maxSegments=120000;
-  if(segments.length<=maxSegments)return segments;
-  const sampled=[],step=segments.length/maxSegments;
-  for(let i=0;i<maxSegments;i++)sampled.push(segments[Math.floor(i*step)]);
-  return sampled;
+  let geometry=segments;
+  if(segments.length>maxSegments){
+    const sampled=[],step=segments.length/maxSegments;
+    for(let i=0;i<maxSegments;i++)sampled.push(segments[Math.floor(i*step)]);
+    geometry=sampled;
+  }
+  geometry._spatialIndex=buildBoundsSpatialIndex(geometry,segment=>({
+    minx:Math.min(segment[0],segment[2]),miny:Math.min(segment[1],segment[3]),
+    maxx:Math.max(segment[0],segment[2]),maxy:Math.max(segment[1],segment[3])
+  }),28,96,false);
+  return geometry;
+}
+function getPhotoMiniMapVisibleSegments(geometry,centerX,centerY,radius){
+  if(!geometry||!geometry._spatialIndex)return geometry||[];
+  return queryBoundsSpatialIndex(geometry._spatialIndex,{
+    minx:centerX-radius,miny:centerY-radius,maxx:centerX+radius,maxy:centerY+radius
+  });
 }
 async function makePhotoMiniMapImage(item,geometry,width=560,height=300,options={}){
   const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;
@@ -14124,9 +14239,14 @@ async function makePhotoMiniMapImage(item,geometry,width=560,height=300,options=
   const markerScale=Math.max(.5,Math.min(3,Number(options.markerScale)||1));
   const scale=Math.min((width-18)/(halfSpan*2),(height-18)/(halfSpan*2))*zoom;
   const point=(x,y)=>{const p=rotate(x,y);return [width/2+(p[0]-center[0])*scale,height/2-(p[1]-center[1])*scale];};
+  // Rotation preserves distance, so a circle enclosing the output rectangle
+  // is a safe world-space query. Only nearby CAD segments are inspected for
+  // each mini map instead of rescanning the whole drawing.
+  const visibleRadius=(Math.hypot(width/2,height/2)+6)/Math.max(scale,1e-9);
+  const visibleSegments=getPhotoMiniMapVisibleSegments(geometry,+item.worldX,+item.worldY,visibleRadius);
   c.save();c.beginPath();c.rect(1,1,width-2,height-2);c.clip();c.strokeStyle="#26313b";c.lineWidth=Math.max(1.5,Math.min(width,height)/360);c.lineCap="round";c.lineJoin="round";
   c.beginPath();let count=0;
-  for(const segment of geometry){
+  for(const segment of visibleSegments){
     const a=point(segment[0],segment[1]),b=point(segment[2],segment[3]);
     if(Math.max(a[0],b[0])<-4||Math.min(a[0],b[0])>width+4||Math.max(a[1],b[1])<-4||Math.min(a[1],b[1])>height+4)continue;
     c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);if(++count%2500===0){c.stroke();c.beginPath();}
