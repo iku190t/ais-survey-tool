@@ -19,6 +19,7 @@ const required=[
   ["CAD選択時は左端へ戻して対象行を縦中央表示",'scrollPhotoListItemToCenter(hit.item,"smooth","start","center")'],
   ["写真一覧ヘッダー固定",'#photoListTable thead th{position:sticky;top:0;'],
   ["背面マスク設定",'id="photoBackMask" class="active" type="button" aria-pressed="true"'],
+  ["背面マスクボタンを小型化",'#photoBackMask{width:112px;min-height:32px'],
   ["背面マスク初期ON","backMaskEnabled:true"],
   ["丸内だけを背景色でマスク","ctx.fillStyle=bgColor()"],
   ["位置移動後にX座標を表示",'drag.kind==="rotate"?"end":"x"'],
