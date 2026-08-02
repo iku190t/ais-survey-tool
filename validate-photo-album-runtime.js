@@ -71,11 +71,11 @@ let browser;
   const four=await inspectWorkbook(decodeBase64(output.four),"M",8);
   const six=await inspectWorkbook(decodeBase64(output.six),"M",8);
   const eight=await inspectWorkbook(decodeBase64(output.eight),"M",6);
-  const spread2=await inspectWorkbook(decodeBase64(output.spread2),"Y",8);
+  const spread2=await inspectWorkbook(decodeBase64(output.spread2),"M",8);
   const spread3=await inspectWorkbook(decodeBase64(output.spread3),"Y",8);
   const spread4=await inspectWorkbook(decodeBase64(output.spread4),"Y",8);
-  const spread6=await inspectWorkbook(decodeBase64(output.spread6),"Y",8);
-  const spread8=await inspectWorkbook(decodeBase64(output.spread8),"Y",6);
+  const spread6=await inspectWorkbook(decodeBase64(output.spread6),"M",8);
+  const spread8=await inspectWorkbook(decodeBase64(output.spread8),"M",6);
   if(process.env.PHOTO_ALBUM_TEST_OUTPUT){
     fs.mkdirSync(process.env.PHOTO_ALBUM_TEST_OUTPUT,{recursive:true});
     fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-2.xlsx"),decodeBase64(output.two));
@@ -93,11 +93,14 @@ let browser;
   const twoPhotoAnchor=drawingAnchorForName(two.drawing,"写真 1");
   if(!twoPhotoAnchor.includes("<xdr:col>1</xdr:col>")||!/<xdr:to>[\s\S]*?<xdr:col>11<\/xdr:col>/.test(twoPhotoAnchor))throw new Error("2枚形式の写真とコメントの左右幅がそろっていません");
   if(!two.drawing.includes('name="豆図 1"'))throw new Error("2枚形式のコメント欄に豆図がありません");
-  for(const [count,spread] of [[2,spread2],[3,spread3],[4,spread4],[6,spread6],[8,spread8]]){
+  for(const [count,spread] of [[3,spread3],[4,spread4]]){
     if(!spread.sheet.includes('<col min="1" max="9" width="4.27"')||!spread.sheet.includes('<col min="17" max="25" width="4.27"'))throw new Error(`見開き${count}枚の左右幅が正しくありません`);
   }
-  const spread2Front=drawingAnchorForName(spread2.drawing,"写真 1"),spread2Back=drawingAnchorForName(spread2.drawing,"写真 3");
-  if(!spread2Front.includes("<xdr:col>0</xdr:col>")||!spread2Back.includes("<xdr:col>10</xdr:col>"))throw new Error("見開きの表裏で写真・コメント位置が反転していません");
+  for(const [count,forced,normal] of [[2,spread2,two],[6,spread6,six],[8,spread8,eight]]){
+    if(forced.sheet!==normal.sheet||forced.drawing!==normal.drawing)throw new Error(`${count}枚で見開き指定が生成処理へ混入しています`);
+  }
+  const spread3Front=drawingAnchorForName(spread3.drawing,"写真 1"),spread3Back=drawingAnchorForName(spread3.drawing,"写真 4");
+  if(!spread3Front.includes("<xdr:col>0</xdr:col>")||!spread3Back.includes("<xdr:col>10</xdr:col>"))throw new Error("3枚見開きの表裏で写真・コメント位置が反転していません");
   if(!three.sheet.includes('<col min="1" max="6" width="9.6"')||!three.sheet.includes('<col min="8" max="13" width="6.4"'))throw new Error("3枚形式が以前の写真・コメント幅ではありません");
   if(!four.sheet.includes('<col min="1" max="6" width="8"')||!four.sheet.includes('<col min="8" max="13" width="6.4"'))throw new Error("4枚形式の写真幅またはコメント幅が正しくありません");
   if(three.sheet.includes('<c r="H20"')||three.sheet.includes('<c r="H40"')||three.sheet.includes('<c r="H60"'))throw new Error("3枚形式の最下部に余分な罫線が残っています");
@@ -110,12 +113,23 @@ let browser;
   if(!eight.sheet.includes('<mergeCell ref="B13:E13"/>')||!eight.sheet.includes('<mergeCell ref="I13:L13"/>'))throw new Error("8枚形式のコメント線が写真幅内に収まっていません");
   if(output.progress.join(",")!=="1/6,2/6,3/6,4/6,5/6,6/6")throw new Error(`写真枚数の進捗が正しくありません: ${output.progress.join(",")}`);
   if(output.stages.join(",")!=="excel")throw new Error(`Excel作成段階へ切り替わりません: ${output.stages.join(",")}`);
+  const spreadUi=await page.evaluate(()=>{
+    const states={};
+    for(const layout of ["2","3","4","6","8"]){
+      const radio=document.querySelector(`input[name="photoAlbumLayout"][value="${layout}"]`),spread=document.getElementById("photoAlbumSpread"),label=document.getElementById("photoAlbumSpreadLabel");
+      radio.checked=true;spread.checked=true;updatePhotoAlbumMiniMapAvailability();
+      states[layout]={disabled:spread.disabled,checked:spread.checked,labelDisabled:label.classList.contains("disabled")};
+    }
+    return states;
+  });
+  for(const layout of ["2","6","8"]){const state=spreadUi[layout];if(!state.disabled||state.checked||!state.labelDisabled)throw new Error(`${layout}枚で見開きチェックを選択できます: ${JSON.stringify(state)}`);}
+  for(const layout of ["3","4"]){const state=spreadUi[layout];if(state.disabled||!state.checked||state.labelDisabled)throw new Error(`${layout}枚で見開きチェックを選択できません: ${JSON.stringify(state)}`);}
   const progressUi=await page.evaluate(()=>{
     showBusy("写真帳を作成中…");updateBusyPhotoCount(7,17);
     const result={hidden:busyProgress.hidden,count:busyProgressCount.textContent,percent:busyProgressPercent.textContent,width:busyProgressFill.style.width};
     hideBusy();return result;
   });
   if(progressUi.hidden||progressUi.count!=="7／17枚"||progressUi.percent!=="41％"||progressUi.width!=="41%")throw new Error(`進捗バー表示が正しくありません: ${JSON.stringify(progressUi)}`);
-  console.log(`photo album runtime checks passed (2-photo media=${two.media}, 3-photo media=${three.media}, 4-photo media=${four.media}, 6-photo media=${six.media}, 8-photo media=${eight.media}, spread=2/3/4/6/8)`);
+  console.log(`photo album runtime checks passed (2-photo media=${two.media}, 3-photo media=${three.media}, 4-photo media=${four.media}, 6-photo media=${six.media}, 8-photo media=${eight.media}, spread=3/4 only)`);
   await browser.close();server.close();
 })().catch(async error=>{console.error(error);try{await browser?.close();}catch(_error){}server.close();process.exitCode=1;});
