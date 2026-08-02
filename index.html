@@ -2189,6 +2189,8 @@ let touchPanMoved = false;
 let touchPanPreviewDx = 0;
 let touchPanPreviewDy = 0;
 let touchPanPreviewActive = false;
+let desktopWheelZoomPreviewBase = null;
+let desktopWheelZoomTimer = null;
 let lastOneFingerTap = null;
 let oneFingerZoomGesture = null;
 let suppressClickUntil = 0;
@@ -3530,6 +3532,7 @@ function findControlPointAtScreen(screenX,screenY){
 }
 function openControlPointDetails(target){
   if(!target||!controlPointModal||!controlPointBody)return;
+  closeCoordinateInspectForOtherPopup();
   const props=target.props||{};
   const name=props.name||"点名なし";
   if(controlPointTitle)controlPointTitle.textContent=`基準点情報：${name}`;
@@ -5246,6 +5249,7 @@ function closeProfileModal(){
 }
 function openProfileModal(loading){
   if(!profileModal) return;
+  closeCoordinateInspectForOtherPopup();
   profileModal.classList.remove("expanded");
   profileModal.classList.add("open");
   if(profileSizeToggleBtn) profileSizeToggleBtn.textContent="拡大";
@@ -6143,6 +6147,7 @@ function showHelpMenu(){
 }
 function openHelpSection(sectionName){
   if (!helpModal) return;
+  closeCoordinateInspectForOtherPopup();
   helpModalOpen = true;
   helpModal.style.display = "flex";
   if (helpMenuView) helpMenuView.style.display = "none";
@@ -6152,6 +6157,7 @@ function openHelpSection(sectionName){
   });
 }
 function openHelpModal(defaultSection){
+  closeCoordinateInspectForOtherPopup();
   helpModalOpen = true;
   if (helpModal) helpModal.style.display = "flex";
   if (defaultSection) openHelpSection(defaultSection);
@@ -6164,6 +6170,7 @@ function closeHelpModal(){
   setToolbarHelpLabels(false);
 }
 function openViewerSupportModal(){
+  closeCoordinateInspectForOtherPopup();
   if (viewerSupportModal) viewerSupportModal.style.display = "flex";
 }
 function closeViewerSupportModal(){
@@ -6237,6 +6244,7 @@ function closeTextSearchPopup(){
   updateStopBtnUI();
 }
 function openTextSearchPopup(){
+  closeCoordinateInspectForOtherPopup();
   closePanelsExcept('textSearch');
   textSearchPopupOpen = true;
   textSearchNoResults = false;
@@ -6392,6 +6400,28 @@ function setTouchPanPreview(dx,dy){
   // the authoritative view once when the gesture ends.
   canvas.style.transformOrigin="0 0";
   canvas.style.transform=`translate3d(${touchPanPreviewDx}px,${touchPanPreviewDy}px,0)`;
+}
+function updateDesktopWheelZoomPreview(mx,my,newScale){
+  if(!desktopWheelZoomPreviewBase){
+    desktopWheelZoomPreviewBase={scale:view.scale,tx:view.tx,ty:view.ty};
+  }
+  setScaleAroundScreenPoint(mx,my,newScale);
+  const base=desktopWheelZoomPreviewBase;
+  const ratio=view.scale/Math.max(0.000001,base.scale);
+  const dx=view.tx-ratio*base.tx,dy=view.ty-ratio*base.ty;
+  canvas.style.transformOrigin="0 0";
+  canvas.style.transform=`matrix(${ratio},0,0,${ratio},${dx},${dy})`;
+  if(desktopWheelZoomTimer)clearTimeout(desktopWheelZoomTimer);
+  desktopWheelZoomTimer=setTimeout(()=>finishDesktopWheelZoomPreview(),90);
+}
+function finishDesktopWheelZoomPreview(){
+  if(desktopWheelZoomTimer){clearTimeout(desktopWheelZoomTimer);desktopWheelZoomTimer=null;}
+  if(!desktopWheelZoomPreviewBase)return;
+  desktopWheelZoomPreviewBase=null;
+  canvas.style.transform="";
+  canvas.style.transformOrigin="";
+  scheduleDraw();
+  scheduleRecoverySnapshot();
 }
 function finishTouchPanPreview(commit=true){
   if(touchPanPreviewActive&&commit){
@@ -7787,6 +7817,7 @@ function setDrawingRotationPreserveCenter(targetRotationDeg){
 }
 function setCompassMenuOpen(open){
   if(!compassMenu)return;
+  if(open)closeCoordinateInspectForOtherPopup();
   compassMenu.classList.toggle("open",!!open);
   compassFab?.setAttribute("aria-expanded",open?"true":"false");
 }
@@ -8379,6 +8410,7 @@ function openLayerColorPalette(target,currentColor){
   const modal=document.getElementById("layerColorPaletteModal");
   const grid=document.getElementById("layerColorPaletteGrid");
   if(!modal||!grid)return;
+  closeCoordinateInspectForOtherPopup();
   layerColorPaletteTarget=target;
   const current=String(currentColor||"").toLowerCase();
   grid.innerHTML="";
@@ -8593,6 +8625,7 @@ function renderRecentTextLayerButton(button,def){
   button.append(swatch,label);
 }
 function openTextLayerModal(text){
+  closeCoordinateInspectForOtherPopup();
   if(!text||!Number.isFinite(+text._sxfFeatureId)){showToast("この文字はレイヤー変更できません");return;}
   const selection=window.getSelection?.();if(selection&&!selection.isCollapsed)selection.removeAllRanges();
   selectedTextForLayerChange=text;
@@ -8682,6 +8715,9 @@ function findEditableTextAtScreen(screenX,screenY){
 function coordinateInspectModalIsOpen(){
   const modal=document.getElementById("coordinateInspectModal");
   return !!(modal&&getComputedStyle(modal).display!=="none");
+}
+function closeCoordinateInspectForOtherPopup(){
+  if(coordinateInspectModalIsOpen())closeCoordinateInspectModal();
 }
 function setCoordinateInspectValue(id,value){
   const el=document.getElementById(id);
@@ -8980,6 +9016,7 @@ function closeLayerDeleteConfirm(){
 }
 function openLayerDeleteConfirm(layer){
   const name=String(getLayerLabel(layer)||layer||"");if(!name)return;
+  closeCoordinateInspectForOtherPopup();
   pendingLayerDelete={layer,name};
   const title=document.getElementById("layerDeleteConfirmTitle");if(title)title.textContent=`「${name}」を削除しますか？`;
   const modal=document.getElementById("layerDeleteConfirmModal");if(modal)modal.style.display="flex";
@@ -11432,6 +11469,7 @@ function registryInfoRow(label,value){
   return `<dt>${registryEscapeHtml(label)}</dt><dd>${registryEscapeHtml(value||"記録なし")}</dd>`;
 }
 function openRegistryParcelDetails(parcel){
+  closeCoordinateInspectForOtherPopup();
   if(!parcel||!registryParcelBody||!registryParcelModal)return;
   registryMapState.selectedParcel=parcel;
   const meta=registryMergeMetadata(parcel.metadata,registryMapState.metadata);
@@ -11467,6 +11505,9 @@ function closeRegistryParcelDetails(){
   scheduleDraw();
 }
 function draw(){
+  // ホイール操作中は、直前の描画をCSSで即時拡大縮小する。
+  // 重いSFC全体の再描画は操作が止まった時に1回だけ行う。
+  if(desktopWheelZoomPreviewBase)return;
   updateCompassUi();
   const w=canvas.clientWidth,h=canvas.clientHeight;
   ctx.clearRect(0,0,w,h);
@@ -12534,6 +12575,7 @@ function hitTestPhotoPositionAdjust(screenX,screenY){
 }
 function activatePhotoPositionAdjustment(hit){
   if(!hit||!hit.item||!isDesktopPhotoTool())return false;
+  closeCoordinateInspectForOtherPopup();
   setPhotoListPanelOpen(true);
   setPhotoPositionAdjustMode(true);
   selectedPhotoPositionItem=hit.item;
@@ -13117,6 +13159,7 @@ function setPhotoListPanelOpen(open){
   if(!panel)return;
   if(open&&!isDesktopPhotoTool())open=false;
   if(open){
+    closeCoordinateInspectForOtherPopup();
     renderPhotoListPanel();
     ensurePhotoDemElevations().then(changed=>{
       if(!changed)return;
@@ -13290,11 +13333,12 @@ function populatePhotoAlbumSettingsUi(){
 }
 function setPhotoAlbumModalOpen(open){
   const modal=document.getElementById("photoAlbumModal");if(!modal)return;
-  if(open)populatePhotoAlbumSettingsUi();
+  if(open){closeCoordinateInspectForOtherPopup();populatePhotoAlbumSettingsUi();}
   modal.style.display=open?"flex":"none";
 }
 function setPhotoExcelChoiceModalOpen(open){
   const modal=document.getElementById("photoExcelChoiceModal");if(!modal)return;
+  if(open)closeCoordinateInspectForOtherPopup();
   modal.style.display=open?"flex":"none";
 }
 function photoAlbumCommentText(item,field,customText=""){
@@ -16358,6 +16402,7 @@ const recoveryDeleteConfirmYesBtn = document.getElementById("recoveryDeleteConfi
 const recoveryDeleteConfirmNoBtn = document.getElementById("recoveryDeleteConfirmNoBtn");
 
 function openRecoveryDeleteConfirm(){
+  closeCoordinateInspectForOtherPopup();
   if (recoveryDeleteConfirmModal) recoveryDeleteConfirmModal.style.display = "flex";
 }
 function closeRecoveryDeleteConfirm(){
@@ -16429,6 +16474,7 @@ function setSaveMenuOpen(open){
     sfzBtn.style.display="none";
     sfzBtn.disabled=true;
   }
+  if(open)closeCoordinateInspectForOtherPopup();
   if(modal) modal.style.display=open?"flex":"none";
   document.body.classList.toggle("file-menu-open",!!open);
   if(open)renderRecentDrawingHistory().catch(console.error);
@@ -16445,6 +16491,7 @@ function closeAerialSfcWarning(result){
 function confirmStandardSfcWithoutAerial(){
   if(!getExportableAerialCadImages().length)return Promise.resolve(true);
   if(aerialSfcWarningResolver)closeAerialSfcWarning(false);
+  closeCoordinateInspectForOtherPopup();
   const modal=document.getElementById("aerialSfcWarningModal");
   if(modal)modal.style.display="flex";
   return new Promise(resolve=>{aerialSfcWarningResolver=resolve;});
@@ -16777,6 +16824,8 @@ const toolbarCommandIds=new Set([
   "gpsDetailFab","supportBtn"
 ]);
 function closeToolbarSurfacesExcept(commandId){
+  closeCoordinateInspectForOtherPopup();
+  finishDesktopWheelZoomPreview();
   const transientByCommand={
     measureBtn:"measure",
     profileBtn:"profile",
@@ -16806,6 +16855,7 @@ function closeToolbarSurfacesExcept(commandId){
 document.addEventListener("click",e=>{
   const command=e.target&&e.target.closest?e.target.closest("button,label.fileBtn"):null;
   if(!command||!toolbarCommandIds.has(command.id)) return;
+  finishDesktopWheelZoomPreview();
   if(command.id==="fitBtn")return;
   closeToolbarSurfacesExcept(command.id);
 },true);
@@ -17316,6 +17366,7 @@ document.addEventListener("click", (e)=>{
 });
 
 canvas.addEventListener("mousedown", e=>{
+  if(!isTouchMobileLike())finishDesktopWheelZoomPreview();
   if(e.button===0){
     const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
     if(!isTouchMobileLike()&&canUseDesktopCadObjectInteraction()){
@@ -17477,10 +17528,15 @@ canvas.addEventListener("mouseleave", ()=>{ hoverCursorScreen=null; hoverMeasure
 canvas.addEventListener("contextmenu", e=> e.preventDefault());
 canvas.addEventListener("wheel", e=>{
   e.preventDefault();
+  if(dragging)return;
   suspendGpsFollowFromUserGesture();
   const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
   const mx=local.x, my=local.y;
   const factor = e.deltaY<0 ? 1.16 : 1/1.16;
+  if(!isTouchMobileLike()){
+    updateDesktopWheelZoomPreview(mx,my,view.scale*factor);
+    return;
+  }
   setScaleAroundScreenPoint(mx, my, view.scale * factor);
   scheduleDraw();
   scheduleRecoverySnapshot();

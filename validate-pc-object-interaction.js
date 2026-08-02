@@ -12,6 +12,8 @@ for(const token of [
   "desktopCadCrosshairHit",
   'startTextLongPress(e.clientX,e.clientY,"mouse")',
   "setTouchPanPreview(e.clientX-lastX,e.clientY-lastY)",
+  "updateDesktopWheelZoomPreview(mx,my,view.scale*factor)",
+  "if(desktopWheelZoomPreviewBase)return;",
   "if(textLayerModalIsOpen())closeTextLayerModal();",
   'startTextLongPress(e.touches[0].clientX,e.touches[0].clientY,"touch")'
 ])if(!source.includes(token))throw new Error(`missing implementation: ${token}`);
@@ -62,18 +64,20 @@ let browser;
   await page.evaluate(()=>window.eval(`(()=>{
     selectedTextForLayerChange=data.texts[0];
     document.getElementById("textLayerModal").style.display="flex";
+    document.getElementById("coordinateInspectModal").style.display="flex";
   })()`));
   await page.mouse.click(px,py);
-  const photoClick=await page.evaluate(()=>window.eval(`({panel:photoPositionPanelIsOpen(),active:photoPositionAdjustIsActive(),selected:selectedPhotoPositionItem===photoAnnotations[0],textModal:getComputedStyle(document.getElementById("textLayerModal")).display})`));
-  if(!photoClick.panel||!photoClick.active||!photoClick.selected||photoClick.textModal!=="none")throw new Error(`photo click/priority failed: ${JSON.stringify(photoClick)}`);
+  const photoClick=await page.evaluate(()=>window.eval(`({panel:photoPositionPanelIsOpen(),active:photoPositionAdjustIsActive(),selected:selectedPhotoPositionItem===photoAnnotations[0],textModal:getComputedStyle(document.getElementById("textLayerModal")).display,coordinateModal:getComputedStyle(document.getElementById("coordinateInspectModal")).display})`));
+  if(!photoClick.panel||!photoClick.active||!photoClick.selected||photoClick.textModal!=="none"||photoClick.coordinateModal!=="none")throw new Error(`photo click/priority failed: ${JSON.stringify(photoClick)}`);
 
   const textClick=await page.evaluate(()=>window.eval(`(()=>{
     setPhotoListPanelOpen(false);photoAnnotations=[];selectedTextForLayerChange=null;suppressClickUntil=0;
+    document.getElementById("coordinateInspectModal").style.display="flex";
     const p=worldToScreen(0,0),r=canvas.getBoundingClientRect();
     canvas.dispatchEvent(new MouseEvent("click",{bubbles:true,button:0,clientX:r.left+p[0]+8,clientY:r.top+p[1]+5}));
-    return {selected:selectedTextForLayerChange?._sxfFeatureId,display:getComputedStyle(document.getElementById("textLayerModal")).display};
+    return {selected:selectedTextForLayerChange?._sxfFeatureId,display:getComputedStyle(document.getElementById("textLayerModal")).display,coordinate:getComputedStyle(document.getElementById("coordinateInspectModal")).display};
   })()`));
-  if(textClick.selected!==101||textClick.display!=="flex")throw new Error(`text click failed: ${JSON.stringify(textClick)}`);
+  if(textClick.selected!==101||textClick.display!=="flex"||textClick.coordinate!=="none")throw new Error(`text click failed: ${JSON.stringify(textClick)}`);
 
   await page.evaluate(()=>window.eval(`(()=>{
     closeTextLayerModal();closeCoordinateInspectModal();
@@ -114,6 +118,18 @@ let browser;
   if(pan.middle.tx!==150||pan.middle.ty!==235||pan.middle.active||pan.middle.transform!=="")throw new Error(`middle-button pan failed: ${JSON.stringify(pan.middle)}`);
   if(pan.rightPreview.tx!==20||pan.rightPreview.ty!==30||!pan.rightPreview.active||!pan.rightPreview.transform.includes("-25px"))throw new Error(`right-button preview is not lightweight: ${JSON.stringify(pan.rightPreview)}`);
   if(pan.right.tx!==-5||pan.right.ty!==45||pan.right.active||pan.right.transform!=="")throw new Error(`right-button pan failed: ${JSON.stringify(pan.right)}`);
+
+  const wheelPreview=await page.evaluate(()=>window.eval(`(()=>{
+    finishDesktopWheelZoomPreview();
+    view.scale=2;view.tx=100;view.ty=200;
+    const r=canvas.getBoundingClientRect(),x=r.left+360,y=r.top+280;
+    canvas.dispatchEvent(new WheelEvent("wheel",{bubbles:true,cancelable:true,deltaY:-100,clientX:x,clientY:y}));
+    return {scale:view.scale,transform:canvas.style.transform,active:!!desktopWheelZoomPreviewBase};
+  })()`));
+  if(!(wheelPreview.scale>2)||!wheelPreview.active||!wheelPreview.transform.startsWith("matrix("))throw new Error(`wheel zoom preview did not start: ${JSON.stringify(wheelPreview)}`);
+  await page.waitForTimeout(140);
+  const wheelCommitted=await page.evaluate(()=>window.eval(`({transform:canvas.style.transform,active:!!desktopWheelZoomPreviewBase})`));
+  if(wheelCommitted.active||wheelCommitted.transform!=="")throw new Error(`wheel zoom preview did not commit: ${JSON.stringify(wheelCommitted)}`);
   if(pageErrors.length)throw new Error(`page errors: ${pageErrors.join(" | ")}`);
   console.log("PC object interaction and pan checks passed");
   await browser.close();server.close();
