@@ -5,11 +5,11 @@ const {chromium}=require("playwright");
 
 const source=fs.readFileSync("index.html","utf8");
 const required=[
-  'content="Ezビューア"',
-  'id="viewerLabel">Ezビューア</div>',
-  '<div class="panelTitle">Ezビューア</div>',
-  'const subject="Ezビューア 不具合・改善案"',
-  'const profileAppName=encodeSfcText("Ezビューア")',
+  'content="Ez Viewer"',
+  'id="viewerLabel">Ez Viewer</div>',
+  '<div class="panelTitle">Ez Viewer</div>',
+  'const subject="Ez Viewer 不具合・改善案"',
+  'const profileAppName=encodeSfcText("Ez Viewer")',
   'id="mapOverlayInfoStack"',
   'id="mapAttributionPanel"',
   'function updateMapAttributionLayout()',
@@ -19,7 +19,7 @@ const required=[
   'await reader.cancel()',
 ];
 for(const token of required)if(!source.includes(token))throw new Error(`missing implementation: ${token}`);
-for(const oldName of ["SFCスマホビューアー","SFCスマホビューア","SFCビューアー","SFCビューア","SFC Smartphone Viewer"]){
+for(const oldName of ["Ezビューア","SFCスマホビューアー","SFCスマホビューア","SFCビューアー","SFCビューア","SFC Smartphone Viewer"]){
   if(source.includes(oldName))throw new Error(`旧名称が残っています: ${oldName}`);
 }
 
@@ -71,7 +71,7 @@ let browser;
       smallAccepted,
     };
   })()`));
-  if(result.title!=="Ezビューア | Ezアイズ Survey Tools")throw new Error(`名称が不正です: ${result.title}`);
+  if(result.title!=="Ez Viewer | Ezアイズ Survey Tools")throw new Error(`名称が不正です: ${result.title}`);
   if(!result.panelShown||!result.panelWithinViewport||!result.legendAbovePanel||result.linkPositions.some(value=>value!=="static"))throw new Error(`出典表示が整理されていません: ${JSON.stringify(result)}`);
   if(!result.wideRejected||!result.smallAccepted)throw new Error(`取得前範囲判定が不正です: ${JSON.stringify(result)}`);
   console.log("map attribution, app name and registry preflight checks passed");

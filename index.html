@@ -9,7 +9,7 @@
 <!-- Ezアイズ Survey Tools -->
 <!--
 ========================================================
-測量現場メモツール / Ezビューア
+測量現場メモツール / Ez Viewer
 JGD2024対応
 
 制作
@@ -30,7 +30,7 @@ Tokushima Japan
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <!-- Gmail直接送信用。Google Cloudの「ウェブ アプリケーション」OAuthクライアントIDをcontentへ設定する。 -->
 <meta name="gmail-oauth-client-id" content="">
-<title>Ezビューア | Ezアイズ Survey Tools</title>
+<title>Ez Viewer | Ezアイズ Survey Tools</title>
 <style>
 :root{
   --bg:#000;
@@ -1101,10 +1101,10 @@ body.help-labels button[data-help-label].mobile-hide{
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="screen-orientation" content="portrait">
 <meta name="x5-orientation" content="portrait">
-<meta name="apple-mobile-web-app-title" content="Ezビューア">
+<meta name="apple-mobile-web-app-title" content="Ez Viewer">
 <meta name="theme-color" content="#f2f5f9">
-<meta name="application-name" content="Ezビューア">
-<meta name="description" content="Ezビューア">
+<meta name="application-name" content="Ez Viewer">
+<meta name="description" content="Ez Viewer">
 
 <!-- QR受信情報はアクセス解析や外部読込みより先にURLから除去する。 -->
 <script>
@@ -1225,7 +1225,7 @@ gtag('config', 'G-88B9YPJXWP');
       </svg>
     </button>
     <div id="creditWrap">
-      <div id="viewerLabel">Ezビューア</div>
+      <div id="viewerLabel">Ez Viewer</div>
     </div>
     </div>
   <div id="topbarSub" class="topbar-row" aria-hidden="true"></div>
@@ -1962,7 +1962,7 @@ gtag('config', 'G-88B9YPJXWP');
 
   <div id="viewerSupportModal">
     <div id="viewerSupportBox">
-      <div class="panelTitle">Ezビューア</div>
+      <div class="panelTitle">Ez Viewer</div>
       <div id="viewerSupportCompany" style="font-size:13px;line-height:1.7;margin-bottom:8px;">
         制作：<a href="https://ez-survey.sakura.ne.jp/" target="_blank" rel="noopener noreferrer" style="color:var(--fg);font-weight:800;text-decoration:underline;">株式会社アイズ測量</a>
       </div>
@@ -5615,7 +5615,7 @@ function buildProfileSfcFile(){
   for(const source of usedDemSources)entities.push(sfcProfileRecord(id+=10,`layer_feature('PROFILE_${source.id}','1')`));
   const metaComment=`/* SFCVIEWER_PROFILE_META_V1:${utf8ToBase64(JSON.stringify(meta))} */`;
   const stamp=new Date().toISOString().replace(/\.\d{3}Z$/," ").trim();
-  const profileAppName=encodeSfcText("Ezビューア");
+  const profileAppName=encodeSfcText("Ez Viewer");
   const text=["ISO-10303-21;","HEADER;","FILE_DESCRIPTION(('SCADEC level2 feature_mode'),'2;1');",
     `FILE_NAME('profile_1-100.sfc','${stamp}',(''),('),'${profileAppName}','${profileAppName}','');`,
     "FILE_SCHEMA(('ASSOCIATIVE_DRAUGHTING'));","ENDSEC;","DATA;","",...entities,"",metaComment,"ENDSEC;","END-ISO-10303-21;",""] .join("\r\n");
@@ -16674,7 +16674,7 @@ if (helpFeedbackMailBtn) helpFeedbackMailBtn.addEventListener("click", ()=>{
   const currentFileName=(typeof data!=="undefined"&&data&&data.source_name)
     ? String(data.source_name)
     : "（未選択）";
-  const subject="Ezビューア 不具合・改善案";
+  const subject="Ez Viewer 不具合・改善案";
   const body=[
     "【内容】",
     "",
