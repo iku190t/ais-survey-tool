@@ -91,7 +91,7 @@ body.profile-tools-active #pickFreeBtn,
 body.profile-tools-active #pickLineBtn{display:none !important;}
 #title{display:none;}
 #creditWrap{margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-end; gap:0; min-height:30px; padding-right:10px; padding-left:8px;}
-#viewerLabel{font-size:13px; font-weight:700; opacity:.9; color:var(--fg); line-height:1; white-space:nowrap; cursor:pointer; margin-top:auto; padding:0 0 1px 0;}
+#viewerLabel{font-size:13px; font-weight:700; opacity:.9; color:var(--fg); line-height:1; white-space:nowrap; cursor:pointer; margin-top:auto; padding:0 0 1px 0;text-decoration:underline;text-underline-offset:2px;}
 #textSearchModal{display:none;position:fixed;inset:0;z-index:96;background:rgba(0,0,0,.10);align-items:flex-start;justify-content:flex-end;padding:calc(var(--topbar-height,90px) + var(--cad-toolbar-offset,40px) + 58px) 12px calc(10px + env(safe-area-inset-bottom)) 12px;box-sizing:border-box;pointer-events:none;}
 #textSearchModalBox{width:min(260px,68vw);max-width:260px;max-height:calc(100vh - var(--topbar-height,90px) - var(--cad-toolbar-offset,40px) - 70px);overflow:auto;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.28);padding:10px 10px 9px 10px;pointer-events:auto;touch-action:manipulation;}
 #profileModal{display:none;position:fixed;inset:0;z-index:120;background:transparent;align-items:flex-end;justify-content:center;padding:10px 10px calc(10px + env(safe-area-inset-bottom));box-sizing:border-box;pointer-events:none;}
@@ -12208,6 +12208,7 @@ function normalizeInkStrokeForSave(s){
     terrainSourceLabel: s.terrainSourceLabel || null,
     photoLayerId: s.photoLayerId || null,
     photoTextLabel: s.photoTextLabel || null,
+    isPhotoBackMask: !!s.isPhotoBackMask,
     points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})) : []
   };
 }
@@ -12246,6 +12247,7 @@ function strokeToWorldPolyline(stroke){
     terrainSourceLabel: stroke.terrainSourceLabel || null,
     photoLayerId: stroke.photoLayerId || null,
     photoTextLabel: stroke.photoTextLabel || null,
+    isPhotoBackMask: !!stroke.isPhotoBackMask,
     points: stroke.points.map(p => ({x:+p.x||0, y:+p.y||0}))
   };
 }
@@ -12298,6 +12300,7 @@ const MEMO_CIRCLE_LAYER_NAME_SJIS_LATIN1 = "\x8a\xdb";
 const MEMO_LAYER_SPECS = [
   {id:PHOTO_POSITION_LAYER_ID,shape:"photo-position",colorKey:"yellow",colorName:"黄",color:"#ffd400",name:PHOTO_POSITION_LAYER_NAME,rawName:"\x8e\xca\x90\x5e\x88\xca\x92\x75"},
   {id:PHOTO_LIST_LAYER_ID,shape:"photo-list",colorKey:"blue",colorName:"青",color:"#007aff",name:PHOTO_LIST_LAYER_NAME,rawName:"\x8e\xca\x90\x5e\x88\xea\x97\x97"},
+  {id:PHOTO_BACK_MASK_LAYER_ID,shape:"photo-back-mask",colorKey:"black",colorName:"背景",color:"#000000",name:PHOTO_BACK_MASK_LAYER_NAME,rawName:"\x8e\xca\x90\x5e\x95\xfb\x8c\xfc\x94\xd4\x8d\x86\x94\x77\x96\xca\x83\x7d\x83\x58\x83\x4e"},
   {id:"terrain:DEM1A:regular",shape:"terrain-regular",colorKey:"yellow",colorName:"黄",color:"#ffd400",name:"等高線_DEM1A_主曲線",rawName:"\x93\x99\x8d\x82\x90\xfc\x5f\x44\x45\x4d\x31\x41\x5f\x8e\xe5\x8b\xc8\x90\xfc"},
   {id:"terrain:DEM1A:index",shape:"terrain-index",colorKey:"red",colorName:"赤",color:"#ff3030",name:"等高線_DEM1A_計曲線",rawName:"\x93\x99\x8d\x82\x90\xfc\x5f\x44\x45\x4d\x31\x41\x5f\x8c\x76\x8b\xc8\x90\xfc"},
   {id:"terrain:DEM5A:regular",shape:"terrain-regular",colorKey:"yellow",colorName:"黄",color:"#ffd400",name:"等高線_DEM5A_主曲線",rawName:"\x93\x99\x8d\x82\x90\xfc\x5f\x44\x45\x4d\x35\x41\x5f\x8e\xe5\x8b\xc8\x90\xfc"},
@@ -12398,10 +12401,15 @@ function getNextSfcFeatureId(srcText){
   if (n < 10000) n = 10000;
   return n;
 }
+function flattenSxfFeatureBlocks(srcText){
+  return String(srcText||"").replace(/\/\*SXF(?:3(?:\.1)?)?\r?\n([\s\S]*?)\r?\nSXF(?:3(?:\.1)?)?\*\//g,(_,inner)=>inner+"\n");
+}
 function getFlatSxfText(srcText){
-  return String(srcText || "")
-    .replace(/\/\*\s*---\s*sfcviewer_generated_begin\s*---\s*\*\/[\s\S]*?\/\*\s*---\s*sfcviewer_generated_end\s*---\s*\*\//g, "")
-    .replace(/\/\*SXF(?:3(?:\.1)?)?\r?\n([\s\S]*?)\r?\nSXF(?:3(?:\.1)?)?\*\//g, (_, inner) => inner + "\n");
+  const withoutGenerated=String(srcText || "").replace(/\/\*\s*---\s*sfcviewer_generated_begin\s*---\s*\*\/[\s\S]*?\/\*\s*---\s*sfcviewer_generated_end\s*---\s*\*\//g, "");
+  return flattenSxfFeatureBlocks(withoutGenerated);
+}
+function getFlatSxfTextIncludingGenerated(srcText){
+  return flattenSxfFeatureBlocks(srcText);
 }
 function splitSxfArgs(body){
   const out=[]; let cur=''; let depth=0; let quote='';
@@ -13055,11 +13063,22 @@ function buildPhotoAnnotationExportStrokes(){
   const units=getMemoWorldUnitsPerPaperMm(),out=[];
   const positionDeleted=deletedLayerNames.has(PHOTO_POSITION_LAYER_NAME);
   const listDeleted=deletedLayerNames.has(PHOTO_LIST_LAYER_NAME);
+  const maskDeleted=deletedLayerNames.has(PHOTO_BACK_MASK_LAYER_NAME);
   const addLine=(points,layerId,label=null)=>out.push({
     type:"freehand",color:getCurrentLayerColor(layerId),opacity:1,eraser:false,
     screenWidthPx:null,worldWidthMm:0.13,width:13,photoLayerId:layerId,photoTextLabel:label,points
   });
   if(!positionDeleted){
+    if(photoSettings.backMaskEnabled!==false&&isLayerVisible(PHOTO_BACK_MASK_LAYER_ID)&&!maskDeleted){
+      for(const item of photoAnnotations){
+        const radius=(photoSettings.circleDiameterMm/2)*units;
+        out.push({
+          type:"freehand",color:bgColor(),opacity:1,eraser:false,screenWidthPx:null,worldWidthMm:0.13,width:13,
+          isPhotoBackMask:true,photoLayerId:PHOTO_BACK_MASK_LAYER_ID,
+          points:makePhotoCirclePoints(item.markerX,item.markerY,radius)
+        });
+      }
+    }
     for(const item of photoAnnotations){
       const radius=(photoSettings.circleDiameterMm/2)*units,cx=item.markerX,cy=item.markerY;
       out.push({
@@ -14012,7 +14031,8 @@ async function importGeotaggedPhotos(files){
   layoutPhotoListOutsideDrawing();
   deletedLayerNames.delete(PHOTO_POSITION_LAYER_NAME);
   deletedLayerNames.delete(PHOTO_LIST_LAYER_NAME);
-  ensureLayerVisibility();layerVisibility[PHOTO_POSITION_LAYER_ID]=true;layerVisibility[PHOTO_LIST_LAYER_ID]=true;
+  deletedLayerNames.delete(PHOTO_BACK_MASK_LAYER_NAME);
+  ensureLayerVisibility();layerVisibility[PHOTO_POSITION_LAYER_ID]=true;layerVisibility[PHOTO_LIST_LAYER_ID]=true;layerVisibility[PHOTO_BACK_MASK_LAYER_ID]=photoSettings.backMaskEnabled!==false;
   renderLayerList();renderPhotoListPanel();scheduleDraw();saveRecoverySnapshot({immediate:true});
   requestAnimationFrame(()=>requestAnimationFrame(fitPhotoListToScreen));
   const suffix=failed.length?`（位置情報なし ${failed.length}枚を除外）`:"";
@@ -14346,7 +14366,7 @@ SXF*/`,
 function buildInkPolylineFeatureText(baseText){
   const sourceStrokes=[...(inkStrokes||[]),...buildPhotoAnnotationExportStrokes()];
   const normalized = sourceStrokes.map(strokeToWorldPolyline).filter(s => s && Array.isArray(s.points) && s.points.length >= 2 && !deletedLayerNames.has(getMemoLayerSpecForStroke(s).name));
-  if (!normalized.length) return { colorText: "", layerText: "", widthText:"", fontText:"", lineText: "", expectedFeatureCount:0, exportPoints:[] };
+  if (!normalized.length) return { colorText: "", layerText: "", widthText:"", fontText:"", preludeText:"", lineText: "", expectedFeatureCount:0, exportPoints:[] };
 
   let id = getNextSfcFeatureId(baseText);
   const fontBuild=buildGeneratedTextFontDefinition(baseText,id);
@@ -14363,12 +14383,16 @@ function buildInkPolylineFeatureText(baseText){
   const widthText=widthBuild.widthText;
   id=widthBuild.nextId;
 
+  const preludeParts=[];
   const lineParts = [];
   const allExportPoints=[];
   const generatedGeometryPoints=[];
   for(const stroke of normalized)for(const point of stroke.points||[]){
     if(Number.isFinite(+point.x)&&Number.isFinite(+point.y))generatedGeometryPoints.push({x:+point.x,y:+point.y});
   }
+  const geometryPlacement=findMemoGeometryInsertion(baseText,generatedGeometryPoints);
+  const preludeInsertion=findSxfAssemblyChildrenStart(baseText,geometryPlacement.index);
+  let nextCompositeCurveCode=countSxfAssembliesBefore(baseText,preludeInsertion)+1;
   const horizontalTextAngle=getGeneratedHorizontalSxfTextAngle(baseText,generatedGeometryPoints);
   const appendTextLabel=(label,layerCode,colorCode,forceHorizontal=false)=>{
     if(!label||!String(label.text||"").trim())return;
@@ -14403,6 +14427,34 @@ SXF*/`);
     // source feature could otherwise leak an unrelated custom/dashed code.
     const typeCode = MEMO_FILE_TYPE_CODE;
     const widthCode = String(widthBuild.codes[getStrokeWidthMm(s).toFixed(6)] || getMemoWidthInfo(baseText).code || "1");
+
+    if(s.isPhotoBackMask){
+      const compact=[];
+      for(const p of exportPts){
+        const prev=compact[compact.length-1];
+        if(!prev||Math.abs(p.x-prev.x)>=1e-9||Math.abs(p.y-prev.y)>=1e-9)compact.push(p);
+      }
+      if(compact.length>=3){
+        const first=compact[0],last=compact[compact.length-1];
+        if(Math.hypot(first.x-last.x,first.y-last.y)>=1e-7)compact.push({x:first.x,y:first.y});
+        const xs=compact.map(p=>(+p.x).toFixed(6)).join(',');
+        const ys=compact.map(p=>(+p.y).toFixed(6)).join(',');
+        preludeParts.push(`/*SXF
+#${id} = polyline_feature('${layerCode}','${colorCode}','${typeCode}','${widthCode}','${compact.length}','(${xs})','(${ys})')
+SXF*/`);
+        id+=1;
+        preludeParts.push(`/*SXF
+#${id} = composite_curve_org_feature('${colorCode}','${typeCode}','${widthCode}','0')
+SXF*/`);
+        id+=1;
+        lineParts.push(`/*SXF
+#${id} = fill_area_style_colour_feature('${layerCode}','${colorCode}','${nextCompositeCurveCode}','0','()')
+SXF*/`);
+        id+=1;
+        nextCompositeCurveCode+=1;
+      }
+      continue;
+    }
 
     if (s.isCircleMemo) {
       const first = exportPts[0], last = exportPts[exportPts.length - 1];
@@ -14446,7 +14498,7 @@ SXF*/`);
       appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
     }
   }
-  return { colorText, layerText, widthText, fontText, lineText: lineParts.join("\r\n"), expectedFeatureCount:normalized.length, exportPoints:allExportPoints };
+  return { colorText, layerText, widthText, fontText, preludeText:preludeParts.join("\r\n"), lineText: lineParts.join("\r\n"), expectedFeatureCount:normalized.length, exportPoints:allExportPoints };
 }
 function stripEmbeddedAnnotations(srcText){
   let text = String(srcText || "");
@@ -14467,7 +14519,7 @@ function getSfcRenderSourceText(srcText){
     if(spec){coveredNames.add(String(spec.name||""));coveredNames.add(String(spec.rawName||""));}
   }
   if((payload.photoAnnotations||[]).length){
-    for(const id of [PHOTO_POSITION_LAYER_ID,PHOTO_LIST_LAYER_ID]){
+    for(const id of [PHOTO_POSITION_LAYER_ID,PHOTO_LIST_LAYER_ID,PHOTO_BACK_MASK_LAYER_ID]){
       const spec=getMemoLayerSpecById(id);
       if(spec){coveredNames.add(String(spec.name||""));coveredNames.add(String(spec.rawName||""));}
     }
@@ -14479,6 +14531,12 @@ function getSfcRenderSourceText(srcText){
   });
   let renderText=text.replace(/\/\*\s*---\s*sfcviewer_generated_begin\s*---\s*\*\/([\s\S]*?)\/\*\s*---\s*sfcviewer_generated_end\s*---\s*\*\//g,(whole,body)=>{
     if(!coveredCodes.size)return whole;
+    const blockRecords=parseSxfFeatureRecords(getFlatSxfText(body));
+    const coveredCompositePrelude=blockRecords.some(record=>record.name==="composite_curve_org_feature")&&blockRecords.some(record=>{
+      if(record.name!=="polyline_feature")return false;
+      return coveredCodes.has(Number(unquoteSxfValue(record.args[0])));
+    });
+    if(coveredCompositePrelude)return "";
     const filtered=String(body).replace(/\/\*SXF(?:3(?:\.1)?)?\r?\n([\s\S]*?)\r?\nSXF(?:3(?:\.1)?)?\*\//g,(block,inner)=>{
       const records=parseSxfFeatureRecords(inner);
       if(records.length!==1||!SFC_LAYER_DRAWABLE_FEATURES.has(records[0].name))return block;
@@ -14512,6 +14570,10 @@ function restorePhotoAnnotationsFromSourceText(srcText){
   const payload=parseMemoMetaPayload(srcText);
   return Array.isArray(payload&&payload.photoAnnotations)?payload.photoAnnotations:[];
 }
+function restorePhotoBackMaskSettingFromSourceText(srcText){
+  const payload=parseMemoMetaPayload(srcText);
+  return payload&&typeof payload.photoBackMaskEnabled==="boolean"?payload.photoBackMaskEnabled:null;
+}
 function buildMemoMetaComment(){
   try{
     const strokes = inkStrokes.map(strokeToWorldPolyline).filter(s => s && Array.isArray(s.points) && s.points.length >= 2 && !deletedLayerNames.has(getMemoLayerSpecForStroke(s).name)).map(s => ({
@@ -14533,7 +14595,7 @@ function buildMemoMetaComment(){
       terrainSourceLabel: s.terrainSourceLabel || null,
       points: s.points.map(p => ({x:+p.x||0, y:+p.y||0}))
     }));
-    const payload = { version:3, strokes, photoAnnotations:serializePhotoAnnotations(), deletedLayerNames:[...deletedLayerNames] };
+    const payload = { version:4, strokes, photoAnnotations:serializePhotoAnnotations(), photoBackMaskEnabled:photoSettings.backMaskEnabled!==false, deletedLayerNames:[...deletedLayerNames] };
     const json = JSON.stringify(payload);
     const b64 = btoa(unescape(encodeURIComponent(json)));
     return `/* SFCVIEWER_MEMO_META_V1:${b64} */`;
@@ -14680,13 +14742,39 @@ function findMemoGeometryInsertion(baseText,points){
   }
   return {index:sheetInsertAt,partialFigure:null};
 }
-function insertMemoGeneralFeatures(baseText, lineText, points){
-  if (!lineText) return String(baseText || "");
+const SXF_ASSEMBLY_ORIGIN_NAMES=new Set(["drawing_sheet_feature","composite_curve_org_feature","sfig_org_feature"]);
+function getSxfAssemblyOriginBlocksBefore(baseText,beforeIndex){
+  const text=String(baseText||"");
+  const limit=Math.max(0,Math.min(text.length,Number(beforeIndex)||0));
+  const out=[];
+  const re=/\/\*SXF(?:3(?:\.1)?)?\r?\n([\s\S]*?)\r?\nSXF(?:3(?:\.1)?)?\*\//g;
+  let match;
+  while((match=re.exec(text))!==null){
+    if(match.index>=limit)break;
+    const records=parseSxfFeatureRecords(match[1]);
+    if(records.length===1&&SXF_ASSEMBLY_ORIGIN_NAMES.has(records[0].name))out.push({start:match.index,end:match.index+match[0].length,name:records[0].name});
+  }
+  return out;
+}
+function findSxfAssemblyChildrenStart(baseText,assemblyOriginIndex){
+  const text=String(baseText||"");
+  const previous=getSxfAssemblyOriginBlocksBefore(text,assemblyOriginIndex).at(-1);
+  if(previous)return previous.end;
+  const dataMatch=/DATA\s*;\s*/i.exec(text.slice(0,Math.max(0,assemblyOriginIndex)));
+  return dataMatch?dataMatch.index+dataMatch[0].length:0;
+}
+function countSxfAssembliesBefore(baseText,beforeIndex){
+  return getSxfAssemblyOriginBlocksBefore(baseText,beforeIndex).length;
+}
+function insertMemoGeneralFeatures(baseText, lineText, points, preludeText=""){
+  if (!lineText&&!preludeText) return String(baseText || "");
   const text = String(baseText || "");
-  const block = `/* --- sfcviewer_generated_begin --- */\r\n${lineText}\r\n/* --- sfcviewer_generated_end --- */`;
   const placement=findMemoGeometryInsertion(text,points);
   const at=Math.max(0,Math.min(text.length,placement.index));
-  return text.slice(0,at)+"\r\n"+block+"\r\n"+text.slice(at);
+  const preludeAt=preludeText?Math.max(0,Math.min(at,findSxfAssemblyChildrenStart(text,at))):at;
+  const preludeBlock=preludeText?`/* --- sfcviewer_generated_begin --- */\r\n${preludeText}\r\n/* --- sfcviewer_generated_end --- */\r\n`:"";
+  const block=lineText?`\r\n/* --- sfcviewer_generated_begin --- */\r\n${lineText}\r\n/* --- sfcviewer_generated_end --- */\r\n`:"";
+  return text.slice(0,preludeAt)+preludeBlock+text.slice(preludeAt,at)+block+text.slice(at);
 }
 function validateSfcExportAgainstSource(baseText, ann){
   const srcSegs = getSourceFeatureSegments(baseText);
@@ -14726,19 +14814,28 @@ function validateSfcExportAgainstSource(baseText, ann){
 }
 function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   const text=String(sfcText||"");
-  const blockMatch=text.match(/\/\*\s*---\s*sfcviewer_generated_begin\s*---\s*\*\/([\s\S]*?)\/\*\s*---\s*sfcviewer_generated_end\s*---\s*\*\//);
-  if(!blockMatch)return expectedFeatureCount?{ok:false,reason:"手書き図形をSFC本文へ追加できませんでした。"}:{ok:true};
-  const records=parseSxfFeatureRecords(getFlatSxfText(blockMatch[1]));
+  const generatedBlocks=[...text.matchAll(/\/\*\s*---\s*sfcviewer_generated_begin\s*---\s*\*\/([\s\S]*?)\/\*\s*---\s*sfcviewer_generated_end\s*---\s*\*\//g)].map(match=>match[1]);
+  if(!generatedBlocks.length)return expectedFeatureCount?{ok:false,reason:"手書き図形をSFC本文へ追加できませんでした。"}:{ok:true};
+  const records=parseSxfFeatureRecords(getFlatSxfText(generatedBlocks.join("\r\n")));
   const geometries=records.filter(r=>r.name==="polyline_feature"||r.name==="circle_feature");
   const textFeatures=records.filter(r=>r.name==="text_string_feature");
+  const fillFeatures=records.filter(r=>r.name==="fill_area_style_colour_feature");
   if(geometries.length<expectedFeatureCount){
     return {ok:false,reason:`手書き図形の書出し件数が不足しています（${geometries.length}/${expectedFeatureCount}）。`};
   }
-  const layerCount=parseLayerFeatureDefsFlat(getFlatSxfText(text)).length;
-  const flat=getFlatSxfText(text);
+  const flat=getFlatSxfTextIncludingGenerated(text);
+  const layerCount=parseLayerFeatureDefsFlat(flat).length;
   const widthDefs=parseWidthFeatureDefsFlat(flat);
   const widthState=getSxfWidthDefinitionState(widthDefs);
   const predefinedColorNames=new Set(parsePredefinedColourFeatureDefsFlat(flat).map(d=>d.name));
+  const allRecords=parseSxfFeatureRecords(flat);
+  const compositeAssemblyCodes=new Set();
+  let assemblyCode=0;
+  for(const record of allRecords){
+    if(!SXF_ASSEMBLY_ORIGIN_NAMES.has(record.name))continue;
+    assemblyCode+=1;
+    if(record.name==="composite_curve_org_feature")compositeAssemblyCodes.add(assemblyCode);
+  }
   for(const rec of geometries){
     const layer=Number(unquoteSxfValue(rec.args[0]));
     const color=Number(unquoteSxfValue(rec.args[1]));
@@ -14789,9 +14886,20 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
       return {ok:false,reason:`書出し文字の方向コードが不正です（${direction}）。`};
     }
   }
+  for(const rec of fillFeatures){
+    const layer=Number(unquoteSxfValue(rec.args[0]));
+    const color=Number(unquoteSxfValue(rec.args[1]));
+    const outer=Number(unquoteSxfValue(rec.args[2]));
+    const holeCount=Number(unquoteSxfValue(rec.args[3]));
+    const holeIds=String(unquoteSxfValue(rec.args[4])||"").replace(/^\(|\)$/g,"").split(",").map(value=>value.trim()).filter(Boolean);
+    if(!Number.isInteger(layer)||layer<1||layer>layerCount)return {ok:false,reason:`背面マスクのレイヤー参照が不正です（${layer}）。`};
+    if(!Number.isInteger(color)||color<1||color>16)return {ok:false,reason:`背面マスクの色コードが不正です（${color}）。`};
+    if(!compositeAssemblyCodes.has(outer))return {ok:false,reason:`背面マスクの外形参照が不正です（${outer}）。`};
+    if(!Number.isInteger(holeCount)||holeCount<0||holeCount!==holeIds.length)return {ok:false,reason:"背面マスクの中抜き定義が不正です。"};
+  }
   return {ok:true};
 }
-const SFC_LAYER_DRAWABLE_FEATURES=new Set(["line_feature","polyline_feature","spline_feature","circle_feature","arc_feature","ellipse_feature","ellipse_arc_feature","point_marker_feature","text_string_feature"]);
+const SFC_LAYER_DRAWABLE_FEATURES=new Set(["line_feature","polyline_feature","spline_feature","circle_feature","arc_feature","ellipse_feature","ellipse_arc_feature","point_marker_feature","text_string_feature","fill_area_style_colour_feature"]);
 function stripDeletedLayersFromSfc(srcText){
   let text=String(srcText||"");
   const namesToRemove=new Set([...deletedLayerNames,...removedSourceLayerNames]);
@@ -14832,7 +14940,7 @@ function buildSfcExportBlobAndName(){
   base = insertMemoFontDefinitions(base,ann.fontText);
   const metaComment = buildMemoMetaComment();
   const exportText = ann.lineText + (metaComment ? "\r\n" + metaComment : "");
-  const newSfc = insertMemoGeneralFeatures(base, exportText, ann.exportPoints).replace(/[\s\r\n]*$/, "\r\n");
+  const newSfc = insertMemoGeneralFeatures(base, exportText, ann.exportPoints,ann.preludeText).replace(/[\s\r\n]*$/, "\r\n");
   const generatedValidation=validateGeneratedMemoSfc(newSfc,ann.expectedFeatureCount||0);
   if(!generatedValidation.ok)return {ok:false,reason:generatedValidation.reason||"手書き図形をSFCへ書き込めませんでした。"};
   const overwriteName = normalizeExportFileName(data.source_name,"sfc_view.sfc");
@@ -14862,7 +14970,7 @@ async function buildSfcExportBlobAndNameAsync(){
   base=insertMemoFontDefinitions(base,ann.fontText);
   const metaComment=buildMemoMetaComment();
   const exportText=ann.lineText+(metaComment?"\r\n"+metaComment:"");
-  const newSfc=insertMemoGeneralFeatures(base,exportText,ann.exportPoints).replace(/[\s\r\n]*$/,"\r\n");
+  const newSfc=insertMemoGeneralFeatures(base,exportText,ann.exportPoints,ann.preludeText).replace(/[\s\r\n]*$/,"\r\n");
 
   updateBusy("SFC形式を最終確認中…");
   await waitForUiPaint();
@@ -16089,6 +16197,12 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   resetSessionFromLoad();
   inkStrokes = restoreInkStrokesFromSourceText(srcText);
   restorePhotoAnnotations(restorePhotoAnnotationsFromSourceText(srcText));
+  const restoredPhotoBackMask=restorePhotoBackMaskSettingFromSourceText(srcText);
+  if(restoredPhotoBackMask!==null){
+    photoSettings={...photoSettings,backMaskEnabled:restoredPhotoBackMask};
+    layerVisibility[PHOTO_BACK_MASK_LAYER_ID]=restoredPhotoBackMask;
+    syncPhotoSettingsUi();
+  }
   deletedLayerNames = restoreDeletedLayerNamesFromSourceText(srcText);
   removedSourceLayerNames = new Set();
   // If geometry is present in metadata it wins over a stale deleted flag.
