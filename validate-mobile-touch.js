@@ -13,6 +13,9 @@ const required=[
   "canvas.addEventListener(\"pointerdown\"",
   "e.preventDefault();\n    startTextLongPress",
   "},540);",
+  "id=\"drawPanelCompactBtn\"",
+  "keepOrCompactDrawPanelAfterInkAction();",
+  "setDrawPanelCompact(isTouchMobileLike());",
 ];
 for(const token of required)if(!source.includes(token))throw new Error(`missing mobile touch implementation: ${token}`);
 
@@ -58,6 +61,28 @@ let browser;
   if(!result.started||!result.timerStarted||!result.longPress)throw new Error(`mobile long press did not open coordinate inspect: ${JSON.stringify(result)}`);
   if(result.preview.tx!==12||result.preview.ty!==34||!result.preview.active||!result.preview.transform.includes("47px"))throw new Error(`touch pan preview is not lightweight: ${JSON.stringify(result.preview)}`);
   if(result.committed.tx!==59||result.committed.ty!==63||result.committed.active||result.committed.transform!=="")throw new Error(`touch pan preview did not commit correctly: ${JSON.stringify(result.committed)}`);
+
+  const drawPanelCompactState=await page.evaluate(()=>window.eval(`(()=>{
+    inkEnabled=true;inkTool="line";inkEraser=false;
+    document.getElementById("startupModal").style.display="none";
+    drawPanel.style.display="block";
+    setDrawPanelCompact(false);
+    keepOrCompactDrawPanelAfterInkAction();
+    return {
+      compact:drawPanelCompact,
+      className:drawPanel.className,
+      compactButtonDisplay:getComputedStyle(document.getElementById("drawPanelCompactBtn")).display,
+    };
+  })()`));
+  if(!drawPanelCompactState.compact||!drawPanelCompactState.className.includes("drawPanelCompact")||drawPanelCompactState.compactButtonDisplay==="none")throw new Error(`mobile drawing panel did not compact after drawing: ${JSON.stringify(drawPanelCompactState)}`);
+  await page.locator("#drawPanelCompactBtn").click();
+  const drawPanelExpandedState=await page.evaluate(()=>window.eval(`(()=>({
+    compact:drawPanelCompact,
+    className:drawPanel.className,
+    titleDisplay:getComputedStyle(drawPanel.querySelector(".panelHeaderCompact")).display,
+  }))()`));
+  if(drawPanelExpandedState.compact||drawPanelExpandedState.className.includes("drawPanelCompact")||drawPanelExpandedState.titleDisplay==="none")throw new Error(`mobile drawing panel did not expand from compact button: ${JSON.stringify(drawPanelExpandedState)}`);
+  await page.evaluate(()=>window.eval(`(()=>{inkEnabled=false;drawPanel.style.display="none";setDrawPanelCompact(false);})()`));
 
   const cdp=await page.context().newCDPSession(page);
   await page.evaluate(()=>window.eval(`(()=>{

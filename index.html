@@ -445,6 +445,13 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #measureBackBtn:disabled{opacity:.34;cursor:default;}
 #measureBackBtn:not(:disabled):active{background:#1677ff!important;border-color:#1677ff!important;transform:scale(.96);}
 #drawPanel{width:246px; right:12px; top:calc(58px + var(--cad-toolbar-offset,40px)); position:absolute; z-index:60;}
+#drawPanelCompactBtn{display:none;width:100%;min-height:38px!important;padding:5px 9px!important;align-items:center;gap:7px;background:var(--button)!important;color:var(--buttonText)!important;border-color:var(--border)!important;font-size:12px!important;font-weight:800;white-space:nowrap;}
+#drawPanelCompactColor{width:12px;height:12px;flex:0 0 12px;border-radius:50%;border:1px solid rgba(255,255,255,.7);box-shadow:0 0 0 1px rgba(0,0,0,.35);}
+#drawPanelCompactLabel{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+#drawPanelCompactOpen{margin-left:auto;color:var(--muted);font-size:11px;font-weight:700;}
+#drawPanel.drawPanelCompact{width:min(190px,calc(100vw - 24px));padding:5px;}
+#drawPanel.drawPanelCompact>:not(#drawPanelCompactBtn){display:none!important;}
+#drawPanel.drawPanelCompact #drawPanelCompactBtn{display:flex;}
 #settingsPanel{box-sizing:border-box;width:min(292px,calc(100vw - 24px));right:12px;top:calc(58px + var(--cad-toolbar-offset,40px));position:absolute;z-index:78;}
 #settingsPanel .settingsSection{padding-top:9px;margin-top:9px;border-top:1px solid rgba(128,128,128,.25);}
 #settingsPanel .settingsSection:first-of-type{padding-top:0;margin-top:0;border-top:0;}
@@ -1429,6 +1436,7 @@ gtag('config', 'G-88B9YPJXWP');
   </div>
 
   <div id="drawPanel" class="panel">
+    <button id="drawPanelCompactBtn" type="button" aria-label="手書きメモの設定を開く"><span id="drawPanelCompactColor" aria-hidden="true"></span><span id="drawPanelCompactLabel">手書き：線</span><span id="drawPanelCompactOpen">設定</span></button>
     <div class="panelHeaderCompact"><div class="panelTitle">手書きメモ</div><button id="drawCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <div class="stack">
       <div class="row">
@@ -2273,6 +2281,7 @@ const PHOTO_ALBUM_DEFAULT_SETTINGS = Object.freeze({layout:"3",comment1:"number"
 let currentStroke = null;
 let pendingTouchInk = null;
 let suppressTouchInkUntil = 0;
+let drawPanelCompact = false;
 let needsDraw = false;
 const LARGE_FILE_SOURCE_BYTES = 12 * 1024 * 1024;
 const LARGE_DRAWING_FEATURE_LIMIT = 60000;
@@ -6625,6 +6634,38 @@ function updateThemeUI(){
     updateColorSelectionUI();
   }
 }
+function getActiveInkToolLabel(){
+  if(inkEraser)return "消しゴム";
+  return inkTool==="circle"?"丸":"線";
+}
+function updateDrawPanelCompactUi(){
+  if(!drawPanel)return;
+  const compactBtn=document.getElementById("drawPanelCompactBtn");
+  const compactLabel=document.getElementById("drawPanelCompactLabel");
+  const compactColor=document.getElementById("drawPanelCompactColor");
+  const active=!!(drawPanelCompact&&inkEnabled&&isTouchMobileLike());
+  drawPanel.classList.toggle("drawPanelCompact",active);
+  if(compactBtn)compactBtn.setAttribute("aria-expanded",active?"false":"true");
+  if(compactLabel)compactLabel.textContent=`手書き：${getActiveInkToolLabel()}`;
+  if(compactColor){
+    compactColor.style.background=inkEraser?"#1677ff":inkColor;
+    compactColor.style.borderRadius=inkEraser?"3px":"50%";
+  }
+}
+function setDrawPanelCompact(compact){
+  drawPanelCompact=!!compact;
+  updateDrawPanelCompactUi();
+}
+function openDrawPanelFull(){
+  if(!drawPanel)return;
+  setDrawPanelCompact(false);
+  drawPanel.style.display="block";
+}
+function keepOrCompactDrawPanelAfterInkAction(){
+  if(!drawPanel||!inkEnabled)return;
+  drawPanel.style.display="block";
+  setDrawPanelCompact(isTouchMobileLike());
+}
 function updateInkUI(){
   const lineBtn = document.getElementById("lineToolBtn");
   const circleBtn = document.getElementById("circleToolBtn");
@@ -6638,6 +6679,7 @@ function updateInkUI(){
   circleBtn.classList.toggle("inkToolActive", !inkEraser && inkTool === "circle");
   eraserBtn.classList.toggle("inkToolActive", !!inkEraser);
   updateColorSelectionUI();
+  updateDrawPanelCompactUi();
   updateModeStatus();
 }
 
@@ -11883,7 +11925,10 @@ function closePanelsExcept(except){
   if(except!=='layer') layerPanel.style.display='none';
   if(except!=='photoList') setPhotoListPanelOpen(false);
   if(except!=='measureMode' && measureModePanel) measureModePanel.style.display='none';
-  if(except!=='draw') drawPanel.style.display='none';
+  if(except!=='draw'){
+    setDrawPanelCompact(false);
+    drawPanel.style.display='none';
+  }
   if(except!=='settings' && settingsPanel) settingsPanel.style.display='none';
   if(except!=='support' && supportPanel) supportPanel.style.display='none';
   if(except!=='aerialPhoto' && aerialPhotoPanel) aerialPhotoPanel.style.display='none';
@@ -16950,6 +16995,7 @@ function cancelTransientOperations(except=""){
     pendingTouchInk=null;
     suppressTouchInkUntil=0;
     inkEraser=false;
+    setDrawPanelCompact(false);
     if(drawPanel) drawPanel.style.display="none";
   }
   updateProfileUi();
@@ -17342,13 +17388,14 @@ document.getElementById("drawBtn").addEventListener("click", ()=>{
   cancelTransientOperations("draw");
   if(wasDrawing){
     inkEnabled=false;
+    setDrawPanelCompact(false);
     if(drawPanel)drawPanel.style.display="none";
     updateInkUI();updateStopBtnUI();scheduleInteractionDraw();
     return;
   }
   inkEnabled = true;
   closePanelsExcept('draw');
-  drawPanel.style.display = "block";
+  openDrawPanelFull();
   updateInkUI();
   updateStopBtnUI();
   scheduleInteractionDraw();
@@ -17372,6 +17419,13 @@ document.getElementById("drawCloseBtn")?.addEventListener("click", ()=>{
   cancelTransientOperations();
   updateUndoRedoUI();
 });
+document.getElementById("drawPanelCompactBtn")?.addEventListener("click", event=>{
+  event.stopPropagation();
+  if(!inkEnabled)return;
+  openDrawPanelFull();
+  updateInkUI();
+  scheduleInteractionDraw();
+});
 document.getElementById("lineToolBtn").addEventListener("click", ()=>{
   if (measureMode || selectedMeasurePoints.length) {
     measureMode=false; measureType="2point";
@@ -17382,12 +17436,10 @@ document.getElementById("lineToolBtn").addEventListener("click", ()=>{
   inkEraser = false;
   inkTool = "line";
   saveUiPreferences();
-  drawPanel.style.display = "block";
+  openDrawPanelFull();
   updateInkUI();
   updateStopBtnUI();
   scheduleInteractionDraw();
-  // Let the blue selection feedback paint before closing the settings panel.
-  setTimeout(()=>{if(inkEnabled&&!inkEraser&&inkTool==="line")drawPanel.style.display="none";},140);
 });
 document.getElementById("circleToolBtn").addEventListener("click", ()=>{
   if (measureMode || selectedMeasurePoints.length) {
@@ -17399,11 +17451,10 @@ document.getElementById("circleToolBtn").addEventListener("click", ()=>{
   inkEraser = false;
   inkTool = "circle";
   saveUiPreferences();
-  drawPanel.style.display = "block";
+  openDrawPanelFull();
   updateInkUI();
   updateStopBtnUI();
   scheduleInteractionDraw();
-  setTimeout(()=>{if(inkEnabled&&!inkEraser&&inkTool==="circle")drawPanel.style.display="none";},140);
 });
 document.getElementById("eraserBtn").addEventListener("click", ()=>{
   if (measureMode || selectedMeasurePoints.length) {
@@ -17414,11 +17465,10 @@ document.getElementById("eraserBtn").addEventListener("click", ()=>{
   inkEnabled = true;
   inkEraser = true;
   saveUiPreferences();
-  drawPanel.style.display = "block";
+  openDrawPanelFull();
   updateInkUI();
   updateStopBtnUI();
   scheduleInteractionDraw();
-  setTimeout(()=>{if(inkEnabled&&inkEraser)drawPanel.style.display="none";},140);
 });
 document.getElementById("clearInkBtn").addEventListener("click", ()=>{ document.getElementById("confirmModal").style.display = "flex"; });
 const penWidthRange = document.getElementById("penWidth");
@@ -17650,7 +17700,7 @@ canvas.addEventListener("mousedown", e=>{
       const hit = hitTestInkObject({x:snapped.x, y:snapped.y});
       if (hit >= 0) {
         removeInkStrokeOperation(hit);
-        drawPanel.style.display = "none";
+        keepOrCompactDrawPanelAfterInkAction();
         scheduleDraw();
         markMemoChanged();
       }
@@ -17659,12 +17709,11 @@ canvas.addEventListener("mousedown", e=>{
     if (inkTool === "circle") {
       const local = getCanvasLocalPointFromClient(e.clientX, e.clientY);
       addInkStrokeOperation(buildCircleStrokeFromScreenPoint(local.x, local.y));
-      updateUndoRedoUI(); drawPanel.style.display = "none"; scheduleDraw(); markMemoChanged();
+      updateUndoRedoUI(); keepOrCompactDrawPanelAfterInkAction(); scheduleDraw(); markMemoChanged();
       return;
     }
     inkDrawing = true;
     currentStroke = { type:"freehand", color: inkColor, screenWidthPx: null, worldWidthMm:penWidthMmFromLevel(inkWidth), width: normalizePenWidthLevel(inkWidth), opacity: inkOpacity, eraser: false, points:[{x:snapped.x, y:snapped.y}] };
-    drawPanel.style.display = "none";
     scheduleInteractionDraw();
     return;
   }
@@ -17687,11 +17736,14 @@ window.addEventListener("mouseup", ()=>{
   dragging=false;
   if(wasDragging)finishTouchPanPreview(true);
   if(inkDrawing && currentStroke){
+    let committedInkStroke=false;
     if (currentStroke.points && currentStroke.points.length>=2) {
       addInkStrokeOperation(currentStroke); updateUndoRedoUI();
       markMemoChanged();
+      committedInkStroke=true;
     }
     currentStroke=null; inkDrawing=false; scheduleDraw();
+    if(committedInkStroke)keepOrCompactDrawPanelAfterInkAction();
   }
   if(wasDragging){ scheduleDraw(); scheduleRecoverySnapshot(); }
 });
@@ -17903,7 +17955,7 @@ canvas.addEventListener("touchstart", e=>{
       const hit = hitTestInkObject({x:snapped.x, y:snapped.y});
       if (hit >= 0) {
         inkStrokes.splice(hit, 1);
-        drawPanel.style.display = "none";
+        keepOrCompactDrawPanelAfterInkAction();
         scheduleDraw();
         markMemoChanged();
       }
@@ -17917,7 +17969,6 @@ canvas.addEventListener("touchstart", e=>{
       startScreenY: y,
       startWorld: {x:snapped.x, y:snapped.y}
     };
-    drawPanel.style.display = "none";
     return;
   }
 
@@ -18125,11 +18176,14 @@ canvas.addEventListener("touchend", e=>{
     profileTouchCandidate=null;return;
   }
   if(inkDrawing && currentStroke){
+    let committedInkStroke=false;
     if (currentStroke.points && currentStroke.points.length>=2) {
       addInkStrokeOperation(currentStroke); updateUndoRedoUI();
       markMemoChanged();
+      committedInkStroke=true;
     }
     currentStroke=null; inkDrawing=false; scheduleDraw();
+    if(committedInkStroke)keepOrCompactDrawPanelAfterInkAction();
     return;
   }
   if(pendingTouchInk){
@@ -18140,6 +18194,7 @@ canvas.addEventListener("touchend", e=>{
       updateUndoRedoUI();
       scheduleDraw();
       markMemoChanged();
+      keepOrCompactDrawPanelAfterInkAction();
     }
     pendingTouchInk = null;
     return;
