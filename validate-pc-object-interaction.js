@@ -233,6 +233,20 @@ let browser;
   });
   if(!polygonBack.a.open||polygonBack.a.count!==1||!polygonBack.b.open||polygonBack.b.count!==0||polygonBack.c.open)throw new Error(`範囲選択のEsc後退が正しくありません: ${JSON.stringify(polygonBack)}`);
 
+  const compactMeasure=await page.evaluate(()=>window.eval(`(()=>{
+    measureMode=true;measureType="2point";selectedMeasurePoints=[{x:0,y:0},{x:3,y:4}];updateMeasureBox();
+    const twoPoint=document.getElementById("measureText").innerText;
+    measureType="3vertical";selectedMeasurePoints=[{x:0,y:0},{x:10,y:0},{x:4,y:3}];updateMeasureBox();
+    const vertical=document.getElementById("measureText").innerText;
+    const row=document.getElementById("measureResultRow").getBoundingClientRect();
+    const text=document.getElementById("measureText").getBoundingClientRect();
+    const back=document.getElementById("measureBackBtn").getBoundingClientRect();
+    return {twoPoint,vertical,rowHeight:row.height,textY:text.y,backY:back.y,boxHeight:document.getElementById("measureBox").getBoundingClientRect().height};
+  })()`));
+  if(!compactMeasure.twoPoint.startsWith("点間距離 ")||/[XY]=/.test(compactMeasure.twoPoint))throw new Error(`2点間に座標が残っています: ${JSON.stringify(compactMeasure)}`);
+  if(!compactMeasure.vertical.startsWith("直角距離 ")||/[XY]=/.test(compactMeasure.vertical))throw new Error(`3点垂直に座標が残っています: ${JSON.stringify(compactMeasure)}`);
+  if(Math.abs(compactMeasure.textY-compactMeasure.backY)>1||compactMeasure.rowHeight>33||compactMeasure.boxHeight>175)throw new Error(`計測画面がコンパクトに揃っていません: ${JSON.stringify(compactMeasure)}`);
+
   if(pageErrors.length)throw new Error(`page errors: ${pageErrors.join(" | ")}`);
   console.log("PC object interaction and pan checks passed");
   await browser.close();server.close();

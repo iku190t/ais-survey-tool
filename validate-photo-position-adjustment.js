@@ -17,6 +17,7 @@ const required=[
   ["DEM再取得","resolvePhotoDemElevation(drag.item)"],
   ["8方向Excel","formatPhotoDirection8(item.direction)"],
   ["CAD選択時は左端へ戻して対象行を縦中央表示",'scrollPhotoListItemToCenter(hit.item,"smooth","start","center")'],
+  ["写真一覧ヘッダー固定",'#photoListTable thead th{position:sticky;top:0;'],
   ["位置移動後にX座標を表示",'drag.kind==="rotate"?"end":"x"'],
   ["Undo登録",'label:drag.kind==="rotate"?"写真方向調整":"写真位置調整"']
 ];
@@ -85,6 +86,13 @@ let browser;
     return {ok,scrollTop:scroll.scrollTop,centerDifference:Math.abs((rowRect.top+rowRect.bottom)/2-(scrollRect.top+scrollRect.bottom)/2),outlined:row.classList.contains('photoPositionSelectedRow')};
   })()`));
   if(!scrollCheck.ok||scrollCheck.scrollTop<=0||scrollCheck.centerDifference>25||!scrollCheck.outlined)throw new Error(`選択した写真行が一覧中央へ移動しません: ${JSON.stringify(scrollCheck)}`);
+  const stickyHeaderCheck=await page.evaluate(()=>window.eval(`(()=>{
+    const scroll=document.getElementById('photoListTableScroll'),header=document.querySelector('#photoListTable thead th');
+    scroll.scrollTop=180;
+    const scrollRect=scroll.getBoundingClientRect(),headerRect=header.getBoundingClientRect(),style=getComputedStyle(header);
+    return {position:style.position,scrollTop:scroll.scrollTop,topDifference:Math.abs(headerRect.top-scrollRect.top)};
+  })()`));
+  if(stickyHeaderCheck.position!=="sticky"||stickyHeaderCheck.scrollTop<=0||stickyHeaderCheck.topDifference>2)throw new Error(`写真一覧ヘッダーが固定されません: ${JSON.stringify(stickyHeaderCheck)}`);
   const selectionScroll=await page.evaluate(()=>window.eval(`(()=>{
     const item=selectedPhotoPositionItem,scroll=document.getElementById('photoListTableScroll');
     scroll.scrollTop=80;scroll.scrollLeft=Math.max(0,scroll.scrollWidth-scroll.clientWidth);

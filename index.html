@@ -434,12 +434,14 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .supportLinkBtn:active{transform:translateY(1px) scale(0.98);filter:brightness(0.95);}
 
 #measureModePanel{width:190px; max-width:min(190px, calc(100vw - 16px)); position:absolute; z-index:60;}
-#measureBox{box-sizing:border-box;width:min(280px,calc(100vw - 104px)); right:12px; top:calc(58px + var(--cad-toolbar-offset,0px)); position:absolute; z-index:60;}
-#measureTypeToggleBtn{display:block;width:100%;min-height:36px;margin:0 0 8px;padding:5px 8px;font-size:14px;font-weight:800;}
-#measurePickRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:0 0 8px;}
-#measureBackRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:8px;}
-#measureBackBtn{grid-column:5;}
+#measureBox{box-sizing:border-box;width:min(280px,calc(100vw - 104px)); right:12px; top:calc(58px + var(--cad-toolbar-offset,0px)); position:absolute; z-index:60;padding:8px;}
+#measureTypeToggleBtn{display:block;width:100%;min-height:32px;margin:0 0 6px;padding:4px 8px;font-size:13px;font-weight:800;}
+#measurePickRow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:0 0 6px;}
+#measureResultRow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;margin-top:2px;}
+#measureText{display:flex;align-items:center;min-width:0;min-height:32px;font-size:13px;line-height:1.25;font-weight:700;}
+#measureBackBtn{min-width:46px!important;}
 #measurePickRow button,#measureBackBtn,#drawPanel .toolRow button{min-width:0!important;min-height:38px!important;padding:5px 2px!important;font-size:13px!important;line-height:1.15;white-space:nowrap;color:#fff!important;background:#2a2a2a!important;border-color:#555!important;border-radius:8px!important;font-weight:700;}
+#measurePickRow button,#measureBackBtn{min-height:32px!important;padding:4px 2px!important;}
 #measureBackBtn{color:#48d878!important;}
 #measurePickRow button.pick-active,#drawPanel .toolRow button.inkToolActive{color:#fff!important;background:#1677ff!important;border-color:#1677ff!important;box-shadow:none!important;}
 #measureBackBtn:disabled{opacity:.34;cursor:default;}
@@ -665,6 +667,7 @@ body.light #photoListTableScroll::-webkit-scrollbar-track{background:rgba(0,0,0,
 body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
 #photoListTable{width:926px;min-width:926px;table-layout:fixed;border-collapse:collapse;font-size:12px;}
 #photoListTable th,#photoListTable td{padding:6px 5px;text-align:left;border-bottom:1px solid var(--border);vertical-align:middle;}
+#photoListTable thead th{position:sticky;top:0;z-index:3;background:var(--panel2);box-shadow:0 1px 0 var(--border);}
 #photoListRows tr.photoPositionSelectedRow{outline:2px solid #35c9ff;outline-offset:-2px;background:rgba(53,201,255,.10);}
 #photoListTable th:first-child,#photoListTable td:first-child{width:34px;text-align:center;}
 #photoListTable th:nth-child(2),#photoListTable td:nth-child(2){width:42px;text-align:center;}
@@ -1407,8 +1410,7 @@ gtag('config', 'G-88B9YPJXWP');
       <button id="pickLineBtn" type="button" title="線上">線上</button>
       <button id="pickFreeBtn" type="button" title="フリー">フリー</button>
     </div>
-    <div id="measureText" style="font-size:13px; line-height:1.6;">測定OFFです。</div>
-    <div id="measureBackRow"><button id="measureBackBtn" type="button" disabled title="直前に選択した点へ戻します">後退</button></div>
+    <div id="measureResultRow"><div id="measureText">測定OFFです。</div><button id="measureBackBtn" type="button" disabled title="直前に選択した点へ戻します">後退</button></div>
   </div>
 
   <div id="gpsBox" class="panel" style="display:none;left:12px;top:100px;bottom:auto;width:260px;max-height:calc(100% - 112px);overflow:auto;padding:10px;z-index:60;background:rgba(20,20,20,.8);backdrop-filter:blur(4px);">
@@ -9875,17 +9877,13 @@ function updateMeasureBox(){
     toggle.textContent=vertical?"⊥ 3点垂直":"↔ 2点間";
     toggle.title=vertical?"押すと2点間へ切り替えます":"押すと3点垂直へ切り替えます";
   }
-  function fmtX(p){ const q=measurePointToPlaneCoordinate(p); return q?q.xNorth.toFixed(3):""; }
-  function fmtY(p){ const q=measurePointToPlaneCoordinate(p); return q?q.yEast.toFixed(3):""; }
   if (measureType === "3vertical"){
     if(selectedMeasurePoints.length===0){
-      txt.textContent = "底辺の1点目を選んでください。";
+      txt.textContent = "底辺1点目を選択";
     }else if(selectedMeasurePoints.length===1){
-      const p=selectedMeasurePoints[0];
-      txt.innerHTML = `底辺1点目<br>X=${fmtX(p)}<br>Y=${fmtY(p)}<br><br>底辺の2点目を選んでください。`;
+      txt.textContent = "底辺2点目を選択";
     }else if(selectedMeasurePoints.length===2){
-      const a=selectedMeasurePoints[0], b=selectedMeasurePoints[1];
-      txt.innerHTML = `底辺2点<br>A X=${fmtX(a)} Y=${fmtY(a)}<br>B X=${fmtX(b)} Y=${fmtY(b)}<br><br>頂点を1点選んでください。`;
+      txt.textContent = "頂点を選択";
     }else{
       const a=selectedMeasurePoints[0], b=selectedMeasurePoints[1], p=selectedMeasurePoints[2];
       const ap=measurePointToPlaneCoordinate(a),bp=measurePointToPlaneCoordinate(b),pp=measurePointToPlaneCoordinate(p);
@@ -9894,18 +9892,17 @@ function updateMeasureBox(){
       const area2 = Math.abs(vx*wy - vy*wx);
       const base = Math.hypot(vx,vy);
       const dist = base ? area2/base : 0;
-      txt.innerHTML = `底辺A X=${fmtX(a)} Y=${fmtY(a)}<br>底辺B X=${fmtX(b)} Y=${fmtY(b)}<br>頂点 X=${fmtX(p)} Y=${fmtY(p)}<br><br><b>直角距離=${dist.toFixed(3)}</b>`;
+      txt.innerHTML = `<b>直角距離 ${dist.toFixed(3)} m</b>`;
     }
   } else {
     if(selectedMeasurePoints.length===0){
-      txt.textContent = "1点目を選んでください。";
+      txt.textContent = "1点目を選択";
     }else if(selectedMeasurePoints.length===1){
-      const p=selectedMeasurePoints[0];
-      txt.innerHTML = `1点目<br>X=${fmtX(p)}<br>Y=${fmtY(p)}<br><br>2点目を選んでください。`;
+      txt.textContent = "2点目を選択";
     }else{
       const a=selectedMeasurePoints[0], b=selectedMeasurePoints[1];
       const dist=measureDistanceMeters(a,b);
-      txt.innerHTML = `1点目 X=${fmtX(a)} Y=${fmtY(a)}<br>2点目 X=${fmtX(b)} Y=${fmtY(b)}<br><br><b>点間距離=${dist.toFixed(3)}</b>`;
+      txt.innerHTML = `<b>点間距離 ${dist.toFixed(3)} m</b>`;
     }
   }
 }
