@@ -2185,6 +2185,9 @@ let lastTapMeasurePoint = null;
 let touchTapCandidate = null;
 let touchPanCandidate = null;
 let touchPanMoved = false;
+let touchPanPreviewDx = 0;
+let touchPanPreviewDy = 0;
+let touchPanPreviewActive = false;
 let lastOneFingerTap = null;
 let oneFingerZoomGesture = null;
 let suppressClickUntil = 0;
@@ -6378,6 +6381,28 @@ function scheduleDraw(){
   needsDraw = true;
   requestAnimationFrame(()=>{ needsDraw = false; draw(); });
 }
+const TOUCH_PAN_ACTIVATION_PX=16;
+function setTouchPanPreview(dx,dy){
+  touchPanPreviewDx=Number.isFinite(dx)?dx:0;
+  touchPanPreviewDy=Number.isFinite(dy)?dy:0;
+  touchPanPreviewActive=true;
+  // Large SFC drawings are expensive to rebuild for every touchmove event.
+  // Move the already-rendered bitmap while the finger is down, then render
+  // the authoritative view once when the gesture ends.
+  canvas.style.transformOrigin="0 0";
+  canvas.style.transform=`translate3d(${touchPanPreviewDx}px,${touchPanPreviewDy}px,0)`;
+}
+function finishTouchPanPreview(commit=true){
+  if(touchPanPreviewActive&&commit){
+    view.tx+=touchPanPreviewDx;
+    view.ty+=touchPanPreviewDy;
+  }
+  touchPanPreviewDx=0;
+  touchPanPreviewDy=0;
+  touchPanPreviewActive=false;
+  canvas.style.transform="";
+  canvas.style.transformOrigin="";
+}
 function bgColor(){ return darkTheme ? "#000" : "#fff"; }
 function mutedColor(){ return darkTheme ? "#888" : "#666"; }
 
@@ -8907,28 +8932,31 @@ function clearNativeCadSelection(){
 }
 function startTextLongPress(clientX,clientY,pointerType){
   if(measureMode||profileMode||terrainCadSelectionMode||inkEnabled)return false;
+  if(!canStartCoordinateInspectLongPress())return false;
   const local=getCanvasLocalPointFromClient(clientX,clientY);
-  const text=findEditableTextAtScreen(local.x,local.y);
-  if(!text&&!canStartCoordinateInspectLongPress())return false;
   clearNativeCadSelection();
   clearTextLongPressTimer();
   textLongPressTriggered=false;
-  textLongPressStart={clientX,clientY,pointerType,text,screenX:local.x,screenY:local.y};
+  // Do not scan every SFC text feature on touchstart. Large drawings can
+  // contain thousands of texts and the synchronous hit test delayed both
+  // long-press recognition and the beginning of a pan gesture.
+  textLongPressStart={clientX,clientY,pointerType,screenX:local.x,screenY:local.y};
   textLongPressTimer=setTimeout(()=>{
     const pending=textLongPressStart;if(!pending)return;
+    const text=findEditableTextAtScreen(pending.screenX,pending.screenY);
     textLongPressTimer=null;textLongPressTriggered=true;
     clearNativeCadSelection();
     dragging=false;touchPanCandidate=null;touchPanMoved=false;
     suppressClickUntil=0;
     if(navigator.vibrate)navigator.vibrate(18);
-    if(pending.text)openTextLayerModal(pending.text);
+    if(text)openTextLayerModal(text);
     else openCoordinateInspectModal(pending.screenX,pending.screenY);
-  },620);
+  },540);
   return true;
 }
 function cancelTextLongPressIfMoved(clientX,clientY){
   if(!textLongPressStart)return;
-  if(Math.hypot(clientX-textLongPressStart.clientX,clientY-textLongPressStart.clientY)>10)clearTextLongPressTimer();
+  if(Math.hypot(clientX-textLongPressStart.clientX,clientY-textLongPressStart.clientY)>TOUCH_PAN_ACTIVATION_PX)clearTextLongPressTimer();
 }
 function closeLayerDeleteConfirm(){
   const modal=document.getElementById("layerDeleteConfirmModal");if(modal)modal.style.display="none";
@@ -17491,6 +17519,9 @@ canvas.addEventListener("click", e=>{
 canvas.addEventListener("touchstart", e=>{
   const now = Date.now();
   if(e.touches.length===2){
+    // If the second finger is added after a one-finger pan, preserve the
+    // movement before switching to the two-finger transform.
+    finishTouchPanPreview(true);
     clearTextLongPressTimer();
     terrainCadTouchCandidate=null;
     if(profileLineDrag&&profileLineDrag.pointerType==="touch") finishProfileLineDrag();
@@ -17511,6 +17542,7 @@ canvas.addEventListener("touchstart", e=>{
     return;
   }
   if(e.touches.length!==1) return;
+  finishTouchPanPreview(false);
   const ptLocal = getCanvasLocalPointFromClient(e.touches[0].clientX, e.touches[0].clientY);
   const x=ptLocal.x, y=ptLocal.y;
 
@@ -17690,16 +17722,19 @@ canvas.addEventListener("touchmove", e=>{
 
   if(!measureMode){
     if(touchPanCandidate){
-      const dx = e.touches[0].clientX - lastX;
-      const dy = e.touches[0].clientY - lastY;
       const total = Math.hypot(e.touches[0].clientX - touchPanCandidate.clientX, e.touches[0].clientY - touchPanCandidate.clientY);
-      if(total > 5){touchPanMoved = true;suspendGpsFollowFromUserGesture();}
-      view.tx += dx;
-      view.ty += dy;
-      lastX = e.touches[0].clientX;
-      lastY = e.touches[0].clientY;
+      if(!touchPanMoved&&total>TOUCH_PAN_ACTIVATION_PX){
+        touchPanMoved=true;
+        clearTextLongPressTimer();
+        suspendGpsFollowFromUserGesture();
+      }
+      if(touchPanMoved){
+        setTouchPanPreview(
+          e.touches[0].clientX-touchPanCandidate.clientX,
+          e.touches[0].clientY-touchPanCandidate.clientY
+        );
+      }
       e.preventDefault();
-      scheduleDraw();
     }
     return;
   }
@@ -17717,6 +17752,7 @@ canvas.addEventListener("touchmove", e=>{
 canvas.addEventListener("touchend", e=>{
   clearTextLongPressTimer();
   if(textLongPressTriggered&&e.touches.length===0){
+    finishTouchPanPreview(false);
     textLongPressTriggered=false;touchPanCandidate=null;touchPanMoved=false;suppressClickUntil=0;return;
   }
   if(terrainCadSelectionMode&&terrainCadTouchCandidate&&e.touches.length===0){
@@ -17782,6 +17818,7 @@ canvas.addEventListener("touchend", e=>{
   if(touchPanCandidate){
     const changed=e.changedTouches&&e.changedTouches[0]?e.changedTouches[0]:null;
     if(!touchPanMoved&&changed){
+      finishTouchPanPreview(false);
       const local=getCanvasLocalPointFromClient(changed.clientX,changed.clientY);
       const controlPoint=findControlPointAtScreen(local.x,local.y);
       if(controlPoint){
@@ -17793,6 +17830,7 @@ canvas.addEventListener("touchend", e=>{
       }
       lastOneFingerTap={time:Date.now(),clientX:changed.clientX,clientY:changed.clientY};
     }else{
+      finishTouchPanPreview(true);
       lastOneFingerTap=null;
     }
     touchPanCandidate = null;
@@ -17821,6 +17859,7 @@ canvas.addEventListener("touchend", e=>{
   touchTapCandidate=null;
 }, {passive:true});
 canvas.addEventListener("touchcancel", ()=>{
+  finishTouchPanPreview(true);
   clearTextLongPressTimer();
   textLongPressTriggered=false;
   twoFingerStartTouches = null;
