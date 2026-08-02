@@ -18,10 +18,17 @@ const server=http.createServer((req,res)=>{
 
 let browser;
 (async()=>{
-  const zip=await JSZip.loadAsync(fs.readFileSync(samplePath));
-  const entry=Object.values(zip.files).find(item=>!/\/$/.test(item.name)&&/\.sfc$/i.test(item.name));
-  if(!entry)throw new Error("SFZ内にSFCがありません");
-  const sfc=(await entry.async("nodebuffer")).toString("latin1");
+  let sfc,entryName;
+  if(/\.sfc$/i.test(samplePath)){
+    sfc=fs.readFileSync(samplePath).toString("latin1");
+    entryName=path.basename(samplePath);
+  }else{
+    const zip=await JSZip.loadAsync(fs.readFileSync(samplePath));
+    const entry=Object.values(zip.files).find(item=>!/\/$/.test(item.name)&&/\.sfc$/i.test(item.name));
+    if(!entry)throw new Error("SFZ内にSFCがありません");
+    sfc=(await entry.async("nodebuffer")).toString("latin1");
+    entryName=path.basename(entry.name);
+  }
   await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
   browser=await chromium.launch({headless:true,executablePath:"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"});
   const page=await browser.newPage({viewport:{width:1200,height:820}});
@@ -61,10 +68,11 @@ let browser;
     const externalHatches=records.filter(record=>record.name==="externally_defined_hatch_feature");
     const fills=records.filter(record=>record.name==="fill_area_style_colour_feature"&&Number(unquoteSxfValue(record.args[0]))===maskCode);
     const generatedPrelude=parseSxfFeatureRecords(getFlatSxfText(ann.preludeText));
+    const generatedRecords=parseSxfFeatureRecords(getFlatSxfText(ann.preludeText+'\n'+ann.lineText+'\n'+ann.rootPlacementText));
     const boundaries=generatedPrelude.filter(record=>record.name==="polyline_feature"&&record.args.slice(0,4).every(value=>Number(unquoteSxfValue(value))===0));
-    const backgroundFigures=records.filter(record=>record.name==="sfig_org_feature"&&/^\$\$ATRU\$\$\d+\$\$/.test(String(unquoteSxfValue(record.args[0])||"")));
+    const backgroundFigures=generatedRecords.filter(record=>record.name==="sfig_org_feature"&&/^\$\$ATRU\$\$\d+\$\$/.test(String(unquoteSxfValue(record.args[0])||"")));
     const backgroundNames=new Set(backgroundFigures.map(record=>String(unquoteSxfValue(record.args[0])||"")));
-    const backgroundPlacements=records.filter(record=>record.name==="sfig_locate_feature"&&backgroundNames.has(String(unquoteSxfValue(record.args[1])||"")));
+    const backgroundPlacements=generatedRecords.filter(record=>record.name==="sfig_locate_feature"&&backgroundNames.has(String(unquoteSxfValue(record.args[1])||"")));
     const userColours=parseUserDefinedColourFeatureDefsFlat(flat);
     let code=0;const compositeCodes=[];
     for(const record of records){if(SXF_ASSEMBLY_ORIGIN_NAMES.has(record.name)){code+=1;if(record.name==="composite_curve_org_feature")compositeCodes.push(code);}}
@@ -87,7 +95,7 @@ let browser;
       maskCode,
       originalExternalHatchCount:originalExternalHatches.length,
       externalHatchCount:externalHatches.length,
-      generatedExternalMaskCount:externalHatches.filter(record=>Number(unquoteSxfValue(record.args[0]))===maskCode).length,
+      generatedExternalMaskCount:generatedRecords.filter(record=>record.name==="externally_defined_hatch_feature").length,
       fillCount:fills.length,
       boundaryCount:boundaries.length,
       backgroundFigureCount:backgroundFigures.length,
@@ -101,11 +109,11 @@ let browser;
       lastCompositeCodes:compositeCodes.slice(-5),
       validation:validateGeneratedMemoSfc(saved.text,ann.expectedFeatureCount||0)
     };
-  },{sfc,name:path.basename(entry.name)});
+  },{sfc,name:entryName});
   if(!result.ok)throw new Error(result.reason||"書出しに失敗しました");
   if(result.photoCount<1)throw new Error("添付SFZから写真位置を復元できません");
-  if(result.maskCode<1||result.fillCount!==result.photoCount||result.boundaryCount!==result.photoCount||result.generatedExternalMaskCount!==1||result.externalHatchCount!==result.originalExternalHatchCount+1||result.backgroundFigureCount<1||result.backgroundPlacementCount<1||result.explicitBlackCount<1)throw new Error(`背面マスクの書出し件数が不正です: ${JSON.stringify(result)}`);
-  if(result.roundtripMaskFillCount!==result.photoCount||result.roundtripMaskAreaControlCount!==1||!result.roundtripValidation?.ok)throw new Error(`再保存後の背面マスク構造が不正です: ${JSON.stringify(result)}`);
+  if(result.maskCode<1||result.fillCount!==result.photoCount||result.boundaryCount!==result.photoCount||result.generatedExternalMaskCount!==0||result.externalHatchCount!==result.originalExternalHatchCount||result.backgroundFigureCount!==0||result.backgroundPlacementCount!==0||result.explicitBlackCount<1)throw new Error(`背面マスクの書出し件数が不正です: ${JSON.stringify(result)}`);
+  if(result.roundtripMaskFillCount!==result.photoCount||result.roundtripMaskAreaControlCount!==0||!result.roundtripValidation?.ok)throw new Error(`再保存後の背面マスク構造が不正です: ${JSON.stringify(result)}`);
   if(!result.validation?.ok)throw new Error(`SXF検証に失敗しました: ${JSON.stringify(result)}`);
   console.log(JSON.stringify(result));
   await browser.close();server.close();

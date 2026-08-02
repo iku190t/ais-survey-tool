@@ -23,7 +23,7 @@ const required=[
   ["背面マスク初期ON","backMaskEnabled:true"],
   ["丸内だけを背景色でマスク","ctx.fillStyle=bgColor()"],
   ["背面マスクのSFCレイヤー","name:PHOTO_BACK_MASK_LAYER_NAME"],
-  ["背面マスクのSFC領域制御","externally_defined_hatch_feature"],
+  ["背面マスクのSFC標準単色塗り","fill_area_style_colour_feature"],
   ["Ez Viewerのリンク下線","text-decoration:underline"],
   ["位置移動後にX座標を表示",'drag.kind==="rotate"?"end":"x"'],
   ["Undo登録",'label:drag.kind==="rotate"?"写真方向調整":"写真位置調整"']
@@ -92,7 +92,7 @@ let browser;
     const lightBg=bgColor();
     const lightStrokeColor=buildPhotoAnnotationExportStrokes().find(stroke=>stroke.isPhotoBackMask)?.color||'';
     const lightAnn=buildInkPolylineFeatureText('test');
-    const lightRecords=parseSxfFeatureRecords(getFlatSxfText(lightAnn.colorText+'\\n'+lightAnn.preludeText));
+    const lightRecords=parseSxfFeatureRecords(getFlatSxfText(lightAnn.colorText+'\\n'+lightAnn.preludeText+'\\n'+lightAnn.lineText));
     const lightRgb=lightRecords.find(record=>record.name==='user_defined_colour_feature');
     const lightFill=lightRecords.find(record=>record.name==='fill_area_style_colour_feature');
     darkTheme=originalTheme;
@@ -141,17 +141,17 @@ let browser;
       lightMask:{bg:lightBg,stroke:lightStrokeColor,rgb:lightRgb?.args.map(unquoteSxfValue)||[],fillColor:unquoteSxfValue(lightFill?.args[1]||''),name:lightAnn.backgroundMaskName},
       boundaryHasCompositeStyle:boundary?boundary.args.slice(0,4).every(value=>Number(unquoteSxfValue(value))===0):false,
       closedBoundary:boundary?unquoteSxfValue(boundary.args[4])===String(String(unquoteSxfValue(boundary.args[5])).split(',').filter(Boolean).length):false,
-      order:ann.preludeText.indexOf('fill_area_style_colour_feature')>ann.preludeText.indexOf('composite_curve_org_feature')&&ann.lineText.indexOf('circle_feature')>=0,
+      order:ann.preludeText.indexOf('composite_curve_org_feature')>=0&&ann.lineText.indexOf('fill_area_style_colour_feature')>=0&&ann.lineText.indexOf('fill_area_style_colour_feature')<ann.lineText.indexOf('circle_feature'),
       splitPrelude:ann.preludeText.includes('composite_curve_org_feature')&&!ann.lineText.includes('composite_curve_org_feature'),
       assemblyOrder,
       meta:parseMemoMetaPayload(buildMemoMetaComment())
     };
   })()`));
   if(maskExport.maskIndex<0||maskExport.circleIndex<0||maskExport.maskIndex>=maskExport.circleIndex)throw new Error(`背面マスクが写真番号より先に作成されません: ${JSON.stringify(maskExport)}`);
-  if(!maskExport.decodedLayerText.includes("写真方向番号背面マスク")||maskExport.fillArgs.length!==5||maskExport.fillArgs[1]!=="17"||maskExport.compositeCount!==2||!maskExport.hasAreaControl||!maskExport.hasBackgroundFigure||!maskExport.hasRootPlacement||!maskExport.boundaryHasCompositeStyle||!maskExport.closedBoundary||!maskExport.order||!maskExport.splitPrelude)throw new Error(`SFC背面マスクの書出しが不正です: ${JSON.stringify(maskExport)}`);
-  if(maskExport.lightMask.rgb.join(',')!=="255,255,255"||maskExport.lightMask.fillColor!=="17"||!maskExport.lightMask.name.endsWith("$$255_255_255"))throw new Error(`白背景の背面マスク色が不正です: ${JSON.stringify(maskExport.lightMask)}`);
+  if(!maskExport.decodedLayerText.includes("写真方向番号背面マスク")||maskExport.fillArgs.length!==5||maskExport.fillArgs[1]!=="17"||maskExport.compositeCount!==1||maskExport.hasAreaControl||maskExport.hasBackgroundFigure||maskExport.hasRootPlacement||!maskExport.boundaryHasCompositeStyle||!maskExport.closedBoundary||!maskExport.order||!maskExport.splitPrelude)throw new Error(`SFC背面マスクの書出しが不正です: ${JSON.stringify(maskExport)}`);
+  if(maskExport.lightMask.rgb.join(',')!=="255,255,255"||maskExport.lightMask.fillColor!=="17"||maskExport.lightMask.name!=="")throw new Error(`白背景の背面マスク色が不正です: ${JSON.stringify(maskExport.lightMask)}`);
   const assemblyOrder=maskExport.assemblyOrder;
-  if(assemblyOrder.outId!==4||assemblyOrder.retainedSourceOuter!==3||assemblyOrder.shiftedSourceOuter!==8||!(assemblyOrder.previous<assemblyOrder.existing&&assemblyOrder.existing<assemblyOrder.boundary&&assemblyOrder.boundary<assemblyOrder.fill&&assemblyOrder.fill<assemblyOrder.main))throw new Error(`SXFアセンブリ順と背面マスクの挿入位置が不正です: ${JSON.stringify(assemblyOrder)}`);
+  if(assemblyOrder.outId!==4||assemblyOrder.retainedSourceOuter!==3||assemblyOrder.shiftedSourceOuter!==6||!(assemblyOrder.previous<assemblyOrder.existing&&assemblyOrder.existing<assemblyOrder.boundary&&assemblyOrder.boundary<assemblyOrder.fill&&assemblyOrder.fill<assemblyOrder.main))throw new Error(`SXFアセンブリ順と背面マスクの挿入位置が不正です: ${JSON.stringify(assemblyOrder)}`);
   if(maskExport.meta?.photoBackMaskEnabled!==true)throw new Error("背面マスク設定がSFCに保存されません");
   const rect=await page.locator("#canvas").boundingBox();
   await page.mouse.move(rect.x+initial.center[0],rect.y+initial.center[1]);

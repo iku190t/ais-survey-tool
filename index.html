@@ -12602,18 +12602,13 @@ function buildMemoColorDefinitionText(baseText, startId, strokes){
   let maskColorCode="";
   let newMaskRgb=null;
   if(maskRgb){
-    // V-NAS uses an explicit RGB colour for a background mask. Predefined
-    // black/white is display-contrast aware in some CADs and can be inverted.
+    // Use an explicit RGB colour for a background mask. Predefined black/white
+    // can be display-contrast aware in some CADs and may be inverted.
     const existing=userDefs.find(def=>def.r===maskRgb[0]&&def.g===maskRgb[1]&&def.b===maskRgb[2]);
     if(existing)maskColorCode=String(existing.code);
     else{
       maskColorCode=String(17+userDefs.length);
       newMaskRgb=maskRgb;
-    }
-    // Area_control in V-NAS uses the predefined white style (code 8).
-    if(!defs.some(def=>def.name==="white")){
-      defs.push({featureId:null,name:"white"});
-      needed.push({key:null,code:"8",name:"white"});
     }
   }
   if (!needed.length&&!newMaskRgb) return { colorText:'', nextId:startId, codes, maskColorCode, maskRgb };
@@ -14529,7 +14524,6 @@ function buildInkPolylineFeatureText(baseText){
   id=widthBuild.nextId;
 
   const preludeParts=[];
-  const preludeFillParts=[];
   const maskFillSpecs=[];
   const lineParts = [];
   const allExportPoints=[];
@@ -14557,7 +14551,26 @@ SXF*/`);
     id+=1;
   };
 
-  for (const s of normalized) {
+  // Keep every mask before its visible circle, number and arrow. This also
+  // lets feature IDs remain monotonic in the emitted SXF stream.
+  const orderedNormalized=[
+    ...normalized.filter(s=>s.isPhotoBackMask),
+    ...normalized.filter(s=>!s.isPhotoBackMask)
+  ];
+  let maskFillsEmitted=false;
+  const emitStandardMaskFills=()=>{
+    if(maskFillsEmitted)return;
+    for(const fill of maskFillSpecs){
+      lineParts.push(`/*SXF
+#${id} = fill_area_style_colour_feature('${fill.layerCode}','${fill.colorCode}','${fill.outerCode}','0','()')
+SXF*/`);
+      id+=1;
+    }
+    maskFillsEmitted=true;
+  };
+
+  for (const s of orderedNormalized) {
+    if(!s.isPhotoBackMask)emitStandardMaskFills();
     const exportPts = Array.isArray(s.points)
       ? s.points.map(p => ({ x:+p.x||0, y:+p.y||0 })).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
       : [];
@@ -14598,8 +14611,8 @@ SXF*/`);
 #${id} = composite_curve_org_feature('${colorCode}','${typeCode}','${widthCode}','0')
 SXF*/`);
         id+=1;
-        // The visible fill is emitted after the Area_control partial figure,
-        // matching the ordering written by V-NAS and accepted by TREND-ONE.
+        // The SXF fill boundary is this closed composite curve. Do not add the
+        // vendor-specific Area_control or attribute partial-figure convention.
         maskFillSpecs.push({layerCode,colorCode,outerCode:nextCompositeCurveCode,widthCode});
         nextCompositeCurveCode+=1;
       }
@@ -14648,46 +14661,11 @@ SXF*/`);
       appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
     }
   }
-  let rootPlacementText="";
-  let backgroundMaskName="";
-  if(maskFillSpecs.length){
-    const control=maskFillSpecs[0];
-    const controlOuterCode=nextCompositeCurveCode;
-    // This small curve is not the visible mask. It is the Area_control shape
-    // used by the standard background-colour compound figure.
-    preludeParts.push(`/*SXF
-#${id} = polyline_feature('${control.layerCode}','8','${MEMO_FILE_TYPE_CODE}','${control.widthCode}','5','(10.000000,30.000000,30.000000,10.000000,10.000000)','(-30.000000,-30.000000,-10.000000,-10.000000,-30.000000)')
-SXF*/`);
-    id+=1;
-    preludeParts.push(`/*SXF
-#${id} = composite_curve_org_feature('8','${MEMO_FILE_TYPE_CODE}','${control.widthCode}','0')
-SXF*/`);
-    id+=1;
-    preludeParts.push(`/*SXF
-#${id} = externally_defined_hatch_feature('${control.layerCode}',\'Area_control\','${controlOuterCode}','0','()')
-SXF*/`);
-    id+=1;
-    const rgb=colorBuild.maskRgb||[0,0,0];
-    backgroundMaskName=`$$ATRU$$${getNextSxfAttributeSerial(baseText)}$$${encodeSfcText("背景色")}$$${encodeSfcText("色")}$$${rgb[0]}_${rgb[1]}_${rgb[2]}`;
-    preludeParts.push(`/*SXF
-#${id} = sfig_org_feature(\'${backgroundMaskName}\','3')
-SXF*/`);
-    id+=1;
-    for(const fill of maskFillSpecs){
-      preludeFillParts.push(`/*SXF
-#${id} = fill_area_style_colour_feature('${fill.layerCode}','${fill.colorCode}','${fill.outerCode}','0','()')
-SXF*/`);
-      id+=1;
-    }
-    rootPlacementText=`/*SXF
-#${id} = sfig_locate_feature('0',\'${backgroundMaskName}\','0.000000','0.000000','0.00000000000000','1.00000000000000','1.00000000000000')
-SXF*/`;
-    id+=1;
-  }
+  emitStandardMaskFills();
   return {
     colorText,layerText,widthText,fontText,
-    preludeText:[...preludeParts,...preludeFillParts].join("\r\n"),
-    rootPlacementText,backgroundMaskName,
+    preludeText:preludeParts.join("\r\n"),
+    rootPlacementText:"",backgroundMaskName:"",
     lineText:lineParts.join("\r\n"),expectedFeatureCount:normalized.length,exportPoints:allExportPoints
   };
 }
@@ -14701,6 +14679,7 @@ function getSfcRenderSourceText(srcText){
   const text=String(srcText||"");
   const payload=parseMemoMetaPayload(text);
   if(!payload)return text;
+  const hasPhotoMetadata=(payload.photoAnnotations||[]).length>0;
   // Remove only generated layers which the editable metadata can actually
   // restore. Older files can contain valid SFC contour features while their
   // metadata is empty or partial; those features must remain visible.
@@ -14709,7 +14688,7 @@ function getSfcRenderSourceText(srcText){
     const spec=getMemoLayerSpecForStroke(stroke);
     if(spec){coveredNames.add(String(spec.name||""));coveredNames.add(String(spec.rawName||""));}
   }
-  if((payload.photoAnnotations||[]).length){
+  if(hasPhotoMetadata){
     for(const id of [PHOTO_POSITION_LAYER_ID,PHOTO_LIST_LAYER_ID,PHOTO_BACK_MASK_LAYER_ID]){
       const spec=getMemoLayerSpecById(id);
       if(spec){coveredNames.add(String(spec.name||""));coveredNames.add(String(spec.rawName||""));}
@@ -14729,6 +14708,10 @@ function getSfcRenderSourceText(srcText){
       return /^\$\$ATRU\$\$\d+\$\$/.test(name)&&/\$\$(?:0_0_0|255_255_255)$/.test(name);
     });
     if(generatedBackgroundPlacement)return "";
+    const standardMaskPrelude=hasPhotoMetadata&&
+      blockRecords.some(record=>record.name==="composite_curve_org_feature")&&
+      blockRecords.some(record=>record.name==="polyline_feature"&&record.args.slice(0,4).every(value=>Number(unquoteSxfValue(value))===0));
+    if(standardMaskPrelude)return "";
     const coveredCompositePrelude=blockRecords.some(record=>record.name==="composite_curve_org_feature")&&blockRecords.some(record=>{
       if(record.name!=="polyline_feature")return false;
       return coveredCodes.has(Number(unquoteSxfValue(record.args[0])));
@@ -15011,7 +14994,7 @@ function insertMemoGeneralFeatures(baseText, lineText, points, preludeText=""){
   if(addedAssemblyCount>0){
     // Assembly codes are positional in SXF. Inserting a composite curve before
     // existing ones shifts every later hatch reference. Remap the source first
-    // so its fills and Area_control metadata keep pointing at their boundaries.
+    // so every existing fill keeps pointing at its original boundary.
     const firstShiftCode=countSxfAssembliesBefore(text,preludeAt)+1;
     text=shiftExistingSxfHatchCurveReferences(text,firstShiftCode,addedAssemblyCount);
     placement=findMemoGeometryInsertion(text,points);
@@ -15117,8 +15100,8 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
     const type=Number(unquoteSxfValue(rec.args[2]));
     const width=Number(unquoteSxfValue(rec.args[3]));
     if(compositeChildFeatureIds.has(rec.id)){
-      // V-NAS writes the Area_control member with a valid explicit style.
-      // Other composite members remain style-less as before.
+      // Composite-curve children inherit drawing attributes from their
+      // composite_curve_org_feature and therefore use zero references.
       if(layer===0&&color===0&&type===0&&width===0)continue;
     }
     if(!Number.isInteger(layer)||layer<1||layer>layerCount){
@@ -15205,13 +15188,12 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   }
   const generatedSolidMasks=records.filter(record=>record.name==="fill_area_style_colour_feature");
   if(generatedSolidMasks.length){
-    const areaControls=records.filter(record=>record.name==="externally_defined_hatch_feature"&&String(unquoteSxfValue(record.args[1])||"")==="Area_control");
-    const backgroundFigures=records.filter(record=>record.name==="sfig_org_feature"&&/^\$\$ATRU\$\$\d+\$\$/.test(String(unquoteSxfValue(record.args[0])||"")));
-    if(areaControls.length!==1)return {ok:false,reason:"背面マスクのArea_control定義が正しくありません。"};
-    if(backgroundFigures.length!==1)return {ok:false,reason:"背面マスクの背景色複合図形が正しくありません。"};
-    const backgroundName=String(unquoteSxfValue(backgroundFigures[0].args[0])||"");
-    const placements=allRecords.filter(record=>record.name==="sfig_locate_feature"&&String(unquoteSxfValue(record.args[1])||"")===backgroundName);
-    if(placements.length!==1)return {ok:false,reason:"背面マスクの背景色複合図形配置が正しくありません。"};
+    const vendorMaskRecords=records.filter(record=>
+      (record.name==="externally_defined_hatch_feature"&&String(unquoteSxfValue(record.args[1])||"")==="Area_control")||
+      (record.name==="sfig_org_feature"&&/^\$\$ATRU\$\$\d+\$\$/.test(String(unquoteSxfValue(record.args[0])||"")))||
+      (record.name==="sfig_locate_feature"&&/^\$\$ATRU\$\$\d+\$\$/.test(String(unquoteSxfValue(record.args[1])||"")))
+    );
+    if(vendorMaskRecords.length)return {ok:false,reason:"背面マスクにSXF標準外の外部ハッチまたは属性部分図が含まれています。"};
   }
   return {ok:true};
 }
