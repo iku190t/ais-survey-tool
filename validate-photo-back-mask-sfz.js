@@ -57,11 +57,11 @@ let browser;
     const records=parseSxfFeatureRecords(flat);
     const defs=parseLayerFeatureDefsFlat(flat);
     const maskCode=defs.findIndex(def=>def.name===PHOTO_BACK_MASK_LAYER_NAME||def.rawName===getMemoLayerSpecById(PHOTO_BACK_MASK_LAYER_ID).rawName)+1;
+    const originalExternalHatches=originalRecords.filter(record=>record.name==="externally_defined_hatch_feature");
     const externalHatches=records.filter(record=>record.name==="externally_defined_hatch_feature");
-    const fills=externalHatches.filter(record=>Number(unquoteSxfValue(record.args[0]))===maskCode);
-    const boundaries=records.filter(record=>record.name==="polyline_feature"&&Number(unquoteSxfValue(record.args[0]))===maskCode);
-    const sanitizedRecords=parseSxfFeatureRecords(getFlatSxfTextIncludingGenerated(sanitizeInvalidSxfExternalHatches(saved.text)));
-    const sanitizedFills=sanitizedRecords.filter(record=>record.name==="externally_defined_hatch_feature"&&Number(unquoteSxfValue(record.args[0]))===maskCode);
+    const fills=records.filter(record=>record.name==="fill_area_style_colour_feature"&&Number(unquoteSxfValue(record.args[0]))===maskCode);
+    const generatedPrelude=parseSxfFeatureRecords(getFlatSxfText(ann.preludeText));
+    const boundaries=generatedPrelude.filter(record=>record.name==="polyline_feature"&&record.args.slice(0,4).every(value=>Number(unquoteSxfValue(value))===0));
     let code=0;const compositeCodes=[];
     for(const record of records){if(SXF_ASSEMBLY_ORIGIN_NAMES.has(record.name)){code+=1;if(record.name==="composite_curve_org_feature")compositeCodes.push(code);}}
     return {
@@ -71,20 +71,20 @@ let browser;
       originalMaskCode,
       originalMaskFillCount:originalRecords.filter(record=>(record.name==="fill_area_style_colour_feature"||record.name==="externally_defined_hatch_feature")&&Number(unquoteSxfValue(record.args[0]))===originalMaskCode).length,
       maskCode,
+      originalExternalHatchCount:originalExternalHatches.length,
       externalHatchCount:externalHatches.length,
-      sanitizedExternalHatchCount:sanitizedRecords.filter(record=>record.name==="externally_defined_hatch_feature").length,
+      generatedExternalMaskCount:externalHatches.filter(record=>Number(unquoteSxfValue(record.args[0]))===maskCode).length,
       fillCount:fills.length,
-      sanitizedFillCount:sanitizedFills.length,
       boundaryCount:boundaries.length,
-      generatedFillArgs:records.filter(record=>record.name==="externally_defined_hatch_feature").slice(-3).map(record=>record.args.map(unquoteSxfValue)),
-      generatedPrelude:parseSxfFeatureRecords(getFlatSxfText(ann.preludeText)).map(record=>({name:record.name,args:record.args.map(unquoteSxfValue)})),
+      generatedFillArgs:fills.map(record=>record.args.map(unquoteSxfValue)),
+      generatedPrelude:generatedPrelude.map(record=>({name:record.name,args:record.args.map(unquoteSxfValue)})),
       lastCompositeCodes:compositeCodes.slice(-5),
       validation:validateGeneratedMemoSfc(saved.text,ann.expectedFeatureCount||0)
     };
   },{sfc,name:path.basename(entry.name)});
   if(!result.ok)throw new Error(result.reason||"書出しに失敗しました");
   if(result.photoCount<1)throw new Error("添付SFZから写真位置を復元できません");
-  if(result.maskCode<1||result.fillCount!==result.photoCount||result.sanitizedFillCount!==result.photoCount||result.sanitizedExternalHatchCount!==result.externalHatchCount||result.boundaryCount!==result.photoCount||result.generatedFillArgs.some(args=>args[1]!=="Area_control"))throw new Error(`背面マスクの書出し件数が不正です: ${JSON.stringify(result)}`);
+  if(result.maskCode<1||result.fillCount!==result.photoCount||result.boundaryCount!==result.photoCount||result.generatedExternalMaskCount!==0||result.externalHatchCount!==result.originalExternalHatchCount)throw new Error(`背面マスクの書出し件数が不正です: ${JSON.stringify(result)}`);
   if(!result.validation?.ok)throw new Error(`SXF検証に失敗しました: ${JSON.stringify(result)}`);
   console.log(JSON.stringify(result));
   await browser.close();server.close();

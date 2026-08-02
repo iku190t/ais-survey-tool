@@ -14472,7 +14472,7 @@ function buildInkPolylineFeatureText(baseText){
   id=widthBuild.nextId;
 
   const preludeParts=[];
-  const preludeHatchParts=[];
+  const preludeFillParts=[];
   const lineParts = [];
   const allExportPoints=[];
   const generatedGeometryPoints=[];
@@ -14528,20 +14528,20 @@ SXF*/`);
         if(Math.hypot(first.x-last.x,first.y-last.y)>=1e-7)compact.push({x:first.x,y:first.y});
         const xs=compact.map(p=>(+p.x).toFixed(6)).join(',');
         const ys=compact.map(p=>(+p.y).toFixed(6)).join(',');
+        // SXF composite-curve children have no independent drawing style.
+        // The following composite_curve_org_feature supplies those attributes.
         preludeParts.push(`/*SXF
-#${id} = polyline_feature('${layerCode}','${colorCode}','${typeCode}','${widthCode}','${compact.length}','(${xs})','(${ys})')
+#${id} = polyline_feature('0','0','0','0','${compact.length}','(${xs})','(${ys})')
 SXF*/`);
         id+=1;
         preludeParts.push(`/*SXF
 #${id} = composite_curve_org_feature('${colorCode}','${typeCode}','${widthCode}','0')
 SXF*/`);
         id+=1;
-        // TREND-ONE writes background masks as an Area_control external hatch.
-        // The referenced value is the composite-curve assembly code, not the
-        // boundary feature ID.  Keeping the same representation avoids the
-        // stricter TREND-ONE reader rejecting a solid-fill boundary.
-        preludeHatchParts.push(`/*SXF
-#${id} = externally_defined_hatch_feature('${layerCode}',\\'Area_control\\','${nextCompositeCurveCode}','0','()')
+        // The visible mask is an SXF solid fill. Area_control is background
+        // metadata used by some CADs and is not a substitute for this fill.
+        preludeFillParts.push(`/*SXF
+#${id} = fill_area_style_colour_feature('${layerCode}','${colorCode}','${nextCompositeCurveCode}','0','()')
 SXF*/`);
         id+=1;
         nextCompositeCurveCode+=1;
@@ -14591,7 +14591,7 @@ SXF*/`);
       appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
     }
   }
-  return { colorText, layerText, widthText, fontText, preludeText:[...preludeParts,...preludeHatchParts].join("\r\n"), lineText: lineParts.join("\r\n"), expectedFeatureCount:normalized.length, exportPoints:allExportPoints };
+  return { colorText, layerText, widthText, fontText, preludeText:[...preludeParts,...preludeFillParts].join("\r\n"), lineText: lineParts.join("\r\n"), expectedFeatureCount:normalized.length, exportPoints:allExportPoints };
 }
 function stripEmbeddedAnnotations(srcText){
   let text = String(srcText || "");
@@ -14859,12 +14859,61 @@ function findSxfAssemblyChildrenStart(baseText,assemblyOriginIndex){
 function countSxfAssembliesBefore(baseText,beforeIndex){
   return getSxfAssemblyOriginBlocksBefore(baseText,beforeIndex).length;
 }
+function shiftSxfCurveReferenceToken(rawValue,firstShiftCode,offset){
+  const raw=String(rawValue||"");
+  return raw.replace(/-?\d+/,token=>{
+    const value=Number(token);
+    return Number.isInteger(value)&&value>=firstShiftCode?String(value+offset):token;
+  });
+}
+function shiftSxfCurveReferenceList(rawValue,firstShiftCode,offset){
+  const raw=String(rawValue||"");
+  return raw.replace(/-?\d+/g,token=>{
+    const value=Number(token);
+    return Number.isInteger(value)&&value>=firstShiftCode?String(value+offset):token;
+  });
+}
+function shiftExistingSxfHatchCurveReferences(srcText,firstShiftCode,offset){
+  let text=String(srcText||"");
+  if(!(Number.isInteger(firstShiftCode)&&firstShiftCode>0&&Number.isInteger(offset)&&offset>0))return text;
+  const supported=new Set([
+    "fill_area_style_colour_feature","externally_defined_hatch_feature",
+    "fill_area_style_hatching_feature","fill_area_style_tiles_feature"
+  ]);
+  const records=parseSxfFeatureRecords(getFlatSxfText(text)).filter(record=>supported.has(record.name));
+  for(const record of records){
+    const found=locateSxfSourceFeature(text,record.id,record.name);
+    if(!found)continue;
+    const args=splitSxfArgs(text.slice(found.bodyStart,found.bodyEnd));
+    const outerIndex=(record.name==="fill_area_style_hatching_feature")?args.length-3
+      :(record.name==="fill_area_style_tiles_feature"?12:2);
+    const holesIndex=args.length-1;
+    if(outerIndex<0||outerIndex>=args.length||holesIndex<0)continue;
+    args[outerIndex]=shiftSxfCurveReferenceToken(args[outerIndex],firstShiftCode,offset);
+    args[holesIndex]=shiftSxfCurveReferenceList(args[holesIndex],firstShiftCode,offset);
+    text=text.slice(0,found.bodyStart)+args.join(",")+text.slice(found.bodyEnd);
+  }
+  return text;
+}
 function insertMemoGeneralFeatures(baseText, lineText, points, preludeText=""){
   if (!lineText&&!preludeText) return String(baseText || "");
-  const text = String(baseText || "");
-  const placement=findMemoGeometryInsertion(text,points);
-  const at=Math.max(0,Math.min(text.length,placement.index));
-  const preludeAt=preludeText?Math.max(0,Math.min(at,findSxfAssemblyChildrenStart(text,at))):at;
+  let text = String(baseText || "");
+  let placement=findMemoGeometryInsertion(text,points);
+  let at=Math.max(0,Math.min(text.length,placement.index));
+  let preludeAt=preludeText?Math.max(0,Math.min(at,findSxfAssemblyChildrenStart(text,at))):at;
+  const addedAssemblyCount=preludeText
+    ?parseSxfFeatureRecords(getFlatSxfText(preludeText)).filter(record=>SXF_ASSEMBLY_ORIGIN_NAMES.has(record.name)).length
+    :0;
+  if(addedAssemblyCount>0){
+    // Assembly codes are positional in SXF. Inserting a composite curve before
+    // existing ones shifts every later hatch reference. Remap the source first
+    // so its fills and Area_control metadata keep pointing at their boundaries.
+    const firstShiftCode=countSxfAssembliesBefore(text,preludeAt)+1;
+    text=shiftExistingSxfHatchCurveReferences(text,firstShiftCode,addedAssemblyCount);
+    placement=findMemoGeometryInsertion(text,points);
+    at=Math.max(0,Math.min(text.length,placement.index));
+    preludeAt=Math.max(0,Math.min(at,findSxfAssemblyChildrenStart(text,at)));
+  }
   const preludeBlock=preludeText?`/* --- sfcviewer_generated_begin --- */\r\n${preludeText}\r\n/* --- sfcviewer_generated_end --- */\r\n`:"";
   const block=lineText?`\r\n/* --- sfcviewer_generated_begin --- */\r\n${lineText}\r\n/* --- sfcviewer_generated_end --- */\r\n`:"";
   return text.slice(0,preludeAt)+preludeBlock+text.slice(preludeAt,at)+block+text.slice(at);
@@ -14924,19 +14973,32 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   const allRecords=parseSxfFeatureRecords(flat);
   const compositeAssemblyCodes=new Set();
   const compositeAssemblies=new Map();
+  const compositeChildFeatureIds=new Set();
   let assemblyCode=0;
-  for(const record of allRecords){
+  let assemblyChildrenStart=0;
+  for(let recordIndex=0;recordIndex<allRecords.length;recordIndex+=1){
+    const record=allRecords[recordIndex];
     if(!SXF_ASSEMBLY_ORIGIN_NAMES.has(record.name))continue;
     assemblyCode+=1;
     if(record.name==="composite_curve_org_feature"){
       compositeAssemblyCodes.add(assemblyCode);
       compositeAssemblies.set(assemblyCode,record);
+      for(let childIndex=assemblyChildrenStart;childIndex<recordIndex;childIndex+=1){
+        const child=allRecords[childIndex];
+        if(child.name==="polyline_feature"||child.name==="line_feature"||child.name==="spline_feature"||child.name==="arc_feature"||child.name==="circle_feature"||child.name==="ellipse_feature"||child.name==="ellipse_arc_feature")compositeChildFeatureIds.add(child.id);
+      }
     }
+    assemblyChildrenStart=recordIndex+1;
   }
   for(const rec of geometries){
     const layer=Number(unquoteSxfValue(rec.args[0]));
     const color=Number(unquoteSxfValue(rec.args[1]));
+    const type=Number(unquoteSxfValue(rec.args[2]));
     const width=Number(unquoteSxfValue(rec.args[3]));
+    if(compositeChildFeatureIds.has(rec.id)){
+      if(layer!==0||color!==0||type!==0||width!==0)return {ok:false,reason:`複合曲線の構成要素 #${rec.id} に独立した表示属性があります。`};
+      continue;
+    }
     if(!Number.isInteger(layer)||layer<1||layer>layerCount){
       return {ok:false,reason:`手書き図形のレイヤー参照が不正です（${layer}）。`};
     }
@@ -14986,7 +15048,6 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   for(const rec of fillFeatures){
     const layer=Number(unquoteSxfValue(rec.args[0]));
     const external=rec.name==="externally_defined_hatch_feature";
-    const styleName=external?String(unquoteSxfValue(rec.args[1])||""):"";
     const outer=Number(unquoteSxfValue(rec.args[2]));
     const color=external
       ?Number(unquoteSxfValue(compositeAssemblies.get(outer)?.args?.[0]))
@@ -14995,9 +15056,30 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
     const holeIds=String(unquoteSxfValue(rec.args[4])||"").replace(/^\(|\)$/g,"").split(",").map(value=>value.trim()).filter(Boolean);
     if(!Number.isInteger(layer)||layer<1||layer>layerCount)return {ok:false,reason:`背面マスクのレイヤー参照が不正です（${layer}）。`};
     if(!Number.isInteger(color)||color<1||color>16)return {ok:false,reason:`背面マスクの色コードが不正です（${color}）。`};
-    if(external&&styleName!=="Area_control")return {ok:false,reason:`背面マスクの領域制御名が不正です（${styleName}）。`};
     if(!compositeAssemblyCodes.has(outer))return {ok:false,reason:`背面マスクの外形参照が不正です（${outer}）。`};
     if(!Number.isInteger(holeCount)||holeCount<0||holeCount!==holeIds.length)return {ok:false,reason:"背面マスクの中抜き定義が不正です。"};
+    for(const holeId of holeIds){
+      if(!compositeAssemblyCodes.has(Number(holeId)))return {ok:false,reason:`背面マスクの中抜き参照が不正です（${holeId}）。`};
+    }
+  }
+  const allHatches=allRecords.filter(record=>record.name==="fill_area_style_colour_feature"||record.name==="externally_defined_hatch_feature"||record.name==="fill_area_style_hatching_feature"||record.name==="fill_area_style_tiles_feature");
+  for(const record of allHatches){
+    const outerIndex=record.name==="fill_area_style_hatching_feature"?record.args.length-3:(record.name==="fill_area_style_tiles_feature"?12:2);
+    const countIndex=record.args.length-2;
+    const holesIndex=record.args.length-1;
+    const outer=Number(unquoteSxfValue(record.args[outerIndex]));
+    const holeCount=Number(unquoteSxfValue(record.args[countIndex]));
+    const holeIds=String(unquoteSxfValue(record.args[holesIndex])||"").replace(/^\(|\)$/g,"").split(",").map(value=>value.trim()).filter(Boolean);
+    if(!compositeAssemblyCodes.has(outer))return {ok:false,reason:`既存ハッチング #${record.id} の外形参照が不正です（${outer}）。`};
+    if(!Number.isInteger(holeCount)||holeCount<0||holeCount!==holeIds.length)return {ok:false,reason:`既存ハッチング #${record.id} の中抜き数が不正です。`};
+    for(const holeId of holeIds){
+      if(!compositeAssemblyCodes.has(Number(holeId)))return {ok:false,reason:`既存ハッチング #${record.id} の中抜き参照が不正です（${holeId}）。`};
+    }
+  }
+  const sfigNames=new Set(allRecords.filter(record=>record.name==="sfig_org_feature").map(record=>String(unquoteSxfValue(record.args[0])||"")));
+  for(const locate of allRecords.filter(record=>record.name==="sfig_locate_feature")){
+    const name=String(unquoteSxfValue(locate.args[1])||"");
+    if(!sfigNames.has(name))return {ok:false,reason:`複合図形「${name}」の定義がありません。`};
   }
   return {ok:true};
 }
