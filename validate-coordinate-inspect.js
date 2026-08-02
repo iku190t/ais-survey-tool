@@ -6,6 +6,7 @@ const {chromium}=require("playwright");
 const source=fs.readFileSync("index.html","utf8");
 const required=[
   'id="coordinateInspectCopyAllBtn"',
+  '#coordinateInspectCopyAllBtn{display:none;min-width:62px!important;}',
   '<button id="coordinateInspectCopyAllBtn" class="panelUtilityBtn" type="button">コピー</button>',
   'id="coordinateInspectDifference"',
   'setCoordinateInspectDifferenceResult(dem1a,dem5a)',
@@ -18,6 +19,8 @@ const required=[
   '-webkit-user-select:text;user-select:text;',
   'setCoordinateInspectValue("coordinateInspectElevation",elevation.toFixed(3));',
   'event.clipboardData.setData("text/plain",value);',
+  'if(textLayerModalIsOpen())closeTextLayerModal();',
+  'if(photoPositionPanelIsOpen())setPhotoListPanelOpen(false);',
 ];
 for(const token of required)if(!source.includes(token))throw new Error(`missing implementation: ${token}`);
 if(source.includes('id="terrainDifferenceBtn"'))throw new Error("DEM差ボタンが残っています");

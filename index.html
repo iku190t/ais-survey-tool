@@ -395,7 +395,7 @@ label.fileBtn{
 #coordinateInspectHeader{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:3px;}
 #coordinateInspectTitle{font-size:15px;font-weight:800;}
 #coordinateInspectHeaderActions{display:flex;align-items:center;gap:6px;}
-#coordinateInspectCopyAllBtn{display:none;min-width:88px!important;}
+#coordinateInspectCopyAllBtn{display:none;min-width:62px!important;}
 #coordinateInspectGrid{display:grid;gap:2px;font-size:13px;}
 .coordinateInspectRow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px;align-items:center;min-height:24px;}
 .coordinateInspectRow span{color:var(--muted);white-space:nowrap;}
@@ -5734,6 +5734,7 @@ function beginProfileLineDrag(screenX,screenY,pointerType){
     originalEnd:{...profileEndWorld}
   };
   profileHoverWorld=null;
+  if(pointerType==="mouse"&&canvas)canvas.style.cursor="grabbing";
   return true;
 }
 function moveProfileLineDrag(screenX,screenY){
@@ -5753,6 +5754,7 @@ function moveProfileLineDrag(screenX,screenY){
 function finishProfileLineDrag(){
   if(!profileLineDrag) return false;
   profileLineDrag=null;
+  if(canvas&&!photoPositionAdjustIsActive())canvas.style.cursor="";
   suppressClickUntil=Date.now()+500;
   queueProfileRefresh(true);
   scheduleInteractionDraw();
@@ -8853,6 +8855,10 @@ function canStartCoordinateInspectLongPress(){
 }
 async function openCoordinateInspectModal(screenX,screenY){
   if(!canStartCoordinateInspectLongPress())return;
+  // The information popup is the active CAD interaction.  Do not leave an
+  // older text-layer or photo-position popup covering the selected point.
+  if(textLayerModalIsOpen())closeTextLayerModal();
+  if(photoPositionPanelIsOpen())setPhotoListPanelOpen(false);
   const world=screenToWorld(screenX,screenY);
   const plane=sfcWorldToPlane(world[0],world[1]);
   const request=++coordinateInspectRequestVersion;
@@ -12682,7 +12688,7 @@ function activatePhotoPositionAdjustment(hit){
   selectedPhotoPositionItem=hit.item;
   renderPhotoListPanel();
   requestAnimationFrame(()=>{
-    if(selectedPhotoPositionItem===hit.item&&photoPositionAdjustIsActive())scrollPhotoListItemToCenter(hit.item,"smooth","start");
+    if(selectedPhotoPositionItem===hit.item&&photoPositionAdjustIsActive())scrollPhotoListItemToCenter(hit.item,"smooth","start","keep");
   });
   scheduleDraw();
   return true;
@@ -12694,13 +12700,15 @@ function beginPhotoPositionAdjustDrag(screenX,screenY){
   selectedPhotoPositionItem=hit.item;
   renderPhotoListPanel();
   requestAnimationFrame(()=>{
-    if(selectedPhotoPositionItem===hit.item&&photoPositionAdjustIsActive())scrollPhotoListItemToCenter(hit.item,"smooth","start");
+    if(selectedPhotoPositionItem===hit.item&&photoPositionAdjustIsActive())scrollPhotoListItemToCenter(hit.item,"smooth","start","keep");
   });
   photoPositionAdjustDrag={
     item:hit.item,kind:hit.kind,
+    anchorScreen:{x:screenX,y:screenY},
     anchorWorld:{x:anchor[0],y:anchor[1]},
     originalMarker:{x:+hit.item.markerX,y:+hit.item.markerY},
     originalWorld:{x:+hit.item.worldX,y:+hit.item.worldY},
+    originalDirection:hit.item.direction,
     before:serializePhotoAnnotations(),
     moved:false
   };
@@ -12737,6 +12745,10 @@ function applyPhotoAdjustedWorldPosition(item,worldX,worldY){
 function movePhotoPositionAdjustDrag(screenX,screenY){
   const drag=photoPositionAdjustDrag;
   if(!drag)return false;
+  // Ignore the tiny mouse jitter that follows a click.  Selection alone must
+  // keep the table at its normal left edge; scrolling to X/direction starts
+  // only after the marker has actually moved.
+  if(!drag.moved&&Math.hypot(screenX-drag.anchorScreen.x,screenY-drag.anchorScreen.y)<2)return true;
   const world=screenToWorld(screenX,screenY),item=drag.item;
   if(drag.kind==="move"){
     const dx=world[0]-drag.anchorWorld.x,dy=world[1]-drag.anchorWorld.y;
@@ -12765,6 +12777,16 @@ function finishPhotoPositionAdjustDrag(){
       if(photoAnnotations.includes(drag.item)){renderPhotoListPanel();scheduleDraw();saveRecoverySnapshot({immediate:true});}
     }).catch(error=>console.warn("Photo DEM elevation adjustment failed",error));
   }
+  return true;
+}
+function cancelPhotoPositionAdjustDrag(){
+  const drag=photoPositionAdjustDrag;
+  if(!drag)return false;
+  const number=drag.item?.number,fileName=drag.item?.fileName;
+  photoPositionAdjustDrag=null;
+  restorePhotoAnnotations(drag.before);
+  selectedPhotoPositionItem=photoAnnotations.find(item=>item.number===number&&item.fileName===fileName)||null;
+  renderPhotoListPanel();scheduleDraw();
   return true;
 }
 function makePhotoCirclePoints(cx,cy,radius,segs=40){
@@ -13178,7 +13200,7 @@ async function ensurePhotoDemElevations(items=photoAnnotations){
   });
   return changed;
 }
-function scrollPhotoListItemToCenter(item,behavior="smooth",horizontal="keep"){
+function scrollPhotoListItemToCenter(item,behavior="smooth",horizontal="keep",vertical="center"){
   const scroll=document.getElementById("photoListTableScroll");
   const rows=document.getElementById("photoListRows");
   if(!item||!scroll||!rows)return false;
@@ -13188,7 +13210,7 @@ function scrollPhotoListItemToCenter(item,behavior="smooth",horizontal="keep"){
   const rowRect=row.getBoundingClientRect();
   const rowCenter=scroll.scrollTop+(rowRect.top-scrollRect.top)+rowRect.height/2;
   const maxTop=Math.max(0,scroll.scrollHeight-scroll.clientHeight);
-  const targetTop=Math.max(0,Math.min(maxTop,rowCenter-scroll.clientHeight/2));
+  const targetTop=vertical==="keep"?scroll.scrollTop:Math.max(0,Math.min(maxTop,rowCenter-scroll.clientHeight/2));
   const maxLeft=Math.max(0,scroll.scrollWidth-scroll.clientWidth);
   let targetLeft=scroll.scrollLeft;
   if(horizontal==="start")targetLeft=0;
@@ -13580,17 +13602,24 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
   // 見開きは同じシート内で表裏の左右を反転するため、25列に分ける。
   // 表裏とも、以前の3枚形式と同じ写真432px・コメント288pxの幅を確保する。
   const spreadColumnWidthsPx=[...Array(9).fill(32),13,26,26,26,26,27,13,...Array(9).fill(32)];
+  // 2枚帳は左右に同じ余白列を置き、写真・コメントの左右端をそろえる。
+  // 写真幅を従来より少し狭め、その分を5行のコメント欄へ回す。
+  const twoPhotoColumnWidthsPx=[85,...Array(11).fill(51),85];
   const columnWidthsPx=isSpread
     ?spreadColumnWidthsPx
-    :Array.from({length:13},(_,index)=>index<6?photoColumnPx:index===6?13:commentColumnPx);
+    :(twoPhotoStackedLayout
+      ?twoPhotoColumnWidthsPx
+      :Array.from({length:13},(_,index)=>index<6?photoColumnPx:index===6?13:commentColumnPx));
   const columnCount=columnWidthsPx.length;
   const columnXml=isSpread
     ?'<col min="1" max="9" width="4.27" customWidth="1"/><col min="10" max="10" width="1" customWidth="1"/><col min="11" max="14" width="3.47" customWidth="1"/><col min="15" max="15" width="3.6" customWidth="1"/><col min="16" max="16" width="1" customWidth="1"/><col min="17" max="25" width="4.27" customWidth="1"/>'
-    :(widePhotoLayout
+    :(twoPhotoStackedLayout
+      ?'<col min="1" max="1" width="11.33" customWidth="1"/><col min="2" max="12" width="6.8" customWidth="1"/><col min="13" max="13" width="11.33" customWidth="1"/>'
+      :(widePhotoLayout
       ?'<col min="1" max="6" width="9.6" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="6.4" customWidth="1"/>'
       :(fourPhotoLayout
         ?'<col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="6.4" customWidth="1"/>'
-        :'<col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="8" customWidth="1"/>'));
+        :'<col min="1" max="6" width="8" customWidth="1"/><col min="7" max="7" width="1" customWidth="1"/><col min="8" max="13" width="8" customWidth="1"/>')));
   const columnLeftPx=column=>columnWidthsPx.slice(0,Math.max(0,column-1)).reduce((sum,value)=>sum+value,0);
   const columnRangeWidthPx=(start,end)=>columnWidthsPx.slice(start-1,end).reduce((sum,value)=>sum+value,0);
   const totalRows=Math.max(pageRows,pageCount*pageRows);
@@ -13619,13 +13648,14 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
     const pageTop=page*pageRows,slotTop=pageTop+rowInPage*slotRows,slotBottom=slotTop+slotRows;
     const photo=await makePhotoAlbumImage(sources[index],1400,1400);
     if(twoPhotoStackedLayout){
-      const colStart=1,colEnd=13,photoEnd=slotBottom-3;
+      const colStart=2,colEnd=12,commentRows=5,photoEnd=slotBottom-commentRows;
       merge(slotTop+1,colStart,photoEnd,colEnd,"",1);
       const photoRect={x:columnLeftPx(colStart)+2,y:slotTop*rowPx+1,width:columnRangeWidthPx(colStart,colEnd)-4,height:(photoEnd-slotTop)*rowPx-2};
       addImage(photo,fitPhotoAlbumImage(photo,photoRect),`写真 ${item.number}`);
       fields.forEach((field,line)=>mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
+      for(let line=fields.length;line<commentRows;line++)mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,"",false);
       if(useMiniMap){
-        const commentArea={x:columnLeftPx(colStart),y:photoEnd*rowPx,width:columnRangeWidthPx(colStart,colEnd),height:3*rowPx};
+        const commentArea={x:columnLeftPx(colStart),y:photoEnd*rowPx,width:columnRangeWidthPx(colStart,colEnd),height:commentRows*rowPx};
         const miniWidth=commentArea.width*.34;
         const miniRect={x:commentArea.x+commentArea.width-miniWidth-2,y:commentArea.y+1,width:miniWidth,height:Math.max(1,commentArea.height-1)};
         const renderScale=6;
@@ -13634,11 +13664,14 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       }
     }else if(compact){
       const column=slot%columns,colStart=column===0?1:8,colEnd=column===0?6:13;
+      // 8枚帳は写真がセル領域より細くなるため、コメント線も写真の実幅内へ収める。
+      const commentColStart=photosPerPage===8?colStart+1:colStart;
+      const commentColEnd=photosPerPage===8?colEnd-1:colEnd;
       const photoEnd=slotBottom-3;
       merge(slotTop+1,colStart,photoEnd,colEnd,"",1);
       const photoRect={x:columnLeftPx(colStart)+5,y:slotTop*rowPx+5,width:columnRangeWidthPx(colStart,colEnd)-10,height:(photoEnd-slotTop)*rowPx-10};
       addImage(photo,fitPhotoAlbumImage(photo,photoRect),`写真 ${item.number}`);
-      fields.forEach((field,line)=>mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
+      fields.forEach((field,line)=>mergeComment(photoEnd+1+line,commentColStart,photoEnd+1+line,commentColEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
       if(sixPhotoLayout&&useMiniMap){
         // 以前の6枚書式（写真とコメント3行）は変えず、右側の点線上へ豆図だけを重ねる。
         const commentArea={x:columnLeftPx(colStart),y:photoEnd*rowPx,width:columnRangeWidthPx(colStart,colEnd),height:3*rowPx};
@@ -13661,7 +13694,8 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       addImage(photo,fitPhotoAlbumImage(photo,photoRect),`写真 ${item.number}`);
       fields.forEach((field,line)=>mergeComment(slotTop+1+line*2,commentColStart,slotTop+2+line*2,commentColEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
       if(useMiniMap){
-        const guideEnd=(photosPerPage===3||photosPerPage===4)&&rowInPage<rowsPerPage-1?slotBottom-1:slotBottom;
+        // 次の写真枠の上辺と重なって太く見えないよう、3・4枚帳は全段で1行手前まで。
+        const guideEnd=(photosPerPage===3||photosPerPage===4)?slotBottom-1:slotBottom;
         for(let guideRow=slotTop+7;guideRow<=guideEnd;guideRow++)mergeComment(guideRow,commentColStart,guideRow,commentColEnd,"",false);
         const area={x:columnLeftPx(commentColStart),y:(slotTop+6)*rowPx,width:columnRangeWidthPx(commentColStart,commentColEnd),height:(slotRows-6)*rowPx};
         const marginRatio=rowsPerPage<=2?.025:rowsPerPage<=3?.04:.065;
@@ -13669,7 +13703,7 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
         const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.max(720,Math.round(miniRect.width*3)),Math.max(420,Math.round(miniRect.height*3)));
         addImage(mini,miniRect,`豆図 ${item.number}`);
       }else if(slotBottom>=slotTop+7){
-        const guideEnd=(photosPerPage===3||photosPerPage===4)&&rowInPage<rowsPerPage-1?slotBottom-1:slotBottom;
+        const guideEnd=(photosPerPage===3||photosPerPage===4)?slotBottom-1:slotBottom;
         for(let guideRow=slotTop+7;guideRow<=guideEnd;guideRow++)mergeComment(guideRow,commentColStart,guideRow,commentColEnd,"",false);
       }
     }
@@ -16714,6 +16748,8 @@ document.querySelectorAll('input[name="photoAlbumLayout"]').forEach(input=>input
 });
 document.getElementById("photoAlbumMiniMap")?.addEventListener("change",event=>{
   event.currentTarget.dataset.preferred=event.currentTarget.checked?"true":"false";
+  // 初回はON。その後は作成を取り消した場合も利用者が選んだ状態を保持する。
+  savePhotoAlbumSettings(getPhotoAlbumSettingsFromUi());
 });
 document.getElementById("photoSelectAllBtn")?.addEventListener("click",()=>{
   for(const item of photoAnnotations)selectedPhotoAnnotations.add(item);
@@ -16919,6 +16955,65 @@ function cancelTransientOperations(except=""){
   if(requiresBaseRedraw)scheduleDraw();
   else scheduleInteractionDraw();
 }
+function handleEscapeBackStep(){
+  if(coordinateInspectModalIsOpen()){closeCoordinateInspectModal();return true;}
+  if(textLayerModalIsOpen()){closeTextLayerModal();return true;}
+  const photoAlbumModal=document.getElementById("photoAlbumModal");
+  if(photoAlbumModal&&getComputedStyle(photoAlbumModal).display!=="none"){setPhotoAlbumModalOpen(false);return true;}
+  const photoExcelChoiceModal=document.getElementById("photoExcelChoiceModal");
+  if(photoExcelChoiceModal&&getComputedStyle(photoExcelChoiceModal).display!=="none"){setPhotoExcelChoiceModalOpen(false);return true;}
+  if(photoPositionAdjustDrag){cancelPhotoPositionAdjustDrag();return true;}
+  if(terrainCadSelectionMode){
+    if(terrainCadPolygon.length){
+      terrainCadPolygon.pop();
+      const hint=document.getElementById("terrainCadHint");
+      if(hint)hint.textContent=terrainCadPolygon.length?`頂点 ${terrainCadPolygon.length}点`:(polygonSelectionPurpose==="aerial"?"航空写真の範囲を多角形で指定":"多角形の頂点をタップ");
+      scheduleDraw();
+    }else cancelActivePolygonSelection();
+    return true;
+  }
+  if(measureMode){
+    if(measureSelectionHistory.length)undoMeasureSelection();
+    else cancelTransientOperations("");
+    return true;
+  }
+  if(profileLineDrag){
+    profileStartWorld={...profileLineDrag.originalStart};profileEndWorld={...profileLineDrag.originalEnd};
+    profileLineDrag=null;if(canvas&&!photoPositionAdjustIsActive())canvas.style.cursor="";
+    queueProfileRefresh(true);scheduleInteractionDraw();return true;
+  }
+  if(profileEndWorld){
+    clearTimeout(profileRefreshTimer);profileRefreshTimer=0;profileRefreshVersion++;profileRefreshPending=false;
+    profileEndWorld=null;profileData=null;profileHoverWorld=null;profileMode=true;closeProfileModal();
+    setProfilePrompt("断面の終点をタップしてください");updateProfileUi();updateModeStatus();scheduleInteractionDraw();return true;
+  }
+  if(profileStartWorld){
+    clearTimeout(profileRefreshTimer);profileRefreshTimer=0;profileRefreshVersion++;profileRefreshPending=false;
+    profileStartWorld=null;profileData=null;profileHoverWorld=null;profileMode=true;closeProfileModal();
+    setProfilePrompt("断面の起点をタップしてください");updateProfileUi();updateModeStatus();scheduleInteractionDraw();return true;
+  }
+  if(profileMode){cancelTransientOperations("");return true;}
+  if(inkDrawing||currentStroke){inkDrawing=false;currentStroke=null;scheduleInteractionDraw();return true;}
+  if(inkEnabled){cancelTransientOperations("");return true;}
+  if(textSearchPopupOpen){closeTextSearchPopup();return true;}
+  if(photoPositionAdjustIsActive()){setPhotoPositionAdjustMode(false);return true;}
+  if(photoPositionPanelIsOpen()){setPhotoListPanelOpen(false);return true;}
+  if(compassMenu?.classList.contains("open")){setCompassMenuOpen(false);return true;}
+  if(helpModalOpen){closeHelpModal();return true;}
+  // 各コマンドの後退先がなくなった時だけ、残っている設定面を閉じて終了する。
+  const visiblePanels=[settingsPanel,layerPanel,terrainPanel,aerialPhotoPanel,registryMapPanel,hazardMapPanel,controlPointPanel,measureModePanel,drawPanel];
+  const panel=visiblePanels.find(element=>element&&getComputedStyle(element).display!=="none");
+  if(panel){panel.style.display="none";updateToolbarActivationUI();scheduleInteractionDraw();return true;}
+  if(isSaveMenuOpen()){setSaveMenuOpen(false);return true;}
+  return false;
+}
+document.addEventListener("keydown",event=>{
+  if(event.key!=="Escape"||event.defaultPrevented)return;
+  if(handleEscapeBackStep()){
+    event.preventDefault();
+    event.stopPropagation();
+  }
+},true);
 function updateToolbarActivationUI(){
   const visible=el=>!!(el&&getComputedStyle(el).display!=="none");
   const states={
@@ -17608,7 +17703,16 @@ window.addEventListener("mousemove", e=>{
     e.clientX>=canvasRect.left&&e.clientX<=canvasRect.right&&
     e.clientY>=canvasRect.top&&e.clientY<=canvasRect.bottom;
   hoverCursorScreen=cursorInsideCanvas?{x:ox,y:oy}:null;
-  scheduleDesktopCadObjectHover(ox,oy,cursorInsideCanvas);
+  const profileHoverKind=cursorInsideCanvas&&!isTouchMobileLike()&&!profileMode&&!profileLineDrag&&!photoPositionAdjustIsActive()
+    ?profileLineHitAtScreen(ox,oy):"";
+  if(profileLineDrag&&profileLineDrag.pointerType==="mouse"){
+    clearDesktopCadObjectHover();updateDesktopCadCrosshair(0,0,false,false);canvas.style.cursor="grabbing";
+  }else if(profileHoverKind){
+    clearDesktopCadObjectHover();updateDesktopCadCrosshair(0,0,false,false);canvas.style.cursor="grab";
+  }else{
+    if(!photoPositionAdjustIsActive())canvas.style.cursor="";
+    scheduleDesktopCadObjectHover(ox,oy,cursorInsideCanvas);
+  }
 
   if(photoPositionAdjustDrag){
     movePhotoPositionAdjustDrag(ox,oy);
@@ -17650,7 +17754,7 @@ window.addEventListener("mousemove", e=>{
     hoverMeasurePoint = null;
   }
 });
-canvas.addEventListener("mouseleave", ()=>{ hoverCursorScreen=null; hoverMeasurePoint=null; clearDesktopCadObjectHover(); updateDesktopCadCrosshair(0,0,false,false); if(measureMode)scheduleInteractionDraw(); });
+canvas.addEventListener("mouseleave", ()=>{ hoverCursorScreen=null; hoverMeasurePoint=null; clearDesktopCadObjectHover(); updateDesktopCadCrosshair(0,0,false,false); if(!photoPositionAdjustIsActive())canvas.style.cursor=""; if(measureMode)scheduleInteractionDraw(); });
 canvas.addEventListener("contextmenu", e=> e.preventDefault());
 canvas.addEventListener("wheel", e=>{
   e.preventDefault();

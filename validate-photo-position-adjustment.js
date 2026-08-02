@@ -16,7 +16,7 @@ const required=[
   ["方向回転処理","Math.atan2(dy,dx)*180/Math.PI"],
   ["DEM再取得","resolvePhotoDemElevation(drag.item)"],
   ["8方向Excel","formatPhotoDirection8(item.direction)"],
-  ["選択行を左端へ戻して中央スクロール",'scrollPhotoListItemToCenter(hit.item,"smooth","start")'],
+  ["選択だけなら左端へ戻して縦位置を維持",'scrollPhotoListItemToCenter(hit.item,"smooth","start","keep")'],
   ["位置移動後にX座標を表示",'drag.kind==="rotate"?"end":"x"'],
   ["Undo登録",'label:drag.kind==="rotate"?"写真方向調整":"写真位置調整"']
 ];
@@ -85,6 +85,13 @@ let browser;
     return {ok,scrollTop:scroll.scrollTop,centerDifference:Math.abs((rowRect.top+rowRect.bottom)/2-(scrollRect.top+scrollRect.bottom)/2),outlined:row.classList.contains('photoPositionSelectedRow')};
   })()`));
   if(!scrollCheck.ok||scrollCheck.scrollTop<=0||scrollCheck.centerDifference>25||!scrollCheck.outlined)throw new Error(`選択した写真行が一覧中央へ移動しません: ${JSON.stringify(scrollCheck)}`);
+  const selectionScroll=await page.evaluate(()=>window.eval(`(()=>{
+    const item=selectedPhotoPositionItem,scroll=document.getElementById('photoListTableScroll');
+    scroll.scrollTop=80;scroll.scrollLeft=Math.max(0,scroll.scrollWidth-scroll.clientWidth);
+    scrollPhotoListItemToCenter(item,'auto','start','keep');
+    return {top:scroll.scrollTop,left:scroll.scrollLeft};
+  })()`));
+  if(selectionScroll.top!==80||selectionScroll.left!==0)throw new Error(`選択だけで一覧の縦位置が変わりました: ${JSON.stringify(selectionScroll)}`);
   const horizontalScroll=await page.evaluate(()=>window.eval(`(()=>{
     const item=selectedPhotoPositionItem,scroll=document.getElementById('photoListTableScroll');
     scrollPhotoListItemToCenter(item,'auto','x');const xLeft=scroll.scrollLeft;

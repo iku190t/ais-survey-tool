@@ -15,6 +15,9 @@ for(const token of [
   "updateDesktopWheelZoomPreview(mx,my,view.scale*factor,layoutRect)",
   'id="interactionCanvas"',
   "function scheduleInteractionDraw()",
+  "function handleEscapeBackStep()",
+  'canvas.style.cursor="grab"',
+  'canvas.style.cursor="grabbing"',
   "if(desktopWheelZoomPreviewBase)return;",
   "if(textLayerModalIsOpen())closeTextLayerModal();",
   'startTextLongPress(e.touches[0].clientX,e.touches[0].clientY,"touch")'
@@ -167,6 +170,48 @@ let browser;
     if(result.baseDraws!==0||result.overlayDraws<1||result.overlayDraws>3)throw new Error(`${mode} interaction still redraws the full drawing: ${JSON.stringify(lightweight)}`);
   }
   if(JSON.stringify(lightweight.overlaySize)!==JSON.stringify(lightweight.canvasSize))throw new Error(`interaction overlay size mismatch: ${JSON.stringify(lightweight)}`);
+
+  const profileHoverPoint=await page.evaluate(()=>window.eval(`(()=>{
+    measureMode=false;inkEnabled=false;terrainCadSelectionMode=false;profileMode=false;
+    const a=screenToWorld(400,300),b=screenToWorld(500,300);
+    profileStartWorld={x:a[0],y:a[1]};profileEndWorld={x:b[0],y:b[1]};profileData={};
+    return {x:450,y:300};
+  })()`));
+  await page.mouse.move(rect.x+12,rect.y+12);
+  await page.mouse.move(rect.x+profileHoverPoint.x,rect.y+profileHoverPoint.y);
+  await page.waitForTimeout(70);
+  const profileHover=await page.evaluate(point=>window.eval(`({cursor:document.getElementById("canvas").style.cursor,crosshair:document.getElementById("desktopCadCrosshair").style.transform,hit:profileLineHitAtScreen(${point.x},${point.y}),mode:profileMode,start:profileStartWorld,end:profileEndWorld})`),profileHoverPoint);
+  if(profileHover.cursor!=="grab"||!profileHover.crosshair.includes("-100px"))throw new Error(`断面の移動可能部分が手カーソルになりません: ${JSON.stringify(profileHover)}`);
+
+  await page.keyboard.press("Escape");
+  const profileBack1=await page.evaluate(()=>window.eval(`({start:!!profileStartWorld,end:!!profileEndWorld,mode:profileMode})`));
+  await page.keyboard.press("Escape");
+  const profileBack2=await page.evaluate(()=>window.eval(`({start:!!profileStartWorld,end:!!profileEndWorld,mode:profileMode})`));
+  await page.keyboard.press("Escape");
+  const profileBack3=await page.evaluate(()=>window.eval(`({start:!!profileStartWorld,end:!!profileEndWorld,mode:profileMode})`));
+  if(!profileBack1.start||profileBack1.end||!profileBack1.mode||profileBack2.start||!profileBack2.mode||profileBack3.mode)throw new Error(`断面のEsc後退が正しくありません: ${JSON.stringify({profileBack1,profileBack2,profileBack3})}`);
+
+  await page.evaluate(()=>window.eval(`(()=>{
+    measureMode=true;selectedMeasurePoints=[{x:1,y:1},{x:2,y:2}];measureSelectionHistory=[[{x:1,y:1}]];updateMeasureBackButton();
+  })()`));
+  await page.keyboard.press("Escape");
+  const measureBack1=await page.evaluate(()=>window.eval(`({mode:measureMode,count:selectedMeasurePoints.length,history:measureSelectionHistory.length})`));
+  await page.keyboard.press("Escape");
+  const measureBack2=await page.evaluate(()=>window.eval(`({mode:measureMode})`));
+  if(!measureBack1.mode||measureBack1.count!==1||measureBack1.history!==0||measureBack2.mode)throw new Error(`計測のEsc後退が正しくありません: ${JSON.stringify({measureBack1,measureBack2})}`);
+
+  const polygonBack=await page.evaluate(async()=>{
+    return await window.eval(`(async()=>{
+      setTerrainCadSelectionOpen(true,"terrain");terrainCadPolygon=[{x:0,y:0},{x:1,y:1}];
+      const press=()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true,cancelable:true}));
+      press();const a={open:terrainCadSelectionMode,count:terrainCadPolygon.length};
+      press();const b={open:terrainCadSelectionMode,count:terrainCadPolygon.length};
+      press();const c={open:terrainCadSelectionMode,count:terrainCadPolygon.length};
+      return {a,b,c};
+    })()`);
+  });
+  if(!polygonBack.a.open||polygonBack.a.count!==1||!polygonBack.b.open||polygonBack.b.count!==0||polygonBack.c.open)throw new Error(`範囲選択のEsc後退が正しくありません: ${JSON.stringify(polygonBack)}`);
+
   if(pageErrors.length)throw new Error(`page errors: ${pageErrors.join(" | ")}`);
   console.log("PC object interaction and pan checks passed");
   await browser.close();server.close();
