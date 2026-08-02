@@ -17697,11 +17697,12 @@ window.addEventListener("mousemove", e=>{
     setTouchPanPreview(e.clientX-lastX,e.clientY-lastY);
     return;
   }
-  const canvasRect=canvas.getBoundingClientRect();
-  const ox=e.clientX-canvasRect.left,oy=e.clientY-canvasRect.top;
-  const cursorInsideCanvas=
-    e.clientX>=canvasRect.left&&e.clientX<=canvasRect.right&&
-    e.clientY>=canvasRect.top&&e.clientY<=canvasRect.bottom;
+  // ホイール拡大中の canvas は描画負荷を抑えるため CSS で一時変形する。
+  // 変形後の外枠を使うと、固定したマウス位置に対して十字だけが逆方向へ
+  // 飛ぶため、常に変形前のキャンバス座標へ戻して扱う。
+  const local=getCanvasLocalPointFromClient(e.clientX,e.clientY);
+  const ox=local.x,oy=local.y;
+  const cursorInsideCanvas=ox>=0&&ox<=canvas.clientWidth&&oy>=0&&oy<=canvas.clientHeight;
   hoverCursorScreen=cursorInsideCanvas?{x:ox,y:oy}:null;
   const profileHoverKind=cursorInsideCanvas&&!isTouchMobileLike()&&!profileMode&&!profileLineDrag&&!photoPositionAdjustIsActive()
     ?profileLineHitAtScreen(ox,oy):"";

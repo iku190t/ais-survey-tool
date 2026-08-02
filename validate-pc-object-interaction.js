@@ -135,6 +135,14 @@ let browser;
   })()`));
   if(!(wheelPreview.scale>2)||!wheelPreview.active||!wheelPreview.transform.startsWith("matrix("))throw new Error(`wheel zoom preview did not start: ${JSON.stringify(wheelPreview)}`);
   if(Math.hypot(wheelPreview.before[0]-wheelPreview.during[0],wheelPreview.before[1]-wheelPreview.during[1])>1e-8)throw new Error(`wheel zoom anchor drifted during repeated zoom: ${JSON.stringify(wheelPreview)}`);
+  const crosshairDuringWheel=await page.evaluate(()=>window.eval(`(()=>{
+    const base=desktopWheelZoomPreviewBase;
+    const x=base.rectLeft+360,y=base.rectTop+280;
+    window.dispatchEvent(new MouseEvent("mousemove",{bubbles:true,clientX:x,clientY:y}));
+    const rect=document.getElementById("desktopCadCrosshair").getBoundingClientRect();
+    return {expected:[x,y],actual:[rect.left+rect.width/2,rect.top+rect.height/2]};
+  })()`));
+  if(Math.hypot(crosshairDuringWheel.expected[0]-crosshairDuringWheel.actual[0],crosshairDuringWheel.expected[1]-crosshairDuringWheel.actual[1])>0.6)throw new Error(`crosshair moved away from the mouse during wheel zoom: ${JSON.stringify(crosshairDuringWheel)}`);
   await page.waitForTimeout(140);
   const wheelCommitted=await page.evaluate(()=>window.eval(`({transform:canvas.style.transform,active:!!desktopWheelZoomPreviewBase,after:screenToWorld(360,280)})`));
   if(wheelCommitted.active||wheelCommitted.transform!=="")throw new Error(`wheel zoom preview did not commit: ${JSON.stringify(wheelCommitted)}`);
