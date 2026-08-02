@@ -13580,8 +13580,8 @@ function readJpegExifIfd(view,tiffStart,little,relativeOffset){
   }
   return out;
 }
-async function readPhotoExif(file){
-  const buffer=await file.arrayBuffer(),view=new DataView(buffer);
+function parsePhotoExifBuffer(buffer){
+  const view=new DataView(buffer);
   if(view.byteLength<4||view.getUint16(0,false)!==0xffd8)throw new Error("JPEGではありません");
   let offset=2,tiffStart=-1;
   while(offset+4<=view.byteLength){
@@ -13602,6 +13602,8 @@ async function readPhotoExif(file){
   const ifd0=readJpegExifIfd(view,tiffStart,little,u32(tiffStart+4));
   const gpsPointer=ifd0.get(0x8825);
   if(!Number.isFinite(+gpsPointer))throw new Error("GPS情報がありません");
+  const gpsIfdStart=tiffStart+(+gpsPointer||0);
+  if(gpsIfdStart<0||gpsIfdStart+2>view.byteLength)throw new RangeError("EXIF GPSデータが不足しています");
   const gps=readJpegExifIfd(view,tiffStart,little,+gpsPointer);
   const toDegree=(value,ref)=>{
     if(!Array.isArray(value)||value.length<3)return NaN;
@@ -13615,10 +13617,26 @@ async function readPhotoExif(file){
   let capturedAt=String(ifd0.get(0x0132)||"")||null;
   const exifPointer=ifd0.get(0x8769);
   if(Number.isFinite(+exifPointer)){
+    const exifIfdStart=tiffStart+(+exifPointer||0);
+    if(exifIfdStart<0||exifIfdStart+2>view.byteLength)throw new RangeError("EXIF撮影日時データが不足しています");
     const exifIfd=readJpegExifIfd(view,tiffStart,little,+exifPointer);
     capturedAt=String(exifIfd.get(0x9003)||capturedAt||"")||null;
   }
   return {lat,lon,direction:Number.isFinite(direction)?((direction%360)+360)%360:null,capturedAt};
+}
+const PHOTO_EXIF_PREFIX_BYTES=512*1024;
+async function readPhotoExif(file){
+  // PCのネットワーク上の写真は、まずEXIFが格納されるJPEG先頭部だけを読む。
+  // EXIFが先頭部に収まらない写真だけ従来どおり全体を読み、互換性を保つ。
+  if(isDesktopPhotoTool()&&Number(file?.size)>PHOTO_EXIF_PREFIX_BYTES&&typeof file?.slice==="function"){
+    try{
+      const prefix=await file.slice(0,PHOTO_EXIF_PREFIX_BYTES).arrayBuffer();
+      return parsePhotoExifBuffer(prefix);
+    }catch(error){
+      // メーカー固有EXIFなどが先頭512KBを超える場合は全体読込みへフォールバックする。
+    }
+  }
+  return parsePhotoExifBuffer(await file.arrayBuffer());
 }
 function layoutPhotoAnnotationMarkers(){
   const units=getMemoWorldUnitsPerPaperMm();
@@ -14351,9 +14369,10 @@ async function importGeotaggedPhotos(files){
   if(!selected.length){showToast("JPEG写真を選択してください",2200);return;}
   showBusy("写真の位置情報を読み込み中…");await waitForUiPaint();
   const imported=[],failed=[];
-  for(let index=0;index<selected.length;index++){
-    const file=selected[index];
-    updateBusy(`写真を確認中… ${index+1}/${selected.length}`);
+  const desktopImport=isDesktopPhotoTool();
+  let completed=0;
+  const processPhotoFile=async(file,index)=>{
+    if(!desktopImport)updateBusy(`写真を確認中… ${index+1}/${selected.length}`);
     try{
       const exif=await readPhotoExif(file);
       const zone=chooseJapanPlaneZone(exif.lat,exif.lon);
@@ -14368,6 +14387,16 @@ async function importGeotaggedPhotos(files){
       });
       photoSourceFiles.set(photoAlbumSourceKey(file.name),file);
     }catch(err){failed.push({name:file.name,reason:err&&err.message||"位置情報なし"});}
+    finally{
+      completed++;
+      if(desktopImport)updateBusy(`写真を確認中… ${completed}/${selected.length}`);
+    }
+  };
+  if(desktopImport){
+    updateBusy(`写真を確認中… 0/${selected.length}`);
+    await profileMapLimit(selected,4,processPhotoFile);
+  }else{
+    for(let index=0;index<selected.length;index++)await processPhotoFile(selected[index],index);
   }
   if(!imported.length){hideBusy();showToast("位置情報付きJPEG写真がありません",2800);return;}
   updateBusy("DEM標高を取得中…");
