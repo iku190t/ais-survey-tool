@@ -5233,8 +5233,12 @@ function clearTerrainAnalysis(){
 function formatProfileDistance(m){
   return m>=1000?`${(m/1000).toFixed(2)}km`:`${m.toFixed(m<100?1:0)}m`;
 }
+function profileWorkflowIsActive(){
+  return !!(profileZoneResolving||profileMode||profileLineDrag||profileStartWorld||profileEndWorld||profileData||
+    (profileModal&&profileModal.classList.contains("open")));
+}
 function updateProfileUi(){
-  const active=!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||(profileModal&&profileModal.classList.contains("open")));
+  const active=profileWorkflowIsActive();
   if(profileBtn) profileBtn.classList.toggle("profileActive",active);
   updateToolbarActivationUI();
 }
@@ -8658,6 +8662,7 @@ function renderRecentTextLayerButton(button,def){
   button.append(swatch,label);
 }
 function openTextLayerModal(text){
+  if(profileWorkflowIsActive())return;
   closeCoordinateInspectForOtherPopup();
   if(!text||!Number.isFinite(+text._sxfFeatureId)){showToast("この文字はレイヤー変更できません");return;}
   setPhotoListPanelOpen(false);
@@ -8850,7 +8855,7 @@ function closeCoordinateInspectModal(){
   if(wasVisible)scheduleDraw();
 }
 function canStartCoordinateInspectLongPress(){
-  return hasLoadedDrawing()&&!measureMode&&!profileMode&&!profileLineDrag&&
+  return hasLoadedDrawing()&&!measureMode&&!profileWorkflowIsActive()&&
     !terrainCadSelectionMode&&!inkEnabled;
 }
 async function openCoordinateInspectModal(screenX,screenY){
@@ -8981,7 +8986,7 @@ function drawDesktopCadCrosshair(){
   // waiting for a potentially expensive CAD canvas redraw.
 }
 function canUseDesktopCadObjectInteraction(){
-  return !isTouchMobileLike()&&hasLoadedDrawing()&&!measureMode&&!profileMode&&!profileLineDrag&&
+  return !isTouchMobileLike()&&hasLoadedDrawing()&&!measureMode&&!profileWorkflowIsActive()&&
     !terrainCadSelectionMode&&!inkEnabled&&!controlPointEnabled;
 }
 function findDesktopCadInteractiveTarget(screenX,screenY){
@@ -12688,7 +12693,7 @@ function activatePhotoPositionAdjustment(hit){
   selectedPhotoPositionItem=hit.item;
   renderPhotoListPanel();
   requestAnimationFrame(()=>{
-    if(selectedPhotoPositionItem===hit.item&&photoPositionAdjustIsActive())scrollPhotoListItemToCenter(hit.item,"smooth","start","keep");
+    if(selectedPhotoPositionItem===hit.item&&photoPositionAdjustIsActive())scrollPhotoListItemToCenter(hit.item,"smooth","start","center");
   });
   scheduleDraw();
   return true;
@@ -12700,7 +12705,7 @@ function beginPhotoPositionAdjustDrag(screenX,screenY){
   selectedPhotoPositionItem=hit.item;
   renderPhotoListPanel();
   requestAnimationFrame(()=>{
-    if(selectedPhotoPositionItem===hit.item&&photoPositionAdjustIsActive())scrollPhotoListItemToCenter(hit.item,"smooth","start","keep");
+    if(selectedPhotoPositionItem===hit.item&&photoPositionAdjustIsActive())scrollPhotoListItemToCenter(hit.item,"smooth","start","center");
   });
   photoPositionAdjustDrag={
     item:hit.item,kind:hit.kind,

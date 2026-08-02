@@ -16,7 +16,7 @@ const required=[
   ["方向回転処理","Math.atan2(dy,dx)*180/Math.PI"],
   ["DEM再取得","resolvePhotoDemElevation(drag.item)"],
   ["8方向Excel","formatPhotoDirection8(item.direction)"],
-  ["選択だけなら左端へ戻して縦位置を維持",'scrollPhotoListItemToCenter(hit.item,"smooth","start","keep")'],
+  ["CAD選択時は左端へ戻して対象行を縦中央表示",'scrollPhotoListItemToCenter(hit.item,"smooth","start","center")'],
   ["位置移動後にX座標を表示",'drag.kind==="rotate"?"end":"x"'],
   ["Undo登録",'label:drag.kind==="rotate"?"写真方向調整":"写真位置調整"']
 ];

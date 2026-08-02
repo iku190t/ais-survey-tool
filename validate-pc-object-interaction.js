@@ -16,6 +16,7 @@ for(const token of [
   'id="interactionCanvas"',
   "function scheduleInteractionDraw()",
   "function handleEscapeBackStep()",
+  "function profileWorkflowIsActive()",
   'canvas.style.cursor="grab"',
   'canvas.style.cursor="grabbing"',
   "if(desktopWheelZoomPreviewBase)return;",
@@ -83,6 +84,18 @@ let browser;
     return {selected:selectedTextForLayerChange?._sxfFeatureId,display:getComputedStyle(document.getElementById("textLayerModal")).display,coordinate:getComputedStyle(document.getElementById("coordinateInspectModal")).display};
   })()`));
   if(textClick.selected!==101||textClick.display!=="flex"||textClick.coordinate!=="none")throw new Error(`text click failed: ${JSON.stringify(textClick)}`);
+
+  const profileExclusivity=await page.evaluate(()=>window.eval(`(()=>{
+    closeTextLayerModal();closeCoordinateInspectModal();
+    profileMode=false;profileStartWorld={x:0,y:0};profileEndWorld={x:10,y:0};profileData={samples:[]};
+    const objectInteraction=canUseDesktopCadObjectInteraction();
+    const coordinateInspect=canStartCoordinateInspectLongPress();
+    openTextLayerModal(data.texts[0]);
+    const textDisplay=getComputedStyle(document.getElementById("textLayerModal")).display;
+    profileStartWorld=null;profileEndWorld=null;profileData=null;
+    return {objectInteraction,coordinateInspect,textDisplay};
+  })()`));
+  if(profileExclusivity.objectInteraction||profileExclusivity.coordinateInspect||profileExclusivity.textDisplay!=="none")throw new Error(`profile mode did not block information/text editing: ${JSON.stringify(profileExclusivity)}`);
 
   await page.evaluate(()=>window.eval(`(()=>{
     closeTextLayerModal();closeCoordinateInspectModal();
