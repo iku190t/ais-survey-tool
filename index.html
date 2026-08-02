@@ -312,7 +312,7 @@ label.fileBtn{
   display:inline-flex; align-items:center; justify-content:center;
   width:32px; height:32px; padding:0; font-size:18px;
 }
-#fileInput,#photoInput{display:none;}
+#fileInput,#photoInput,#photoReconnectInput{display:none;}
 #wrap{position:relative;width:100vw;flex:1 1 auto;min-height:0;background:var(--bg);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #canvas,#interactionCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #canvas{touch-action:none;background:var(--bg);}
@@ -1150,6 +1150,7 @@ gtag('config', 'G-88B9YPJXWP');
     </button>
     <input type="file" id="fileInput" accept=".sfc,.sfz,application/octet-stream,application/zip,text/plain" />
     <input type="file" id="photoInput" accept=".jpg,.jpeg,image/jpeg" multiple />
+    <input type="file" id="photoReconnectInput" accept=".jpg,.jpeg,image/jpeg" multiple />
     <script>
     (()=>{
       const input=document.getElementById("fileInput");
@@ -2277,9 +2278,11 @@ const PHOTO_BACK_MASK_LAYER_ID = "photo:position-back-mask";
 const PHOTO_POSITION_LAYER_NAME = "写真位置";
 const PHOTO_LIST_LAYER_NAME = "写真一覧";
 const PHOTO_BACK_MASK_LAYER_NAME = "写真方向番号背面マスク";
+const PHOTO_RELATED_LAYER_NAMES = [PHOTO_POSITION_LAYER_NAME,PHOTO_LIST_LAYER_NAME,PHOTO_BACK_MASK_LAYER_NAME];
 let photoAnnotations = [];
 const selectedPhotoAnnotations = new Set();
 const photoSourceFiles = new Map();
+let photoReconnectOpenAlbumAfter = false;
 let photoPositionAdjustMode = false;
 let selectedPhotoPositionItem = null;
 let photoPositionAdjustDrag = null;
@@ -6578,14 +6581,23 @@ function applyEditAction(action,undo){
       restoreParsedDataLayerEntries(action.dataEntries);
       for(const entry of [...(action.entries||[])].sort((a,b)=>a.index-b.index))inkStrokes.splice(Math.min(entry.index,inkStrokes.length),0,entry.stroke);
       for(const item of [...(action.aerialEntries||[])].sort((a,b)=>a.index-b.index))aerialCadImages.splice(Math.min(item.index,aerialCadImages.length),0,item.entry);
-      if(action.photoEntries)restorePhotoAnnotations(action.photoEntries);
+      if(action.photoEntries){
+        restorePhotoAnnotations(action.photoEntries);
+        photoSourceFiles.clear();
+        for(const [key,file] of action.photoSourceEntries||[])photoSourceFiles.set(key,file);
+      }
     }else{
       for(const name of action.relatedLayerNames||[action.name])deletedLayerNames.add(name);
       for(const name of action.removedSourceNames||[])removedSourceLayerNames.add(name);
       removeParsedDataLayerEntries(action.dataEntries);
       const remove=new Set((action.entries||[]).map(entry=>entry.stroke));inkStrokes=inkStrokes.filter(stroke=>!remove.has(stroke));
       const removeAerial=new Set((action.aerialEntries||[]).map(item=>item.entry));aerialCadImages=aerialCadImages.filter(entry=>!removeAerial.has(entry));
-      if(action.photoEntries)photoAnnotations=[];
+      if(action.photoEntries){
+        photoAnnotations=[];
+        photoSourceFiles.clear();
+        selectedPhotoAnnotations.clear();
+        setPhotoPositionAdjustMode(false);
+      }
     }
     if(action.name===PHOTO_BACK_MASK_LAYER_NAME){
       const enabled=!!undo;
@@ -9199,6 +9211,14 @@ function removeParsedDataLayersByName(layerNames){
   }
   return entries;
 }
+function removeStalePhotoSourceGeometry(){
+  const entries=removeParsedDataLayersByName(PHOTO_RELATED_LAYER_NAMES);
+  // New photo annotations are drawn from photoAnnotations. Any feature with
+  // the same reserved layer names in the loaded SFC is an older baked copy and
+  // must not be revived when the reserved layers are enabled again.
+  for(const name of PHOTO_RELATED_LAYER_NAMES)removedSourceLayerNames.add(name);
+  return entries;
+}
 function restoreParsedDataLayerEntries(entries){
   const grouped=new Map();
   for(const entry of entries||[]){
@@ -9231,11 +9251,17 @@ function deleteLayerByName(name){
   for(let index=0;index<aerialCadImages.length;index++)if(aerialCadImages[index].layerName===name)aerialEntries.push({entry:aerialCadImages[index],index});
   if(aerialEntries.length){const remove=new Set(aerialEntries.map(item=>item.entry));aerialCadImages=aerialCadImages.filter(entry=>!remove.has(entry));}
   const isPhotoContentLayer=name===PHOTO_POSITION_LAYER_NAME||name===PHOTO_LIST_LAYER_NAME;
-  const relatedLayerNames=isPhotoContentLayer?[PHOTO_POSITION_LAYER_NAME,PHOTO_LIST_LAYER_NAME,PHOTO_BACK_MASK_LAYER_NAME]:[name];
+  const relatedLayerNames=isPhotoContentLayer?PHOTO_RELATED_LAYER_NAMES.slice():[name];
   const photoEntries=isPhotoContentLayer?serializePhotoAnnotations():null;
-  if(isPhotoContentLayer)photoAnnotations=[];
-  const dataEntries=removeParsedDataLayersByName(relatedLayerNames);
-  const removedSourceNames=dataEntries.length?relatedLayerNames.slice():[];
+  const photoSourceEntries=isPhotoContentLayer?[...photoSourceFiles.entries()]:null;
+  if(isPhotoContentLayer){
+    photoAnnotations=[];
+    photoSourceFiles.clear();
+    selectedPhotoAnnotations.clear();
+    setPhotoPositionAdjustMode(false);
+  }
+  const dataEntries=isPhotoContentLayer?removeStalePhotoSourceGeometry():removeParsedDataLayersByName(relatedLayerNames);
+  const removedSourceNames=isPhotoContentLayer?relatedLayerNames.slice():(dataEntries.length?relatedLayerNames.slice():[]);
   for(const relatedName of removedSourceNames)removedSourceLayerNames.add(relatedName);
   for(const relatedName of relatedLayerNames)deletedLayerNames.add(relatedName);
   if(name===PHOTO_BACK_MASK_LAYER_NAME){
@@ -9244,7 +9270,7 @@ function deleteLayerByName(name){
     savePhotoSettings();
     syncPhotoSettingsUi();
   }
-  recordEditAction({type:"layer-delete",name,relatedLayerNames,entries,aerialEntries,photoEntries,dataEntries,removedSourceNames,label:"レイヤー削除"});
+  recordEditAction({type:"layer-delete",name,relatedLayerNames,entries,aerialEntries,photoEntries,photoSourceEntries,dataEntries,removedSourceNames,label:"レイヤー削除"});
   cachedMeasurePointsDirty=true;ensureLayerVisibility();renderLayerList();
   if(keepLayerPanelOpen){
     layerPanel.style.display="flex";
@@ -9253,7 +9279,7 @@ function deleteLayerByName(name){
       requestAnimationFrame(()=>{layerBody.scrollTop=previousScrollTop;});
     }
   }
-  scheduleDraw();markMemoChanged();
+  scheduleDraw();markMemoChanged();saveRecoverySnapshot({immediate:true});
   showToast("レイヤーを削除しました",1600);
 }
 function deletePendingLayer(){
@@ -12121,6 +12147,7 @@ function clearLoadedState(){
   aerialCadImages = [];
   photoAnnotations = [];
   photoSourceFiles.clear();
+  photoReconnectOpenAlbumAfter=false;
   for(const url of photoPreviewUrls.values())try{URL.revokeObjectURL(url);}catch(_e){}
   photoPreviewUrls.clear();
   aerialCadImageRuntime.clear();
@@ -13445,7 +13472,12 @@ function renderPhotoListPanel(){
     tr.classList.toggle("photoPositionSelectedRow",photoPositionAdjustIsActive()&&item===selectedPhotoPositionItem);
     tr.append(select,number,name,capturedAt,xNorth,yEast,demElevation,demSource,direction);rows.appendChild(tr);
   }
-  if(summary)summary.textContent=photoAnnotations.length?`${photoAnnotations.length}枚（ファイル名順）`:"";
+  if(summary){
+    const missing=getMissingPhotoSourceItems().length;
+    summary.textContent=photoAnnotations.length
+      ?`${photoAnnotations.length}枚（ファイル名順）${missing?`・元写真未接続 ${missing}枚`:""}`
+      :"";
+  }
   if(table)table.style.display=photoAnnotations.length?"table":"none";
   if(empty)empty.style.display=photoAnnotations.length?"none":"block";
   const excelBtn=document.getElementById("photoExcelBtn");
@@ -13587,6 +13619,45 @@ async function exportPhotoListExcel(){
 }
 function photoAlbumSourceKey(value){
   return String(value||"").normalize("NFC").toLocaleLowerCase("ja");
+}
+function getMissingPhotoSourceItems(){
+  return (photoAnnotations||[]).filter(item=>!photoSourceFiles.has(photoAlbumSourceKey(item&&item.fileName)));
+}
+function reconnectPhotoSourceFiles(files){
+  const expected=new Set(getMissingPhotoSourceItems().map(item=>photoAlbumSourceKey(item.fileName)));
+  let connected=0;
+  for(const file of Array.from(files||[])){
+    const key=photoAlbumSourceKey(file&&file.name);
+    if(!expected.has(key))continue;
+    photoSourceFiles.set(key,file);
+    expected.delete(key);
+    connected+=1;
+  }
+  const missing=getMissingPhotoSourceItems().length;
+  renderPhotoListPanel();
+  if(!missing&&photoReconnectOpenAlbumAfter){
+    photoReconnectOpenAlbumAfter=false;
+    setPhotoAlbumModalOpen(true);
+  }else{
+    photoReconnectOpenAlbumAfter=false;
+    if(missing)showToast(`元写真を確認できない写真が${missing}枚あります`,3000);
+    else if(connected)showToast(`${connected}枚の元写真を接続しました`,2200);
+  }
+  return {connected,missing};
+}
+function requestPhotoSourceReconnect(openAlbumAfter=true){
+  const missing=getMissingPhotoSourceItems();
+  if(!missing.length){
+    if(openAlbumAfter)setPhotoAlbumModalOpen(true);
+    return false;
+  }
+  const input=document.getElementById("photoReconnectInput");
+  if(!input){showToast("元写真を選択できません",2400);return true;}
+  photoReconnectOpenAlbumAfter=!!openAlbumAfter;
+  input.value="";
+  showToast(`元写真を選び直してください（${missing.length}枚）`,2600);
+  input.click();
+  return true;
 }
 function isPhotoAlbumSpreadAllowed(layout){
   return PHOTO_ALBUM_SPREAD_LAYOUTS.has(String(layout||""));
@@ -13981,6 +14052,7 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
 }
 async function exportPhotoAlbumExcel(){
   if(!photoAnnotations.length){showToast("先に写真を開いてください");return;}
+  if(getMissingPhotoSourceItems().length){requestPhotoSourceReconnect(true);return;}
   const settings=getPhotoAlbumSettingsFromUi();savePhotoAlbumSettings(settings);setPhotoAlbumModalOpen(false);
   const base=normalizeExportFileName(String(data&&data.source_name||"図面").replace(/\.[^.]+$/,""),"図面"),fileName=`${base}_写真帳.xlsx`;
   // 大容量の写真帳では生成中にユーザー操作権限が切れるため、
@@ -14035,6 +14107,10 @@ async function importGeotaggedPhotos(files){
   try{await ensurePhotoDemElevations(imported);}
   catch(error){console.warn("Photo DEM elevation import failed",error);}
   finally{hideBusy();}
+  // A saved SFC can contain an older baked photo layer as ordinary CAD
+  // features. Remove that copy before enabling the live photo layer so its
+  // arrows cannot reappear together with newly imported photos.
+  removeStalePhotoSourceGeometry();
   const merged=new Map(photoAnnotations.map(item=>[String(item.fileName).toLocaleLowerCase("ja"),item]));
   for(const item of imported)merged.set(String(item.fileName).toLocaleLowerCase("ja"),item);
   photoAnnotations=[...merged.values()].sort((a,b)=>String(a.fileName).localeCompare(String(b.fileName),"ja",{numeric:true,sensitivity:"base"}));
@@ -17046,6 +17122,12 @@ document.getElementById("photoInput")?.addEventListener("change",event=>{
   event.target.value="";
   if(files.length)importGeotaggedPhotos(files).catch(err=>{console.error(err);hideBusy();showToast("写真を読み込めませんでした",2400);});
 });
+document.getElementById("photoReconnectInput")?.addEventListener("change",event=>{
+  const files=Array.from(event.target.files||[]);
+  event.target.value="";
+  if(files.length)reconnectPhotoSourceFiles(files);
+  else photoReconnectOpenAlbumAfter=false;
+});
 document.getElementById("photoToolBtn")?.addEventListener("click",()=>{
   if(!isDesktopPhotoTool())return;
   if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください");return;}
@@ -17065,7 +17147,10 @@ document.getElementById("photoExcelBtn")?.addEventListener("click",()=>{
 });
 document.getElementById("photoExcelChoiceCloseBtn")?.addEventListener("click",()=>setPhotoExcelChoiceModalOpen(false));
 document.getElementById("photoExcelListChoiceBtn")?.addEventListener("click",()=>{setPhotoExcelChoiceModalOpen(false);exportPhotoListExcel();});
-document.getElementById("photoExcelAlbumChoiceBtn")?.addEventListener("click",()=>{setPhotoExcelChoiceModalOpen(false);setPhotoAlbumModalOpen(true);});
+document.getElementById("photoExcelAlbumChoiceBtn")?.addEventListener("click",()=>{
+  setPhotoExcelChoiceModalOpen(false);
+  requestPhotoSourceReconnect(true);
+});
 document.getElementById("photoExcelChoiceModal")?.addEventListener("click",event=>{if(event.target.id==="photoExcelChoiceModal")setPhotoExcelChoiceModalOpen(false);});
 document.getElementById("photoPositionAdjustBtn")?.addEventListener("click",()=>{
   if(!photoAnnotations.length){showToast("先に写真を開いてください");return;}

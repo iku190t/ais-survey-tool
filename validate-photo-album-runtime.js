@@ -130,6 +130,34 @@ let browser;
     hideBusy();return result;
   });
   if(progressUi.hidden||progressUi.count!=="7／17枚"||progressUi.percent!=="41％"||progressUi.width!=="41%")throw new Error(`進捗バー表示が正しくありません: ${JSON.stringify(progressUi)}`);
+  const reconnectAndDelete=await page.evaluate(()=>{
+    photoAnnotations=[
+      {number:1,fileName:"A.jpg",lat:35,lon:134,xNorth:1,yEast:2,worldX:1,worldY:2,markerX:1,markerY:2},
+      {number:2,fileName:"B.jpg",lat:35,lon:134,xNorth:3,yEast:4,worldX:3,worldY:4,markerX:3,markerY:4}
+    ];
+    photoSourceFiles.clear();
+    const missingBefore=getMissingPhotoSourceItems().length;
+    reconnectPhotoSourceFiles([new File(["a"],"A.jpg",{type:"image/jpeg"})]);
+    const missingAfterOne=getMissingPhotoSourceItems().length;
+    reconnectPhotoSourceFiles([new File(["b"],"B.jpg",{type:"image/jpeg"})]);
+    const missingAfterAll=getMissingPhotoSourceItems().length;
+
+    data={lines:[[0,0,10,10,1]],polys:[],splines:[],texts:[],circles:[],arcs:[],ellipses:[],ellipseArcs:[],markers:[],layerNames:{1:PHOTO_POSITION_LAYER_NAME},source_name:"photo.sfc"};
+    deletedLayerNames=new Set();removedSourceLayerNames=new Set();editUndoActions=[];
+    deleteLayerByName(PHOTO_POSITION_LAYER_NAME);
+    const afterDelete={photos:photoAnnotations.length,sources:photoSourceFiles.size,lines:data.lines.length,removed:[...removedSourceLayerNames]};
+    undoLastEdit();
+    const afterUndo={photos:photoAnnotations.length,sources:photoSourceFiles.size,lines:data.lines.length};
+    redoLastEdit();
+    data.lines.push([0,0,20,20,1]);
+    removeStalePhotoSourceGeometry();
+    const afterReimportCleanup={lines:data.lines.length,removed:[...removedSourceLayerNames]};
+    return {missingBefore,missingAfterOne,missingAfterAll,afterDelete,afterUndo,afterReimportCleanup};
+  });
+  if(reconnectAndDelete.missingBefore!==2||reconnectAndDelete.missingAfterOne!==1||reconnectAndDelete.missingAfterAll!==0)throw new Error(`元写真の再接続が正しくありません: ${JSON.stringify(reconnectAndDelete)}`);
+  if(reconnectAndDelete.afterDelete.photos!==0||reconnectAndDelete.afterDelete.sources!==0||reconnectAndDelete.afterDelete.lines!==0||reconnectAndDelete.afterDelete.removed.length!==3)throw new Error(`写真レイヤー削除が関連データを消去していません: ${JSON.stringify(reconnectAndDelete.afterDelete)}`);
+  if(reconnectAndDelete.afterUndo.photos!==2||reconnectAndDelete.afterUndo.sources!==2||reconnectAndDelete.afterUndo.lines!==1)throw new Error(`写真レイヤー削除のUndoが正しくありません: ${JSON.stringify(reconnectAndDelete.afterUndo)}`);
+  if(reconnectAndDelete.afterReimportCleanup.lines!==0||reconnectAndDelete.afterReimportCleanup.removed.length!==3)throw new Error(`新規写真読込み前に旧矢印を除去できません: ${JSON.stringify(reconnectAndDelete.afterReimportCleanup)}`);
   console.log(`photo album runtime checks passed (2-photo media=${two.media}, 3-photo media=${three.media}, 4-photo media=${four.media}, 6-photo media=${six.media}, 8-photo media=${eight.media}, spread=3/4 only)`);
   await browser.close();server.close();
 })().catch(async error=>{console.error(error);try{await browser?.close();}catch(_error){}server.close();process.exitCode=1;});
