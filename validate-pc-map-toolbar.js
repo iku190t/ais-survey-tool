@@ -40,6 +40,17 @@ let browser;
   desktop.on("pageerror",error=>errors.push(String(error)));
   await desktop.route(/^https:\/\//,route=>route.abort());
   await desktop.goto(base,{waitUntil:"load",timeout:10000});
+  const startupState=await desktop.evaluate(()=>({
+    visible:Array.from(document.querySelectorAll("#topbar .toolIconBtn svg")).every(svg=>{
+      const button=svg.closest("button"),style=getComputedStyle(button);
+      return Number(style.opacity)>=0.6&&getComputedStyle(svg).display!=="none";
+    }),
+    unavailable:Array.from(document.querySelectorAll("#topbar .toolIconBtn:not(#openIconBtn)")).every(button=>button.classList.contains("unavailableTool")),
+    terrainPath:document.querySelector("#terrainToolbarBtn svg")?.innerHTML||"",
+    profilePath:document.querySelector("#profileBtn svg")?.innerHTML||""
+  }));
+  if(!startupState.visible||!startupState.unavailable)throw new Error(`startup toolbar icon state failed: ${JSON.stringify(startupState)}`);
+  if(startupState.terrainPath===startupState.profilePath||!startupState.profilePath||!startupState.terrainPath)throw new Error("terrain/profile icons are not distinct");
   await desktop.evaluate(()=>{
     document.getElementById("startupModal").style.display="none";
     data.lines=[[0,0,10,10,1,1,1]];

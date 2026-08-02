@@ -1081,9 +1081,13 @@ body.help-labels button[data-help-label].mobile-hide{
 }
 
 .unavailableTool{
-  opacity:.35 !important;
-  filter:saturate(.55) grayscale(.2);
+  opacity:.62 !important;
+  filter:saturate(.45) grayscale(.45);
   pointer-events:none !important;
+}
+#topbar .toolIconBtn.unavailableTool svg{
+  opacity:.9;
+  filter:none;
 }
 #startupTips{
   margin:6px 0 12px 0;
@@ -1123,7 +1127,7 @@ body.help-labels button[data-help-label].mobile-hide{
 
 .unavailableTool:active{
   transform:none !important;
-  filter:saturate(.55) grayscale(.2) !important;
+  filter:saturate(.45) grayscale(.45) !important;
 }
 
 </style>
@@ -1214,8 +1218,9 @@ gtag('config', 'G-88B9YPJXWP');
     </button>
     <button id="terrainToolbarBtn" class="toolIconBtn pcMapToolBtn" data-help-label="地形解析" data-tooltip="標高・傾斜・等高線などを表示する" aria-label="地形解析">
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M3 18.5 8.2 11l3.1 3.5L15.2 7 21 18.5z"></path>
-        <path d="M5.2 20.5c3.7-1.5 9.9-1.5 13.6 0"></path>
+        <path d="M3.5 7.5c3-3 6.5-3 9.2-.7 2.7 2.3 5.5 2 7.8-.3"></path>
+        <path d="M3.5 12c3-3 6.5-3 9.2-.7 2.7 2.3 5.5 2 7.8-.3"></path>
+        <path d="M3.5 16.5c3-3 6.5-3 9.2-.7 2.7 2.3 5.5 2 7.8-.3"></path>
       </svg>
     </button>
     <button id="registryToolbarBtn" class="toolIconBtn pcMapToolBtn" data-help-label="法務地図" data-tooltip="筆界・地番などの参考情報を表示する" aria-label="法務地図・境界">
@@ -1254,8 +1259,7 @@ gtag('config', 'G-88B9YPJXWP');
     </button>
     <button id="profileBtn" class="toolIconBtn" data-help-label="断面" data-tooltip="地形断面を作成する" aria-label="断面">
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M3 19h18"></path>
-        <path d="M4 17 9 11.5l3 3 3.1-6L20 17"></path>
+        <path d="M3 17.5 7.2 13l3.6 2.5 4.1-8L21 16"></path>
       </svg>
     </button>
     <button id="photoToolBtn" class="toolIconBtn" data-help-label="写真位置" data-tooltip="写真の位置と撮影方向を図面へ配置する" aria-label="写真位置">
@@ -14594,7 +14598,7 @@ function buildInkPolylineFeatureText(baseText){
   // selected partial figure splits existing SFIG contents (for example
   // TREND-ONE's ~4869 figure) and makes the final fill boundary unresolved.
   const preludeInsertion=geometryPlacement.index;
-  let nextCompositeCurveCode=countSxfAssembliesBefore(baseText,preludeInsertion)+1;
+  let nextCompositeCurveCode=countSxfCompositeCurvesBefore(baseText,preludeInsertion)+1;
   const horizontalTextAngle=getGeneratedHorizontalSxfTextAngle(baseText,generatedGeometryPoints);
   const appendTextLabel=(label,layerCode,colorCode,forceHorizontal=false)=>{
     if(!label||!String(label.text||"").trim())return;
@@ -15007,6 +15011,9 @@ function findSxfAssemblyChildrenStart(baseText,assemblyOriginIndex){
 function countSxfAssembliesBefore(baseText,beforeIndex){
   return getSxfAssemblyOriginBlocksBefore(baseText,beforeIndex).length;
 }
+function countSxfCompositeCurvesBefore(baseText,beforeIndex){
+  return getSxfAssemblyOriginBlocksBefore(baseText,beforeIndex).filter(block=>block.name==="composite_curve_org_feature").length;
+}
 function shiftSxfCurveReferenceToken(rawValue,firstShiftCode,offset){
   const raw=String(rawValue||"");
   return raw.replace(/-?\d+/,token=>{
@@ -15049,15 +15056,15 @@ function insertMemoGeneralFeatures(baseText, lineText, points, preludeText=""){
   let placement=findMemoGeometryInsertion(text,points);
   let at=Math.max(0,Math.min(text.length,placement.index));
   let preludeAt=at;
-  const addedAssemblyCount=preludeText
-    ?parseSxfFeatureRecords(getFlatSxfText(preludeText)).filter(record=>SXF_ASSEMBLY_ORIGIN_NAMES.has(record.name)).length
+  const addedCompositeCurveCount=preludeText
+    ?parseSxfFeatureRecords(getFlatSxfText(preludeText)).filter(record=>record.name==="composite_curve_org_feature").length
     :0;
-  if(addedAssemblyCount>0){
-    // Assembly codes are positional in SXF. Inserting a composite curve before
-    // existing ones shifts every later hatch reference. Remap the source first
-    // so every existing fill keeps pointing at its original boundary.
-    const firstShiftCode=countSxfAssembliesBefore(text,preludeAt)+1;
-    text=shiftExistingSxfHatchCurveReferences(text,firstShiftCode,addedAssemblyCount);
+  if(addedCompositeCurveCount>0){
+    // SXF out_id is the encounter-order number of composite_curve_org_feature
+    // records only.  Partial figures and the drawing sheet are not part of this
+    // numbering (confirmed by standard V-NAS / TREND-ONE output).
+    const firstShiftCode=countSxfCompositeCurvesBefore(text,preludeAt)+1;
+    text=shiftExistingSxfHatchCurveReferences(text,firstShiftCode,addedCompositeCurveCount);
     placement=findMemoGeometryInsertion(text,points);
     at=Math.max(0,Math.min(text.length,placement.index));
     preludeAt=at;
@@ -15139,15 +15146,15 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   const compositeAssemblyCodes=new Set();
   const compositeAssemblies=new Map();
   const compositeChildFeatureIds=new Set();
-  let assemblyCode=0;
+  let compositeCurveCode=0;
   let assemblyChildrenStart=0;
   for(let recordIndex=0;recordIndex<allRecords.length;recordIndex+=1){
     const record=allRecords[recordIndex];
     if(!SXF_ASSEMBLY_ORIGIN_NAMES.has(record.name))continue;
-    assemblyCode+=1;
     if(record.name==="composite_curve_org_feature"){
-      compositeAssemblyCodes.add(assemblyCode);
-      compositeAssemblies.set(assemblyCode,record);
+      compositeCurveCode+=1;
+      compositeAssemblyCodes.add(compositeCurveCode);
+      compositeAssemblies.set(compositeCurveCode,record);
       for(let childIndex=assemblyChildrenStart;childIndex<recordIndex;childIndex+=1){
         const child=allRecords[childIndex];
         if(child.name==="polyline_feature"||child.name==="line_feature"||child.name==="spline_feature"||child.name==="arc_feature"||child.name==="circle_feature"||child.name==="ellipse_feature"||child.name==="ellipse_arc_feature")compositeChildFeatureIds.add(child.id);
@@ -15351,15 +15358,14 @@ function getExportableAerialCadImages(){
 function sanitizeInvalidSxfExternalHatches(srcText){
   const text=String(srcText||"");
   const records=parseSxfFeatureRecords(getFlatSxfTextIncludingGenerated(text));
-  // SXF defines out_id as a composite-curve assembly code.  It is not a
-  // polyline/circle feature ID.  Assembly codes are assigned in encounter
-  // order across every assembly origin (sheet, partial figure and curve).
+  // SXF defines out_id as the encounter-order code of composite curves only.
+  // It is not a feature ID, and partial figures / sheets do not consume a code.
   const compositeCurveCodes=new Set();
-  let assemblyCode=0;
+  let compositeCurveCode=0;
   for(const record of records){
-    if(!SXF_ASSEMBLY_ORIGIN_NAMES.has(record.name))continue;
-    assemblyCode+=1;
-    if(record.name==="composite_curve_org_feature")compositeCurveCodes.add(String(assemblyCode));
+    if(record.name!=="composite_curve_org_feature")continue;
+    compositeCurveCode+=1;
+    compositeCurveCodes.add(String(compositeCurveCode));
   }
   const invalidIds=new Set();
   for(const rec of records){
