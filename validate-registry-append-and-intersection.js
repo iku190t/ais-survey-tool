@@ -8,10 +8,15 @@ const source=fs.readFileSync(path.join(root,"index.html"),"utf8");
 for(const token of [
   'id="registryMapAppendBtn"',
   'function registryDrawingTargetBounds(zone)',
+  'function registryInitialTargetBounds(zone)',
+  'function registryAdditionalTargetBounds(zone,state=registryMapState)',
+  'function registryExpandGeoBoundsByViewport(bounds,visibleBounds,screenShare=.5)',
   'function registryMergeMapStates(base,incoming,targetBounds,resourceUrl="")',
   'fetch(resource.url,{cache:"force-cache"})',
   'if(!firstInterior&&!secondInterior)continue',
   'desktopInkPencilCursor',
+  "%3Cpath fill='%23fff' d='M20.9 4.9",
+  '") 4 27,crosshair!important;',
   'event.clipboardData.setData("text/plain",plainText)'
 ])if(!source.includes(token))throw new Error(`missing implementation: ${token}`);
 
@@ -49,6 +54,16 @@ let browser;
     incoming.looseLines=[{points:[{x:0,y:0},{x:100,y:0}]},{points:[{x:100,y:0},{x:200,y:0}]}];
     const acquired={minLon:134,minLat:34,maxLon:134.01,maxLat:34.01,center:{lon:134.005,lat:34.005}};
     const merged=registryMergeMapStates(base,incoming,acquired,"https://example.test/a.zip");
+    const expanded=registryExpandGeoBoundsByViewport(acquired,{
+      minLon:134.002,minLat:34.002,maxLon:134.008,maxLat:34.008
+    },.5);
+    const originalAutoTargetBounds=registryAutoTargetBounds;
+    registryAutoTargetBounds=()=>({
+      minLon:134.002,minLat:34.002,maxLon:134.008,maxLat:34.008,
+      center:{lon:134.005,lat:34.005}
+    });
+    const additional=registryAdditionalTargetBounds(4,merged);
+    registryAutoTargetBounds=originalAutoTargetBounds;
 
     data.lines=[];data.polys=[];data.splines=[];data._lineRenderRuns=[];data._polyRenderRuns=[];data._splineRenderRuns=[];
     layerVisibility={"1":true};view.scale=10;view.tx=400;view.ty=300;rotationDeg=0;
@@ -72,6 +87,12 @@ let browser;
       covered:registryTargetAlreadyAcquired({minLon:134.001,minLat:34.001,maxLon:134.009,maxLat:34.009},merged),
       outside:registryTargetAlreadyAcquired({minLon:135,minLat:35,maxLon:135.01,maxLat:35.01},merged),
       appendEnabled:!document.getElementById("registryMapAppendBtn").disabled,
+      expanded:{
+        minLon:expanded.minLon,minLat:expanded.minLat,maxLon:expanded.maxLon,maxLat:expanded.maxLat
+      },
+      additional:{
+        minLon:additional.minLon,minLat:additional.minLat,maxLon:additional.maxLon,maxLat:additional.maxLat
+      },
       intersections:{plus:!!plus,tee:!!tee,corner:!!corner},
       pencilOn,pencilOff,
       selectable:getComputedStyle(document.getElementById("registryMapStatus")).userSelect
@@ -79,6 +100,8 @@ let browser;
   });
   if(JSON.stringify(result.counts)!==JSON.stringify([2,2,2]))throw new Error(`registry merge failed: ${JSON.stringify(result)}`);
   if(!result.covered||result.outside||!result.appendEnabled)throw new Error(`registry coverage/UI failed: ${JSON.stringify(result)}`);
+  if(!(result.expanded.minLon<134&&result.expanded.minLat<34&&result.expanded.maxLon>134.01&&result.expanded.maxLat>34.01))throw new Error(`registry expansion failed: ${JSON.stringify(result.expanded)}`);
+  if(!(result.additional.minLon<134&&result.additional.minLat<34&&result.additional.maxLon>134.01&&result.additional.maxLat>34.01))throw new Error(`registry additional range did not extend acquired coverage: ${JSON.stringify(result.additional)}`);
   if(!result.intersections.plus||!result.intersections.tee||result.intersections.corner)throw new Error(`intersection modes failed: ${JSON.stringify(result.intersections)}`);
   if(!result.pencilOn||!result.pencilOff)throw new Error(`pencil cursor failed: ${JSON.stringify(result)}`);
   if(result.selectable!=="text")throw new Error(`panel text is not selectable: ${result.selectable}`);

@@ -20,7 +20,7 @@ for(const token of [
   "function togglePcMapToolbarPanel(panel,openButton)",
   "#aerialPhotoPanel #terrainPanelOpenBtn",
   'document.querySelectorAll("[data-tooltip]")',
-  'data-tooltip="Ez Viewer&#10;制作：株式会社アイズ測量"'
+  'data-tooltip="制作：株式会社アイズ測量"'
 ])if(!source.includes(token))throw new Error(`missing PC toolbar implementation: ${token}`);
 
 const server=http.createServer((req,res)=>{
@@ -84,7 +84,7 @@ let browser;
   await desktop.locator("#viewerLabel").hover();
   await desktop.waitForTimeout(430);
   const viewerTip=await desktop.locator("#toolbarTooltip").textContent();
-  if(!viewerTip||!viewerTip.includes("Ez Viewer")||!viewerTip.includes("制作：株式会社アイズ測量"))throw new Error(`viewer tooltip failed: ${viewerTip}`);
+  if(viewerTip!=="制作：株式会社アイズ測量")throw new Error(`viewer tooltip failed: ${viewerTip}`);
   await desktop.locator("#terrainToolbarBtn").click();
   if(!(await desktop.locator("#terrainPanel").isVisible()))throw new Error("terrain panel did not open from PC toolbar");
   if(!(await desktop.locator("#terrainToolbarBtn").evaluate(element=>element.classList.contains("modeActive"))))throw new Error("terrain toolbar active state was not shown");
