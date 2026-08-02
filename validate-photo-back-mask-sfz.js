@@ -67,6 +67,11 @@ let browser;
     const originalExternalHatches=originalRecords.filter(record=>record.name==="externally_defined_hatch_feature");
     const externalHatches=records.filter(record=>record.name==="externally_defined_hatch_feature");
     const fills=records.filter(record=>record.name==="fill_area_style_colour_feature"&&Number(unquoteSxfValue(record.args[0]))===maskCode);
+    const generatedBlocks=[...saved.text.matchAll(/\/\*\s*---\s*sfcviewer_generated_begin\s*---\s*\*\/([\s\S]*?)\/\*\s*---\s*sfcviewer_generated_end\s*---\s*\*\//g)];
+    const boundaryBlock=generatedBlocks.find(match=>/composite_curve_org_feature\s*\(/.test(match[1]));
+    const fillBlock=generatedBlocks.find(match=>/fill_area_style_colour_feature\s*\(/.test(match[1]));
+    const boundaryAndFillAdjacent=!!(boundaryBlock&&fillBlock&&boundaryBlock.index<fillBlock.index&&
+      saved.text.slice(boundaryBlock.index+boundaryBlock[0].length,fillBlock.index).trim()==="");
     const generatedPrelude=parseSxfFeatureRecords(getFlatSxfText(ann.preludeText));
     const generatedRecords=parseSxfFeatureRecords(getFlatSxfText(ann.preludeText+'\n'+ann.lineText+'\n'+ann.rootPlacementText));
     const boundaries=generatedPrelude.filter(record=>record.name==="polyline_feature"&&record.args.slice(0,4).every(value=>Number(unquoteSxfValue(value))===0));
@@ -97,6 +102,7 @@ let browser;
       externalHatchCount:externalHatches.length,
       generatedExternalMaskCount:generatedRecords.filter(record=>record.name==="externally_defined_hatch_feature").length,
       fillCount:fills.length,
+      boundaryAndFillAdjacent,
       boundaryCount:boundaries.length,
       backgroundFigureCount:backgroundFigures.length,
       backgroundPlacementCount:backgroundPlacements.length,
@@ -112,7 +118,7 @@ let browser;
   },{sfc,name:entryName});
   if(!result.ok)throw new Error(result.reason||"書出しに失敗しました");
   if(result.photoCount<1)throw new Error("添付SFZから写真位置を復元できません");
-  if(result.maskCode<1||result.fillCount!==result.photoCount||result.boundaryCount!==result.photoCount||result.generatedExternalMaskCount!==0||result.externalHatchCount!==result.originalExternalHatchCount||result.backgroundFigureCount!==0||result.backgroundPlacementCount!==0||result.explicitBlackCount<1)throw new Error(`背面マスクの書出し件数が不正です: ${JSON.stringify(result)}`);
+  if(result.maskCode<1||result.fillCount!==result.photoCount||result.boundaryCount!==result.photoCount||!result.boundaryAndFillAdjacent||result.generatedExternalMaskCount!==0||result.externalHatchCount!==result.originalExternalHatchCount||result.backgroundFigureCount!==0||result.backgroundPlacementCount!==0||result.explicitBlackCount<1)throw new Error(`背面マスクの書出し件数が不正です: ${JSON.stringify(result)}`);
   if(result.roundtripMaskFillCount!==result.photoCount||result.roundtripMaskAreaControlCount!==0||!result.roundtripValidation?.ok)throw new Error(`再保存後の背面マスク構造が不正です: ${JSON.stringify(result)}`);
   if(!result.validation?.ok)throw new Error(`SXF検証に失敗しました: ${JSON.stringify(result)}`);
   console.log(JSON.stringify(result));

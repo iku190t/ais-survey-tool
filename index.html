@@ -14532,7 +14532,11 @@ function buildInkPolylineFeatureText(baseText){
     if(Number.isFinite(+point.x)&&Number.isFinite(+point.y))generatedGeometryPoints.push({x:+point.x,y:+point.y});
   }
   const geometryPlacement=findMemoGeometryInsertion(baseText,generatedGeometryPoints);
-  const preludeInsertion=findSxfAssemblyChildrenStart(baseText,geometryPlacement.index);
+  // Keep the composite-curve definitions immediately beside the generated
+  // fills and visible photo geometry.  Inserting them at the beginning of the
+  // selected partial figure splits existing SFIG contents (for example
+  // TREND-ONE's ~4869 figure) and makes the final fill boundary unresolved.
+  const preludeInsertion=geometryPlacement.index;
   let nextCompositeCurveCode=countSxfAssembliesBefore(baseText,preludeInsertion)+1;
   const horizontalTextAngle=getGeneratedHorizontalSxfTextAngle(baseText,generatedGeometryPoints);
   const appendTextLabel=(label,layerCode,colorCode,forceHorizontal=false)=>{
@@ -14987,7 +14991,7 @@ function insertMemoGeneralFeatures(baseText, lineText, points, preludeText=""){
   let text = String(baseText || "");
   let placement=findMemoGeometryInsertion(text,points);
   let at=Math.max(0,Math.min(text.length,placement.index));
-  let preludeAt=preludeText?Math.max(0,Math.min(at,findSxfAssemblyChildrenStart(text,at))):at;
+  let preludeAt=at;
   const addedAssemblyCount=preludeText
     ?parseSxfFeatureRecords(getFlatSxfText(preludeText)).filter(record=>SXF_ASSEMBLY_ORIGIN_NAMES.has(record.name)).length
     :0;
@@ -14999,7 +15003,7 @@ function insertMemoGeneralFeatures(baseText, lineText, points, preludeText=""){
     text=shiftExistingSxfHatchCurveReferences(text,firstShiftCode,addedAssemblyCount);
     placement=findMemoGeometryInsertion(text,points);
     at=Math.max(0,Math.min(text.length,placement.index));
-    preludeAt=Math.max(0,Math.min(at,findSxfAssemblyChildrenStart(text,at)));
+    preludeAt=at;
   }
   const preludeBlock=preludeText?`/* --- sfcviewer_generated_begin --- */\r\n${preludeText}\r\n/* --- sfcviewer_generated_end --- */\r\n`:"";
   const block=lineText?`\r\n/* --- sfcviewer_generated_begin --- */\r\n${lineText}\r\n/* --- sfcviewer_generated_end --- */\r\n`:"";

@@ -124,7 +124,7 @@ let browser;
       previous:assembled.indexOf("sfig_org_feature('PREV'"),
       boundary:assembled.indexOf('sfcviewer_generated_begin'),
       existing:assembled.indexOf('#50 = line_feature'),
-      fill:assembled.indexOf('fill_area_style_colour_feature'),
+      fill:assembled.indexOf('#'+assemblyFill?.id+' = fill_area_style_colour_feature'),
       main:assembled.indexOf("sfig_org_feature('MAIN'"),
       retainedSourceOuter:Number(unquoteSxfValue(retainedSourceFill?.args[2])),
       shiftedSourceOuter:Number(unquoteSxfValue(shiftedSourceFill?.args[2]))
