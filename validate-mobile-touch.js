@@ -10,6 +10,8 @@ const required=[
   "finishTouchPanPreview(true);",
   "const text=findEditableTextAtScreen(pending.screenX,pending.screenY);",
   "textLayerModalIsOpen()",
+  "#textLayerModal{",
+  "align-items:flex-end;",
   "canvas.addEventListener(\"pointerdown\"",
   "e.preventDefault();\n    startTextLongPress",
   "},540);",
@@ -105,7 +107,15 @@ let browser;
     findEditableTextAtScreen=()=>({_sxfFeatureId:901,layer:1,x:0,y:0,text:"次の文字"});
     openTextLayerModal=text=>{window.__continuousTextSelection=text;selectedTextForLayerChange=text;};
   })()`));
-  await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:48,y:690,id:2,radiusX:3,radiusY:3,force:1}]});
+  const mobileTextLayerPopup=await page.evaluate(()=>{
+    const modal=document.getElementById("textLayerModal");
+    const box=document.getElementById("textLayerBox");
+    const modalStyle=getComputedStyle(modal);
+    const rect=box.getBoundingClientRect();
+    return {alignItems:modalStyle.alignItems,bottom:rect.bottom,viewportHeight:innerHeight};
+  });
+  if(mobileTextLayerPopup.alignItems!=="flex-end"||mobileTextLayerPopup.bottom<mobileTextLayerPopup.viewportHeight-40)throw new Error(`mobile text layer popup was not positioned at the bottom: ${JSON.stringify(mobileTextLayerPopup)}`);
+  await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:48,y:350,id:2,radiusX:3,radiusY:3,force:1}]});
   await page.waitForTimeout(60);
   await cdp.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});
   await page.waitForTimeout(80);
