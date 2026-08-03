@@ -556,9 +556,12 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #registryMapAutoBtn:disabled{opacity:.55;cursor:default;}
 #registryMapAppendBtn:disabled{opacity:.42;cursor:default;}
 #registryLayerList{border-top:1px solid rgba(128,128,128,.24);margin-top:7px;}
-.registryLayerRow{display:flex;align-items:center;gap:9px;min-height:40px;border-bottom:1px solid rgba(128,128,128,.20);font-size:13px;font-weight:700;cursor:pointer;}
+.registryLayerRow{display:flex;align-items:center;gap:9px;min-height:40px;border-bottom:1px solid rgba(128,128,128,.20);font-size:13px;font-weight:700;}
 .registryLayerRow input{width:20px;height:20px;flex:0 0 auto;}
-.registrySwatch{width:22px;height:8px;border-radius:3px;flex:0 0 auto;background:var(--registry-color);}
+.registryLayerToggleLabel{display:flex;align-items:center;align-self:stretch;min-width:0;flex:1;cursor:pointer;}
+.registryColorButton{width:38px;height:30px;min-width:38px;padding:4px;border:1px solid var(--border);border-radius:7px;background:var(--btn);box-sizing:border-box;cursor:pointer;}
+.registryColorButton::after{content:"";display:block;width:100%;height:100%;border-radius:4px;background:var(--registry-color,#fff);box-shadow:inset 0 0 0 1px rgba(255,255,255,.24);}
+.registryColorButton:active{transform:translateY(1px);}
 #registryMapStatus{font-size:12px;line-height:1.55;color:var(--muted);min-height:18px;}
 #registryMapNotice{font-size:11px;line-height:1.55;color:var(--muted);margin-top:7px;}
 #mapOverlayInfoStack{position:absolute;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:58;display:flex;flex-direction:column;align-items:flex-end;gap:4px;max-width:calc(100% - 16px);pointer-events:none;}
@@ -1622,10 +1625,10 @@ gtag('config', 'G-88B9YPJXWP');
     <input id="registryMapFileInput" type="file" accept=".xml,.geojson,.json,.zip,application/xml,text/xml,application/geo+json,application/json,application/zip" hidden>
     <div id="registryMapStatus">圧縮SHPを優先して自動取得します。法務省XML・GeoJSON・圧縮SHPの手動読込にも対応しています。</div>
     <div id="registryLayerList" aria-label="法務局地図レイヤー">
-      <label class="registryLayerRow"><input id="registryParcelLayerToggle" type="checkbox" checked><span class="registrySwatch" style="--registry-color:rgba(255,193,7,.24)"></span><span>筆ポリゴンレイヤー</span></label>
-      <label class="registryLayerRow"><input id="registryBoundaryLayerToggle" type="checkbox" checked><span class="registrySwatch" style="--registry-color:#ff9800"></span><span>筆界線レイヤー</span></label>
-      <label class="registryLayerRow"><input id="registryPointLayerToggle" type="checkbox" checked><span class="registrySwatch" style="--registry-color:#00c8ff"></span><span>筆界点レイヤー</span></label>
-      <label class="registryLayerRow"><input id="registryLabelLayerToggle" type="checkbox" checked><span class="registrySwatch" style="--registry-color:#ffd54f"></span><span>地番文字レイヤー</span></label>
+      <div class="registryLayerRow"><input id="registryParcelLayerToggle" type="checkbox" checked><label class="registryLayerToggleLabel" for="registryParcelLayerToggle">筆ポリゴンレイヤー</label><button id="registryParcelColorBtn" class="registryColorButton" type="button" data-registry-layer="parcel" aria-label="筆ポリゴンの色を変更" title="筆ポリゴンの色を変更"></button></div>
+      <div class="registryLayerRow"><input id="registryBoundaryLayerToggle" type="checkbox" checked><label class="registryLayerToggleLabel" for="registryBoundaryLayerToggle">筆界線レイヤー</label><button id="registryBoundaryColorBtn" class="registryColorButton" type="button" data-registry-layer="boundary" aria-label="筆界線の色を変更" title="筆界線の色を変更"></button></div>
+      <div class="registryLayerRow"><input id="registryPointLayerToggle" type="checkbox" checked><label class="registryLayerToggleLabel" for="registryPointLayerToggle">筆界点レイヤー</label><button id="registryPointColorBtn" class="registryColorButton" type="button" data-registry-layer="point" aria-label="筆界点の色を変更" title="筆界点の色を変更"></button></div>
+      <div class="registryLayerRow"><input id="registryLabelLayerToggle" type="checkbox" checked><label class="registryLayerToggleLabel" for="registryLabelLayerToggle">地番文字レイヤー</label><button id="registryLabelColorBtn" class="registryColorButton" type="button" data-registry-layer="label" aria-label="地番文字の色を変更" title="地番文字の色を変更"></button></div>
     </div>
     <div id="registryMapNotice">参考情報です。境界確定・測量・登記・権利判断には使用できません。表示には位置ずれ、欠落、誤差、更新時期の相違が含まれる場合があります。正式な内容は管轄法務局の資料で確認してください。</div>
   </div>
@@ -2472,6 +2475,27 @@ const REGISTRY_LAYER_DEFAULTS = Object.freeze({
   point:{visible:true,color:"#00b8d4"},
   label:{visible:true,color:"#ffd54f"}
 });
+const REGISTRY_LAYER_COLOR_STORAGE_KEY="ezviewer-registry-layer-colors-v1";
+function loadRegistryLayerColors(){
+  const colors=Object.fromEntries(Object.entries(REGISTRY_LAYER_DEFAULTS).map(([key,value])=>[key,value.color]));
+  try{
+    const stored=JSON.parse(localStorage.getItem(REGISTRY_LAYER_COLOR_STORAGE_KEY)||"null");
+    for(const key of Object.keys(colors)){
+      const color=String(stored?.[key]||"").toLowerCase();
+      if(/^#[0-9a-f]{6}$/.test(color))colors[key]=color;
+    }
+  }catch(_error){}
+  return colors;
+}
+function saveRegistryLayerColors(){
+  try{localStorage.setItem(REGISTRY_LAYER_COLOR_STORAGE_KEY,JSON.stringify(registryLayerColors));}catch(_error){}
+}
+function registryColorWithAlpha(color,alpha){
+  const value=String(color||"").replace(/^#/,"");
+  if(!/^[0-9a-f]{6}$/i.test(value))return `rgba(255,152,0,${alpha})`;
+  return `rgba(${parseInt(value.slice(0,2),16)},${parseInt(value.slice(2,4),16)},${parseInt(value.slice(4,6),16)},${alpha})`;
+}
+let registryLayerColors=loadRegistryLayerColors();
 let registryLayerVisibility = {
   parcel:true,
   boundary:true,
@@ -8723,7 +8747,17 @@ function closeLayerColorPalette(){
 function applyLayerPaletteColor(color){
   const selected=String(color||"").toLowerCase();
   if(!selected||!layerColorPaletteTarget)return;
-  if(layerColorPaletteTarget.type==="all"){
+  if(layerColorPaletteTarget.type==="registry"){
+    const key=layerColorPaletteTarget.key;
+    if(Object.prototype.hasOwnProperty.call(REGISTRY_LAYER_DEFAULTS,key)){
+      registryLayerColors[key]=selected;
+      saveRegistryLayerColors();
+    }
+    closeLayerColorPalette();
+    updateRegistryMapUi();
+    scheduleDraw();
+    return;
+  }else if(layerColorPaletteTarget.type==="all"){
     for(const layer of getAllLayers())setLayerColorOverride(layer,selected);
   }else{
     setLayerColorOverride(layerColorPaletteTarget.layer,selected);
@@ -11956,6 +11990,8 @@ function updateRegistryMapUi(){
   for(const [key,id] of Object.entries(toggles)){
     const input=document.getElementById(id);
     if(input)input.checked=registryLayerVisibility[key]!==false;
+    const colorButton=document.querySelector(`.registryColorButton[data-registry-layer="${key}"]`);
+    if(colorButton)colorButton.style.setProperty("--registry-color",registryLayerColors[key]||REGISTRY_LAYER_DEFAULTS[key].color);
   }
 }
 function clearRegistryMap(){
@@ -12051,12 +12087,12 @@ function drawRegistryMapOverlay(){
       if(!registryBoundsOverlap(parcel.bbox,visible))continue;
       ctx.beginPath();
       for(const ring of parcel.rings)registryTraceScreenPath(ring,true);
-      ctx.fillStyle=parcel===selected?"rgba(0,184,212,.25)":"rgba(255,152,0,.12)";
+      ctx.fillStyle=registryColorWithAlpha(registryLayerColors.parcel,parcel===selected?.28:.12);
       ctx.fill("evenodd");
     }
   }
   if(registryLayerVisibility.boundary){
-    ctx.strokeStyle=REGISTRY_LAYER_DEFAULTS.boundary.color;
+    ctx.strokeStyle=registryLayerColors.boundary;
     ctx.lineWidth=1.25;
     for(const parcel of registryMapState.parcels){
       if(!registryBoundsOverlap(parcel.bbox,visible))continue;
@@ -12069,7 +12105,7 @@ function drawRegistryMapOverlay(){
     }
   }
   if(registryLayerVisibility.point){
-    ctx.fillStyle=REGISTRY_LAYER_DEFAULTS.point.color;
+    ctx.fillStyle=registryLayerColors.point;
     ctx.strokeStyle=darkTheme?"#051014":"#ffffff";
     ctx.lineWidth=1;
     for(const point of registryMapState.points){
@@ -12090,7 +12126,7 @@ function drawRegistryMapOverlay(){
       const screen=worldToScreen(parcel.centroid.x,parcel.centroid.y);
       ctx.strokeStyle=darkTheme?"rgba(0,0,0,.84)":"rgba(255,255,255,.88)";
       ctx.strokeText(lot,screen[0],screen[1]);
-      ctx.fillStyle=REGISTRY_LAYER_DEFAULTS.label.color;
+      ctx.fillStyle=registryLayerColors.label;
       ctx.fillText(lot,screen[0],screen[1]);
     }
   }
@@ -18190,6 +18226,15 @@ for(const [key,id] of Object.entries({
     scheduleDraw();
   });
 }
+document.querySelectorAll(".registryColorButton[data-registry-layer]").forEach(button=>{
+  button.addEventListener("click",event=>{
+    event.preventDefault();
+    event.stopPropagation();
+    const key=event.currentTarget.dataset.registryLayer;
+    if(!Object.prototype.hasOwnProperty.call(REGISTRY_LAYER_DEFAULTS,key))return;
+    openLayerColorPalette({type:"registry",key},registryLayerColors[key]);
+  });
+});
 document.getElementById("registryParcelCloseBtn")?.addEventListener("click",closeRegistryParcelDetails);
 registryParcelModal?.addEventListener("click",event=>{
   if(event.target===registryParcelModal)closeRegistryParcelDetails();
