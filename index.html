@@ -1538,9 +1538,9 @@ gtag('config', 'G-88B9YPJXWP');
         <button class="colorBtn" data-color="#ffd400" id="yellowBtn" title="黄" aria-label="黄" style="width:26px;height:26px;padding:0;background:#ffd400;"></button>
         <button class="colorBtn" id="contrastColorBtn" data-color="#ffffff" title="白または黒" aria-label="白または黒" style="width:26px;height:26px;padding:0;background:#ffffff;border:1px solid #555;"></button>
       </div>
-      <div class="row controlRow"><span class="controlLabel">太さ</span><input class="controlRange" id="penWidth" type="range" min="1" max="100" step="1" value="50"><input class="controlNumber" id="penWidthNumber" type="number" min="1" max="100" step="1" value="50"></div>
+      <div class="row controlRow"><span class="controlLabel">太さ</span><input class="controlRange" id="penWidth" type="range" min="1" max="100" step="1" value="10"><input class="controlNumber" id="penWidthNumber" type="number" min="1" max="100" step="1" value="10"></div>
       <div class="row controlRow"><span class="controlLabel">大きさ</span><input class="controlRange" id="circleSize" type="range" min="1" max="100" step="1" value="25"><input class="controlNumber" id="circleSizeNumber" type="number" min="1" max="100" step="1" value="25"></div>
-      <div class="row controlRow"><span class="controlLabel">透過率</span><input class="controlRange" id="opacityRange" type="range" min="0" max="100" step="5" value="0"><input class="controlNumber" id="opacityNumber" type="number" min="0" max="100" step="5" value="0"></div>
+      <div class="row controlRow"><span class="controlLabel">透過率</span><input class="controlRange" id="opacityRange" type="range" min="0" max="100" step="5" value="20"><input class="controlNumber" id="opacityNumber" type="number" min="0" max="100" step="5" value="20"></div>
       <div class="row toolRow"><button id="lineToolBtn">線</button><button id="circleToolBtn">丸</button><button id="eraserBtn">消しゴム</button><button id="clearInkBtn">全消去</button></div>
     </div>
   </div>
@@ -1576,8 +1576,8 @@ gtag('config', 'G-88B9YPJXWP');
     <div class="settingsSection">
       <label class="settingsLabel" for="lineDisplayScaleRange">線の表示太さ</label>
       <div id="lineDisplayScaleRow">
-        <input id="lineDisplayScaleRange" type="range" min="1" max="10" step="0.1" value="1" aria-valuemin="1" aria-valuemax="10" aria-valuenow="1">
-        <output id="lineDisplayScaleValue" for="lineDisplayScaleRange">1.0倍</output>
+        <input id="lineDisplayScaleRange" type="range" min="1" max="10" step="0.1" value="4" aria-valuemin="1" aria-valuemax="10" aria-valuenow="4">
+        <output id="lineDisplayScaleValue" for="lineDisplayScaleRange">4.0倍</output>
       </div>
       <div id="lineDisplayScaleNote">表示だけを変更します。SFCの線幅は変更しません。</div>
     </div>
@@ -1904,7 +1904,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">計測</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">始め方</div><b>計測</b> を押すと、すぐに2点間測定が始まり、ボタンが青くなります。計測ボタンをもう一度押すと処理を終了し、青色も解除されます。2点間と3点垂直は、計測ポップアップ内の切替ボタンで変更します。</div>
-              <div class="helpBlock"><div class="helpHead">点の取り方</div>計測ポップアップ内の、中心・交点・端点・線上・フリーを選びます。選択中のボタンは青くなり、中心→交点→端点→線上→フリーの順に判定します。</div>
+              <div class="helpBlock"><div class="helpHead">点の取り方</div>計測ポップアップ内の、中心・交点・端点・線上・フリーを選びます。初期設定では中心・交点・端点・線上が選択され、フリーは選択されません。選択中のボタンは青くなり、中心→交点→端点→線上→フリーの順に判定します。</div>
               <div class="helpBlock"><div class="helpHead">2点間</div>2点を取ると距離が出ます。続けて次の点を取ると、直前の2点目から新しい点までを連続して計測します。</div>
               <div class="helpBlock"><div class="helpHead">3点垂直</div>基準線の2点と、離れた1点を取ると、垂直距離を出します。</div>
               <div class="helpBlock"><div class="helpHead">後退</div>右下の緑文字の <b>後退</b> を押すと、最後の点選択を1つ戻します。連続2点間でも直前の測定結果へ戻れます。戻せる点がない場合は薄くなり、押せません。</div>
@@ -1937,7 +1937,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">保存レイヤー</div>SFC保存時は、線を <b>「線（赤）」「線（青）」「線（緑）」「線（黄）」「線（黒）」</b>、丸を同じ5色の <b>「丸（色名）」</b>へ分けて保存します。同じ名前の既存レイヤーがある場合は重複作成しません。</div>
               <div class="helpBlock"><div class="helpHead">図面操作</div>手書き中でも2本指の移動・拡大縮小・回転を使えます。指を2本置いた時点で、描きかけの線を確定して図面操作へ切り替えます。</div>
               <div class="helpBlock"><div class="helpHead">消去・やり直し</div><b>消しゴム</b>を選ぶと青くなり、線・丸の選択は解除されます。PCでは消せる線・丸へカーソルを重ねると、十字の中央に緑の四角が表示されます。図面上のメモをなぞると個別に消せます。<b>全消去</b> は確認後に全削除します。図面左上の青い矢印で元に戻す・やり直しができます。</div>
-              <div class="helpBlock"><div class="helpHead">閉じる</div>手書きポップアップの <b>閉じる</b> を押すと、手書き状態を終了して通常表示へ戻ります。色・太さ・丸の大きさ・透過率は次回も保持されます。</div>
+              <div class="helpBlock"><div class="helpHead">初期設定・閉じる</div>起動時は太さ10・丸の大きさ25・透過率20％です。手書きポップアップの <b>閉じる</b> を押すと、手書き状態を終了して通常表示へ戻ります。</div>
             </div>
           </div>
 
@@ -2285,7 +2285,7 @@ let coordinateInspectRequestVersion = 0;
 
 let measureMode = false;
 let measureType = "2point";
-let activePickModes = ["center","cross","end","free"];
+let activePickModes = ["center","cross","end","line"];
 let selectedMeasurePoints = [];
 let measureSelectionHistory = [];
 let redoStrokes = [];
@@ -2317,11 +2317,11 @@ let cachedMeasurePointsDirty = true;
 let inkEnabled = false;
 let inkEraser = false;
 let inkColor = "#ff3030";
-let inkWidth = 50;
+let inkWidth = 10;
 let inkCircleSize = 20.6; // full-drawing-view radius in CSS pixels (UI level 25)
 // Internally opacity is stored in the Canvas range 0.0-1.0.
 // The control displays transparency: 0% is opaque and 100% is invisible.
-let inkOpacity = 1.0;
+let inkOpacity = 0.8;
 const AUTO_SAVE_DEBOUNCE_MS = 700;
 const RECOVERY_STORAGE_PREFIX = "sfcviewer-recovery::";
 const RECOVERY_INDEX_KEY = RECOVERY_STORAGE_PREFIX + "__index__";
@@ -2399,8 +2399,9 @@ let helpModalOpen = false;
 let toolbarHelpLabelsOpen = false;
 let uiPreferencesLoaded = false;
 const UI_PREFERENCES_KEY = "sfcviewer-ui-preferences-v1";
+const UI_PREFERENCES_VERSION = 2;
 const DRAWING_COORDINATE_SETTINGS_KEY = "sfcviewer-drawing-coordinate-settings-v1";
-let displayLineWidthScale = 1;
+let displayLineWidthScale = 4;
 const FIRST_USE_HINT_LIMIT = 2;
 const FIRST_USE_HINT_KEYS = Object.freeze({
   drawing:"sfcviewer-first-use-drawing-v1",
@@ -6376,6 +6377,7 @@ function loadUiPreferences(){
     const raw = localStorage.getItem(UI_PREFERENCES_KEY);
     if(!raw) return false;
     const prefs = JSON.parse(raw);
+    const currentDefaults = Number(prefs.version) >= UI_PREFERENCES_VERSION;
     const allowedColors = ["#ff3030","#007aff","#00a86b","#ffd400","#ffffff","#000000"];
     if(allowedColors.includes(prefs.inkColor)) inkColor = prefs.inkColor;
     if(Number.isFinite(+prefs.inkWidth)) inkWidth = Math.max(1,Math.min(100,Math.round(+prefs.inkWidth)));
@@ -6383,8 +6385,8 @@ function loadUiPreferences(){
     if(Number.isFinite(+prefs.inkOpacity)) inkOpacity = Math.max(0,Math.min(1,+prefs.inkOpacity));
     if(prefs.inkTool === "line" || prefs.inkTool === "circle") inkTool = prefs.inkTool;
     if(typeof prefs.inkEraser === "boolean") inkEraser = prefs.inkEraser;
-    if(Number.isFinite(+prefs.displayLineWidthScale)) displayLineWidthScale=Math.max(1,Math.min(10,+prefs.displayLineWidthScale));
-    if(Array.isArray(prefs.activePickModes)){
+    if(currentDefaults&&Number.isFinite(+prefs.displayLineWidthScale)) displayLineWidthScale=Math.max(1,Math.min(10,+prefs.displayLineWidthScale));
+    if(currentDefaults&&Array.isArray(prefs.activePickModes)){
       const allowed = ["center","cross","end","line","free"];
       const next = prefs.activePickModes
         .filter((v,i,a)=>allowed.includes(v) && a.indexOf(v)===i)
@@ -6401,6 +6403,7 @@ function loadUiPreferences(){
 function saveUiPreferences(){
   try{
     localStorage.setItem(UI_PREFERENCES_KEY,JSON.stringify({
+      version:UI_PREFERENCES_VERSION,
       inkColor, inkWidth, inkCircleSize, inkOpacity, inkTool, inkEraser,
       activePickModes:[...activePickModes], toolbarHelpLabelsOpen, displayLineWidthScale
     }));
@@ -19349,9 +19352,10 @@ window.addEventListener("pagehide",()=>{saveRecoverySnapshot({immediate:true});}
 
 loadUiPreferences();
 // Drawing controls intentionally start from the field-use defaults on every app launch.
-inkWidth = 50;
+inkWidth = 10;
 inkCircleSize = circleSizePxFromLevel(25);
-inkOpacity = 1;
+inkOpacity = 0.8;
+saveUiPreferences();
 updateThemeUI();
 syncInkControlNumbers();
 updateInkUI();

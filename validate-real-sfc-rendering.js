@@ -23,7 +23,7 @@ let browser;
   browser=await chromium.launch({headless:true,executablePath:"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"});
   const page=await browser.newPage({viewport:{width:1365,height:768}});
   if(process.env.TEST_LINE_SCALE){
-    await page.addInitScript(scale=>localStorage.setItem("sfcviewer-ui-preferences-v1",JSON.stringify({displayLineWidthScale:Number(scale)})),process.env.TEST_LINE_SCALE);
+    await page.addInitScript(scale=>localStorage.setItem("sfcviewer-ui-preferences-v1",JSON.stringify({version:2,displayLineWidthScale:Number(scale)})),process.env.TEST_LINE_SCALE);
   }
   const errors=[];
   page.on("pageerror",error=>errors.push(String(error)));
