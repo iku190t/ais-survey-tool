@@ -15568,7 +15568,7 @@ function buildSfcExportBlobAndName(){
   const generatedValidation=validateGeneratedMemoSfc(newSfc,ann.expectedFeatureCount||0);
   if(!generatedValidation.ok)return {ok:false,reason:generatedValidation.reason||"手書き図形をSFCへ書き込めませんでした。"};
   const overwriteName = normalizeExportFileName(data.source_name,"sfc_view.sfc");
-  const saveAsName = overwriteName.replace(/\.sfc$/i, "") + "_memo.sfc";
+  const saveAsName = overwriteName;
   const blob = new Blob([latin1StringToBytes(newSfc)], {type:"application/octet-stream"});
   return { ok:true, blob, overwriteName, saveAsName, text:newSfc };
 }
@@ -15605,7 +15605,7 @@ async function buildSfcExportBlobAndNameAsync(){
   updateBusy("保存ファイルを作成中…");
   await waitForUiPaint();
   const overwriteName=normalizeExportFileName(data.source_name,"sfc_view.sfc");
-  const saveAsName=overwriteName.replace(/\.sfc$/i,"")+"_memo.sfc";
+  const saveAsName=overwriteName;
   const blob=new Blob([latin1StringToBytes(newSfc)],{type:"application/octet-stream"});
   return {ok:true,blob,overwriteName,saveAsName,text:newSfc};
 }
@@ -16519,7 +16519,7 @@ async function saveSfcAsDesktop({overwrite=false}={}){
     }
     const sourceName=normalizeExportFileName((data&&data.source_name)||"drawing.sfc","drawing.sfc");
     const sourceBase=sourceName.replace(/\.(?:sfc|sfz)$/i,"");
-    const suggestedName=`${sourceBase}${overwrite?"":"_memo"}.sfz`;
+    const suggestedName=`${sourceBase}.sfz`;
     let handle;
     try{
       handle=await window.showSaveFilePicker({
@@ -19135,7 +19135,9 @@ canvas.addEventListener("touchend", e=>{
     touchMode = "";
     pendingTouchInk = null;
     lastOneFingerTap = null;
-    suppressTouchInkUntil = Date.now() + 420;
+    // The remaining finger cannot start an ink stroke without a new
+    // touchstart. Once the pinch ends, accept that next touch immediately.
+    suppressTouchInkUntil = 0;
     scheduleDraw();
     scheduleRecoverySnapshot();
   }
