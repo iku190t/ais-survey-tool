@@ -11,7 +11,7 @@ for(const token of [
   'id="googleMapsLinkBtn"',
   'id="photoAlbumMiniMap"',
   'id="photoAlbumMapQr" type="checkbox" checked',
-  '<script src="google-maps-links.js?v=3"></script>',
+  '<script src="google-maps-links.js?v=4"></script>',
   'const useMapQr=!!settings.mapQr',
   'a:hlinkClick r:id="rIdLink${image.id}"'
 ])if(!index.includes(token))throw new Error(`Google連携の実装が不足しています: ${token}`);
@@ -20,7 +20,8 @@ for(const absent of ['id="photoAlbumMapQrBtn"','id="googleOpenMapBtn"','id="goog
 }
 for(const token of [
   "data=!3m1!1e3",'map_action:"pano"',"heading",
-  "ezviewer-google-map","ezviewer-google-streetview","prepareExternalWindows","createPhotoQrImage"
+  "ezviewer-google-map","ezviewer-google-streetview","prepareExternalWindows","createPhotoQrImage",
+  "externalWindowRect","hitTestDragHandle","scheduleExternalPairSync","LIVE_SYNC_DELAY"
 ])if(!feature.includes(token))throw new Error(`Google URL連携が不足しています: ${token}`);
 if(/maps\.googleapis\.com|AIza[0-9A-Za-z_-]+/.test(feature))throw new Error("Google Maps Platform APIまたはAPIキーが混入しています");
 
@@ -67,32 +68,42 @@ let browser;
     data.lines=[[0,0,1000,1000,1,1,1]];loadedSfcText="test";updateDrawingDependentUi();
     const opened=[];
     window.open=(url,name,features)=>{
-      const record={url,name,features,moves:[],sizes:[],closed:false};
+      const record={url,name,features,moves:[],sizes:[],urls:[],closed:false};
       const handle={closed:false,moveTo:(...args)=>record.moves.push(args),resizeTo:(...args)=>record.sizes.push(args)};
-      Object.defineProperty(handle,"location",{value:{get href(){return record.url;},set href(value){record.url=value;}}});
+      Object.defineProperty(handle,"location",{value:{get href(){return record.url;},set href(value){record.url=value;record.urls.push(value);}}});
       opened.push(record);return handle;
     };
     resolveProfileZone=async()=>4;
     screenToWorld=(x,y)=>[x,y];
+    worldToScreen=(x,y)=>[x,y];
     sfcWorldToPlane=(x,y)=>({xNorth:x,yEast:y});
-    const conversions=[{lat:34.0701,lon:134.5502},{lat:34.0701,lon:134.5602},{lat:34.0801,lon:134.5702},{lat:34.0901,lon:134.5802}];
-    let conversion=0;
-    jgd2024XYToLatLon=()=>conversions[Math.min(conversion++,conversions.length-1)];
+    jgd2024XYToLatLon=(xNorth,yEast)=>({lat:34+xNorth/100000,lon:134+yEast/100000});
     document.getElementById("googleMapsLinkBtn").click();
     const target=document.getElementById("canvas")||document.getElementById("interactionCanvas");
-    target.dispatchEvent(new MouseEvent("click",{bubbles:true,clientX:100,clientY:100,button:0}));
+    const rect=target.getBoundingClientRect();
+    const fire=(type,x,y)=>target.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:rect.left+x,clientY:rect.top+y,button:0,buttons:type==="mousemove"?1:0}));
+    const click=(x,y)=>fire("click",x,y);
+    const drag=async(fromX,fromY,toX,toY,waitDuring=false)=>{
+      fire("mousedown",fromX,fromY);fire("mousemove",toX,toY);
+      if(waitDuring)await new Promise(resolve=>setTimeout(resolve,330));
+      const during=opened.reduce((sum,item)=>sum+item.urls.length,0);
+      fire("mouseup",toX,toY);await new Promise(resolve=>setTimeout(resolve,30));return during;
+    };
+    click(100,100);
     await new Promise(resolve=>setTimeout(resolve,20));
-    target.dispatchEvent(new MouseEvent("click",{bubbles:true,clientX:200,clientY:100,button:0}));
+    click(200,100);
     await new Promise(resolve=>setTimeout(resolve,30));
-    target.dispatchEvent(new MouseEvent("click",{bubbles:true,clientX:300,clientY:100,button:0}));
-    await new Promise(resolve=>setTimeout(resolve,20));
-    target.dispatchEvent(new MouseEvent("click",{bubbles:true,clientX:400,clientY:100,button:0}));
-    await new Promise(resolve=>setTimeout(resolve,30));
+    const initialNavigations=opened.reduce((sum,item)=>sum+item.urls.length,0);
+    const duringDragNavigations=await drag(100,100,120,110,true);
+    await drag(200,100,220,120);
+    await drag(170,115,180,130);
+    await new Promise(resolve=>setTimeout(resolve,40));
     return {
       modal:getComputedStyle(document.getElementById("googleMapsLinkModal")).display,
       active:document.getElementById("googleMapsLinkBtn").classList.contains("modeActive"),
       status:document.getElementById("googleMapsLinkStatus").textContent,
-      opened
+      opened,initialNavigations,duringDragNavigations,selection:GoogleMapsLinkFeature.getSelection(),
+      screen:{left:screen.availLeft||0,top:screen.availTop||0,width:screen.availWidth,height:screen.availHeight}
     };
   });
   if(ui.modal!=="flex"||!ui.active)throw new Error(`Google連携パネルが開きません: ${JSON.stringify(ui)}`);
@@ -101,8 +112,13 @@ let browser;
   const map=ui.opened.find(item=>item.name==="ezviewer-google-map");
   if(!street?.url.includes("map_action=pano")||!street.url.includes("heading="))throw new Error(`ストリートビューが方向付きで開きません: ${JSON.stringify(street)}`);
   if(!map?.url.includes("data=!3m1!1e3"))throw new Error(`航空写真が開きません: ${JSON.stringify(map)}`);
-  if(!map.url.includes("34.0801,134.5702"))throw new Error(`同じ2画面を次の選択位置へ更新できません: ${JSON.stringify(map)}`);
-  if(!street.moves.length||!map.moves.length)throw new Error("PCの左右配置が実行されていません");
+  if(!map.url.includes("34.0013,134.00125"))throw new Error(`ドラッグ後の位置へ航空写真を更新できません: ${JSON.stringify(map)}`);
+  if(ui.duringDragNavigations<=ui.initialNavigations)throw new Error(`ドラッグ中にGoogle画面が同期更新されていません: ${JSON.stringify(ui)}`);
+  if(Math.abs(ui.selection.positionWorld.x-130)>0.01||Math.abs(ui.selection.positionWorld.y-125)>0.01||Math.abs(ui.selection.directionWorld.x-230)>0.01||Math.abs(ui.selection.directionWorld.y-135)>0.01)throw new Error(`1・2・中央のドラッグ結果が不正です: ${JSON.stringify(ui.selection)}`);
+  if(!street.moves.length||!map.moves.length||!street.sizes.length||!map.sizes.length)throw new Error("PCの左下2画面配置が実行されていません");
+  const streetMove=street.moves.at(-1),mapMove=map.moves.at(-1),streetSize=street.sizes.at(-1),mapSize=map.sizes.at(-1);
+  const expectedWidth=Math.max(300,Math.floor(ui.screen.width/4)),expectedHeight=Math.max(320,Math.floor(ui.screen.height/2)),expectedTop=ui.screen.top+ui.screen.height-expectedHeight;
+  if(streetMove[0]!==ui.screen.left||streetMove[1]!==expectedTop||mapMove[0]!==ui.screen.left+expectedWidth||mapMove[1]!==expectedTop||streetSize[0]!==expectedWidth||streetSize[1]!==expectedHeight||mapSize[0]!==expectedWidth||mapSize[1]!==expectedHeight)throw new Error(`左下4分の1の2画面配置が不正です: ${JSON.stringify({streetMove,mapMove,streetSize,mapSize,screen:ui.screen})}`);
 
   const qr=await page.evaluate(async()=>{
     window.QRCode=function(host,options){

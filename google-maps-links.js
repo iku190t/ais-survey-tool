@@ -8,6 +8,8 @@
   let active=false,selectionMode="position",positionWorld=null,directionWorld=null;
   let coordinateZone=null,positionLatLon=null,directionLatLon=null;
   let mapWindow=null,streetWindow=null,qrScriptPromise=null,touchCandidate=null,suppressClickUntil=0;
+  let mouseDrag=null,liveSyncTimer=null,liveSyncRevision=0,lastLiveSyncAt=0;
+  const LIVE_SYNC_DELAY=280;
 
   const byId=id=>document.getElementById(id);
   const isDesktop=()=>typeof isDesktopPhotoTool==="function"?isDesktopPhotoTool():matchMedia("(pointer:fine)").matches;
@@ -41,6 +43,9 @@
   function setStatus(message){const element=byId("googleMapsLinkStatus");if(element)element.textContent=message||"";}
   function setButtonState(){byId("googleMapsLinkBtn")?.classList.toggle("modeActive",active);}
   function updateStatus(){
+    if(positionWorld&&directionWorld&&selectionMode==="position"){
+      setStatus("1点目・2点目・中央をドラッグして位置を調整できます。");return;
+    }
     if(selectionMode==="position"){setStatus("CAD上で1点目（見る位置）を選択してください。");return;}
     setStatus("CAD上で2点目（見る方向）を選択してください。");
   }
@@ -56,11 +61,16 @@
     const plane=sfcWorldToPlane(point.x,point.y),ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
     return normalizeLatLon(ll);
   }
+  function externalWindowRect(side){
+    const leftBase=Number.isFinite(screen.availLeft)?screen.availLeft:0,topBase=Number.isFinite(screen.availTop)?screen.availTop:0;
+    const availableWidth=Math.max(1,screen.availWidth||window.innerWidth||1200),availableHeight=Math.max(1,screen.availHeight||window.innerHeight||800);
+    const width=Math.max(300,Math.floor(availableWidth/4)),height=Math.max(320,Math.floor(availableHeight/2));
+    const top=topBase+availableHeight-height,left=leftBase+(side==="right"?width:0);
+    return {left,top,width,height};
+  }
   function popupFeatures(side){
     if(!isDesktop())return "popup=yes";
-    const leftBase=Number.isFinite(screen.availLeft)?screen.availLeft:0,top=Number.isFinite(screen.availTop)?screen.availTop:0;
-    const width=Math.max(500,Math.floor((screen.availWidth||window.innerWidth||1200)/2));
-    const height=Math.max(500,screen.availHeight||window.innerHeight||800),left=leftBase+(side==="right"?width:0);
+    const {left,top,width,height}=externalWindowRect(side);
     return `popup=yes,left=${left},top=${top},width=${width},height=${height},resizable=yes,scrollbars=yes`;
   }
   function prepareExternalWindows(){
@@ -69,20 +79,43 @@
   }
   function placeExternalWindows(){
     if(!isDesktop())return;
-    const leftBase=Number.isFinite(screen.availLeft)?screen.availLeft:0,top=Number.isFinite(screen.availTop)?screen.availTop:0;
-    const width=Math.max(500,Math.floor((screen.availWidth||window.innerWidth||1200)/2)),height=Math.max(500,screen.availHeight||window.innerHeight||800);
-    try{streetWindow?.moveTo(leftBase,top);streetWindow?.resizeTo(width,height);}catch(_error){}
-    try{mapWindow?.moveTo(leftBase+width,top);mapWindow?.resizeTo(width,height);}catch(_error){}
+    const streetRect=externalWindowRect("left"),mapRect=externalWindowRect("right");
+    try{streetWindow?.moveTo(streetRect.left,streetRect.top);streetWindow?.resizeTo(streetRect.width,streetRect.height);}catch(_error){}
+    try{mapWindow?.moveTo(mapRect.left,mapRect.top);mapWindow?.resizeTo(mapRect.width,mapRect.height);}catch(_error){}
   }
-  function openExternalPair(){
+  function openExternalPair(reposition=true){
     if(!positionLatLon||!directionLatLon)return;
     const heading=bearing(positionLatLon,directionLatLon),streetUrl=googleStreetViewUrl(positionLatLon,heading),mapUrl=googleMapsUrl(positionLatLon);
     try{if(streetWindow&&!streetWindow.closed)streetWindow.location.href=streetUrl;else streetWindow=window.open(streetUrl,GOOGLE_STREET_TARGET,popupFeatures("left"));}catch(_error){streetWindow=null;}
     try{if(mapWindow&&!mapWindow.closed)mapWindow.location.href=mapUrl;else mapWindow=window.open(mapUrl,GOOGLE_MAP_TARGET,popupFeatures("right"));}catch(_error){mapWindow=null;}
-    placeExternalWindows();
+    if(reposition)placeExternalWindows();
     if(!streetWindow||!mapWindow){
       if(typeof showToast==="function")showToast("ブラウザーのポップアップを許可してください",3000);
     }
+  }
+  async function syncExternalPairFromWorld(revision){
+    try{
+      const position=positionWorld?{...positionWorld}:null,direction=directionWorld?{...directionWorld}:null;
+      const [nextPosition,nextDirection]=await Promise.all([
+        position?worldToLatLon(position):Promise.resolve(null),
+        direction?worldToLatLon(direction):Promise.resolve(null)
+      ]);
+      if(revision!==liveSyncRevision)return;
+      if(nextPosition)positionLatLon=nextPosition;
+      if(nextDirection)directionLatLon=nextDirection;
+      if(positionLatLon&&directionLatLon)openExternalPair(false);
+    }catch(error){
+      console.error("Google link drag synchronization failed",error);
+    }
+  }
+  function scheduleExternalPairSync(immediate=false){
+    if(immediate){
+      if(liveSyncTimer){clearTimeout(liveSyncTimer);liveSyncTimer=null;}
+      lastLiveSyncAt=Date.now();void syncExternalPairFromWorld(++liveSyncRevision);return;
+    }
+    if(liveSyncTimer)return;
+    const delay=Math.max(0,LIVE_SYNC_DELAY-(Date.now()-lastLiveSyncAt));
+    liveSyncTimer=setTimeout(()=>{liveSyncTimer=null;lastLiveSyncAt=Date.now();void syncExternalPairFromWorld(++liveSyncRevision);},delay);
   }
   async function selectWorldPoint(world){
     try{
@@ -100,14 +133,67 @@
   }
   function canvasPoint(event){
     const canvas=byId("canvas")||byId("interactionCanvas");if(!canvas||typeof screenToWorld!=="function")return null;
-    const rect=canvas.getBoundingClientRect(),screenX=event.clientX-rect.left,screenY=event.clientY-rect.top,world=screenToWorld(screenX,screenY);
+    const rect=canvas.getBoundingClientRect(),screenX=event.clientX-rect.left,screenY=event.clientY-rect.top;
+    if(screenX<0||screenY<0||screenX>rect.width||screenY>rect.height)return null;
+    const world=screenToWorld(screenX,screenY);
     return {screenX,screenY,x:world[0],y:world[1]};
   }
-  function interceptMouseDown(event){if(active&&event.button===0){event.preventDefault();event.stopImmediatePropagation();}}
+  function hitTestDragHandle(screenX,screenY){
+    if(typeof worldToScreen!=="function")return "";
+    const hit=(point,radius=15)=>{if(!point)return false;const p=worldToScreen(point.x,point.y);return Math.hypot(screenX-p[0],screenY-p[1])<=radius;};
+    if(hit(positionWorld))return "position";
+    if(hit(directionWorld))return "direction";
+    if(positionWorld&&directionWorld){
+      const midpoint={x:(positionWorld.x+directionWorld.x)/2,y:(positionWorld.y+directionWorld.y)/2};
+      if(hit(midpoint,16))return "translate";
+    }
+    return "";
+  }
+  function setCanvasCursor(value=""){
+    const canvas=byId("canvas")||byId("interactionCanvas");if(canvas)canvas.style.cursor=value;
+  }
+  function beginMouseDrag(event,point){
+    if(!isDesktop()||!point)return false;
+    const kind=hitTestDragHandle(point.screenX,point.screenY);if(!kind)return false;
+    mouseDrag={kind,startScreenX:point.screenX,startScreenY:point.screenY,startWorld:{x:point.x,y:point.y},position:positionWorld?{...positionWorld}:null,direction:directionWorld?{...directionWorld}:null,moved:false};
+    setCanvasCursor("grabbing");return true;
+  }
+  function moveMouseDrag(point){
+    if(!mouseDrag||!point)return;
+    const dx=point.x-mouseDrag.startWorld.x,dy=point.y-mouseDrag.startWorld.y;
+    if(mouseDrag.kind==="position")positionWorld={x:point.x,y:point.y};
+    else if(mouseDrag.kind==="direction")directionWorld={x:point.x,y:point.y};
+    else{
+      if(mouseDrag.position)positionWorld={x:mouseDrag.position.x+dx,y:mouseDrag.position.y+dy};
+      if(mouseDrag.direction)directionWorld={x:mouseDrag.direction.x+dx,y:mouseDrag.direction.y+dy};
+    }
+    if(Math.hypot(point.screenX-mouseDrag.startScreenX,point.screenY-mouseDrag.startScreenY)>2)mouseDrag.moved=true;
+    scheduleExternalPairSync(false);if(typeof scheduleInteractionDraw==="function")scheduleInteractionDraw();
+  }
+  function interceptMouseDown(event){
+    if(!active||event.button!==0)return;
+    const point=canvasPoint(event);beginMouseDrag(event,point);event.preventDefault();event.stopImmediatePropagation();
+  }
+  function interceptMouseMove(event){
+    if(!active||!isDesktop())return;
+    const point=canvasPoint(event);
+    if(mouseDrag){
+      if(point)moveMouseDrag(point);event.preventDefault();event.stopImmediatePropagation();return;
+    }
+    const kind=point?hitTestDragHandle(point.screenX,point.screenY):"";setCanvasCursor(kind?"grab":"crosshair");
+  }
+  function interceptMouseUp(event){
+    if(!active||!mouseDrag)return;
+    const point=canvasPoint(event);if(point)moveMouseDrag(point);
+    mouseDrag=null;suppressClickUntil=Date.now()+500;scheduleExternalPairSync(true);
+    const kind=point?hitTestDragHandle(point.screenX,point.screenY):"";setCanvasCursor(kind?"grab":"crosshair");
+    event.preventDefault();event.stopImmediatePropagation();
+  }
   function interceptClick(event){
-    if(!active||Date.now()<suppressClickUntil)return;
+    if(!active)return;
+    event.preventDefault();event.stopImmediatePropagation();if(Date.now()<suppressClickUntil)return;
     const point=canvasPoint(event);if(!point)return;
-    event.preventDefault();event.stopImmediatePropagation();if(selectionMode==="direction")prepareExternalWindows();selectWorldPoint(point);
+    if(selectionMode==="direction")prepareExternalWindows();selectWorldPoint(point);
   }
   function interceptTouchStart(event){
     if(!active||event.touches.length!==1){touchCandidate=null;return;}
@@ -126,12 +212,14 @@
   function open(){
     if(!drawingAvailable()){if(typeof showToast==="function")showToast("先にSFC図面を開いてください",1800);return;}
     if(typeof closePanelsExcept==="function")closePanelsExcept("googleMapsLink");
-    active=true;selectionMode="position";positionWorld=null;directionWorld=null;positionLatLon=null;directionLatLon=null;
+    active=true;selectionMode="position";positionWorld=null;directionWorld=null;positionLatLon=null;directionLatLon=null;mouseDrag=null;
     const modal=byId("googleMapsLinkModal");if(modal)modal.style.display="flex";updateStatus();setButtonState();
+    if(isDesktop())setCanvasCursor("crosshair");
     if(typeof scheduleInteractionDraw==="function")scheduleInteractionDraw();
   }
   function close(){
-    active=false;selectionMode="position";touchCandidate=null;
+    active=false;selectionMode="position";touchCandidate=null;mouseDrag=null;liveSyncRevision++;
+    if(liveSyncTimer){clearTimeout(liveSyncTimer);liveSyncTimer=null;}setCanvasCursor("");
     const modal=byId("googleMapsLinkModal");if(modal)modal.style.display="none";setButtonState();
     if(typeof scheduleInteractionDraw==="function")scheduleInteractionDraw();
   }
@@ -144,7 +232,11 @@
   function drawOverlay(context){
     if(!active||!context||typeof worldToScreen!=="function")return;
     const drawPoint=(point,color,label)=>{if(!point)return;const screenPoint=worldToScreen(point.x,point.y);context.save();context.fillStyle="rgba(255,255,255,.92)";context.strokeStyle=color;context.lineWidth=3;context.beginPath();context.arc(screenPoint[0],screenPoint[1],9,0,Math.PI*2);context.fill();context.stroke();context.fillStyle=color;context.font="800 12px sans-serif";context.textAlign="center";context.textBaseline="bottom";context.fillText(label,screenPoint[0],screenPoint[1]-12);context.restore();};
-    if(positionWorld&&directionWorld){const a=worldToScreen(positionWorld.x,positionWorld.y),b=worldToScreen(directionWorld.x,directionWorld.y);context.save();context.strokeStyle="#00a8e8";context.lineWidth=2;context.setLineDash([7,5]);context.beginPath();context.moveTo(a[0],a[1]);context.lineTo(b[0],b[1]);context.stroke();context.restore();}
+    if(positionWorld&&directionWorld){
+      const a=worldToScreen(positionWorld.x,positionWorld.y),b=worldToScreen(directionWorld.x,directionWorld.y),mid=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+      context.save();context.strokeStyle="#00a8e8";context.lineWidth=2;context.setLineDash([7,5]);context.beginPath();context.moveTo(a[0],a[1]);context.lineTo(b[0],b[1]);context.stroke();
+      context.setLineDash([]);context.fillStyle="#00a8e8";context.strokeStyle="#fff";context.lineWidth=2;context.beginPath();context.arc(mid[0],mid[1],6,0,Math.PI*2);context.fill();context.stroke();context.restore();
+    }
     drawPoint(positionWorld,"#1677ff","1");drawPoint(directionWorld,"#17a05e","2");
   }
   function photoLatLon(item){
@@ -187,9 +279,10 @@
     // interactionCanvas is a draw-only overlay with pointer-events:none.
     // Bind selection to the actual input canvas so CAD points can be hit.
     const target=byId("canvas")||byId("interactionCanvas");target?.addEventListener("mousedown",interceptMouseDown,true);target?.addEventListener("click",interceptClick,true);
+    window.addEventListener("mousemove",interceptMouseMove,true);window.addEventListener("mouseup",interceptMouseUp,true);
     target?.addEventListener("touchstart",interceptTouchStart,{capture:true,passive:false});target?.addEventListener("touchmove",interceptTouchMove,{capture:true,passive:false});target?.addEventListener("touchend",interceptTouchEnd,{capture:true,passive:false});
     document.addEventListener("keydown",event=>{if(event.key==="Escape"&&active){event.preventDefault();event.stopImmediatePropagation();close();}},true);syncAvailability();setButtonState();
   }
-  window.GoogleMapsLinkFeature={open,close,toggle,isActive:()=>active,syncAvailability,drawOverlay,buildMapUrl:googleMapsUrl,buildStreetViewUrl:googleStreetViewUrl,buildMapSearchUrl:googleMapsSearchUrl,bearing,selectWorldPoint,photoLatLon,createPhotoQrImage};
+  window.GoogleMapsLinkFeature={open,close,toggle,isActive:()=>active,syncAvailability,drawOverlay,buildMapUrl:googleMapsUrl,buildStreetViewUrl:googleStreetViewUrl,buildMapSearchUrl:googleMapsSearchUrl,bearing,selectWorldPoint,photoLatLon,createPhotoQrImage,getSelection:()=>({positionWorld:positionWorld?{...positionWorld}:null,directionWorld:directionWorld?{...directionWorld}:null})};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",installUi,{once:true});else installUi();
 })();
