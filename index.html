@@ -18972,8 +18972,8 @@ document.getElementById("registryToolbarBtn")?.addEventListener("click",event=>{
   if(registryMapState.loaded){
     registryMapDisplayEnabled=!registryMapDisplayEnabled;
     if(registryMapPanel){
-      registryMapPanel.style.display="block";
-      positionPcToolbarPanel(registryMapPanel,event.currentTarget);
+      registryMapPanel.style.display=registryMapDisplayEnabled?"block":"none";
+      if(registryMapDisplayEnabled)positionPcToolbarPanel(registryMapPanel,event.currentTarget);
     }
     updateRegistryMapUi();
     scheduleDraw();

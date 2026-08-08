@@ -114,12 +114,12 @@ let browser;
   const registryHiddenState=await desktop.evaluate(()=>(
     {panelVisible:getComputedStyle(registryMapPanel).display!=="none",displayEnabled:registryMapDisplayEnabled}
   ));
-  if(!registryHiddenState.panelVisible||registryHiddenState.displayEnabled)throw new Error(`registry settings did not open while hiding loaded data: ${JSON.stringify(registryHiddenState)}`);
+  if(registryHiddenState.panelVisible||registryHiddenState.displayEnabled)throw new Error(`registry settings did not close while hiding loaded data: ${JSON.stringify(registryHiddenState)}`);
   await desktop.locator("#registryToolbarBtn").click();
   const registryShownState=await desktop.evaluate(()=>(
     {panelVisible:getComputedStyle(registryMapPanel).display!=="none",displayEnabled:registryMapDisplayEnabled}
   ));
-  if(!registryShownState.panelVisible||!registryShownState.displayEnabled)throw new Error(`registry settings did not stay open while showing loaded data: ${JSON.stringify(registryShownState)}`);
+  if(!registryShownState.panelVisible||!registryShownState.displayEnabled)throw new Error(`registry settings did not open while showing loaded data: ${JSON.stringify(registryShownState)}`);
   await desktop.locator("#registryMapCloseBtn").click();
   await desktop.locator("#bgBtn").click();
 
