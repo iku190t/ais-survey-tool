@@ -97,6 +97,7 @@ body.file-menu-open #topbar{z-index:240;}
   .pcMapToolBtn{display:inline-flex!important;}
   body.help-labels .pcMapToolBtn{display:inline-grid!important;}
   #backgroundSxfRow{display:none!important;}
+  #vectorMapSettingRow,#vectorMapStatus{display:none!important;}
   #aerialPhotoPanel #terrainPanelOpenBtn,
   #aerialPhotoPanel #registryMapOpenBtn,
   #aerialPhotoPanel #controlPointOpenBtn,
@@ -780,6 +781,8 @@ body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
 #photoAlbumMiniMapLabel{display:flex;align-items:center;gap:9px;min-height:36px;margin-top:10px;font-size:13px;font-weight:700;}
 #photoAlbumMiniMapLabel.disabled{opacity:.42;cursor:not-allowed;}
 #photoAlbumMiniMap{width:19px;height:19px;accent-color:#1677ff;}
+#photoAlbumMapQrBtn{width:100%;min-height:36px;margin-top:7px;padding:6px 10px;font-size:13px;font-weight:750;text-align:left;}
+#photoAlbumMapQrBtn.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #photoAlbumHint{margin-top:5px;color:var(--muted);font-size:11px;line-height:1.5;}
 #photoAlbumActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;}
 #photoAlbumActions button{min-height:38px;font-size:13px;font-weight:750;}
@@ -1254,10 +1257,16 @@ gtag('config', 'G-88B9YPJXWP');
         <path d="M5 7h7v10H5z" fill="currentColor" stroke="none"></path>
       </svg>
     </button>
-    <button id="backgroundSxfToolbarBtn" class="toolIconBtn pcMapToolBtn" data-help-label="基盤地図" data-tooltip="図面位置の基盤地図を自動表示・解除する" aria-label="基盤地図を表示または解除">
+    <button id="backgroundSxfToolbarBtn" class="toolIconBtn pcMapToolBtn" data-help-label="基盤地図" data-tooltip="図面位置の基盤地図を表示・解除する" aria-label="基盤地図を表示または解除">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M5 3.5h10l4 4v13H5z"></path>
         <path d="M15 3.5v4h4M8 11h8M8 14h8M8 17h5"></path>
+      </svg>
+    </button>
+    <button id="googleMapsLinkBtn" class="toolIconBtn" data-help-label="Google" data-tooltip="選択地点をGoogle航空写真・ストリートビューで開く" aria-label="Googleマップ連携">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 21s6-5.8 6-11a6 6 0 1 0-12 0c0 5.2 6 11 6 11z"></path>
+        <circle cx="12" cy="10" r="2.2"></circle>
       </svg>
     </button>
     <button id="terrainToolbarBtn" class="toolIconBtn pcMapToolBtn" data-help-label="地形解析" data-tooltip="標高・傾斜・等高線などを表示する" aria-label="地形解析">
@@ -1454,7 +1463,8 @@ gtag('config', 'G-88B9YPJXWP');
         <label class="photoAlbumCommentRow"><span>2行目</span><span class="photoAlbumCommentControl"><select id="photoAlbumComment2"></select><input id="photoAlbumCustom2" class="photoAlbumCommentCustom" type="text" maxlength="80" placeholder="共通の文字を入力" hidden></span></label>
         <label class="photoAlbumCommentRow"><span>3行目</span><span class="photoAlbumCommentControl"><select id="photoAlbumComment3"></select><input id="photoAlbumCustom3" class="photoAlbumCommentCustom" type="text" maxlength="80" placeholder="共通の文字を入力" hidden></span></label>
         <label id="photoAlbumMiniMapLabel"><input id="photoAlbumMiniMap" type="checkbox">豆図を付ける</label>
-        <div id="photoAlbumHint">豆図は写真位置を中心に図面を縮小し、中央へ写真番号と撮影方向を表示します。8枚では豆図を使用できません。見開きは3枚・4枚だけ選択できます。</div>
+        <button id="photoAlbumMapQrBtn" class="active" type="button" aria-pressed="true">QRコードを付ける</button>
+        <div id="photoAlbumHint">豆図は写真位置を中心に図面を縮小し、中央へ写真番号と撮影方向を表示します。QRコードは各写真の右上に配置し、その写真位置をGoogleマップで開きます。8枚では豆図を使用できません。見開きは3枚・4枚だけ選択できます。</div>
       </div>
       <div id="photoAlbumActions"><button id="photoAlbumCancelBtn" type="button">キャンセル</button><button id="photoAlbumCreateBtn" type="button">Excelを作成</button></div>
     </div>
@@ -1619,7 +1629,7 @@ gtag('config', 'G-88B9YPJXWP');
       <span class="photoSettingLabel">航空写真</span>
       <label class="photoSwitch"><input id="photoToggleSwitch" type="checkbox" aria-label="航空写真を表示"><span class="photoSwitchTrack"></span></label>
     </div>
-    <div class="photoSettingRow">
+    <div id="vectorMapSettingRow" class="photoSettingRow">
       <span class="photoSettingLabel mapLabel">基盤地図（道路・建物・地名・鉄道・行政界・水域）</span>
       <label class="photoSwitch"><input id="vectorMapToggleSwitch" type="checkbox" aria-label="道路・建物・地名・鉄道・行政界・水域を表示"><span class="photoSwitchTrack"></span></label>
     </div>
@@ -1903,7 +1913,8 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開く・保存</div><b>ファイル</b> を押し、<b>開く</b>、<b>上書き保存</b>、<b>名前を付けて保存</b>から選びます。PCでは通常の保存画面を使い、メール送信画面は表示しません。</div>
               <div class="helpBlock"><div class="helpHead">PCでドラッグして開く</div>PCではSFCを図面画面へドラッグし、「ここにドロップして開く」の表示上で離すと、そのまま図面を開けます。</div>
-              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置を選べます。<b>見開きにする</b> は3枚・4枚だけ選択でき、2枚・6枚・8枚では選択できません。見開きでは、表ページを写真・コメント、裏ページをコメント・写真の順にして、綴じたときにコメント欄が中央へ向くよう自動で反転します。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4・6枚では豆図を付けられますが、8枚では豆図を選択できません。通常配置では2・6・8枚は写真を上、コメントを下へ配置し、3・4枚は写真を左、コメントを右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4・6枚の空き領域に合わせて大きくし、高解像度で作成します。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置を選べます。<b>見開きにする</b> は3枚・4枚だけ選択でき、2枚・6枚・8枚では選択できません。見開きでは、表ページを写真・コメント、裏ページをコメント・写真の順にして、綴じたときにコメント欄が中央へ向くよう自動で反転します。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4・6枚では豆図を付けられますが、8枚では豆図を選択できません。通常配置では2・6・8枚は写真を上、コメントを下へ配置し、3・4枚は写真を左、コメントを右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4・6枚の空き領域に合わせて大きくし、高解像度で作成します。<b>QRコードを付ける</b>を青にすると、各写真の右上に位置情報QRを配置します。QRを読むと、その写真の調整後の座標位置が通常のGoogleマップで開きます。Googleの画像自体は写真帳へ保存しません。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
+              <div class="helpBlock"><div class="helpHead">Googleマップ連携</div>上部の <b>Google</b> を押し、図面上で見る位置を選びます。必要なら2点目で見る方向を選び、通常のブラウザーで <b>Google航空写真</b> または <b>Googleストリートビュー</b> を開きます。PCでは同じ専用タブを再利用します。Google Maps Platform APIは使用せず、Google画像の取得・保存・加工・Ez Viewer内への埋め込みは行いません。</div>
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容を、開いているSFCへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">名前を付けて保存</div>PCではエクスプローラーの保存画面からSFC名を指定します。CAD化した航空写真がある場合は保存先フォルダーを選び、SFCと参照JPEGを同じフォルダーへ保存します。SFCとJPEGは移動するときも同じフォルダーに置いてください。</div>
               <div class="helpBlock"><div class="helpHead">ZIPで送る理由</div>SFCは一般的なメール添付形式として登録されていないため、iPhone・Android・Gmailなどが添付を拒否する場合があります。ZIPは広く対応しており、SFCのファイル名と内容を変えずに安全に添付できます。受信後はZIPを展開するとSFCファイルが1個入っています。</div>
@@ -2019,7 +2030,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">背景色</div>上部の <b>背景</b> を押し、黒・白のうち表示したい背景色を選びます。青色になっている方が現在の設定です。</div>
               <div class="helpBlock"><div class="helpHead">航空写真</div><b>航空写真</b> のスイッチをONにすると、現在の場所で実際に利用できる写真年代を自動確認します。OFFの状態でもスライダーを操作すると自動的にONになります。</div>
-              <div class="helpBlock"><div class="helpHead">基盤地図</div>SFCを開くと、図面と同じ位置の地理院地図Vectorを自動表示します。表示中の範囲だけ通信で取得し、等高線など地形解析の要素は混ぜません。PCは上部の<b>基盤地図</b>、スマホは背景内のスイッチで表示・解除できます。</div>
+              <div class="helpBlock"><div class="helpHead">基盤地図</div>図面と同じ位置の地理院地図Vectorを、必要なときだけ表示します。表示中の範囲だけ通信で取得し、等高線など地形解析の要素は混ぜません。PCは上部の<b>基盤地図</b>、スマホは背景内のスイッチを押すと表示し、もう一度押すと解除します。図面を開いた直後はOFFです。</div>
       <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開き、<b>図面範囲</b>を押すと、その範囲の公開データを取得して表示します。表示中はボタンが青くなり、もう一度押すと解除します。筆ポリゴン・筆界線・筆界点・地番文字を個別に表示でき、筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
               <div class="helpBlock"><div class="helpHead">ハザードマップ</div><b>ハザードマップ</b>から洪水・土砂災害・高潮・津波を1種類ずつ表示できます。選択中の青いボタンをもう一度押すと解除します。国土地理院ハザードマップポータルサイトの公開タイルを表示範囲だけ取得します。表示は参考情報のため、避難判断は自治体のハザードマップと最新の防災情報で確認してください。</div>
       <div class="helpBlock"><div class="helpHead">基準点・水準点</div><b>基準点・水準点</b>をONにすると、国土地理院の公開位置情報を図面へ重ね、図面上に種類の凡例を表示します。三角点・その他の基準点、水準点、電子基準点を個別に表示できます。記号をタップすると、点名・種類・基準点コード・成果状態を確認できます。表示位置は検索・現地確認の参考です。正式な成果値は国土地理院の基準点成果等閲覧サービスで確認してください。</div>
@@ -2417,7 +2428,7 @@ function loadPhotoSettings(){
 let photoSettings=loadPhotoSettings();
 const photoPreviewUrls = new Map();
 const PHOTO_ALBUM_SETTINGS_KEY = "sfcviewer-photo-album-settings-v1";
-const PHOTO_ALBUM_DEFAULT_SETTINGS = Object.freeze({layout:"3",spread:false,comment1:"number",comment2:"fileName",comment3:"capturedAt",custom1:"",custom2:"",custom3:"",miniMap:true});
+const PHOTO_ALBUM_DEFAULT_SETTINGS = Object.freeze({layout:"3",spread:false,comment1:"number",comment2:"fileName",comment3:"capturedAt",custom1:"",custom2:"",custom3:"",miniMap:true,mapQr:true});
 const PHOTO_ALBUM_SPREAD_LAYOUTS = new Set(["3","4"]);
 let currentStroke = null;
 let pendingTouchInk = null;
@@ -3346,7 +3357,11 @@ function updateAerialPhotoUi(){
 }
 function updateBackgroundIconState(){
   const btn=document.getElementById("bgBtn");if(!btn)return;
-  const terrainActive=!isDesktopPhotoTool()&&!!(terrainMode||terrainLoading),photoActive=!!(aerialPhotoEnabled||vectorBaseMapEnabled);
+  // PCは基盤地図を独立した上部ボタンで操作するため、背景ボタンへ
+  // 基盤地図の選択色を連動させない。スマホだけは背景内のスイッチを
+  // 操作元として残すので、従来どおり背景ボタンへ状態を反映する。
+  const terrainActive=!isDesktopPhotoTool()&&!!(terrainMode||terrainLoading);
+  const photoActive=!!(aerialPhotoEnabled||(!isDesktopPhotoTool()&&vectorBaseMapEnabled));
   btn.classList.toggle("bgAerialActive",photoActive&&!terrainActive);
   btn.classList.toggle("bgTerrainActive",terrainActive&&!photoActive);
   btn.classList.toggle("bgBothActive",terrainActive&&photoActive);
@@ -4652,14 +4667,6 @@ async function enableVectorBaseMap(options={}){
   }finally{
     vectorBaseMapResolveBusy=false;updateAerialPhotoUi();updateToolbarActivationUI();scheduleDraw();
   }
-}
-function enableVectorBaseMapAfterDrawingLoad(){
-  // SFCの解析と初期全体表示を先に完了させ、利用者を待たせずに
-  // 現在の図面範囲に必要なベクトルタイルだけをバックグラウンド取得する。
-  setTimeout(()=>{
-    if(!hasLoadedDrawing()||vectorBaseMapEnabled||vectorBaseMapResolveBusy)return;
-    enableVectorBaseMap({silent:true}).catch(error=>console.error("Automatic foundation map enable failed",error));
-  },0);
 }
 function drawVectorBaseMap(w,h){
   if(!vectorBaseMapEnabled||!vectorBaseMapZone||!ensureProj4Defs())return;
@@ -12657,6 +12664,7 @@ function drawInteractionOverlay(){
       interactionCtx.restore();
     }
   }
+  window.GoogleMapsLinkFeature?.drawOverlay?.(interactionCtx);
 }
 function draw(){
   // ホイール操作中は、直前の描画をCSSで即時拡大縮小する。
@@ -12855,7 +12863,7 @@ function applyPortraitPreference(){
 }
 function updateDrawingDependentUi(){
   const available = hasLoadedDrawing();
-  const ids = ["fitBtn","bgBtn","backgroundSxfToolbarBtn","backgroundSxfOpenBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","gpsBtn","measureBtn","profileBtn","photoToolBtn","drawBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab","gpsDetailFab"];
+  const ids = ["fitBtn","bgBtn","backgroundSxfToolbarBtn","backgroundSxfOpenBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","googleMapsLinkBtn","gpsBtn","measureBtn","profileBtn","photoToolBtn","drawBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab","gpsDetailFab"];
   ids.forEach(id=>{
     const el = document.getElementById(id);
     if (!el) return;
@@ -12866,6 +12874,7 @@ function updateDrawingDependentUi(){
   const photoTool=document.getElementById("photoToolBtn");
   if(photoTool)photoTool.style.display=isDesktopPhotoTool()?"":"none";
   updatePcMapToolbarVisibility();
+  window.GoogleMapsLinkFeature?.syncAvailability?.();
 }
 
 function closePanelsExcept(except){
@@ -12896,6 +12905,7 @@ function resetMeasureUI(){
   updateMeasureBackButton();
 }
 function resetSessionFromLoad(){
+  window.GoogleMapsLinkFeature?.close?.();
   closeTextLayerModal();
   closeCoordinateInspectModal();
   clearTextLongPressTimer();
@@ -14495,7 +14505,7 @@ function loadPhotoAlbumSettings(){
     const saved=JSON.parse(localStorage.getItem(PHOTO_ALBUM_SETTINGS_KEY)||"null")||{};
     const layouts=new Set(["2","3","4","6","8"]),savedVersion=Number(saved.version);
     const fields=new Set(["none","fileName","number","direction8","capturedAt","xy","xNorth","yEast","demElevation","demSource","blank"]);
-    const currentVersion=4,isCompatible=savedVersion>=2&&savedVersion<=currentVersion;
+    const currentVersion=5,isCompatible=savedVersion>=2&&savedVersion<=currentVersion;
     const legacySpread=String(saved.layout)==="spread";
     const layout=legacySpread?"3":(layouts.has(String(saved.layout))?String(saved.layout):PHOTO_ALBUM_DEFAULT_SETTINGS.layout);
     return {
@@ -14508,7 +14518,8 @@ function loadPhotoAlbumSettings(){
       custom1:savedVersion>=3?String(saved.custom1||"").slice(0,80):"",
       custom2:savedVersion>=3?String(saved.custom2||"").slice(0,80):"",
       custom3:savedVersion>=3?String(saved.custom3||"").slice(0,80):"",
-      miniMap:saved.miniMap!==false
+      miniMap:saved.miniMap!==false,
+      mapQr:saved.mapQr!==false
     };
   }catch(_error){return {...PHOTO_ALBUM_DEFAULT_SETTINGS};}
 }
@@ -14520,7 +14531,7 @@ function getPhotoAlbumSettingsFromUi(){
   const layout=selected?selected.value:PHOTO_ALBUM_DEFAULT_SETTINGS.layout;
   const mini=document.getElementById("photoAlbumMiniMap");
   return {
-    version:4,
+    version:5,
     layout,
     spread:isPhotoAlbumSpreadAllowed(layout)&&!!document.getElementById("photoAlbumSpread")?.checked,
     comment1:document.getElementById("photoAlbumComment1")?.value||PHOTO_ALBUM_DEFAULT_SETTINGS.comment1,
@@ -14529,7 +14540,8 @@ function getPhotoAlbumSettingsFromUi(){
     custom1:String(document.getElementById("photoAlbumCustom1")?.value||"").slice(0,80),
     custom2:String(document.getElementById("photoAlbumCustom2")?.value||"").slice(0,80),
     custom3:String(document.getElementById("photoAlbumCustom3")?.value||"").slice(0,80),
-    miniMap:mini?.dataset.preferred!=="false"
+    miniMap:mini?.dataset.preferred!=="false",
+    mapQr:document.getElementById("photoAlbumMapQrBtn")?.getAttribute("aria-pressed")!=="false"
   };
 }
 function updatePhotoAlbumCustomInputVisibility(focusInput=false){
@@ -14578,6 +14590,8 @@ function populatePhotoAlbumSettingsUi(){
   if(spread)spread.checked=!!settings.spread;
   const mini=document.getElementById("photoAlbumMiniMap");
   if(mini){mini.dataset.preferred=settings.miniMap?"true":"false";mini.checked=settings.miniMap;}
+  const mapQr=document.getElementById("photoAlbumMapQrBtn");
+  if(mapQr){mapQr.classList.toggle("active",settings.mapQr!==false);mapQr.setAttribute("aria-pressed",settings.mapQr!==false?"true":"false");}
   updatePhotoAlbumCustomInputVisibility(false);
   updatePhotoAlbumMiniMapAvailability();
 }
@@ -14729,6 +14743,7 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
   // 豆図は通常・見開き共通で2・3・4・6枚に使用する。8枚だけは対象外。
   const miniMapAllowed=photosPerPage!==8;
   const useMiniMap=!!settings.miniMap&&miniMapAllowed;
+  const useMapQr=!!settings.mapQr;
   // 見開き8枚は行数を8で割り切れるよう64行にして、セル座標を整数に保つ。
   const pageRows=isSpread&&photosPerPage===8?64:60,slotRows=pageRows/rowsPerPage,rowPx=17,pageCount=Math.ceil(photoAnnotations.length/photosPerPage);
   const widePhotoLayout=!isSpread&&photosPerPage===3;
@@ -14777,6 +14792,21 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
     drawingRels.push(`<Relationship Id="rId${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${fileName}"/>`);
     images.push({id,name,rect,border:true});
   };
+  const addPhotoImage=async(photo,rect,name,item)=>{
+    const placed=fitPhotoAlbumImage(photo,rect);
+    addImage(photo,placed,name);
+    if(!useMapQr)return placed;
+    const feature=window.GoogleMapsLinkFeature;
+    if(!feature||typeof feature.createPhotoQrImage!=="function")throw new Error("QRコード作成機能を読み込めません");
+    const qr=await feature.createPhotoQrImage(item);
+    if(!qr)return placed;
+    const aspect=qr.height/Math.max(1,qr.width);
+    const qrWidth=Math.max(64,Math.min(92,placed.width*.32,placed.height*.42/Math.max(aspect,.1)));
+    const qrHeight=qrWidth*aspect;
+    const inset=Math.max(3,qrWidth*.045);
+    addImage(qr,{x:placed.x+placed.width-qrWidth-inset,y:placed.y+inset,width:qrWidth,height:qrHeight},`GoogleマップQR ${item.number}`);
+    return placed;
+  };
   const fields=[settings.comment1,settings.comment2,settings.comment3];
   const customTexts=[settings.custom1,settings.custom2,settings.custom3];
   const miniGeometry=useMiniMap?buildPhotoMiniMapGeometry():null;
@@ -14788,7 +14818,7 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       const colStart=2,colEnd=12,commentRows=5,photoEnd=slotBottom-commentRows;
       merge(slotTop+1,colStart,photoEnd,colEnd,"",1);
       const photoRect={x:columnLeftPx(colStart)+2,y:slotTop*rowPx+1,width:columnRangeWidthPx(colStart,colEnd)-4,height:(photoEnd-slotTop)*rowPx-2};
-      addImage(photo,fitPhotoAlbumImage(photo,photoRect),`写真 ${item.number}`);
+      await addPhotoImage(photo,photoRect,`写真 ${item.number}`,item);
       fields.forEach((field,line)=>mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
       for(let line=fields.length;line<commentRows;line++)mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,"",false);
       if(useMiniMap){
@@ -14807,7 +14837,7 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       const photoEnd=slotBottom-3;
       merge(slotTop+1,colStart,photoEnd,colEnd,"",1);
       const photoRect={x:columnLeftPx(colStart)+5,y:slotTop*rowPx+5,width:columnRangeWidthPx(colStart,colEnd)-10,height:(photoEnd-slotTop)*rowPx-10};
-      addImage(photo,fitPhotoAlbumImage(photo,photoRect),`写真 ${item.number}`);
+      await addPhotoImage(photo,photoRect,`写真 ${item.number}`,item);
       fields.forEach((field,line)=>mergeComment(photoEnd+1+line,commentColStart,photoEnd+1+line,commentColEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
       if(sixPhotoLayout&&useMiniMap){
         // 以前の6枚書式（写真とコメント3行）は変えず、右側の点線上へ豆図だけを重ねる。
@@ -14828,7 +14858,7 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       merge(slotTop+1,photoColStart,slotBottom,photoColEnd,"",1);
       const photoInsetY=photosPerPage<=3?1:photosPerPage===4?4:2;
       const photoRect={x:columnLeftPx(photoColStart)+2,y:slotTop*rowPx+photoInsetY,width:columnRangeWidthPx(photoColStart,photoColEnd)-4,height:slotRows*rowPx-photoInsetY*2};
-      addImage(photo,fitPhotoAlbumImage(photo,photoRect),`写真 ${item.number}`);
+      await addPhotoImage(photo,photoRect,`写真 ${item.number}`,item);
       fields.forEach((field,line)=>mergeComment(slotTop+1+line*2,commentColStart,slotTop+2+line*2,commentColEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
       if(useMiniMap){
         // 次の写真枠の上辺と重なって太く見えないよう、3・4枚帳は全段で1行手前まで。
@@ -17297,7 +17327,6 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   document.getElementById("startupModal").style.display="none";
   if(options.restoreRecovery!==false)restoreRecoverySnapshotIfAvailable();
   applyDefaultFullViewAfterLoad();
-  enableVectorBaseMapAfterDrawingLoad();
   gaTrackOpenSfc("sfc");
   const loadModeLabel=(largeDrawingMode ? "大容量モード" : "通常モード")+
     (activeCoordinateMeshTransform ? "・座標メッシュ補正" : "");
@@ -18155,6 +18184,13 @@ document.getElementById("photoAlbumMiniMap")?.addEventListener("change",event=>{
   // 初回はON。その後は作成を取り消した場合も利用者が選んだ状態を保持する。
   savePhotoAlbumSettings(getPhotoAlbumSettingsFromUi());
 });
+document.getElementById("photoAlbumMapQrBtn")?.addEventListener("click",event=>{
+  const button=event.currentTarget;
+  const enabled=button.getAttribute("aria-pressed")!=="true";
+  button.setAttribute("aria-pressed",enabled?"true":"false");
+  button.classList.toggle("active",enabled);
+  savePhotoAlbumSettings(getPhotoAlbumSettingsFromUi());
+});
 document.getElementById("photoSelectAllBtn")?.addEventListener("click",()=>{
   for(const item of photoAnnotations)selectedPhotoAnnotations.add(item);
   renderPhotoListPanel();
@@ -18427,6 +18463,7 @@ function updateToolbarActivationUI(){
     openIconBtn:visible(document.getElementById("saveMenuModal"))||visible(document.getElementById("saveAsChoiceModal")),
     bgBtn:visible(aerialPhotoPanel)||(!isDesktopPhotoTool()&&(visible(terrainPanel)||visible(registryMapPanel)||visible(hazardMapPanel)||visible(controlPointPanel)))||(terrainCadSelectionMode&&polygonSelectionPurpose==="aerial"),
     backgroundSxfToolbarBtn:!!(vectorBaseMapEnabled||vectorBaseMapResolveBusy),
+    googleMapsLinkBtn:!!window.GoogleMapsLinkFeature?.isActive?.(),
     terrainToolbarBtn:isDesktopPhotoTool()&&(visible(terrainPanel)||!!terrainLoading||!!terrainMode),
     registryToolbarBtn:isDesktopPhotoTool()&&(visible(registryMapPanel)||!!registryMapState.loaded||!!registryMapAutoBusy||registryMapPointPickMode),
     controlPointToolbarBtn:isDesktopPhotoTool()&&(visible(controlPointPanel)||!!controlPointEnabled||!!controlPointResolveBusy),
@@ -18458,7 +18495,7 @@ function updateHomeButtonUI(){
 const toolbarCommandIds=new Set([
   "openIconBtn","fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn",
   "photoToolBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab","bgBtn",
-  "backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn",
+  "backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","googleMapsLinkBtn",
   "gpsDetailFab","supportBtn"
 ]);
 function closeToolbarSurfacesExcept(commandId){
@@ -18472,6 +18509,7 @@ function closeToolbarSurfacesExcept(commandId){
   cancelTransientOperations(transientByCommand[commandId]||"");
 
   if(commandId!=="openIconBtn"&&isSaveMenuOpen())setSaveMenuOpen(false);
+  if(commandId!=="googleMapsLinkBtn")window.GoogleMapsLinkFeature?.close?.();
   if(commandId!=="backgroundSxfToolbarBtn"&&foundationMapPanel)foundationMapPanel.style.display="none";
   if(commandId!=="bgBtn"){
     if(aerialPhotoPanel)aerialPhotoPanel.style.display="none";
@@ -19861,7 +19899,6 @@ if (window.__EMBED_PAYLOAD_B64__) {
       updateStopBtnUI();
       restoreRecoverySnapshotIfAvailable();
       applyDefaultFullViewAfterLoad();
-      enableVectorBaseMapAfterDrawingLoad();
     }
   } catch(e) {
     console.error(e);
@@ -19979,6 +20016,7 @@ if (window.visualViewport){
   window.visualViewport.addEventListener("resize", relayoutAndResizeStableDelayed);
 }
 </script>
+<script src="google-maps-links.js?v=1"></script>
 <script src="p2p-share.js?v=3"></script>
 <script src="pc-web-guide.js?v=1"></script>
 </body>
