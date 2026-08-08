@@ -18964,13 +18964,17 @@ function togglePcMapToolbarPanel(panel,openButton,anchorButton){
   updateToolbarActivationUI();
 }
 document.getElementById("terrainToolbarBtn")?.addEventListener("click",event=>togglePcMapToolbarPanel(terrainPanel,document.getElementById("terrainPanelOpenBtn"),event.currentTarget));
-document.getElementById("registryToolbarBtn")?.addEventListener("click",()=>{
+document.getElementById("registryToolbarBtn")?.addEventListener("click",event=>{
   if(registryMapAutoBusy){
     cancelRegistryMapOperation({closePanel:true});
     return;
   }
   if(registryMapState.loaded){
     registryMapDisplayEnabled=!registryMapDisplayEnabled;
+    if(registryMapPanel){
+      registryMapPanel.style.display="block";
+      positionPcToolbarPanel(registryMapPanel,event.currentTarget);
+    }
     updateRegistryMapUi();
     scheduleDraw();
     updateToolbarActivationUI();

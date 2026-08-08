@@ -105,6 +105,22 @@ let browser;
   if(await desktop.locator("#aerialPhotoPanel").isVisible())throw new Error("background panel opened with PC terrain panel");
   await desktop.locator("#terrainToolbarBtn").click();
   if(await desktop.locator("#terrainPanel").isVisible())throw new Error("terrain panel did not close from PC toolbar");
+  await desktop.evaluate(()=>{
+    registryMapState={...registryEmptyState(),loaded:true,sourceName:"test"};
+    registryMapDisplayEnabled=true;
+    updateRegistryMapUi();
+  });
+  await desktop.locator("#registryToolbarBtn").click();
+  const registryHiddenState=await desktop.evaluate(()=>(
+    {panelVisible:getComputedStyle(registryMapPanel).display!=="none",displayEnabled:registryMapDisplayEnabled}
+  ));
+  if(!registryHiddenState.panelVisible||registryHiddenState.displayEnabled)throw new Error(`registry settings did not open while hiding loaded data: ${JSON.stringify(registryHiddenState)}`);
+  await desktop.locator("#registryToolbarBtn").click();
+  const registryShownState=await desktop.evaluate(()=>(
+    {panelVisible:getComputedStyle(registryMapPanel).display!=="none",displayEnabled:registryMapDisplayEnabled}
+  ));
+  if(!registryShownState.panelVisible||!registryShownState.displayEnabled)throw new Error(`registry settings did not stay open while showing loaded data: ${JSON.stringify(registryShownState)}`);
+  await desktop.locator("#registryMapCloseBtn").click();
   await desktop.locator("#bgBtn").click();
 
   const fitState=await desktop.evaluate(()=>{
