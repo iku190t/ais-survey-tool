@@ -158,9 +158,19 @@ body.profile-tools-active #pickLineBtn{display:none !important;}
 #terrainPanelOpenState{font-size:inherit;font-weight:700;opacity:.88;}
 #backgroundSxfRow{margin-top:8px;padding-top:8px;border-top:1px solid rgba(128,128,128,.22);}
 #backgroundSxfOpenBtn{width:100%;min-height:38px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;font-weight:800;background:#25394d;color:#fff;border-color:#3e6b91;}
-#backgroundSxfOpenBtn::after{content:"SXF";font-size:11px;font-weight:900;letter-spacing:.04em;opacity:.82;}
+#backgroundSxfOpenBtn::after{content:"2500";font-size:11px;font-weight:900;letter-spacing:.04em;opacity:.82;}
 #backgroundSxfInput{display:none;}
 #backgroundSxfStatus{font-size:11px;line-height:1.4;color:var(--muted);margin-top:5px;}
+#foundationMapPanel{display:none;width:min(330px,calc(100vw - 16px));right:12px;top:calc(58px + var(--cad-toolbar-offset,40px));z-index:80;box-sizing:border-box;padding:9px!important;max-height:calc(100% - var(--cad-toolbar-offset,40px) - 66px);overflow:auto;}
+.foundationMapHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.foundationMapTitle{font-size:15px;font-weight:800;}
+.foundationMapActions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px;}
+.foundationMapActions button{min-width:0;min-height:38px;font-size:12px;font-weight:800;}
+#foundationMapAcquireBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;}
+#foundationMapTarget{padding:7px 8px;border:1px solid rgba(128,128,128,.24);border-radius:8px;background:rgba(128,128,128,.08);font-size:12px;line-height:1.5;word-break:break-all;}
+#foundationMapPanelStatus{margin-top:8px;font-size:12px;line-height:1.5;color:var(--muted);}
+.foundationMapNotice{margin-top:7px;font-size:11px;line-height:1.55;color:var(--muted);}
+.foundationMapNotice a{color:#4aa3ff;}
 #terrainPanel{display:none;width:min(286px,calc(100vw - 16px));right:12px;top:calc(58px + var(--cad-toolbar-offset,40px));bottom:auto;z-index:78;box-sizing:border-box;padding:8px !important;max-height:calc(100% - var(--cad-toolbar-offset,40px) - 62px);overflow:auto;}
 #terrainPanel .terrainHeader{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:7px;}
 #terrainPanel .terrainTitle{font-size:15px;font-weight:800;}
@@ -1243,7 +1253,7 @@ gtag('config', 'G-88B9YPJXWP');
         <path d="M5 7h7v10H5z" fill="currentColor" stroke="none"></path>
       </svg>
     </button>
-    <button id="backgroundSxfToolbarBtn" class="toolIconBtn pcMapToolBtn" data-help-label="基盤SXF" data-tooltip="基盤地図のSFC・P21・SXFを背景レイヤーとして追加する" aria-label="基盤地図SXF読込">
+    <button id="backgroundSxfToolbarBtn" class="toolIconBtn pcMapToolBtn" data-help-label="基盤地図" data-tooltip="国土地理院の基盤地図情報を縮尺レベル2500だけ背景に追加する" aria-label="基盤地図情報2500読込">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M5 3.5h10l4 4v13H5z"></path>
         <path d="M15 3.5v4h4M8 11h8M8 14h8M8 17h5"></path>
@@ -1621,14 +1631,31 @@ gtag('config', 'G-88B9YPJXWP');
     <div id="photoStatus">スライダーを右へ動かすほど古い航空写真になります。</div>
     <button id="aerialPhotoSfcBtn" type="button" disabled>範囲を選んでCAD化</button>
     <div id="backgroundSxfRow">
-      <button id="backgroundSxfOpenBtn" type="button"><span>基盤地図SXF読込</span></button>
-      <input id="backgroundSxfInput" type="file" accept=".sfc,.p21,.sxf,application/octet-stream,text/plain">
-      <div id="backgroundSxfStatus">必要範囲だけSXF化した基盤地図を背景レイヤーとして追加します。</div>
+      <button id="backgroundSxfOpenBtn" type="button"><span>基盤地図情報を読込</span></button>
+      <input id="backgroundSxfInput" type="file" accept=".zip,.xml,.gml,.sfc,.p21,.sxf,application/zip,application/xml,text/xml,application/octet-stream,text/plain">
+      <div id="backgroundSxfStatus">縮尺レベル2500だけを必要範囲へ追加します。</div>
     </div>
     <button id="terrainPanelOpenBtn" type="button"><span>地形解析</span><span id="terrainPanelOpenState">開く</span></button>
     <button id="registryMapOpenBtn" type="button"><span>法務地図・境界</span><span id="registryMapOpenState">開く</span></button>
     <button id="controlPointOpenBtn" type="button"><span>基準点・水準点</span><span id="controlPointOpenState">開く</span></button>
     <button id="hazardMapOpenBtn" type="button"><span>ハザードマップ</span><span id="hazardMapOpenState">開く</span></button>
+  </div>
+
+  <div id="foundationMapPanel" class="panel">
+    <div class="foundationMapHeader">
+      <div class="foundationMapTitle">基盤地図情報（2500）</div>
+      <button id="foundationMapCloseBtn" class="panelCloseBtn" type="button">閉じる</button>
+    </div>
+    <div id="foundationMapTarget">対象範囲を確認中…</div>
+    <div class="foundationMapActions">
+      <button id="foundationMapAcquireBtn" type="button">国土地理院から取得</button>
+      <button id="foundationMapImportBtn" type="button">取得ZIPを読込</button>
+    </div>
+    <div id="foundationMapPanelStatus">出典地図情報レベル2500以下だけを取り込みます。</div>
+    <div class="foundationMapNotice">
+      国土地理院の公式サービスはログイン制です。「国土地理院から取得」で対象の2次メッシュ番号をコピーして公式画面を開き、取得したZIPを読み込んでください。25000の地物は取り込みません。<br>
+      <a href="https://service.gsi.go.jp/kiban/app/help/" target="_blank" rel="noopener">基盤地図情報ダウンロードサービス</a>
+    </div>
   </div>
 
   <div id="registryMapPanel" class="panel">
@@ -2112,6 +2139,7 @@ gtag('config', 'G-88B9YPJXWP');
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.js"></script>
 <script src="https://unpkg.com/shpjs@6.2.0/dist/shp.min.js"></script>
+<script src="foundation-map-gml.js?v=1"></script>
 <script>
 const GA_MEASUREMENT_ID = "G-88B9YPJXWP";
 const GA_PLACEHOLDER_ID = "G-88B9YPJXWP";
@@ -2624,6 +2652,10 @@ let vectorBaseMapEnabled = false;
 let vectorBaseMapZone = null;
 let vectorBaseMapResolveBusy = false;
 let vectorTileDecoderPromise = null;
+const FOUNDATION_MAP_SERVICE_URL="https://service.gsi.go.jp/kiban/app/map/";
+const FOUNDATION_MAP_MAX_SOURCE_LEVEL=2500;
+let foundationMapTargetState=null;
+let foundationMapImportBusy=false;
 
 const helpModal = document.getElementById("helpModal");
 const helpModalBox = document.getElementById("helpModalBox");
@@ -2677,6 +2709,12 @@ const backgroundSxfToolbarBtn = document.getElementById("backgroundSxfToolbarBtn
 const backgroundSxfOpenBtn = document.getElementById("backgroundSxfOpenBtn");
 const backgroundSxfInput = document.getElementById("backgroundSxfInput");
 const backgroundSxfStatus = document.getElementById("backgroundSxfStatus");
+const foundationMapPanel = document.getElementById("foundationMapPanel");
+const foundationMapCloseBtn = document.getElementById("foundationMapCloseBtn");
+const foundationMapTarget = document.getElementById("foundationMapTarget");
+const foundationMapAcquireBtn = document.getElementById("foundationMapAcquireBtn");
+const foundationMapImportBtn = document.getElementById("foundationMapImportBtn");
+const foundationMapPanelStatus = document.getElementById("foundationMapPanelStatus");
 const photoCredit = document.getElementById("photoCredit");
 function updateMapAttributionLayout(){
   if(!mapAttributionPanel)return;
@@ -8791,6 +8829,175 @@ async function handleBackgroundSxfFile(file){
     if(backgroundSxfInput)backgroundSxfInput.value="";
   }
 }
+function setFoundationMapStatus(text){
+  const value=String(text||"");
+  if(foundationMapPanelStatus)foundationMapPanelStatus.textContent=value;
+  if(backgroundSxfStatus)backgroundSxfStatus.textContent=value;
+}
+async function copyPlainTextForFoundationMap(text){
+  const value=String(text||"");
+  if(navigator.clipboard&&window.isSecureContext){
+    try{await navigator.clipboard.writeText(value);return;}catch(_error){}
+  }
+  const area=document.createElement("textarea");
+  area.value=value;area.setAttribute("readonly","");area.style.position="fixed";area.style.opacity="0";
+  document.body.appendChild(area);area.select();
+  try{document.execCommand("copy");}finally{area.remove();}
+}
+async function resolveFoundationMapTarget(){
+  if(!hasLoadedDrawing())throw new Error("先に元のSFC図面を開いてください");
+  if(!window.FoundationMapGml)throw new Error("基盤地図情報の解析機能を読み込めません");
+  const zone=await resolveProfileZone();
+  if(!zone)throw new Error("座標系未判定です。設定から平面直角座標系を選んでください");
+  const width=Math.max(1,canvas.clientWidth||1),height=Math.max(1,canvas.clientHeight||1);
+  const planeCorners=[[0,0],[width,0],[width,height],[0,height]].map(([sx,sy])=>{
+    const world=screenToWorld(sx,sy);
+    return sfcWorldToPlane(world[0],world[1]);
+  }).filter(point=>Number.isFinite(point?.xNorth)&&Number.isFinite(point?.yEast));
+  if(planeCorners.length!==4)throw new Error("図面の対象範囲を座標へ変換できません");
+  const planeBounds={
+    minX:Math.min(...planeCorners.map(point=>point.xNorth)),
+    maxX:Math.max(...planeCorners.map(point=>point.xNorth)),
+    minY:Math.min(...planeCorners.map(point=>point.yEast)),
+    maxY:Math.max(...planeCorners.map(point=>point.yEast))
+  };
+  const latLonCorners=planeCorners.map(point=>jgd2024XYToLatLon(point.xNorth,point.yEast,zone));
+  const latLonBounds={
+    minLat:Math.min(...latLonCorners.map(point=>point.lat)),
+    maxLat:Math.max(...latLonCorners.map(point=>point.lat)),
+    minLon:Math.min(...latLonCorners.map(point=>point.lon)),
+    maxLon:Math.max(...latLonCorners.map(point=>point.lon))
+  };
+  if(latLonBounds.minLat<18||latLonBounds.maxLat>48||latLonBounds.minLon<120||latLonBounds.maxLon>156){
+    throw new Error("図面の位置が日本域外です。座標系を確認してください");
+  }
+  const meshCodes=FoundationMapGml.meshCodesForBounds(latLonBounds);
+  if(!meshCodes.length)throw new Error("対象の2次メッシュ番号を算出できません");
+  if(meshCodes.length>36)throw new Error("表示範囲が広すぎます。必要な範囲まで拡大してください");
+  const state={zone,planeBounds,latLonBounds,meshCodes,key:`${zone}:${meshCodes.join("-")}`};
+  foundationMapTargetState=state;
+  if(foundationMapTarget){
+    const spanX=Math.abs(planeBounds.maxX-planeBounds.minX),spanY=Math.abs(planeBounds.maxY-planeBounds.minY);
+    foundationMapTarget.textContent=`第${zone}系／対象2次メッシュ：${meshCodes.join("、")}／表示範囲：約${Math.round(spanY)}m × ${Math.round(spanX)}m`;
+  }
+  return state;
+}
+async function openFoundationMapPanel(){
+  if(!hasLoadedDrawing()){showToast("先に元のSFC図面を開いてください",2400);return;}
+  closePanelsExcept("foundationMap");
+  if(foundationMapPanel)foundationMapPanel.style.display="block";
+  updateToolbarActivationUI();
+  if(foundationMapTarget)foundationMapTarget.textContent="対象範囲を確認中…";
+  try{
+    await resolveFoundationMapTarget();
+    setFoundationMapStatus("縮尺レベル2500以下だけを取り込みます。2万5千分の1は使用しません。");
+  }catch(error){
+    setFoundationMapStatus(error&&error.message?error.message:"対象範囲を確認できません");
+  }
+}
+async function acquireFoundationMapOfficialData(){
+  if(foundationMapImportBusy)return;
+  const popup=window.open(FOUNDATION_MAP_SERVICE_URL,"_blank","noopener");
+  try{
+    const target=await resolveFoundationMapTarget();
+    const meshText=target.meshCodes.join(",");
+    await copyPlainTextForFoundationMap(meshText);
+    setFoundationMapStatus(`2次メッシュ番号 ${target.meshCodes.join("、")} をコピーしました。公式画面で「メッシュ番号」に貼り付け、基本項目のZIPを取得してください。`);
+    showToast("対象メッシュ番号をコピーしました",2400);
+    if(!popup)window.open(FOUNDATION_MAP_SERVICE_URL,"_blank","noopener");
+  }catch(error){
+    if(popup)try{popup.close();}catch(_error){}
+    setFoundationMapStatus(error&&error.message?error.message:"取得範囲を確認できません");
+    showToast(error&&error.message?error.message:"取得範囲を確認できません",3000);
+  }
+}
+const FOUNDATION_MAP_LAYER_COLORS=Object.freeze({
+  road:"#8fa3b8",building:"#9aa0a6",water:"#4f9fe8",rail:"#777777",
+  admin:"#b08ac9",community:"#b899c9",block:"#b6a6c1"
+});
+function foundationMapStrokeFromParsed(parsed,targetKey){
+  const color=FOUNDATION_MAP_LAYER_COLORS[parsed.kind]||"#8fa3b8";
+  return {
+    type:"freehand",color,opacity:1,eraser:false,screenWidthPx:null,
+    worldWidthMm:0.13,width:penWidthLevelFromMm(0.13),points:parsed.points,
+    foundationMapKind:parsed.kind,foundationSourceLevel:Number(parsed.sourceLevel),
+    foundationSourceId:String(parsed.sourceId||""),foundationTargetKey:String(targetKey||"")
+  };
+}
+async function parseFoundationMapFile(file,target){
+  const name=String(file&&file.name||"");
+  const decoder=new TextDecoder("utf-8");
+  const texts=[];
+  if(/\.zip$/i.test(name)||String(file.type||"").toLowerCase().includes("zip")){
+    const buffer=await file.arrayBuffer();
+    const entries=registryZipEntriesLight(buffer).filter(entry=>/\.(?:xml|gml)$/i.test(entry.name)&&!/(?:schema|xsd)\//i.test(entry.name));
+    if(!entries.length)throw new Error("ZIP内に基盤地図情報GMLがありません");
+    const total=entries.reduce((sum,entry)=>sum+(Number(entry.uncompressedSize)||0),0);
+    if(total>320*1024*1024)throw new Error("ZIP内のGMLが大きすぎます。取得メッシュを減らしてください");
+    for(let index=0;index<entries.length;index++){
+      updateBusy(`基盤地図情報を解析中… ${index+1}/${entries.length}`);
+      await waitForUiPaint();
+      const bytes=await registryReadZipEntryBytesLight(buffer,entries[index],96*1024*1024);
+      texts.push({name:entries[index].name,text:decoder.decode(bytes)});
+    }
+  }else if(/\.(?:xml|gml)$/i.test(name)){
+    texts.push({name,text:decoder.decode(await file.arrayBuffer())});
+  }else{
+    throw new Error("国土地理院から取得したZIP・XML・GMLを選んでください");
+  }
+  const seen=new Set(),parsedStrokes=[];
+  const totals={features:0,acceptedFeatures:0,paths:0,skippedCoarse:0,skippedUnknownLevel:0,skippedHidden:0,skippedDuplicate:0};
+  for(let index=0;index<texts.length;index++){
+    const result=FoundationMapGml.parseGmlText(texts[index].text,{
+      maxSourceLevel:FOUNDATION_MAP_MAX_SOURCE_LEVEL,bounds:target.planeBounds,seenFeatureIds:seen,maxPaths:120000,
+      toPlane:(lat,lon)=>{const point=latLonToJgd2024XY(lat,lon,target.zone);return {x:point.x,y:point.y};},
+      toWorld:(xNorth,yEast)=>registryPlaneToWorldMm(xNorth,yEast)
+    });
+    parsedStrokes.push(...result.strokes);
+    for(const key of Object.keys(totals))totals[key]+=Number(result.stats[key])||0;
+  }
+  return {strokes:parsedStrokes,stats:totals};
+}
+async function handleFoundationMapFile(file){
+  if(!file||foundationMapImportBusy)return;
+  if(/\.(?:sfc|p21|sxf)$/i.test(String(file.name||""))){await handleBackgroundSxfFile(file);return;}
+  if(!hasLoadedDrawing()){showToast("先に元のSFC図面を開いてください",2400);return;}
+  foundationMapImportBusy=true;
+  showBusy("基盤地図情報を解析中…");
+  await waitForUiPaint();
+  try{
+    const target=foundationMapTargetState||await resolveFoundationMapTarget();
+    const result=await parseFoundationMapFile(file,target);
+    if(!result.strokes.length){
+      const reason=result.stats.skippedCoarse
+        ?"表示範囲に縮尺レベル2500以下のデータがありません（2万5千分の1は除外しました）"
+        :"表示範囲に取り込める基盤地図の線がありません";
+      setFoundationMapStatus(reason);showToast(reason,3400);return;
+    }
+    const existingKeys=new Set((inkStrokes||[]).filter(stroke=>stroke.foundationMapKind).map(stroke=>`${stroke.foundationTargetKey}|${stroke.foundationSourceId}|${stroke.foundationMapKind}`));
+    const acceptedKeys=new Set();
+    const additions=[];
+    for(const parsed of result.strokes){
+      const key=`${target.key}|${parsed.sourceId||""}|${parsed.kind}`;
+      if(parsed.sourceId&&existingKeys.has(key))continue;
+      acceptedKeys.add(key);additions.push(foundationMapStrokeFromParsed(parsed,target.key));
+    }
+    for(const key of acceptedKeys)existingKeys.add(key);
+    if(!additions.length){setFoundationMapStatus("この範囲の基盤地図情報は既に読み込まれています。");showToast("既に読み込み済みです",2200);return;}
+    addInkStrokeOperation(additions,"基盤地図情報2500");
+    cachedMeasurePointsDirty=true;ensureLayerVisibility();renderLayerList();scheduleDraw();markMemoChanged();saveRecoverySnapshot({immediate:true});
+    const kinds=[...new Set(additions.map(stroke=>getMemoLayerSpecForStroke(stroke).name))];
+    const message=`基盤地図情報2500を追加しました（${additions.length}線／${kinds.length}レイヤー）`;
+    setFoundationMapStatus(`${message}。2万5千分の1データは使用していません。`);
+    showToast(message,2800);
+  }catch(error){
+    console.error(error);
+    const message=error&&error.message?error.message:"基盤地図情報を読み込めませんでした";
+    setFoundationMapStatus(message);showToast(message,3400);
+  }finally{
+    foundationMapImportBusy=false;hideBusy();if(backgroundSxfInput)backgroundSxfInput.value="";
+  }
+}
 async function openBackgroundSxfPicker(){
   if(!hasLoadedDrawing()){
     showToast("先に元のSFC図面を開いてください",2400);
@@ -8799,12 +9006,15 @@ async function openBackgroundSxfPicker(){
   if(window.showOpenFilePicker){
     try{
       const handles=await window.showOpenFilePicker({
-        id:"ezviewer-background-sxf",
+        id:"ezviewer-foundation-map",
         multiple:false,
-        types:[{description:"基盤地図SXF",accept:{"application/octet-stream":[".sfc",".p21",".sxf"],"text/plain":[".sfc",".p21",".sxf"]}}]
+        types:[
+          {description:"国土地理院 基盤地図情報",accept:{"application/zip":[".zip"],"application/xml":[".xml",".gml"],"text/xml":[".xml",".gml"]}},
+          {description:"基盤地図SXF",accept:{"application/octet-stream":[".sfc",".p21",".sxf"],"text/plain":[".sfc",".p21",".sxf"]}}
+        ]
       });
       const file=handles&&handles[0]?await handles[0].getFile():null;
-      await handleBackgroundSxfFile(file);
+      await handleFoundationMapFile(file);
       return;
     }catch(error){
       if(error&&error.name==="AbortError")return;
@@ -12662,6 +12872,7 @@ function closePanelsExcept(except){
   if(except!=='support' && supportPanel) supportPanel.style.display='none';
   if(except!=='aerialPhoto' && aerialPhotoPanel) aerialPhotoPanel.style.display='none';
   if(except!=='terrain' && terrainPanel) terrainPanel.style.display='none';
+  if(except!=='foundationMap' && foundationMapPanel) foundationMapPanel.style.display='none';
   if(except!=='registryMap' && registryMapPanel) registryMapPanel.style.display='none';
   if(except!=='hazardMap' && hazardMapPanel) hazardMapPanel.style.display='none';
   if(except!=='controlPoint' && controlPointPanel) controlPointPanel.style.display='none';
@@ -12701,6 +12912,8 @@ function resetSessionFromLoad(){
   aerialPhotoEnableRequestId++;aerialPhotoEnabled=false;aerialPhotoZone=null;aerialPhotoResolveBusy=false;
   aerialAvailableSources=[];aerialPhotoSourceIndex=0;aerialPhotoAvailabilityKey="";
   vectorBaseMapEnabled=false;vectorBaseMapZone=null;vectorBaseMapResolveBusy=false;setVectorMapStatus("");
+  foundationMapTargetState=null;foundationMapImportBusy=false;
+  if(foundationMapPanel)foundationMapPanel.style.display="none";
   hazardMapMode="";hazardMapZone=null;hazardMapResolveBusy=false;setHazardMapStatus("表示する災害種別を選んでください。");updateHazardMapUi();
   controlPointEnabled=false;controlPointZone=null;controlPointResolveBusy=false;setControlPointStatus("国土地理院の公開位置情報を表示します。");updateControlPointUi();
   inkEnabled=false; inkDrawing=false; currentStroke=null; pendingTouchInk=null; suppressTouchInkUntil=0;
@@ -12828,6 +13041,10 @@ function normalizeInkStrokeForSave(s){
     terrainLevel: Number.isFinite(+s.terrainLevel) ? +s.terrainLevel : null,
     terrainLabel: s.terrainLabel || null,
     terrainSourceLabel: s.terrainSourceLabel || null,
+    foundationMapKind: s.foundationMapKind || null,
+    foundationSourceLevel: Number.isFinite(+s.foundationSourceLevel) ? +s.foundationSourceLevel : null,
+    foundationSourceId: s.foundationSourceId || null,
+    foundationTargetKey: s.foundationTargetKey || null,
     photoLayerId: s.photoLayerId || null,
     photoTextLabel: s.photoTextLabel || null,
     points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})) : []
@@ -12866,6 +13083,10 @@ function strokeToWorldPolyline(stroke){
     terrainLevel: Number.isFinite(+stroke.terrainLevel) ? +stroke.terrainLevel : null,
     terrainLabel: stroke.terrainLabel || null,
     terrainSourceLabel: stroke.terrainSourceLabel || null,
+    foundationMapKind: stroke.foundationMapKind || null,
+    foundationSourceLevel: Number.isFinite(+stroke.foundationSourceLevel) ? +stroke.foundationSourceLevel : null,
+    foundationSourceId: stroke.foundationSourceId || null,
+    foundationTargetKey: stroke.foundationTargetKey || null,
     photoLayerId: stroke.photoLayerId || null,
     photoTextLabel: stroke.photoTextLabel || null,
     points: stroke.points.map(p => ({x:+p.x||0, y:+p.y||0}))
@@ -12926,6 +13147,13 @@ const MEMO_LAYER_SPECS = [
   {id:"terrain:DEM5A:index",shape:"terrain-index",colorKey:"red",colorName:"赤",color:"#ff3030",name:"等高線_DEM5A_計曲線",rawName:"\x93\x99\x8d\x82\x90\xfc\x5f\x44\x45\x4d\x35\x41\x5f\x8c\x76\x8b\xc8\x90\xfc"},
   {id:"terrain:regular",shape:"terrain-regular",colorKey:"yellow",colorName:"黄",color:"#ffd400",name:"等高線_主曲線",rawName:"\x93\x99\x8d\x82\x90\xfc\x5f\x8e\xe5\x8b\xc8\x90\xfc"},
   {id:"terrain:index",shape:"terrain-index",colorKey:"red",colorName:"赤",color:"#ff3030",name:"等高線_計曲線",rawName:"\x93\x99\x8d\x82\x90\xfc\x5f\x8c\x76\x8b\xc8\x90\xfc"},
+  {id:"foundation:road",shape:"foundation",colorKey:"blue",colorName:"青灰",color:"#8fa3b8",name:"基盤2500_道路縁"},
+  {id:"foundation:building",shape:"foundation",colorKey:"black",colorName:"灰",color:"#9aa0a6",name:"基盤2500_建物外周"},
+  {id:"foundation:water",shape:"foundation",colorKey:"blue",colorName:"青",color:"#4f9fe8",name:"基盤2500_水系"},
+  {id:"foundation:rail",shape:"foundation",colorKey:"black",colorName:"灰",color:"#777777",name:"基盤2500_鉄道"},
+  {id:"foundation:admin",shape:"foundation",colorKey:"blue",colorName:"紫",color:"#b08ac9",name:"基盤2500_行政界"},
+  {id:"foundation:community",shape:"foundation",colorKey:"blue",colorName:"紫",color:"#b899c9",name:"基盤2500_町字界"},
+  {id:"foundation:block",shape:"foundation",colorKey:"blue",colorName:"紫灰",color:"#b6a6c1",name:"基盤2500_街区線"},
   {id:"memo:line:red",shape:"line",colorKey:"red",colorName:"赤",color:"#ff3030",name:"線（赤）",rawName:"\x90\xfc\x81\x69\x90\xd4\x81\x6a"},
   {id:"memo:line:blue",shape:"line",colorKey:"blue",colorName:"青",color:"#007aff",name:"線（青）",rawName:"\x90\xfc\x81\x69\x90\xc2\x81\x6a"},
   {id:"memo:line:green",shape:"line",colorKey:"green",colorName:"緑",color:"#00a86b",name:"線（緑）",rawName:"\x90\xfc\x81\x69\x97\xce\x81\x6a"},
@@ -12953,6 +13181,9 @@ function getMemoLayerSpecForStroke(stroke){
     const kind=stroke.terrainContourKind==="index"?"index":"regular";
     const source=normalizeTerrainDemSource(stroke.terrainDemSource);
     return MEMO_LAYER_SPECS.find(s=>s.id===(source?`terrain:${source}:${kind}`:`terrain:${kind}`));
+  }
+  if(stroke&&stroke.foundationMapKind){
+    return MEMO_LAYER_SPECS.find(s=>s.id===`foundation:${stroke.foundationMapKind}`)||MEMO_LAYER_SPECS.find(s=>s.id==="foundation:road");
   }
   const shape=(stroke&&((stroke.type==="circle")||stroke.isCircleMemo))?"circle":"line";
   const colorKey=getMemoColorKey(stroke&&stroke.color);
@@ -13242,16 +13473,17 @@ function buildMemoLayerDefinitions(baseText, startId, strokes){
   const parts = [];
   const codes = {};
   for (const item of required) {
-    const existingIndex = defs.findIndex(d => d.name === item.name || d.rawName === item.name || d.rawName === item.rawName);
+    const rawName=item.rawName||encodeSfcText(item.name);
+    const existingIndex = defs.findIndex(d => d.name === item.name || d.rawName === item.name || d.rawName === rawName);
     if (existingIndex >= 0) {
       codes[item.id] = existingIndex + 1;
       continue;
     }
     const code = defs.length + 1;
-    defs.push({featureId:id, rawName:item.rawName, name:item.name});
+    defs.push({featureId:id, rawName, name:item.name});
     codes[item.id] = code;
     parts.push(`/*SXF
-#${id} = layer_feature(\'${item.rawName}\',\'1\')
+#${id} = layer_feature(\'${rawName}\',\'1\')
 SXF*/`);
     id += 1;
   }
@@ -15294,6 +15526,10 @@ function buildMemoMetaComment(){
       terrainLevel: Number.isFinite(+s.terrainLevel) ? +s.terrainLevel : null,
       terrainLabel: s.terrainLabel || null,
       terrainSourceLabel: s.terrainSourceLabel || null,
+      foundationMapKind: s.foundationMapKind || null,
+      foundationSourceLevel: Number.isFinite(+s.foundationSourceLevel) ? +s.foundationSourceLevel : null,
+      foundationSourceId: s.foundationSourceId || null,
+      foundationTargetKey: s.foundationTargetKey || null,
       points: s.points.map(p => ({x:+p.x||0, y:+p.y||0}))
     }));
     const payload = { version:4, strokes, photoAnnotations:serializePhotoAnnotations(), deletedLayerNames:[...deletedLayerNames] };
@@ -16937,6 +17173,10 @@ function restoreInkStrokesFromSourceText(srcText){
       terrainLevel: Number.isFinite(+s.terrainLevel) ? +s.terrainLevel : null,
       terrainLabel: s.terrainLabel || null,
       terrainSourceLabel: s.terrainSourceLabel || null,
+      foundationMapKind: s.foundationMapKind || null,
+      foundationSourceLevel: Number.isFinite(+s.foundationSourceLevel) ? +s.foundationSourceLevel : null,
+      foundationSourceId: s.foundationSourceId || null,
+      foundationTargetKey: s.foundationTargetKey || null,
       points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y)) : []
     })).map(migrateLegacyCircleMemoStroke).filter(s => s.points.length >= 2);
   }
@@ -17430,19 +17670,30 @@ vectorMapToggleSwitch?.addEventListener("change",async()=>{
 });
 [backgroundSxfToolbarBtn,backgroundSxfOpenBtn].forEach(button=>button?.addEventListener("click",event=>{
   event.preventDefault();
-  openBackgroundSxfPicker().catch(error=>{
+  if(button===backgroundSxfToolbarBtn&&foundationMapPanel&&getComputedStyle(foundationMapPanel).display!=="none"){
+    foundationMapPanel.style.display="none";updateToolbarActivationUI();return;
+  }
+  openFoundationMapPanel().catch(error=>{
     console.error(error);
     hideBusy();
-    showToast("背景SXFを開けませんでした",2600);
+    showToast("基盤地図情報を開けませんでした",2600);
   });
+}));
+foundationMapCloseBtn?.addEventListener("click",()=>{
+  if(foundationMapPanel)foundationMapPanel.style.display="none";
+  updateToolbarActivationUI();
+});
+foundationMapAcquireBtn?.addEventListener("click",()=>acquireFoundationMapOfficialData());
+foundationMapImportBtn?.addEventListener("click",()=>openBackgroundSxfPicker().catch(error=>{
+  console.error(error);hideBusy();showToast("基盤地図情報を開けませんでした",2600);
 }));
 backgroundSxfInput?.addEventListener("click",()=>{backgroundSxfInput.value="";});
 backgroundSxfInput?.addEventListener("change",event=>{
   const file=event.target.files&&event.target.files[0];
-  handleBackgroundSxfFile(file).catch(error=>{
+  handleFoundationMapFile(file).catch(error=>{
     console.error(error);
     hideBusy();
-    showToast("背景SXFを開けませんでした",2600);
+    showToast("基盤地図情報を開けませんでした",2600);
   });
 });
 aerialPhotoSfcBtn?.addEventListener("click",()=>{
@@ -18154,7 +18405,7 @@ function handleEscapeBackStep(){
   if(compassMenu?.classList.contains("open")){setCompassMenuOpen(false);return true;}
   if(helpModalOpen){closeHelpModal();return true;}
   // 各コマンドの後退先がなくなった時だけ、残っている設定面を閉じて終了する。
-  const visiblePanels=[settingsPanel,layerPanel,terrainPanel,aerialPhotoPanel,registryMapPanel,hazardMapPanel,controlPointPanel,measureModePanel,drawPanel];
+  const visiblePanels=[settingsPanel,layerPanel,terrainPanel,foundationMapPanel,aerialPhotoPanel,registryMapPanel,hazardMapPanel,controlPointPanel,measureModePanel,drawPanel];
   const panel=visiblePanels.find(element=>element&&getComputedStyle(element).display!=="none");
   if(panel){panel.style.display="none";updateToolbarActivationUI();scheduleInteractionDraw();return true;}
   if(isSaveMenuOpen()){setSaveMenuOpen(false);return true;}
@@ -18172,6 +18423,7 @@ function updateToolbarActivationUI(){
   const states={
     openIconBtn:visible(document.getElementById("saveMenuModal"))||visible(document.getElementById("saveAsChoiceModal")),
     bgBtn:visible(aerialPhotoPanel)||(!isDesktopPhotoTool()&&(visible(terrainPanel)||visible(registryMapPanel)||visible(hazardMapPanel)||visible(controlPointPanel)))||(terrainCadSelectionMode&&polygonSelectionPurpose==="aerial"),
+    backgroundSxfToolbarBtn:visible(foundationMapPanel)||foundationMapImportBusy,
     terrainToolbarBtn:isDesktopPhotoTool()&&(visible(terrainPanel)||!!terrainLoading||!!terrainMode),
     registryToolbarBtn:isDesktopPhotoTool()&&(visible(registryMapPanel)||!!registryMapState.loaded||!!registryMapAutoBusy||registryMapPointPickMode),
     controlPointToolbarBtn:isDesktopPhotoTool()&&(visible(controlPointPanel)||!!controlPointEnabled||!!controlPointResolveBusy),
@@ -18203,7 +18455,7 @@ function updateHomeButtonUI(){
 const toolbarCommandIds=new Set([
   "openIconBtn","fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn",
   "photoToolBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab","bgBtn",
-  "terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn",
+  "backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn",
   "gpsDetailFab","supportBtn"
 ]);
 function closeToolbarSurfacesExcept(commandId){
@@ -18217,6 +18469,7 @@ function closeToolbarSurfacesExcept(commandId){
   cancelTransientOperations(transientByCommand[commandId]||"");
 
   if(commandId!=="openIconBtn"&&isSaveMenuOpen())setSaveMenuOpen(false);
+  if(commandId!=="backgroundSxfToolbarBtn"&&foundationMapPanel)foundationMapPanel.style.display="none";
   if(commandId!=="bgBtn"){
     if(aerialPhotoPanel)aerialPhotoPanel.style.display="none";
     if(commandId!=="terrainToolbarBtn"&&terrainPanel)terrainPanel.style.display="none";
@@ -18241,7 +18494,7 @@ document.addEventListener("click",e=>{
   closeToolbarSurfacesExcept(command.id);
 },true);
 const homePanelObserver=new MutationObserver(()=>{updateHomeButtonUI();updateToolbarActivationUI();});
-[measureModePanel,measureBox,drawPanel,settingsPanel,layerPanel,document.getElementById("photoListPanel"),aerialPhotoPanel,terrainPanel,registryMapPanel,hazardMapPanel,controlPointPanel,supportPanel,helpModal,viewerSupportModal,profileModal,document.getElementById("saveMenuModal"),document.getElementById("saveAsChoiceModal")].forEach(el=>{
+[measureModePanel,measureBox,drawPanel,settingsPanel,layerPanel,document.getElementById("photoListPanel"),aerialPhotoPanel,terrainPanel,foundationMapPanel,registryMapPanel,hazardMapPanel,controlPointPanel,supportPanel,helpModal,viewerSupportModal,profileModal,document.getElementById("saveMenuModal"),document.getElementById("saveAsChoiceModal")].forEach(el=>{
   if(el)homePanelObserver.observe(el,{attributes:true,attributeFilter:["style","class"]});
 });
 updateHomeButtonUI();
