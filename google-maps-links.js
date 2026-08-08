@@ -1,7 +1,6 @@
 (()=>{
   "use strict";
 
-  const GOOGLE_STREET_TARGET="ezviewer-google-streetview";
   const QR_SCRIPT_URL="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js";
   const QR_SCRIPT_INTEGRITY="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==";
   let active=false,selectionMode="position",positionWorld=null,directionWorld=null;
@@ -67,42 +66,41 @@
   }
   function prepareExternalWindows(){
     if(!isDesktop())return;
-    // Googleへ遷移した補助ウィンドウは、表示中でもブラウザから
-    // closed=true と見える場合がある。closedだけを根拠に開き直すと
-    // 地点を選ぶたびにウィンドウが増えるため、参照の有無だけで判断する。
+    // 座標変換中にポップアップが遮断されないよう、2点目のクリックで
+    // 空のウィンドウを先に確保する。同じ選択操作内では1枚だけにする。
     if(streetWindow){
       try{streetWindow.focus?.();}catch(_focusError){}
       return;
     }
     try{
-      streetWindow=window.open("about:blank",GOOGLE_STREET_TARGET,popupFeatures());
-      if(streetWindow)placeExternalWindows();
+      streetWindow=window.open("about:blank","_blank",popupFeatures());
+      if(streetWindow)placeExternalWindows(streetWindow);
     }catch(_error){streetWindow=null;}
   }
-  function placeExternalWindows(){
+  function placeExternalWindows(targetWindow=streetWindow){
     if(!isDesktop())return;
     const streetRect=externalWindowRect();
-    try{streetWindow?.moveTo(streetRect.left,streetRect.top);streetWindow?.resizeTo(streetRect.width,streetRect.height);}catch(_error){}
+    try{targetWindow?.moveTo(streetRect.left,streetRect.top);targetWindow?.resizeTo(streetRect.width,streetRect.height);}catch(_error){}
   }
   function openExternalPair(reposition=true){
     if(!positionLatLon||!directionLatLon)return;
     const heading=bearing(positionLatLon,directionLatLon),streetUrl=googleStreetViewUrl(positionLatLon,heading);
-    let reused=false,openedNow=false;
-    if(streetWindow){
+    let targetWindow=streetWindow,openedNow=false;
+    streetWindow=null;
+    if(targetWindow){
       try{
-        streetWindow.location.href=streetUrl;
-        reused=true;
-        try{streetWindow.focus?.();}catch(_focusError){}
-      }catch(_error){streetWindow=null;}
+        targetWindow.location.href=streetUrl;
+        try{targetWindow.focus?.();}catch(_focusError){}
+      }catch(_error){targetWindow=null;}
     }
     try{
-      if(!reused){
-        streetWindow=window.open(streetUrl,GOOGLE_STREET_TARGET,popupFeatures());
-        openedNow=!!streetWindow;
+      if(!targetWindow){
+        targetWindow=window.open(streetUrl,"_blank",popupFeatures());
+        openedNow=!!targetWindow;
       }
-    }catch(_error){streetWindow=null;}
-    if(reposition&&openedNow)placeExternalWindows();
-    if(!streetWindow){
+    }catch(_error){targetWindow=null;}
+    if(reposition&&openedNow)placeExternalWindows(targetWindow);
+    if(!targetWindow){
       if(typeof showToast==="function")showToast("ブラウザーのポップアップを許可してください",3000);
     }
   }

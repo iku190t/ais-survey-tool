@@ -12,7 +12,7 @@ for(const token of [
   'aria-label="ストリートビュー"',
   'id="photoAlbumMiniMap"',
   'id="photoAlbumMapQr" type="checkbox" checked',
-  '<script src="google-maps-links.js?v=11"></script>',
+  '<script src="google-maps-links.js?v=12"></script>',
   'window.__ezGoogleLinkPendingOpen=true',
   'const useMapQr=!!settings.mapQr',
   'a:hlinkClick r:id="rIdLink${image.id}"'
@@ -22,8 +22,8 @@ for(const absent of ['id="photoAlbumMapQrBtn"','id="googleOpenMapBtn"','id="goog
 }
 for(const token of [
   "data=!3m1!1e3",'map_action:"pano"',"heading",
-  "ezviewer-google-streetview","prepareExternalWindows","createPhotoQrImage","let reused=false",
-  "externalWindowRect","previewDirectionFrom",'window.open(streetUrl,"_self")',"if(reposition&&openedNow)placeExternalWindows()",
+  'window.open("about:blank","_blank",popupFeatures())',"prepareExternalWindows","createPhotoQrImage","streetWindow=null",
+  "externalWindowRect","previewDirectionFrom",'window.open(streetUrl,"_self")',"placeExternalWindows(targetWindow)",
   'context.setLineDash([])','drawPoint(positionWorld);','if(window.__ezGoogleLinkPendingOpen)'
 ])if(!feature.includes(token))throw new Error(`Google URL連携が不足しています: ${token}`);
 if(feature.includes('drawPoint(directionWorld)'))throw new Error("スマホの2点目に不要な丸が残っています");
@@ -96,8 +96,8 @@ let browser;
     const livePreview=GoogleMapsLinkFeature.getSelection();
     fire("mousedown",200,150);click(200,150);await new Promise(resolve=>setTimeout(resolve,40));
     const firstCompleted=GoogleMapsLinkFeature.getSelection();
-    // Google遷移後にブラウザがclosed=trueを返しても、同じ参照へURLを
-    // 更新し、新しいウィンドウを増やさないことを再現する。
+    // Google側で以前のウィンドウとの接続が切れても、次の選択では
+    // 別のウィンドウを新しく開けることを確認する。
     lastStreetHandle.closed=true;
     document.getElementById("googleMapsLinkBtn").click();
     click(300,300);await new Promise(resolve=>setTimeout(resolve,20));
@@ -111,20 +111,22 @@ let browser;
     };
   });
   if(ui.modal!=="none"||ui.active)throw new Error(`ストリートビュー起動後にGoogle連携が終了していません: ${JSON.stringify(ui)}`);
-  if(ui.opened.length!==1)throw new Error(`PCでストリートビュー1画面だけを開いていません: ${JSON.stringify(ui.opened)}`);
+  if(ui.opened.length!==2)throw new Error(`PCで選択ごとに新しいストリートビューを開いていません: ${JSON.stringify(ui.opened)}`);
   if(Math.abs(ui.afterFirst.positionWorld.x-100)>.01||Math.abs(ui.afterFirst.directionWorld.x-176)>.01)throw new Error(`1点目の直後に矢印が表示されません: ${JSON.stringify(ui.afterFirst)}`);
   if(Math.abs(ui.livePreview.directionWorld.x-180)>.01||Math.abs(ui.livePreview.directionWorld.y-140)>.01)throw new Error(`PCの実線矢印がマウスへ追従しません: ${JSON.stringify(ui.livePreview)}`);
-  const street=ui.opened.find(item=>item.name==="ezviewer-google-streetview");
-  if(!street?.url.includes("map_action=pano")||!street.url.includes("heading="))throw new Error(`ストリートビューが方向付きで開きません: ${JSON.stringify(street)}`);
+  const [firstStreet,secondStreet]=ui.opened;
+  if(ui.opened.some(item=>item.name!=="_blank"||!item.url.includes("map_action=pano")||!item.url.includes("heading=")))throw new Error(`ストリートビューが新しい画面へ方向付きで開きません: ${JSON.stringify(ui.opened)}`);
   if(ui.opened.some(item=>item.name==="ezviewer-google-map"||item.url.includes("data=!3m1!1e3")))throw new Error(`PCで不要な航空写真を開いています: ${JSON.stringify(ui.opened)}`);
-  if(street.urls.length!==2||!street.urls[0].includes("viewpoint=34.001%2C134.001")||!street.urls[1].includes("viewpoint=34.003%2C134.003"))throw new Error(`既存ストリートビューへ位置を更新できません: ${JSON.stringify(street)}`);
+  if(firstStreet.urls.length!==1||secondStreet.urls.length!==1||!firstStreet.urls[0].includes("viewpoint=34.001%2C134.001")||!secondStreet.urls[0].includes("viewpoint=34.003%2C134.003"))throw new Error(`選択ごとの新しいストリートビュー位置が不正です: ${JSON.stringify(ui.opened)}`);
   if(Math.abs(ui.firstCompleted.directionWorld.x-200)>.01||Math.abs(ui.firstCompleted.directionWorld.y-150)>.01)throw new Error(`2点目の青丸位置が不正です: ${JSON.stringify(ui.firstCompleted)}`);
   if(Math.abs(ui.selection.directionWorld.x-360)>.01||Math.abs(ui.selection.directionWorld.y-330)>.01)throw new Error(`再選択した2点目の位置が不正です: ${JSON.stringify(ui.selection)}`);
-  if(street.moves.length!==1||street.sizes.length!==1)throw new Error(`ストリートビューの位置・サイズは初回だけ設定してください: ${JSON.stringify(street)}`);
-  const streetMove=street.moves.at(-1),streetSize=street.sizes.at(-1);
-  if(streetMove[0]!==ui.screen.left||streetMove[1]!==ui.screen.top||streetSize[0]!==ui.screen.width||streetSize[1]!==ui.screen.height)throw new Error(`ストリートビューが使用可能画面全体に配置されていません: ${JSON.stringify({streetMove,streetSize,screen:ui.screen})}`);
-  if(!street.features.includes(`left=${ui.screen.left}`)||!street.features.includes(`top=${ui.screen.top}`)||!street.features.includes(`width=${ui.screen.width}`)||!street.features.includes(`height=${ui.screen.height}`))throw new Error(`ストリートビューの初回ウィンドウ指定が全画面サイズではありません: ${street.features}`);
-  if(street.focuses<2)throw new Error(`既存ストリートビューが更新時に前面化されていません: ${JSON.stringify(street)}`);
+  for(const street of ui.opened){
+    if(street.moves.length!==1||street.sizes.length!==1)throw new Error(`各ストリートビューの位置・サイズ設定が不正です: ${JSON.stringify(street)}`);
+    const streetMove=street.moves[0],streetSize=street.sizes[0];
+    if(streetMove[0]!==ui.screen.left||streetMove[1]!==ui.screen.top||streetSize[0]!==ui.screen.width||streetSize[1]!==ui.screen.height)throw new Error(`ストリートビューが使用可能画面全体に配置されていません: ${JSON.stringify({streetMove,streetSize,screen:ui.screen})}`);
+    if(!street.features.includes(`left=${ui.screen.left}`)||!street.features.includes(`top=${ui.screen.top}`)||!street.features.includes(`width=${ui.screen.width}`)||!street.features.includes(`height=${ui.screen.height}`))throw new Error(`ストリートビューのウィンドウ指定が全画面サイズではありません: ${street.features}`);
+    if(street.focuses<1)throw new Error(`新しいストリートビューが前面化されていません: ${JSON.stringify(street)}`);
+  }
 
   const mobile=await page.evaluate(async()=>{
     GoogleMapsLinkFeature.close();isDesktopPhotoTool=()=>false;
