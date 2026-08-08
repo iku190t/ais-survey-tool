@@ -108,7 +108,16 @@
   }
 
   async function loadFile(file) {
-    if (!(file instanceof File)) throw new Error("SFCファイルを選択してください。");
+    // The file picker lives in the parent task pane while this bridge lives in
+    // an iframe. A File created in another window has a different constructor,
+    // so a constructor-identity check is false even though it is a valid File. Check
+    // the file interface instead and pass the original object to the proven
+    // viewer loader unchanged.
+    const isReadableFile = file
+      && typeof file.name === "string"
+      && typeof file.arrayBuffer === "function"
+      && typeof file.slice === "function";
+    if (!isReadableFile) throw new Error("SFCファイルを選択してください。");
     await handleSelectedDrawingFile(file);
     assertLoaded();
     document.getElementById("startupModal")?.style.setProperty("display", "none", "important");
