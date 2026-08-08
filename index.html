@@ -2031,7 +2031,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">背景色</div>上部の <b>背景</b> を押し、黒・白のうち表示したい背景色を選びます。青色になっている方が現在の設定です。</div>
               <div class="helpBlock"><div class="helpHead">航空写真</div><b>航空写真</b> のスイッチをONにすると、現在の場所で実際に利用できる写真年代を自動確認します。OFFの状態でもスライダーを操作すると自動的にONになります。</div>
               <div class="helpBlock"><div class="helpHead">基盤地図</div>図面と同じ位置の地理院地図Vectorを、必要なときだけ表示します。表示中の範囲だけ通信で取得し、等高線など地形解析の要素は混ぜません。PCは上部の<b>基盤地図</b>、スマホは背景内のスイッチを押すと表示し、もう一度押すと解除します。図面を開いた直後はOFFです。</div>
-      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開き、<b>図面範囲</b>を押すと、その範囲の公開データを取得して表示します。表示中はボタンが青くなり、もう一度押すと解除します。筆ポリゴン・筆界線・筆界点・地番文字を個別に表示でき、筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
+      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開き、<b>図面範囲</b>を押すと、その範囲の公開データを取得して表示します。取得中は共通の進捗バーを表示し、同じボタンまたはPC上部の青い法務地図ボタンを押すとキャンセルできます。PCは容量確認なしで開始し、スマホだけ通信容量の確認を表示します。表示中のボタンをもう一度押すと解除します。筆ポリゴン・筆界線・筆界点・地番文字を個別に表示でき、筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
               <div class="helpBlock"><div class="helpHead">ハザードマップ</div><b>ハザードマップ</b>から洪水・土砂災害・高潮・津波を1種類ずつ表示できます。選択中の青いボタンをもう一度押すと解除します。国土地理院ハザードマップポータルサイトの公開タイルを表示範囲だけ取得します。表示は参考情報のため、避難判断は自治体のハザードマップと最新の防災情報で確認してください。</div>
       <div class="helpBlock"><div class="helpHead">基準点・水準点</div><b>基準点・水準点</b>をONにすると、国土地理院の公開位置情報を図面へ重ね、図面上に種類の凡例を表示します。三角点・その他の基準点、水準点、電子基準点を個別に表示できます。記号をタップすると、点名・種類・基準点コード・成果状態を確認できます。表示位置は検索・現地確認の参考です。正式な成果値は国土地理院の基準点成果等閲覧サービスで確認してください。</div>
               <div class="helpBlock"><div class="helpHead">年代の変更</div>つまみは指に合わせて滑らかに動き、移動中は最も近い利用可能な年代の写真へ切り替わります。指を離すと、その年代の位置へ吸着します。左端が最新で、右へ動かすほど古くなります。</div>
@@ -2564,6 +2564,8 @@ let registryMapState = {
   resourceUrls:[]
 };
 let registryMapAutoBusy=false;
+let registryMapOperationSerial=0;
+let registryMapAbortController=null;
 let registryMapPointPickMode=false;
 let registryMapPointPickTouchCandidate=null;
 const REGISTRY_MOBILE_FEATURE_LIMIT=12000;
@@ -6363,14 +6365,18 @@ function clearBusyProgress(){
   if(busyProgress)busyProgress.hidden=true;
   if(busyProgressFill)busyProgressFill.style.width="0%";
 }
+function updateBusyProgressValue(percent,countText=""){
+  const safePercent=Math.max(0,Math.min(100,Math.round(Number(percent)||0)));
+  if(busyProgress)busyProgress.hidden=false;
+  if(busyProgressCount)busyProgressCount.textContent=String(countText||"");
+  if(busyProgressPercent)busyProgressPercent.textContent=`${safePercent}％`;
+  if(busyProgressFill)busyProgressFill.style.width=`${safePercent}%`;
+}
 function updateBusyPhotoCount(completed,total){
   const safeTotal=Math.max(0,Math.floor(Number(total)||0));
   const safeCompleted=Math.max(0,Math.min(safeTotal,Math.floor(Number(completed)||0)));
   const percent=safeTotal?Math.round(safeCompleted/safeTotal*100):0;
-  if(busyProgress)busyProgress.hidden=false;
-  if(busyProgressCount)busyProgressCount.textContent=`${safeCompleted}／${safeTotal}枚`;
-  if(busyProgressPercent)busyProgressPercent.textContent=`${percent}％`;
-  if(busyProgressFill)busyProgressFill.style.width=`${percent}%`;
+  updateBusyProgressValue(percent,`${safeCompleted}／${safeTotal}枚`);
 }
 function hideBusy(){
   clearBusyProgress();
@@ -11762,6 +11768,9 @@ function registryFormatDownloadSize(bytes){
   return `約${Math.max(1,Math.round(value/1024))}KB`;
 }
 let registryDownloadConfirmResolver=null;
+function shouldConfirmRegistryDownload(alreadyDownloaded=false){
+  return !alreadyDownloaded&&!isDesktopPhotoTool();
+}
 function confirmRegistryDownload(resource,locality){
   const modal=document.getElementById("registryDownloadConfirmModal");
   const message=document.getElementById("registryDownloadConfirmMessage");
@@ -11782,6 +11791,47 @@ function closeRegistryDownloadConfirm(accepted){
   const resolver=registryDownloadConfirmResolver;
   registryDownloadConfirmResolver=null;
   if(resolver)resolver(!!accepted);
+}
+function registryOperationIsCancelled(operationId,signal){
+  return operationId!==registryMapOperationSerial||!!signal?.aborted;
+}
+function throwIfRegistryOperationCancelled(operationId,signal){
+  if(!registryOperationIsCancelled(operationId,signal))return;
+  throw new DOMException("法務局地図の取得をキャンセルしました","AbortError");
+}
+function cancelRegistryMapOperation(options={}){
+  const wasActive=!!(registryMapAutoBusy||registryDownloadConfirmResolver||registryMapAbortController);
+  if(!wasActive)return false;
+  registryMapOperationSerial++;
+  try{registryMapAbortController?.abort();}catch(_error){}
+  registryMapAbortController=null;
+  closeRegistryDownloadConfirm(false);
+  registryMapAutoBusy=false;
+  hideBusy();
+  if(registryMapStatus)registryMapStatus.textContent="取得をキャンセルしました。";
+  if(options.closePanel&&registryMapPanel)registryMapPanel.style.display="none";
+  updateRegistryMapUi();
+  updateToolbarActivationUI();
+  scheduleDraw();
+  return true;
+}
+function registryProgressByteText(value){
+  const bytes=Math.max(0,Number(value)||0);
+  if(bytes>=1024*1024)return `${(bytes/(1024*1024)).toFixed(bytes>=100*1024*1024?0:1)}MB`;
+  if(bytes>=1024)return `${Math.max(1,Math.round(bytes/1024))}KB`;
+  return `${Math.round(bytes)}B`;
+}
+function updateRegistryBusyProgress(progress={}){
+  const received=Math.max(0,Number(progress.received)||0);
+  const total=Math.max(0,Number(progress.total)||0);
+  const percent=total?Math.min(100,Math.round(received/total*100)):(progress.done?100:0);
+  const phase=progress.phase==="attribute"?"属性解析":progress.parsing?"形状解析":"ダウンロード";
+  const matched=Number.isFinite(Number(progress.matched))?` ${Math.max(0,Math.floor(Number(progress.matched)))}件`:"";
+  const count=progress.parsing
+    ?`${phase}${matched}`
+    :(total?`${registryProgressByteText(received)}／${registryProgressByteText(total)}`:registryProgressByteText(received));
+  updateBusy(progress.parsing?`法務局地図を解析中…`:`法務局地図をダウンロード中…`);
+  updateBusyProgressValue(percent,count);
 }
 async function registryReadResponseBuffer(response,onProgress,expectedSize=0){
   const total=Math.max(0,Number(response.headers.get("content-length"))||Number(expectedSize)||0);
@@ -12130,10 +12180,15 @@ async function loadRegistryMapAutomatically(options={}){
   if(registryMapAutoBusy)return;
   if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
   const previousState=registryMapState;
+  const operationId=++registryMapOperationSerial;
+  const abortController=new AbortController();
+  const signal=abortController.signal;
+  registryMapAbortController=abortController;
   registryMapAutoBusy=true;updateRegistryMapUi();
   try{
     if(registryMapStatus)registryMapStatus.textContent=append?(requestedWorld?"指定地点の周辺を確認しています…":"追加する表示範囲を確認しています…"):"図面周辺の取得範囲を確認しています…";
     const zone=await resolveProfileZone();
+    throwIfRegistryOperationCancelled(operationId,signal);
     if(!zone)throw new Error("座標系を判定できません");
     const target=append
       ?(requestedWorld?registryTargetBoundsAroundWorldPoint(requestedWorld,zone):registryAdditionalTargetBounds(zone,previousState))
@@ -12145,37 +12200,45 @@ async function loadRegistryMapAutomatically(options={}){
       return;
     }
     const reverseUrl=`https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=${encodeURIComponent(target.center.lat)}&lon=${encodeURIComponent(target.center.lon)}`;
-    const reverseResponse=await fetch(reverseUrl);
+    const reverseResponse=await fetch(reverseUrl,{signal});
     if(!reverseResponse.ok)throw new Error("地域を判定できません");
     const reverse=await reverseResponse.json();
+    throwIfRegistryOperationCancelled(operationId,signal);
     const municipalityCode=String(reverse?.results?.muniCd||"").padStart(5,"0");
     if(!/^\d{5}$/.test(municipalityCode)||municipalityCode==="00000")throw new Error("市区町村を判定できません");
     const locality=String(reverse?.results?.lv01Nm||"");
     if(registryMapStatus)registryMapStatus.textContent=`${locality||municipalityCode}の最新データを確認しています…`;
     const packageId=`aigid-moj-${municipalityCode}`;
-    const packageResponse=await fetch(`https://www.geospatial.jp/ckan/api/3/action/package_show?id=${encodeURIComponent(packageId)}`);
+    const packageResponse=await fetch(`https://www.geospatial.jp/ckan/api/3/action/package_show?id=${encodeURIComponent(packageId)}`,{signal});
     if(!packageResponse.ok)throw new Error("この地域の公開データが見つかりません");
     const packageJson=await packageResponse.json();
+    throwIfRegistryOperationCancelled(operationId,signal);
     if(!packageJson?.success)throw new Error("この地域の公開データが見つかりません");
     const selected=chooseRegistryDownloadResource(packageJson.result?.resources,zone);
     const resource=selected?.resource;
     if(!resource?.url)throw new Error("この地域の境界データが見つかりません");
     const resourceUrl=String(resource.url||"");
     const alreadyDownloaded=append&&(previousState.resourceUrls||[]).includes(resourceUrl);
-    const accepted=alreadyDownloaded||await confirmRegistryDownload(resource,String(packageJson.result?.title||locality||municipalityCode));
+    const accepted=!shouldConfirmRegistryDownload(alreadyDownloaded)||await confirmRegistryDownload(resource,String(packageJson.result?.title||locality||municipalityCode));
     if(!accepted){
+      if(registryOperationIsCancelled(operationId,signal))return;
       if(registryMapStatus)registryMapStatus.textContent="ダウンロードを中止しました。";
       return;
     }
+    throwIfRegistryOperationCancelled(operationId,signal);
+    showBusy("法務局地図をダウンロード中…");
+    updateBusyProgressValue(0,resource.size?`0B／${registryProgressByteText(resource.size)}`:"0B");
+    await waitForUiPaint();
     // The source is distributed per municipality rather than per viewport.
     // Let the browser reuse its HTTP cache when the same municipality is
     // extended, while parsing only the newly requested visible range.
-    const dataResponse=await fetch(resource.url,{cache:"force-cache"});
+    const dataResponse=await fetch(resource.url,{cache:"force-cache",signal});
     if(!dataResponse.ok)throw new Error(`データ取得に失敗しました（HTTP ${dataResponse.status}）`);
     const onProgress=progress=>{
-      if(!registryMapStatus)return;
+      throwIfRegistryOperationCancelled(operationId,signal);
       const percent=progress.total?Math.min(100,Math.round(progress.received/progress.total*100)):null;
-      registryMapStatus.textContent=progress.parsing?"圧縮した境界データを解析しています…":`境界データをダウンロード中${percent!=null?` ${percent}%`:"…"}`;
+      if(registryMapStatus)registryMapStatus.textContent=progress.parsing?"圧縮した境界データを解析しています…":`境界データをダウンロード中${percent!=null?` ${percent}%`:"…"}`;
+      updateRegistryBusyProgress(progress);
     };
     const featureCollection=selected.kind==="shpzip"
       ?await registryReadShpZipAreaLight(dataResponse,target,onProgress,resource.size,zone)
@@ -12183,6 +12246,7 @@ async function loadRegistryMapAutomatically(options={}){
         onProgress(progress);
         if(registryMapStatus&&progress.matched!=null)registryMapStatus.textContent+=`（図面周辺 ${progress.matched}件）`;
       });
+    throwIfRegistryOperationCancelled(operationId,signal);
     if(!featureCollection.features.length)throw new Error("図面周辺に公開された筆データがありません");
     const incoming=parseRegistryGeoJson(featureCollection,String(resource.name||`${municipalityCode}.geojson`));
     incoming.metadata=registryMergeMetadata(incoming.metadata,{
@@ -12197,7 +12261,13 @@ async function loadRegistryMapAutomatically(options={}){
       :`図面範囲を取得しました（筆 ${registryMapState.parcels.length}件）`,2400);
     updateToolbarActivationUI();
   }catch(error){
-    console.error("法務局地図の自動取得に失敗",error);
+    const cancelled=registryOperationIsCancelled(operationId,signal)||error?.name==="AbortError";
+    if(!cancelled)console.error("法務局地図の自動取得に失敗",error);
+    if(cancelled){
+      if(operationId===registryMapOperationSerial&&registryMapStatus)registryMapStatus.textContent="取得をキャンセルしました。";
+      scheduleDraw();
+      return;
+    }
     registryMapState=previousState;
     const reason=String(error?.message||"通信に失敗しました");
     if(registryMapStatus)registryMapStatus.textContent=`取得できません：${reason}`;
@@ -12205,7 +12275,13 @@ async function loadRegistryMapAutomatically(options={}){
     showToast(`法務局地図を${append?"追加取得":"自動取得"}できません：${reason}`,3200);
     scheduleDraw();
   }finally{
-    registryMapAutoBusy=false;updateRegistryMapUi();
+    if(operationId===registryMapOperationSerial){
+      registryMapAutoBusy=false;
+      if(registryMapAbortController===abortController)registryMapAbortController=null;
+      hideBusy();
+      updateRegistryMapUi();
+      updateToolbarActivationUI();
+    }
   }
 }
 function registryXmlLocalName(node){
@@ -12359,10 +12435,10 @@ function updateRegistryMapUi(){
   if(registryMapOpenBtn)registryMapOpenBtn.classList.toggle("active",!!(registryMapPanel&&getComputedStyle(registryMapPanel).display!=="none"));
   if(registryMapOpenState)registryMapOpenState.textContent=registryMapState.loaded?"表示中":"開く";
   if(registryMapAutoBtn){
-    registryMapAutoBtn.disabled=registryMapAutoBusy;
-    registryMapAutoBtn.classList.toggle("active",!!registryMapState.loaded);
-    registryMapAutoBtn.setAttribute("aria-pressed",registryMapState.loaded?"true":"false");
-    registryMapAutoBtn.textContent=registryMapAutoBusy?"取得中…":"図面範囲";
+    registryMapAutoBtn.disabled=false;
+    registryMapAutoBtn.classList.toggle("active",!!(registryMapAutoBusy||registryMapState.loaded));
+    registryMapAutoBtn.setAttribute("aria-pressed",registryMapAutoBusy||registryMapState.loaded?"true":"false");
+    registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?"解除":"図面範囲";
   }
   if(registryMapAppendBtn){
     registryMapAppendBtn.disabled=registryMapAutoBusy||!registryMapState.loaded;
@@ -12906,6 +12982,7 @@ function resetMeasureUI(){
 }
 function resetSessionFromLoad(){
   window.GoogleMapsLinkFeature?.close?.();
+  cancelRegistryMapOperation();
   closeTextLayerModal();
   closeCoordinateInspectModal();
   clearTextLongPressTimer();
@@ -18585,7 +18662,19 @@ function togglePcMapToolbarPanel(panel,openButton){
   updateToolbarActivationUI();
 }
 document.getElementById("terrainToolbarBtn")?.addEventListener("click",()=>togglePcMapToolbarPanel(terrainPanel,document.getElementById("terrainPanelOpenBtn")));
-document.getElementById("registryToolbarBtn")?.addEventListener("click",()=>togglePcMapToolbarPanel(registryMapPanel,registryMapOpenBtn));
+document.getElementById("registryToolbarBtn")?.addEventListener("click",()=>{
+  if(registryMapAutoBusy){
+    cancelRegistryMapOperation({closePanel:true});
+    return;
+  }
+  if(registryMapState.loaded){
+    clearRegistryMap();
+    if(registryMapPanel)registryMapPanel.style.display="none";
+    updateToolbarActivationUI();
+    return;
+  }
+  togglePcMapToolbarPanel(registryMapPanel,registryMapOpenBtn);
+});
 document.getElementById("controlPointToolbarBtn")?.addEventListener("click",()=>togglePcMapToolbarPanel(controlPointPanel,controlPointOpenBtn));
 document.getElementById("hazardToolbarBtn")?.addEventListener("click",()=>togglePcMapToolbarPanel(hazardMapPanel,hazardMapOpenBtn));
 document.getElementById("terrainPanelOpenBtn")?.addEventListener("click",()=>{
@@ -18616,7 +18705,10 @@ document.getElementById("registryMapCloseBtn")?.addEventListener("click",()=>{
   updateToolbarActivationUI();
 });
 registryMapAutoBtn?.addEventListener("click",()=>{
-  if(registryMapAutoBusy)return;
+  if(registryMapAutoBusy){
+    cancelRegistryMapOperation();
+    return;
+  }
   if(registryMapState.loaded){
     clearRegistryMap();
     updateToolbarActivationUI();
