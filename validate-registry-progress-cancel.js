@@ -11,7 +11,7 @@ for(const token of [
   "function cancelRegistryMapOperation(options={})",
   "registryMapAbortController?.abort()",
   "function updateRegistryBusyProgress(progress={})",
-  'registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?"解除":"図面範囲"',
+  'registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?(registryMapDisplayEnabled?"非表示":"表示"):"図面範囲"',
   'cancelRegistryMapOperation({closePanel:true})',
   'fetch(resource.url,{cache:"force-cache",signal})',
   'showBusy("法務局地図をダウンロード中…")'
@@ -57,16 +57,20 @@ let browser;
     document.getElementById("registryToolbarBtn").click();
     const toolbarCancel={aborted:secondSignal.aborted,busy:registryMapAutoBusy,panel:getComputedStyle(registryMapPanel).display,active:document.getElementById("registryToolbarBtn").classList.contains("modeActive")};
 
-    registryMapState=registryEmptyState();registryMapState.loaded=true;updateRegistryMapUi();
+    registryMapState=registryEmptyState();registryMapState.loaded=true;registryMapState.parcels=[{id:'kept'}];registryMapDisplayEnabled=true;updateRegistryMapUi();
     const loadedText=registryMapAutoBtn.textContent;registryMapAutoBtn.click();
-    return {confirmation,progress,busyButton,panelCancel,toolbarCancel,loadedText,loadedAfterClick:registryMapState.loaded};
+    const hidden={loaded:registryMapState.loaded,parcelCount:registryMapState.parcels.length,visible:registryMapDisplayEnabled,text:registryMapAutoBtn.textContent};
+    registryMapAutoBtn.click();
+    const shown={loaded:registryMapState.loaded,parcelCount:registryMapState.parcels.length,visible:registryMapDisplayEnabled,text:registryMapAutoBtn.textContent};
+    return {confirmation,progress,busyButton,panelCancel,toolbarCancel,loadedText,hidden,shown};
   });
   if(desktopResult.confirmation)throw new Error("PCで容量確認が有効です");
   if(desktopResult.progress.hidden||desktopResult.progress.count!=="5.0MB／10.0MB"||desktopResult.progress.percent!=="50％"||desktopResult.progress.width!=="50%")throw new Error(`共通進捗バーが不正です: ${JSON.stringify(desktopResult.progress)}`);
   if(desktopResult.busyButton.text!=="キャンセル"||!desktopResult.busyButton.active||desktopResult.busyButton.disabled)throw new Error(`取得中ボタンが不正です: ${JSON.stringify(desktopResult.busyButton)}`);
   if(!desktopResult.panelCancel.aborted||desktopResult.panelCancel.busy||desktopResult.panelCancel.text!=="図面範囲")throw new Error(`図面範囲ボタンでキャンセルできません: ${JSON.stringify(desktopResult.panelCancel)}`);
   if(!desktopResult.toolbarCancel.aborted||desktopResult.toolbarCancel.busy||desktopResult.toolbarCancel.panel!=="none"||desktopResult.toolbarCancel.active)throw new Error(`上部ボタンでキャンセルできません: ${JSON.stringify(desktopResult.toolbarCancel)}`);
-  if(desktopResult.loadedText!=="解除"||desktopResult.loadedAfterClick)throw new Error("表示済み法務局地図を解除できません");
+  if(desktopResult.loadedText!=="非表示"||!desktopResult.hidden.loaded||desktopResult.hidden.parcelCount!==1||desktopResult.hidden.visible||desktopResult.hidden.text!=="表示")throw new Error(`非表示で取得データが保持されません: ${JSON.stringify(desktopResult.hidden)}`);
+  if(!desktopResult.shown.loaded||desktopResult.shown.parcelCount!==1||!desktopResult.shown.visible||desktopResult.shown.text!=="非表示")throw new Error(`再表示時に再取得なしで復元できません: ${JSON.stringify(desktopResult.shown)}`);
 
   const mobile=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   await mobile.route(/^https:\/\//,route=>route.abort());

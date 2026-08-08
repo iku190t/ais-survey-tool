@@ -7,12 +7,10 @@ const root=__dirname;
 const source=fs.readFileSync(path.join(root,"index.html"),"utf8");
 for(const token of [
   'id="registryMapAutoBtn" type="button" aria-pressed="false">図面範囲</button>',
-  'registryMapAutoBtn.classList.toggle("active",!!registryMapState.loaded)',
+  'registryMapAutoBtn.classList.toggle("active",!!(registryMapAutoBusy||(registryMapState.loaded&&registryMapDisplayEnabled)))',
   'if(registryMapState.loaded){',
   'clearRegistryMap();',
   'loadRegistryMapAutomatically({append:false});',
-  'function enableVectorBaseMapAfterDrawingLoad()',
-  'enableVectorBaseMapAfterDrawingLoad();',
   'backgroundSxfToolbarBtn:!!(vectorBaseMapEnabled||vectorBaseMapResolveBusy)',
   'desktopInkPencilCursor',
   'event.clipboardData.setData("text/plain",plainText)'
@@ -57,31 +55,29 @@ let browser;
     const initial={active:button.classList.contains("active"),pressed:button.getAttribute("aria-pressed"),text:button.textContent.trim()};
     button.click();
     const afterAcquireClick=downloads;
-    registryMapState=registryEmptyState();registryMapState.loaded=true;updateRegistryMapUi();
+    registryMapState=registryEmptyState();registryMapState.loaded=true;registryMapState.parcels=[{id:'kept'}];registryMapDisplayEnabled=true;updateRegistryMapUi();
     const loaded={active:button.classList.contains("active"),pressed:button.getAttribute("aria-pressed"),text:button.textContent.trim()};
     button.click();
-    const cleared={loaded:registryMapState.loaded,active:button.classList.contains("active"),pressed:button.getAttribute("aria-pressed"),text:button.textContent.trim()};
+    const hidden={loaded:registryMapState.loaded,parcelCount:registryMapState.parcels.length,visible:registryMapDisplayEnabled,active:button.classList.contains("active"),pressed:button.getAttribute("aria-pressed"),text:button.textContent.trim()};
     loadRegistryMapAutomatically=original;
-    return {afterOpen,afterAcquireClick,initial,loaded,cleared};
+    return {afterOpen,afterAcquireClick,initial,loaded,hidden};
   });
   if(result.afterOpen!==0||result.afterAcquireClick!==1)throw new Error(`registry download trigger failed: ${JSON.stringify(result)}`);
   if(result.initial.active||result.initial.pressed!=="false"||result.initial.text!=="図面範囲")throw new Error(`registry initial state failed: ${JSON.stringify(result.initial)}`);
-  if(!result.loaded.active||result.loaded.pressed!=="true"||result.loaded.text!=="図面範囲")throw new Error(`registry loaded state failed: ${JSON.stringify(result.loaded)}`);
-  if(result.cleared.loaded||result.cleared.active||result.cleared.pressed!=="false"||result.cleared.text!=="図面範囲")throw new Error(`registry clear state failed: ${JSON.stringify(result.cleared)}`);
-  const automatic=await page.evaluate(async()=>{
-    const original=enableVectorBaseMap;
-    let calls=0,silent=false;
-    enableVectorBaseMap=options=>{calls++;silent=options?.silent===true;vectorBaseMapEnabled=true;updateAerialPhotoUi();updateToolbarActivationUI();return Promise.resolve();};
+  if(!result.loaded.active||result.loaded.pressed!=="true"||result.loaded.text!=="非表示")throw new Error(`registry loaded state failed: ${JSON.stringify(result.loaded)}`);
+  if(!result.hidden.loaded||result.hidden.parcelCount!==1||result.hidden.visible||result.hidden.active||result.hidden.pressed!=="false"||result.hidden.text!=="表示")throw new Error(`registry retained hidden state failed: ${JSON.stringify(result.hidden)}`);
+  const initialFoundation=await page.evaluate(async()=>{
     await openBundledSampleDrawing();
     await new Promise(resolve=>setTimeout(resolve,30));
-    const checked=document.getElementById("vectorMapToggleSwitch").checked;
-    const toolbarActive=document.getElementById("backgroundSxfToolbarBtn").classList.contains("modeActive");
-    enableVectorBaseMap=original;
-    return {calls,silent,checked,toolbarActive};
+    return {
+      enabled:vectorBaseMapEnabled,
+      checked:document.getElementById("vectorMapToggleSwitch").checked,
+      toolbarActive:document.getElementById("backgroundSxfToolbarBtn").classList.contains("modeActive")
+    };
   });
-  if(automatic.calls!==1||!automatic.silent||!automatic.checked||!automatic.toolbarActive)throw new Error(`foundation map auto-enable failed: ${JSON.stringify(automatic)}`);
+  if(initialFoundation.enabled||initialFoundation.checked||initialFoundation.toolbarActive)throw new Error(`foundation map must start off: ${JSON.stringify(initialFoundation)}`);
   if(errors.length)throw new Error(`page errors: ${errors.join(" | ")}`);
-  console.log("Automatic foundation map and single-button registry UI validated");
+  console.log("Manual foundation map and retained single-button registry UI validated");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   if(browser)await browser.close();
   server.close();

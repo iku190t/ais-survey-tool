@@ -569,6 +569,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .registryActions button,.registryFileLabel{min-height:36px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--btn);color:var(--fg);font-size:13px;font-weight:800;box-sizing:border-box;cursor:pointer;}
 #registryMapAutoBtn{grid-column:1/-1;}
 #registryMapAutoBtn.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
+#registryMapCadBtn{grid-column:1/-1;}
 #registryMapAppendBtn{grid-column:1/-1;}
 #registryMapAppendBtn.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #registryMapAutoBtn:disabled{opacity:.55;cursor:default;}
@@ -778,11 +779,10 @@ body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
 .photoAlbumCommentControl{display:grid;gap:6px;min-width:0;}
 .photoAlbumCommentRow select,.photoAlbumCommentCustom{width:100%;min-height:34px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--fg);font-size:13px;box-sizing:border-box;}
 .photoAlbumCommentCustom[hidden]{display:none;}
-#photoAlbumMiniMapLabel{display:flex;align-items:center;gap:9px;min-height:36px;margin-top:10px;font-size:13px;font-weight:700;}
+#photoAlbumOptionChecks{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px;margin-top:10px;}
+#photoAlbumMiniMapLabel,#photoAlbumMapQrLabel{display:flex;align-items:center;gap:9px;min-height:36px;font-size:13px;font-weight:700;}
 #photoAlbumMiniMapLabel.disabled{opacity:.42;cursor:not-allowed;}
-#photoAlbumMiniMap{width:19px;height:19px;accent-color:#1677ff;}
-#photoAlbumMapQrBtn{width:100%;min-height:36px;margin-top:7px;padding:6px 10px;font-size:13px;font-weight:750;text-align:left;}
-#photoAlbumMapQrBtn.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
+#photoAlbumMiniMap,#photoAlbumMapQr{width:19px;height:19px;accent-color:#1677ff;}
 #photoAlbumHint{margin-top:5px;color:var(--muted);font-size:11px;line-height:1.5;}
 #photoAlbumActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;}
 #photoAlbumActions button{min-height:38px;font-size:13px;font-weight:750;}
@@ -950,6 +950,14 @@ body.light #compassFab .compassN{
 #compassMenu button.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #compassFab.following .compassFace{border-color:#1677ff;box-shadow:0 0 0 3px rgba(22,119,255,.38),inset 0 0 0 1px rgba(255,255,255,.28);}
 body.light #compassMenu{background:rgba(255,255,255,.90);}
+#googleMapsLinkBtn{
+  position:absolute;right:12px;top:calc(58px + var(--cad-toolbar-offset,40px));z-index:70;
+  width:40px;height:40px;padding:0!important;border-radius:9px;
+  background:#fff;border:1px solid rgba(0,0,0,.25);box-shadow:0 5px 15px rgba(0,0,0,.30);
+}
+#googleMapsLinkBtn svg{width:27px;height:27px;stroke:none;fill:none;}
+#googleMapsLinkBtn.modeActive{background:#dcecff;border-color:#1677ff;box-shadow:0 0 0 2px rgba(22,119,255,.30),0 5px 15px rgba(0,0,0,.30);}
+#googleMapsLinkBtn.unavailableTool{opacity:.42;filter:grayscale(.55);cursor:default;}
 
 
 .toolIconBtn{
@@ -1263,12 +1271,6 @@ gtag('config', 'G-88B9YPJXWP');
         <path d="M15 3.5v4h4M8 11h8M8 14h8M8 17h5"></path>
       </svg>
     </button>
-    <button id="googleMapsLinkBtn" class="toolIconBtn" data-help-label="Google" data-tooltip="選択地点をGoogle航空写真・ストリートビューで開く" aria-label="Googleマップ連携">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 21s6-5.8 6-11a6 6 0 1 0-12 0c0 5.2 6 11 6 11z"></path>
-        <circle cx="12" cy="10" r="2.2"></circle>
-      </svg>
-    </button>
     <button id="terrainToolbarBtn" class="toolIconBtn pcMapToolBtn" data-help-label="地形解析" data-tooltip="標高・傾斜・等高線などを表示する" aria-label="地形解析">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3.5 7.5c3-3 6.5-3 9.2-.7 2.7 2.3 5.5 2 7.8-.3"></path>
@@ -1404,6 +1406,15 @@ gtag('config', 'G-88B9YPJXWP');
     </div>
     <div id="layerBody"><div id="layerList"></div></div>
   </div>
+  <button id="googleMapsLinkBtn" class="toolIconBtn" data-tooltip="図面上で2点を選び、Googleストリートビューと航空写真を開く" aria-label="Google連携">
+    <svg viewBox="0 0 28 28" aria-hidden="true">
+      <path d="M3 5.5 10.3 3v19.5L3 25z" fill="#34a853"></path>
+      <path d="m10.3 3 7.4 2.5V25l-7.4-2.5z" fill="#fbbc04"></path>
+      <path d="m17.7 5.5 7.3-2.5v19.5L17.7 25z" fill="#4285f4"></path>
+      <path d="M14 4.5a5 5 0 0 0-5 5c0 4.2 5 9 5 9s5-4.8 5-9a5 5 0 0 0-5-5z" fill="#ea4335" stroke="#fff" stroke-width="1.2"></path>
+      <circle cx="14" cy="9.5" r="1.8" fill="#fff"></circle>
+    </svg>
+  </button>
   <div id="photoListPanel" class="panel" role="dialog" aria-labelledby="photoListTitle">
     <div id="photoListHeader">
       <div id="photoListTitle">写真</div>
@@ -1462,8 +1473,10 @@ gtag('config', 'G-88B9YPJXWP');
         <label class="photoAlbumCommentRow"><span>1行目</span><span class="photoAlbumCommentControl"><select id="photoAlbumComment1"></select><input id="photoAlbumCustom1" class="photoAlbumCommentCustom" type="text" maxlength="80" placeholder="共通の文字を入力" hidden></span></label>
         <label class="photoAlbumCommentRow"><span>2行目</span><span class="photoAlbumCommentControl"><select id="photoAlbumComment2"></select><input id="photoAlbumCustom2" class="photoAlbumCommentCustom" type="text" maxlength="80" placeholder="共通の文字を入力" hidden></span></label>
         <label class="photoAlbumCommentRow"><span>3行目</span><span class="photoAlbumCommentControl"><select id="photoAlbumComment3"></select><input id="photoAlbumCustom3" class="photoAlbumCommentCustom" type="text" maxlength="80" placeholder="共通の文字を入力" hidden></span></label>
-        <label id="photoAlbumMiniMapLabel"><input id="photoAlbumMiniMap" type="checkbox">豆図を付ける</label>
-        <button id="photoAlbumMapQrBtn" class="active" type="button" aria-pressed="true">QRコードを付ける</button>
+        <div id="photoAlbumOptionChecks">
+          <label id="photoAlbumMiniMapLabel"><input id="photoAlbumMiniMap" type="checkbox">豆図を付ける</label>
+          <label id="photoAlbumMapQrLabel"><input id="photoAlbumMapQr" type="checkbox" checked>QRコードを付ける</label>
+        </div>
         <div id="photoAlbumHint">豆図は写真位置を中心に図面を縮小し、中央へ写真番号と撮影方向を表示します。QRコードは各写真の右上に配置し、その写真位置をGoogleマップで開きます。8枚では豆図を使用できません。見開きは3枚・4枚だけ選択できます。</div>
       </div>
       <div id="photoAlbumActions"><button id="photoAlbumCancelBtn" type="button">キャンセル</button><button id="photoAlbumCreateBtn" type="button">Excelを作成</button></div>
@@ -1668,6 +1681,7 @@ gtag('config', 'G-88B9YPJXWP');
     <div class="registryHeader"><div class="registryTitle">法務局地図・境界</div><button id="registryMapCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <div class="registryActions">
       <button id="registryMapAutoBtn" type="button" aria-pressed="false">図面範囲</button>
+      <button id="registryMapCadBtn" type="button" disabled>範囲を選んでCAD化</button>
     </div>
     <div id="registryMapStatus">「図面範囲」を押すと、その範囲だけ取得します。</div>
     <div id="registryLayerList" aria-label="法務局地図レイヤー">
@@ -1913,8 +1927,8 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開く・保存</div><b>ファイル</b> を押し、<b>開く</b>、<b>上書き保存</b>、<b>名前を付けて保存</b>から選びます。PCでは通常の保存画面を使い、メール送信画面は表示しません。</div>
               <div class="helpBlock"><div class="helpHead">PCでドラッグして開く</div>PCではSFCを図面画面へドラッグし、「ここにドロップして開く」の表示上で離すと、そのまま図面を開けます。</div>
-              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置を選べます。<b>見開きにする</b> は3枚・4枚だけ選択でき、2枚・6枚・8枚では選択できません。見開きでは、表ページを写真・コメント、裏ページをコメント・写真の順にして、綴じたときにコメント欄が中央へ向くよう自動で反転します。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4・6枚では豆図を付けられますが、8枚では豆図を選択できません。通常配置では2・6・8枚は写真を上、コメントを下へ配置し、3・4枚は写真を左、コメントを右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4・6枚の空き領域に合わせて大きくし、高解像度で作成します。<b>QRコードを付ける</b>を青にすると、各写真の右上に位置情報QRを配置します。QRを読むと、その写真の調整後の座標位置が通常のGoogleマップで開きます。Googleの画像自体は写真帳へ保存しません。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
-              <div class="helpBlock"><div class="helpHead">Googleマップ連携</div>上部の <b>Google</b> を押し、図面上で見る位置を選びます。必要なら2点目で見る方向を選び、通常のブラウザーで <b>Google航空写真</b> または <b>Googleストリートビュー</b> を開きます。PCでは同じ専用タブを再利用します。Google Maps Platform APIは使用せず、Google画像の取得・保存・加工・Ez Viewer内への埋め込みは行いません。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置を選べます。<b>見開きにする</b> は3枚・4枚だけ選択でき、2枚・6枚・8枚では選択できません。見開きでは、表ページを写真・コメント、裏ページをコメント・写真の順にして、綴じたときにコメント欄が中央へ向くよう自動で反転します。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4・6枚では豆図を付けられますが、8枚では豆図を選択できません。通常配置では2・6・8枚は写真を上、コメントを下へ配置し、3・4枚は写真を左、コメントを右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4・6枚の空き領域に合わせて大きくし、高解像度で作成します。豆図の横にある<b>QRコードを付ける</b>チェックは初期状態でONです。各写真の右上に小さな位置情報QRを配置し、QR画像をクリックまたは読み取ると、その写真の調整後の座標位置が通常のGoogleマップで開きます。QRの下へ文字は付けず、Googleの画像自体も写真帳へ保存しません。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
+              <div class="helpBlock"><div class="helpHead">Googleマップ連携</div>方位ボタンの下にあるカラフルなボタンを押し、図面上で<b>1点目（見る位置）</b>、続いて<b>2点目（見る方向）</b>を選びます。2点目を選ぶと、左側にGoogleストリートビュー、右側にGoogle航空写真を自動で開きます。次の位置を選んだ場合も同じ専用ウィンドウを再利用します。Google Maps Platform APIは使用せず、Google画像の取得・保存・加工・Ez Viewer内への埋め込みは行いません。</div>
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容を、開いているSFCへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">名前を付けて保存</div>PCではエクスプローラーの保存画面からSFC名を指定します。CAD化した航空写真がある場合は保存先フォルダーを選び、SFCと参照JPEGを同じフォルダーへ保存します。SFCとJPEGは移動するときも同じフォルダーに置いてください。</div>
               <div class="helpBlock"><div class="helpHead">ZIPで送る理由</div>SFCは一般的なメール添付形式として登録されていないため、iPhone・Android・Gmailなどが添付を拒否する場合があります。ZIPは広く対応しており、SFCのファイル名と内容を変えずに安全に添付できます。受信後はZIPを展開するとSFCファイルが1個入っています。</div>
@@ -2031,7 +2045,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">背景色</div>上部の <b>背景</b> を押し、黒・白のうち表示したい背景色を選びます。青色になっている方が現在の設定です。</div>
               <div class="helpBlock"><div class="helpHead">航空写真</div><b>航空写真</b> のスイッチをONにすると、現在の場所で実際に利用できる写真年代を自動確認します。OFFの状態でもスライダーを操作すると自動的にONになります。</div>
               <div class="helpBlock"><div class="helpHead">基盤地図</div>図面と同じ位置の地理院地図Vectorを、必要なときだけ表示します。表示中の範囲だけ通信で取得し、等高線など地形解析の要素は混ぜません。PCは上部の<b>基盤地図</b>、スマホは背景内のスイッチを押すと表示し、もう一度押すと解除します。図面を開いた直後はOFFです。</div>
-      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開き、<b>図面範囲</b>を押すと、その範囲の公開データを取得して表示します。取得中は共通の進捗バーを表示し、同じボタンまたはPC上部の青い法務地図ボタンを押すとキャンセルできます。PCは容量確認なしで開始し、スマホだけ通信容量の確認を表示します。表示中のボタンをもう一度押すと解除します。筆ポリゴン・筆界線・筆界点・地番文字を個別に表示でき、筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
+      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開き、<b>図面範囲</b>を押すと、その範囲の公開データを取得して表示します。取得中は共通の進捗バーを表示し、同じボタンまたはPC上部の青い法務地図ボタンを押すとキャンセルできます。PCは容量確認なしで開始し、スマホだけ通信容量の確認を表示します。取得後のボタンは表示・非表示の切替になり、同じ図面を開いている間は取得データを保持するため再ダウンロードしません。<b>範囲を選んでCAD化</b>では、多角形で囲んだ筆ポリゴン・筆界線・筆界点・地番文字を専用レイヤーへ追加し、SFCと一緒に保存できます。筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
               <div class="helpBlock"><div class="helpHead">ハザードマップ</div><b>ハザードマップ</b>から洪水・土砂災害・高潮・津波を1種類ずつ表示できます。選択中の青いボタンをもう一度押すと解除します。国土地理院ハザードマップポータルサイトの公開タイルを表示範囲だけ取得します。表示は参考情報のため、避難判断は自治体のハザードマップと最新の防災情報で確認してください。</div>
       <div class="helpBlock"><div class="helpHead">基準点・水準点</div><b>基準点・水準点</b>をONにすると、国土地理院の公開位置情報を図面へ重ね、図面上に種類の凡例を表示します。三角点・その他の基準点、水準点、電子基準点を個別に表示できます。記号をタップすると、点名・種類・基準点コード・成果状態を確認できます。表示位置は検索・現地確認の参考です。正式な成果値は国土地理院の基準点成果等閲覧サービスで確認してください。</div>
               <div class="helpBlock"><div class="helpHead">年代の変更</div>つまみは指に合わせて滑らかに動き、移動中は最も近い利用可能な年代の写真へ切り替わります。指を離すと、その年代の位置へ吸着します。左端が最新で、右へ動かすほど古くなります。</div>
@@ -2566,6 +2580,7 @@ let registryMapState = {
 let registryMapAutoBusy=false;
 let registryMapOperationSerial=0;
 let registryMapAbortController=null;
+let registryMapDisplayEnabled=false;
 let registryMapPointPickMode=false;
 let registryMapPointPickTouchCandidate=null;
 const REGISTRY_MOBILE_FEATURE_LIMIT=12000;
@@ -2680,6 +2695,7 @@ const registryMapOpenBtn = document.getElementById("registryMapOpenBtn");
 const registryMapOpenState = document.getElementById("registryMapOpenState");
 const registryMapFileInput = document.getElementById("registryMapFileInput");
 const registryMapAutoBtn = document.getElementById("registryMapAutoBtn");
+const registryMapCadBtn = document.getElementById("registryMapCadBtn");
 const registryMapAppendBtn = document.getElementById("registryMapAppendBtn");
 const registryMapStatus = document.getElementById("registryMapStatus");
 const registryMapCredit = document.getElementById("registryMapCredit");
@@ -11148,6 +11164,24 @@ function drawTerrainCadLabels(){
   for(const item of labels){const {stroke,label,source}=item,p=worldToScreen(label.x,label.y);ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(-(rotationDeg||0)*Math.PI/180);ctx.textAlign=source?"right":"center";ctx.textBaseline=source?"bottom":"middle";ctx.lineWidth=3;ctx.strokeStyle=darkTheme?"rgba(0,0,0,.9)":"rgba(255,255,255,.9)";ctx.strokeText(label.text,0,0);ctx.fillStyle=adaptContrastColor(getMemoExportColor(stroke));ctx.fillText(label.text,0,0);ctx.restore();}
   ctx.restore();
 }
+function drawRegistryCadLabels(){
+  if(!showText)return;
+  const labels=(inkStrokes||[]).filter(stroke=>stroke?.isRegistryText&&stroke.photoTextLabel&&isLayerVisible(getInkStrokeLayerId(stroke)));
+  if(!labels.length)return;
+  ctx.save();ctx.font="700 12px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
+  for(const stroke of labels){
+    const label=stroke.photoTextLabel,p=worldToScreen(label.x,label.y);
+    ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(-(rotationDeg||0)*Math.PI/180);
+    ctx.lineWidth=3;ctx.strokeStyle=darkTheme?"rgba(0,0,0,.9)":"rgba(255,255,255,.9)";ctx.strokeText(label.text,0,0);
+    ctx.fillStyle=adaptContrastColor(getMemoExportColor(stroke));ctx.fillText(label.text,0,0);ctx.restore();
+  }
+  ctx.restore();
+}
+function polygonSelectionDefaultHint(){
+  if(polygonSelectionPurpose==="aerial")return "航空写真の範囲を多角形で指定";
+  if(polygonSelectionPurpose==="registry")return "CAD化する法務局地図の範囲を多角形で指定";
+  return "多角形の頂点をタップ";
+}
 async function finishTerrainCadSelection(){
   if(terrainCadPolygon.length<3){showToast("多角形の頂点を3点以上指定してください");return;}
   const polygon=terrainCadPolygon.slice();setTerrainCadSelectionOpen(false);showBusy("1m等高線をCAD化しています…");await waitForUiPaint();
@@ -11198,8 +11232,77 @@ async function finishAerialSfcSelection(){
     updateToolbarActivationUI();
   }
 }
+function registryCadStroke(kind,points,extra={}){
+  return {
+    type:"freehand",color:registryLayerColors[kind]||REGISTRY_LAYER_DEFAULTS[kind]?.color||"#26c6da",
+    opacity:1,eraser:false,screenWidthPx:null,worldWidthMm:.13,width:penWidthLevelFromMm(.13),
+    registryMapKind:kind,points:points.map(point=>({x:+point.x,y:+point.y})),...extra
+  };
+}
+function registryCadClippedPieces(points,polygon,close=false){
+  const source=(points||[]).map(point=>({x:+point.x,y:+point.y})).filter(point=>Number.isFinite(point.x)&&Number.isFinite(point.y));
+  if(source.length<2)return [];
+  if(close&&Math.hypot(source[0].x-source[source.length-1].x,source[0].y-source[source.length-1].y)>1e-6)source.push({...source[0]});
+  return clipTerrainContourToPolygon(source.map(point=>[point.x,point.y]),polygon);
+}
+function buildRegistryCadStrokes(polygon){
+  const created=[];
+  const addPieces=(kind,points,close=false)=>{
+    for(const piece of registryCadClippedPieces(points,polygon,close)){
+      for(const chunk of splitTerrainCadPolyline(piece,500))if(chunk.length>=2)created.push(registryCadStroke(kind,chunk));
+    }
+  };
+  if(registryLayerVisibility.parcel){
+    for(const parcel of registryMapState.parcels)for(const ring of parcel.rings||[])addPieces("parcel",ring,true);
+  }
+  if(registryLayerVisibility.boundary){
+    for(const parcel of registryMapState.parcels)for(const ring of parcel.rings||[])addPieces("boundary",ring,true);
+    for(const line of registryMapState.looseLines||[])addPieces("boundary",line.points,false);
+  }
+  if(registryLayerVisibility.point){
+    const arm=Math.max(1,getMemoWorldUnitsPerPaperMm()*.8);
+    for(const point of registryMapState.points||[]){
+      if(!pointInTerrainCadPolygon(point,polygon))continue;
+      created.push(registryCadStroke("point",[{x:point.x-arm,y:point.y},{x:point.x+arm,y:point.y}]));
+      created.push(registryCadStroke("point",[{x:point.x,y:point.y-arm},{x:point.x,y:point.y+arm}]));
+    }
+  }
+  if(registryLayerVisibility.label){
+    for(const parcel of registryMapState.parcels||[]){
+      const text=String(parcel.metadata?.lotNumber||"").trim(),point=parcel.centroid;
+      if(!text||!point||!pointInTerrainCadPolygon(point,polygon))continue;
+      created.push(registryCadStroke("label",[point,point],{
+        isRegistryText:true,
+        photoTextLabel:{text,x:point.x,y:point.y,heightMm:2.5,widthMm:Math.max(2.5,Array.from(text).length*1.7),align1:5,align2:1,angle:0}
+      }));
+    }
+  }
+  return created;
+}
+async function finishRegistryCadSelection(){
+  if(terrainCadPolygon.length<3){showToast("多角形の頂点を3点以上指定してください");return;}
+  const polygon=terrainCadPolygon.slice();
+  setTerrainCadSelectionOpen(false);
+  showBusy("法務局地図をCAD化しています…");
+  await waitForUiPaint();
+  try{
+    const created=buildRegistryCadStrokes(polygon);
+    if(!created.length)throw new Error("指定範囲にCAD化できる法務局地図がありません");
+    addInkStrokeOperation(created,"法務局地図CAD化");
+    registryMapDisplayEnabled=false;
+    ensureLayerVisibility();renderLayerList();markMemoChanged();scheduleDraw();
+    showToast("CAD化しました",1800);
+  }catch(error){showToast(error?.message||"法務局地図をCAD化できませんでした",3000);}
+  finally{
+    hideBusy();
+    if(registryMapPanel)registryMapPanel.style.display="block";
+    updateRegistryMapUi();updateToolbarActivationUI();
+  }
+}
 function finishActivePolygonSelection(){
-  return polygonSelectionPurpose==="aerial"?finishAerialSfcSelection():finishTerrainCadSelection();
+  if(polygonSelectionPurpose==="aerial")return finishAerialSfcSelection();
+  if(polygonSelectionPurpose==="registry")return finishRegistryCadSelection();
+  return finishTerrainCadSelection();
 }
 function cancelActivePolygonSelection(){
   const purpose=polygonSelectionPurpose;
@@ -11207,6 +11310,9 @@ function cancelActivePolygonSelection(){
   if(purpose==="aerial"){
     if(aerialPhotoPanel)aerialPhotoPanel.style.display="block";
     updateAerialPhotoUi();
+  }else if(purpose==="registry"){
+    if(registryMapPanel)registryMapPanel.style.display="block";
+    updateRegistryMapUi();
   }else if(terrainPanel){
     terrainPanel.style.display="block";
     updateTerrainUi();
@@ -12255,6 +12361,7 @@ async function loadRegistryMapAutomatically(options={}){
       resourceUrl:String(resource.url||"")
     });
     registryMapState=registryMergeMapStates(append?previousState:registryEmptyState(),incoming,target,String(resource.url||""));
+    registryMapDisplayEnabled=true;
     updateRegistryMapUi();scheduleDraw();
     showToast(append
       ?`${requestedWorld?"指定地点周辺":"表示範囲"}を追加しました（合計 ${registryMapState.parcels.length}筆）`
@@ -12430,16 +12537,17 @@ function selectRegistryMapAdditionalPoint(screenX,screenY){
 }
 function updateRegistryMapUi(){
   if(registryMapStatus&&!registryMapAutoBusy)registryMapStatus.textContent=registryMapSummary();
-  if(registryMapCredit)registryMapCredit.style.display=registryMapState.loaded?"block":"none";
+  if(registryMapCredit)registryMapCredit.style.display=registryMapState.loaded&&registryMapDisplayEnabled?"block":"none";
   updateMapAttributionLayout();
   if(registryMapOpenBtn)registryMapOpenBtn.classList.toggle("active",!!(registryMapPanel&&getComputedStyle(registryMapPanel).display!=="none"));
-  if(registryMapOpenState)registryMapOpenState.textContent=registryMapState.loaded?"表示中":"開く";
+  if(registryMapOpenState)registryMapOpenState.textContent=registryMapState.loaded?(registryMapDisplayEnabled?"表示中":"取得済み"):"開く";
   if(registryMapAutoBtn){
     registryMapAutoBtn.disabled=false;
-    registryMapAutoBtn.classList.toggle("active",!!(registryMapAutoBusy||registryMapState.loaded));
-    registryMapAutoBtn.setAttribute("aria-pressed",registryMapAutoBusy||registryMapState.loaded?"true":"false");
-    registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?"解除":"図面範囲";
+    registryMapAutoBtn.classList.toggle("active",!!(registryMapAutoBusy||(registryMapState.loaded&&registryMapDisplayEnabled)));
+    registryMapAutoBtn.setAttribute("aria-pressed",registryMapAutoBusy||(registryMapState.loaded&&registryMapDisplayEnabled)?"true":"false");
+    registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?(registryMapDisplayEnabled?"非表示":"表示"):"図面範囲";
   }
+  if(registryMapCadBtn)registryMapCadBtn.disabled=registryMapAutoBusy||!registryMapState.loaded;
   if(registryMapAppendBtn){
     registryMapAppendBtn.disabled=registryMapAutoBusy||!registryMapState.loaded;
     registryMapAppendBtn.classList.toggle("active",registryMapPointPickMode);
@@ -12458,6 +12566,7 @@ function updateRegistryMapUi(){
 function clearRegistryMap(){
   setRegistryMapPointPickMode(false);
   registryMapState=registryEmptyState();
+  registryMapDisplayEnabled=false;
   if(registryMapFileInput)registryMapFileInput.value="";
   if(registryParcelModal)registryParcelModal.style.display="none";
   updateRegistryMapUi();
@@ -12476,6 +12585,7 @@ async function loadRegistryMapFile(file){
       const isJson=/\.json$|\.geojson$/i.test(file.name)||/^\s*[\[{]/.test(text);
       registryMapState=isJson?parseRegistryGeoJson(JSON.parse(text),file.name):parseRegistryXml(text,file.name);
     }
+    registryMapDisplayEnabled=true;
     updateRegistryMapUi();
     scheduleDraw();
     showToast(`境界データを読み込みました（筆 ${registryMapState.parcels.length}件）`,2200);
@@ -12485,6 +12595,7 @@ async function loadRegistryMapFile(file){
   }catch(error){
     console.error(error);
     registryMapState=registryEmptyState();
+    registryMapDisplayEnabled=false;
     if(registryMapStatus)registryMapStatus.textContent=`読み込めません：${error?.message||"データ形式を確認してください"}`;
     if(registryMapCredit)registryMapCredit.style.display="none";
     scheduleDraw();
@@ -12508,6 +12619,7 @@ async function loadRegistryMapFileSafely(file){
       }
     );
     registryMapState=parseRegistryGeoJson(parsed,file.name);
+    registryMapDisplayEnabled=true;
     updateRegistryMapUi();
     scheduleDraw();
     showToast(`境界データを読み込みました（筆 ${registryMapState.parcels.length}件）`,2200);
@@ -12517,6 +12629,7 @@ async function loadRegistryMapFileSafely(file){
   }catch(error){
     console.error(error);
     registryMapState=registryEmptyState();
+    registryMapDisplayEnabled=false;
     if(registryMapStatus)registryMapStatus.textContent=`読み込めません：${error?.message||"データ形式を確認してください"}`;
     if(registryMapCredit)registryMapCredit.style.display="none";
     scheduleDraw();
@@ -12537,7 +12650,7 @@ function registryTraceScreenPath(points,close=false){
   return true;
 }
 function drawRegistryMapOverlay(){
-  if(!registryMapState.loaded)return;
+  if(!registryMapState.loaded||!registryMapDisplayEnabled)return;
   const visible=getVisibleWorldBounds(30);
   const selected=registryMapState.selectedParcel;
   ctx.save();
@@ -12602,7 +12715,7 @@ function registryPointInRing(x,y,ring){
   return inside;
 }
 function findRegistryParcelAtScreen(screenX,screenY){
-  if(!registryMapState.loaded||!registryLayerVisibility.parcel)return null;
+  if(!registryMapState.loaded||!registryMapDisplayEnabled||!registryLayerVisibility.parcel)return null;
   const [worldX,worldY]=screenToWorld(screenX,screenY);
   for(let i=registryMapState.parcels.length-1;i>=0;i--){
     const parcel=registryMapState.parcels[i],b=parcel.bbox;
@@ -12833,6 +12946,7 @@ function draw(){
 
   for(const stroke of inkStrokes) drawInkStroke(stroke);
   drawTerrainCadLabels();
+  drawRegistryCadLabels();
   drawPhotoAnnotationsOverlay();
   drawTerrainCadSelection();
   drawCoordinateInspectMarker();
@@ -13142,6 +13256,8 @@ function normalizeInkStrokeForSave(s){
     foundationSourceLevel: Number.isFinite(+s.foundationSourceLevel) ? +s.foundationSourceLevel : null,
     foundationSourceId: s.foundationSourceId || null,
     foundationTargetKey: s.foundationTargetKey || null,
+    registryMapKind: s.registryMapKind || null,
+    isRegistryText: !!s.isRegistryText,
     photoLayerId: s.photoLayerId || null,
     photoTextLabel: s.photoTextLabel || null,
     points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})) : []
@@ -13184,6 +13300,8 @@ function strokeToWorldPolyline(stroke){
     foundationSourceLevel: Number.isFinite(+stroke.foundationSourceLevel) ? +stroke.foundationSourceLevel : null,
     foundationSourceId: stroke.foundationSourceId || null,
     foundationTargetKey: stroke.foundationTargetKey || null,
+    registryMapKind: stroke.registryMapKind || null,
+    isRegistryText: !!stroke.isRegistryText,
     photoLayerId: stroke.photoLayerId || null,
     photoTextLabel: stroke.photoTextLabel || null,
     points: stroke.points.map(p => ({x:+p.x||0, y:+p.y||0}))
@@ -13251,6 +13369,10 @@ const MEMO_LAYER_SPECS = [
   {id:"foundation:admin",shape:"foundation",colorKey:"blue",colorName:"紫",color:"#b08ac9",name:"基盤2500_行政界"},
   {id:"foundation:community",shape:"foundation",colorKey:"blue",colorName:"紫",color:"#b899c9",name:"基盤2500_町字界"},
   {id:"foundation:block",shape:"foundation",colorKey:"blue",colorName:"紫灰",color:"#b6a6c1",name:"基盤2500_街区線"},
+  {id:"registry:parcel",shape:"registry",colorKey:"blue",colorName:"水色",color:"#39bde5",name:"法務局_筆ポリゴン"},
+  {id:"registry:boundary",shape:"registry",colorKey:"blue",colorName:"水色",color:"#26c6da",name:"法務局_筆界線"},
+  {id:"registry:point",shape:"registry",colorKey:"red",colorName:"赤",color:"#ff5a5f",name:"法務局_筆界点"},
+  {id:"registry:label",shape:"registry",colorKey:"yellow",colorName:"黄",color:"#ffd43b",name:"法務局_地番文字"},
   {id:"memo:line:red",shape:"line",colorKey:"red",colorName:"赤",color:"#ff3030",name:"線（赤）",rawName:"\x90\xfc\x81\x69\x90\xd4\x81\x6a"},
   {id:"memo:line:blue",shape:"line",colorKey:"blue",colorName:"青",color:"#007aff",name:"線（青）",rawName:"\x90\xfc\x81\x69\x90\xc2\x81\x6a"},
   {id:"memo:line:green",shape:"line",colorKey:"green",colorName:"緑",color:"#00a86b",name:"線（緑）",rawName:"\x90\xfc\x81\x69\x97\xce\x81\x6a"},
@@ -13281,6 +13403,9 @@ function getMemoLayerSpecForStroke(stroke){
   }
   if(stroke&&stroke.foundationMapKind){
     return MEMO_LAYER_SPECS.find(s=>s.id===`foundation:${stroke.foundationMapKind}`)||MEMO_LAYER_SPECS.find(s=>s.id==="foundation:road");
+  }
+  if(stroke&&stroke.registryMapKind){
+    return MEMO_LAYER_SPECS.find(s=>s.id===`registry:${stroke.registryMapKind}`)||MEMO_LAYER_SPECS.find(s=>s.id==="registry:boundary");
   }
   const shape=(stroke&&((stroke.type==="circle")||stroke.isCircleMemo))?"circle":"line";
   const colorKey=getMemoColorKey(stroke&&stroke.color);
@@ -14618,7 +14743,7 @@ function getPhotoAlbumSettingsFromUi(){
     custom2:String(document.getElementById("photoAlbumCustom2")?.value||"").slice(0,80),
     custom3:String(document.getElementById("photoAlbumCustom3")?.value||"").slice(0,80),
     miniMap:mini?.dataset.preferred!=="false",
-    mapQr:document.getElementById("photoAlbumMapQrBtn")?.getAttribute("aria-pressed")!=="false"
+    mapQr:document.getElementById("photoAlbumMapQr")?.checked!==false
   };
 }
 function updatePhotoAlbumCustomInputVisibility(focusInput=false){
@@ -14667,8 +14792,8 @@ function populatePhotoAlbumSettingsUi(){
   if(spread)spread.checked=!!settings.spread;
   const mini=document.getElementById("photoAlbumMiniMap");
   if(mini){mini.dataset.preferred=settings.miniMap?"true":"false";mini.checked=settings.miniMap;}
-  const mapQr=document.getElementById("photoAlbumMapQrBtn");
-  if(mapQr){mapQr.classList.toggle("active",settings.mapQr!==false);mapQr.setAttribute("aria-pressed",settings.mapQr!==false?"true":"false");}
+  const mapQr=document.getElementById("photoAlbumMapQr");
+  if(mapQr)mapQr.checked=settings.mapQr!==false;
   updatePhotoAlbumCustomInputVisibility(false);
   updatePhotoAlbumMiniMapAvailability();
 }
@@ -14863,11 +14988,13 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       setCell(row,col,isText?value:"",style);
     }
   };
-  const addImage=(image,rect,name)=>{
+  const addImage=(image,rect,name,options={})=>{
     const id=media.length+1,fileName=`image${id}.${image.extension}`;
     media.push({name:`xl/media/${fileName}`,blob:image.blob,contentType:image.contentType});
     drawingRels.push(`<Relationship Id="rId${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${fileName}"/>`);
-    images.push({id,name,rect,border:true});
+    const href=String(options.href||"");
+    if(href)drawingRels.push(`<Relationship Id="rIdLink${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escapeSpreadsheetXml(href)}" TargetMode="External"/>`);
+    images.push({id,name,rect,border:true,href});
   };
   const addPhotoImage=async(photo,rect,name,item)=>{
     const placed=fitPhotoAlbumImage(photo,rect);
@@ -14878,10 +15005,10 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
     const qr=await feature.createPhotoQrImage(item);
     if(!qr)return placed;
     const aspect=qr.height/Math.max(1,qr.width);
-    const qrWidth=Math.max(64,Math.min(92,placed.width*.32,placed.height*.42/Math.max(aspect,.1)));
+    const qrWidth=Math.max(48,Math.min(70,placed.width*.24,placed.height*.32/Math.max(aspect,.1)));
     const qrHeight=qrWidth*aspect;
     const inset=Math.max(3,qrWidth*.045);
-    addImage(qr,{x:placed.x+placed.width-qrWidth-inset,y:placed.y+inset,width:qrWidth,height:qrHeight},`GoogleマップQR ${item.number}`);
+    addImage(qr,{x:placed.x+placed.width-qrWidth-inset,y:placed.y+inset,width:qrWidth,height:qrHeight},`GoogleマップQR ${item.number}`,{href:qr.url});
     return placed;
   };
   const fields=[settings.comment1,settings.comment2,settings.comment3];
@@ -14973,7 +15100,8 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       return `<xdr:col>${col}</xdr:col><xdr:colOff>${Math.round((x-left)*9525)}</xdr:colOff><xdr:row>${row}</xdr:row><xdr:rowOff>${Math.round((y-row*rowPx)*9525)}</xdr:rowOff>`;
     };
     const from=marker(image.rect.x,image.rect.y),to=marker(image.rect.x+image.rect.width,image.rect.y+image.rect.height);
-    return `<xdr:twoCellAnchor editAs="oneCell"><xdr:from>${from}</xdr:from><xdr:to>${to}</xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${image.id}" name="${escapeSpreadsheetXml(image.name)}"/><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId${image.id}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln w="6350"><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:prstDash val="solid"/></a:ln></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`;
+    const hyperlink=image.href?`<a:hlinkClick r:id="rIdLink${image.id}"/>`:"";
+    return `<xdr:twoCellAnchor editAs="oneCell"><xdr:from>${from}</xdr:from><xdr:to>${to}</xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${image.id}" name="${escapeSpreadsheetXml(image.name)}">${hyperlink}</xdr:cNvPr><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId${image.id}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln w="6350"><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:prstDash val="solid"/></a:ln></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`;
   }).join("");
   const breaks=Array.from({length:Math.max(0,pageCount-1)},(_,i)=>`<brk id="${(i+1)*pageRows}" min="0" max="16383" man="1"/>`).join("");
   const types=[
@@ -15508,6 +15636,10 @@ SXF*/`);
       const prev=compact[compact.length-1];
       if(!prev||Math.abs(p.x-prev.x)>=1e-9||Math.abs(p.y-prev.y)>=1e-9)compact.push(p);
     }
+    if(compact.length<2&&s.photoTextLabel){
+      appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
+      continue;
+    }
     if(compact.length>=2){
       const xs=compact.map(p=>(+p.x).toFixed(6)).join(',');
       const ys=compact.map(p=>(+p.y).toFixed(6)).join(',');
@@ -15647,6 +15779,10 @@ function buildMemoMetaComment(){
       foundationSourceLevel: Number.isFinite(+s.foundationSourceLevel) ? +s.foundationSourceLevel : null,
       foundationSourceId: s.foundationSourceId || null,
       foundationTargetKey: s.foundationTargetKey || null,
+      registryMapKind: s.registryMapKind || null,
+      isRegistryText: !!s.isRegistryText,
+      photoLayerId: s.photoLayerId || null,
+      photoTextLabel: s.photoTextLabel || null,
       points: s.points.map(p => ({x:+p.x||0, y:+p.y||0}))
     }));
     const payload = { version:4, strokes, photoAnnotations:serializePhotoAnnotations(), deletedLayerNames:[...deletedLayerNames] };
@@ -17294,6 +17430,10 @@ function restoreInkStrokesFromSourceText(srcText){
       foundationSourceLevel: Number.isFinite(+s.foundationSourceLevel) ? +s.foundationSourceLevel : null,
       foundationSourceId: s.foundationSourceId || null,
       foundationTargetKey: s.foundationTargetKey || null,
+      registryMapKind: s.registryMapKind || null,
+      isRegistryText: !!s.isRegistryText,
+      photoLayerId: s.photoLayerId || null,
+      photoTextLabel: s.photoTextLabel || null,
       points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y)) : []
     })).map(migrateLegacyCircleMemoStroke).filter(s => s.points.length >= 2);
   }
@@ -18261,11 +18401,7 @@ document.getElementById("photoAlbumMiniMap")?.addEventListener("change",event=>{
   // 初回はON。その後は作成を取り消した場合も利用者が選んだ状態を保持する。
   savePhotoAlbumSettings(getPhotoAlbumSettingsFromUi());
 });
-document.getElementById("photoAlbumMapQrBtn")?.addEventListener("click",event=>{
-  const button=event.currentTarget;
-  const enabled=button.getAttribute("aria-pressed")!=="true";
-  button.setAttribute("aria-pressed",enabled?"true":"false");
-  button.classList.toggle("active",enabled);
+document.getElementById("photoAlbumMapQr")?.addEventListener("change",()=>{
   savePhotoAlbumSettings(getPhotoAlbumSettingsFromUi());
 });
 document.getElementById("photoSelectAllBtn")?.addEventListener("click",()=>{
@@ -18487,7 +18623,7 @@ function handleEscapeBackStep(){
     if(terrainCadPolygon.length){
       terrainCadPolygon.pop();
       const hint=document.getElementById("terrainCadHint");
-      if(hint)hint.textContent=terrainCadPolygon.length?`頂点 ${terrainCadPolygon.length}点`:(polygonSelectionPurpose==="aerial"?"航空写真の範囲を多角形で指定":"多角形の頂点をタップ");
+      if(hint)hint.textContent=terrainCadPolygon.length?`頂点 ${terrainCadPolygon.length}点`:polygonSelectionDefaultHint();
       scheduleDraw();
     }else cancelActivePolygonSelection();
     return true;
@@ -18542,7 +18678,7 @@ function updateToolbarActivationUI(){
     backgroundSxfToolbarBtn:!!(vectorBaseMapEnabled||vectorBaseMapResolveBusy),
     googleMapsLinkBtn:!!window.GoogleMapsLinkFeature?.isActive?.(),
     terrainToolbarBtn:isDesktopPhotoTool()&&(visible(terrainPanel)||!!terrainLoading||!!terrainMode),
-    registryToolbarBtn:isDesktopPhotoTool()&&(visible(registryMapPanel)||!!registryMapState.loaded||!!registryMapAutoBusy||registryMapPointPickMode),
+    registryToolbarBtn:isDesktopPhotoTool()&&(visible(registryMapPanel)||!!(registryMapState.loaded&&registryMapDisplayEnabled)||!!registryMapAutoBusy||registryMapPointPickMode),
     controlPointToolbarBtn:isDesktopPhotoTool()&&(visible(controlPointPanel)||!!controlPointEnabled||!!controlPointResolveBusy),
     hazardToolbarBtn:isDesktopPhotoTool()&&(visible(hazardMapPanel)||!!hazardMapMode||!!hazardMapResolveBusy),
     measureBtn:!!(measureMode||visible(measureModePanel)||visible(measureBox)),
@@ -18644,7 +18780,7 @@ document.getElementById("terrainCadBtn")?.addEventListener("click",()=>{
 document.getElementById("terrainCadUndoBtn")?.addEventListener("click",()=>{
   terrainCadPolygon.pop();
   const hint=document.getElementById("terrainCadHint");
-  if(hint)hint.textContent=terrainCadPolygon.length?`頂点 ${terrainCadPolygon.length}点`:(polygonSelectionPurpose==="aerial"?"航空写真の範囲を多角形で指定":"多角形の頂点をタップ");
+  if(hint)hint.textContent=terrainCadPolygon.length?`頂点 ${terrainCadPolygon.length}点`:polygonSelectionDefaultHint();
   scheduleDraw();
 });
 document.getElementById("terrainCadFinishBtn")?.addEventListener("click",()=>finishActivePolygonSelection());
@@ -18668,8 +18804,9 @@ document.getElementById("registryToolbarBtn")?.addEventListener("click",()=>{
     return;
   }
   if(registryMapState.loaded){
-    clearRegistryMap();
-    if(registryMapPanel)registryMapPanel.style.display="none";
+    registryMapDisplayEnabled=!registryMapDisplayEnabled;
+    updateRegistryMapUi();
+    scheduleDraw();
     updateToolbarActivationUI();
     return;
   }
@@ -18704,13 +18841,24 @@ document.getElementById("registryMapCloseBtn")?.addEventListener("click",()=>{
   updateRegistryMapUi();
   updateToolbarActivationUI();
 });
+registryMapCadBtn?.addEventListener("click",()=>{
+  if(!registryMapState.loaded){showToast("先に法務局地図を取得してください",1800);return;}
+  closePanelsExcept("registryMap");
+  if(registryMapPanel)registryMapPanel.style.display="none";
+  terrainCadPolygon=[];
+  setTerrainCadSelectionOpen(true,"registry");
+  const hint=document.getElementById("terrainCadHint");if(hint)hint.textContent=polygonSelectionDefaultHint();
+  updateToolbarActivationUI();
+});
 registryMapAutoBtn?.addEventListener("click",()=>{
   if(registryMapAutoBusy){
     cancelRegistryMapOperation();
     return;
   }
   if(registryMapState.loaded){
-    clearRegistryMap();
+    registryMapDisplayEnabled=!registryMapDisplayEnabled;
+    updateRegistryMapUi();
+    scheduleDraw();
     updateToolbarActivationUI();
     return;
   }
@@ -20108,7 +20256,7 @@ if (window.visualViewport){
   window.visualViewport.addEventListener("resize", relayoutAndResizeStableDelayed);
 }
 </script>
-<script src="google-maps-links.js?v=1"></script>
+<script src="google-maps-links.js?v=2"></script>
 <script src="p2p-share.js?v=3"></script>
 <script src="pc-web-guide.js?v=1"></script>
 </body>
