@@ -18,6 +18,19 @@ function decodeBase64(value){return Buffer.from(value,"base64");}
 function drawingAnchorForName(drawing,name){
   return (drawing.match(/<xdr:twoCellAnchor[\s\S]*?<\/xdr:twoCellAnchor>/g)||[]).find(anchor=>anchor.includes(`name="${name}"`))||"";
 }
+function anchorMarker(anchor,tag){
+  const block=anchor.match(new RegExp(`<xdr:${tag}>([\\s\\S]*?)<\\/xdr:${tag}>`))?.[1]||"";
+  const number=name=>Number(block.match(new RegExp(`<xdr:${name}>(-?\\d+)<\\/xdr:${name}>`))?.[1]||0);
+  return {col:number("col"),colOff:number("colOff"),row:number("row"),rowOff:number("rowOff")};
+}
+function assertQrInsidePhoto(drawing,number,label){
+  const photo=drawingAnchorForName(drawing,`写真 ${number}`),qr=drawingAnchorForName(drawing,`GoogleマップQR ${number}`);
+  if(!photo||!qr)throw new Error(`${label}の写真またはQRがありません`);
+  const pf=anchorMarker(photo,"from"),pt=anchorMarker(photo,"to"),qf=anchorMarker(qr,"from"),qt=anchorMarker(qr,"to");
+  const afterOrEqual=(a,b,axis)=>a[axis]>b[axis]||(a[axis]===b[axis]&&a[`${axis}Off`]>=b[`${axis}Off`]);
+  const beforeOrEqual=(a,b,axis)=>a[axis]<b[axis]||(a[axis]===b[axis]&&a[`${axis}Off`]<=b[`${axis}Off`]);
+  if(!afterOrEqual(qf,pf,"col")||!beforeOrEqual(qt,pt,"col")||!afterOrEqual(qf,pf,"row")||!beforeOrEqual(qt,pt,"row"))throw new Error(`${label}のQRが写真右上の内部にありません`);
+}
 async function inspectWorkbook(buffer,expectedEndColumn,minimumImages){
   const zip=await JSZip.loadAsync(buffer);
   const workbook=await zip.file("xl/workbook.xml").async("string");
@@ -46,6 +59,12 @@ let browser;
   await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:"commit",timeout:10000});
   await page.waitForFunction(()=>typeof window.eval("buildPhotoAlbumXlsx")==="function",null,{timeout:10000});
   const output=await page.evaluate(()=>window.eval(`(async()=>{
+    window.GoogleMapsLinkFeature={...(window.GoogleMapsLinkFeature||{}),createPhotoQrImage:async item=>{
+      const canvas=document.createElement('canvas');canvas.width=120;canvas.height=120;
+      const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,120,120);context.fillStyle='#000';context.fillRect(8,8,104,104);
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+      return {blob,width:120,height:120,extension:'png',contentType:'image/png',url:'https://maps.google.com/?q=35,134'};
+    }};
     loadedSfcText="test";
     data={lines:[[0,0,1000,0,"L"],[1000,0,1000,1000,"L"],[1000,1000,0,1000,"L"]],polys:[],splines:[],texts:[],circles:[],arcs:[],ellipses:[],ellipseArcs:[],markers:[],layerNames:{L:"L"},source_name:"test.sfc",_drawingToPaperScale:1};
     layerVisibility.L=true;photoSourceFiles.clear();
@@ -56,13 +75,14 @@ let browser;
       const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.9));
       photoSourceFiles.set(photoAlbumSourceKey(item.fileName),new File([blob],item.fileName,{type:'image/jpeg'}));
     }
-    const settings={comment1:'number',comment2:'fileName',comment3:'capturedAt',custom1:'',custom2:'',custom3:'',miniMap:true,spread:false};
+    const settings={comment1:'number',comment2:'fileName',comment3:'capturedAt',custom1:'',custom2:'',custom3:'',miniMap:true,mapQr:true,spread:false};
     const encode=async blob=>{const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(binary);};
     const progress=[],stages=[];
     const threeBlob=await buildPhotoAlbumXlsx({...settings,layout:'3'},(completed,total)=>progress.push(completed+'/'+total),stage=>stages.push(stage));
     return {
       two:await encode(await buildPhotoAlbumXlsx({...settings,layout:'2'})),three:await encode(threeBlob),four:await encode(await buildPhotoAlbumXlsx({...settings,layout:'4'})),six:await encode(await buildPhotoAlbumXlsx({...settings,layout:'6'})),eight:await encode(await buildPhotoAlbumXlsx({...settings,layout:'8'})),
       spread2:await encode(await buildPhotoAlbumXlsx({...settings,layout:'2',spread:true})),spread3:await encode(await buildPhotoAlbumXlsx({...settings,layout:'3',spread:true})),spread4:await encode(await buildPhotoAlbumXlsx({...settings,layout:'4',spread:true})),spread6:await encode(await buildPhotoAlbumXlsx({...settings,layout:'6',spread:true})),spread8:await encode(await buildPhotoAlbumXlsx({...settings,layout:'8',spread:true})),
+      qrOnly2:await encode(await buildPhotoAlbumXlsx({...settings,layout:'2',miniMap:false})),qrOnly3:await encode(await buildPhotoAlbumXlsx({...settings,layout:'3',miniMap:false})),qrOnly4:await encode(await buildPhotoAlbumXlsx({...settings,layout:'4',miniMap:false})),qrOnly6:await encode(await buildPhotoAlbumXlsx({...settings,layout:'6',miniMap:false})),qrOnly8:await encode(await buildPhotoAlbumXlsx({...settings,layout:'8',miniMap:false})),
       progress,stages
     };
   })()`));
@@ -76,6 +96,17 @@ let browser;
   const spread4=await inspectWorkbook(decodeBase64(output.spread4),"Y",8);
   const spread6=await inspectWorkbook(decodeBase64(output.spread6),"M",8);
   const spread8=await inspectWorkbook(decodeBase64(output.spread8),"M",6);
+  const qrOnly=[
+    ["2枚",await inspectWorkbook(decodeBase64(output.qrOnly2),"M",12)],
+    ["3枚",await inspectWorkbook(decodeBase64(output.qrOnly3),"M",12)],
+    ["4枚",await inspectWorkbook(decodeBase64(output.qrOnly4),"M",12)],
+    ["6枚",await inspectWorkbook(decodeBase64(output.qrOnly6),"M",12)],
+    ["8枚",await inspectWorkbook(decodeBase64(output.qrOnly8),"M",12)]
+  ];
+  for(const [label,book] of qrOnly){
+    if(book.drawing.includes('name="豆図 1"'))throw new Error(`${label}の豆図OFFで豆図が残っています`);
+    assertQrInsidePhoto(book.drawing,1,label);
+  }
   if(process.env.PHOTO_ALBUM_TEST_OUTPUT){
     fs.mkdirSync(process.env.PHOTO_ALBUM_TEST_OUTPUT,{recursive:true});
     fs.writeFileSync(path.join(process.env.PHOTO_ALBUM_TEST_OUTPUT,"photo-album-2.xlsx"),decodeBase64(output.two));

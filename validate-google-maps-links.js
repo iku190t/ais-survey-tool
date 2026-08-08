@@ -138,7 +138,7 @@ let browser;
   }
   if(pageErrors.length)throw new Error(`ページエラー: ${pageErrors.join(" | ")}`);
   const qrAnchor=(drawing.match(/<xdr:twoCellAnchor[\s\S]*?<\/xdr:twoCellAnchor>/g)||[]).find(anchor=>anchor.includes('rIdLink2'))||"";
-  if(!/<xdr:from>[\s\S]*?<xdr:col>(?:7|8|9|10|11|12)<\/xdr:col>/.test(qrAnchor))throw new Error("Mini-map OFF QR is not in the mini-map area");
+  if(!/<xdr:from>[\s\S]*?<xdr:col>(?:4|5)<\/xdr:col>/.test(qrAnchor))throw new Error("Mini-map OFF QR is not at the photo's top-right");
   console.log("Google two-point windows and clickable photo-album QR validated");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   if(browser)await browser.close();server.close();

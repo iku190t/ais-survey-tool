@@ -15003,28 +15003,21 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
     if(!feature||typeof feature.createPhotoQrImage!=="function")throw new Error("QRコード作成機能を読み込めません");
     return feature.createPhotoQrImage(item);
   };
-  const addStandalonePhotoQr=async(item,rect)=>{
-    if(!useMapQr)return;
-    const qr=await createPhotoQr(item);if(!qr)return;
-    const aspect=qr.height/Math.max(1,qr.width);
-    const qrWidth=Math.max(46,Math.min(62,rect.width*.38,rect.height*.72/Math.max(aspect,.1)));
-    const qrHeight=qrWidth*aspect;
-    addImage(qr,{x:rect.x+(rect.width-qrWidth)/2,y:rect.y+(rect.height-qrHeight)/2,width:qrWidth,height:qrHeight},`GoogleマップQR ${item.number}`,{href:qr.url});
-  };
   const addPhotoImage=async(photo,rect,name,item)=>{
     const placed=fitPhotoAlbumImage(photo,rect);
     addImage(photo,placed,name);
-    // If a mini-map slot exists but is switched off, the QR is placed in that
-    // slot later instead of covering the photo. The 8-photo layout has no
-    // mini-map slot, so it keeps the top-right photo placement.
-    if(!useMapQr||(!useMiniMap&&miniMapAllowed))return placed;
+    // QR always stays at the photo's top-right, independently of mini-map use.
+    if(!useMapQr)return placed;
     const qr=await createPhotoQr(item);
     if(!qr)return placed;
     const aspect=qr.height/Math.max(1,qr.width);
-    const qrWidth=Math.max(48,Math.min(70,placed.width*.24,placed.height*.32/Math.max(aspect,.1)));
+    const baseQrWidth=Math.max(48,Math.min(70,placed.width*.24,placed.height*.32/Math.max(aspect,.1)));
+    const qrWidth=baseQrWidth*.7;
     const qrHeight=qrWidth*aspect;
     const inset=Math.max(3,qrWidth*.045);
-    addImage(qr,{x:placed.x+placed.width-qrWidth-inset,y:placed.y+Math.max(0,inset-2),width:qrWidth,height:qrHeight},`GoogleマップQR ${item.number}`,{href:qr.url});
+    const topInset=Math.max(0,inset-2);
+    const rightInset=(photosPerPage===6||photosPerPage===8)?topInset:inset;
+    addImage(qr,{x:placed.x+placed.width-qrWidth-rightInset,y:placed.y+topInset,width:qrWidth,height:qrHeight},`GoogleマップQR ${item.number}`,{href:qr.url});
     return placed;
   };
   const fields=[settings.comment1,settings.comment2,settings.comment3];
@@ -15041,15 +15034,13 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       await addPhotoImage(photo,photoRect,`写真 ${item.number}`,item);
       fields.forEach((field,line)=>mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
       for(let line=fields.length;line<commentRows;line++)mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,"",false);
-      if(useMiniMap||(useMapQr&&miniMapAllowed)){
+      if(useMiniMap){
         const commentArea={x:columnLeftPx(colStart),y:photoEnd*rowPx,width:columnRangeWidthPx(colStart,colEnd),height:commentRows*rowPx};
         const miniWidth=commentArea.width*.34;
         const miniRect={x:commentArea.x+commentArea.width-miniWidth-2,y:commentArea.y+1,width:miniWidth,height:Math.max(1,commentArea.height-1)};
-        if(useMiniMap){
-          const renderScale=6;
-          const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale),{zoom:1.25,markerScale:1.25});
-          addImage(mini,miniRect,`豆図 ${item.number}`);
-        }else await addStandalonePhotoQr(item,miniRect);
+        const renderScale=6;
+        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale),{zoom:1.25,markerScale:1.25});
+        addImage(mini,miniRect,`豆図 ${item.number}`);
       }
     }else if(compact){
       const column=slot%columns,colStart=column===0?1:8,colEnd=column===0?6:13;
@@ -15061,17 +15052,15 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       const photoRect={x:columnLeftPx(colStart)+5,y:slotTop*rowPx+5,width:columnRangeWidthPx(colStart,colEnd)-10,height:(photoEnd-slotTop)*rowPx-10};
       await addPhotoImage(photo,photoRect,`写真 ${item.number}`,item);
       fields.forEach((field,line)=>mergeComment(photoEnd+1+line,commentColStart,photoEnd+1+line,commentColEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
-      if(sixPhotoLayout&&(useMiniMap||(useMapQr&&miniMapAllowed))){
+      if(sixPhotoLayout&&useMiniMap){
         // 以前の6枚書式（写真とコメント3行）は変えず、右側の点線上へ豆図だけを重ねる。
         const commentArea={x:columnLeftPx(colStart),y:photoEnd*rowPx,width:columnRangeWidthPx(colStart,colEnd),height:3*rowPx};
         const miniWidth=commentArea.width*.45,verticalExtension=6;
         const miniTop=commentArea.y-verticalExtension,miniBottom=slotBottom*rowPx;
         const miniRect={x:commentArea.x+commentArea.width-miniWidth-2,y:miniTop,width:miniWidth,height:Math.max(1,miniBottom-miniTop)};
-        if(useMiniMap){
-          const renderScale=6;
-          const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale),{zoom:1.25,markerScale:1.25});
-          addImage(mini,miniRect,`豆図 ${item.number}`);
-        }else await addStandalonePhotoQr(item,miniRect);
+        const renderScale=6;
+        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale),{zoom:1.25,markerScale:1.25});
+        addImage(mini,miniRect,`豆図 ${item.number}`);
       }
     }else{
       const front=!isSpread||page%2===0;
@@ -15084,17 +15073,15 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       const photoRect={x:columnLeftPx(photoColStart)+2,y:slotTop*rowPx+photoInsetY,width:columnRangeWidthPx(photoColStart,photoColEnd)-4,height:slotRows*rowPx-photoInsetY*2};
       await addPhotoImage(photo,photoRect,`写真 ${item.number}`,item);
       fields.forEach((field,line)=>mergeComment(slotTop+1+line*2,commentColStart,slotTop+2+line*2,commentColEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
-      if(useMiniMap||(useMapQr&&miniMapAllowed)){
+      if(useMiniMap){
         // 次の写真枠の上辺と重なって太く見えないよう、3・4枚帳は全段で1行手前まで。
         const guideEnd=(photosPerPage===3||photosPerPage===4)?slotBottom-1:slotBottom;
         for(let guideRow=slotTop+7;guideRow<=guideEnd;guideRow++)mergeComment(guideRow,commentColStart,guideRow,commentColEnd,"",false);
         const area={x:columnLeftPx(commentColStart),y:(slotTop+6)*rowPx,width:columnRangeWidthPx(commentColStart,commentColEnd),height:(slotRows-6)*rowPx};
         const marginRatio=rowsPerPage<=2?.025:rowsPerPage<=3?.04:.065;
         const miniRect={x:area.x+area.width*marginRatio,y:area.y+area.height*marginRatio,width:area.width*(1-marginRatio*2),height:area.height*(1-marginRatio*2)};
-        if(useMiniMap){
-          const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.max(720,Math.round(miniRect.width*3)),Math.max(420,Math.round(miniRect.height*3)));
-          addImage(mini,miniRect,`豆図 ${item.number}`);
-        }else await addStandalonePhotoQr(item,miniRect);
+        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.max(720,Math.round(miniRect.width*3)),Math.max(420,Math.round(miniRect.height*3)));
+        addImage(mini,miniRect,`豆図 ${item.number}`);
       }else if(slotBottom>=slotTop+7){
         const guideEnd=(photosPerPage===3||photosPerPage===4)?slotBottom-1:slotBottom;
         for(let guideRow=slotTop+7;guideRow<=guideEnd;guideRow++)mergeComment(guideRow,commentColStart,guideRow,commentColEnd,"",false);
