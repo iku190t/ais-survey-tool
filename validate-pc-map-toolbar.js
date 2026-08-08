@@ -17,7 +17,11 @@ for(const id of toolbarIds){
   if(!/data-tooltip=["'][^"']+["']/.test(tag[0]))throw new Error(`missing tooltip: ${id}`);
 }
 for(const token of [
-  "function togglePcMapToolbarPanel(panel,openButton)",
+  "function togglePcMapToolbarPanel(panel,openButton,anchorButton)",
+  "function positionPcToolbarPanel(panel,anchorButton)",
+  "function scheduleMapFeatureWarmup()",
+  "function getFullViewSafeTop(h)",
+  'registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?(registryMapDisplayEnabled?"非表示":"表示"):"境界"',
   "#aerialPhotoPanel #terrainPanelOpenBtn",
   'document.querySelectorAll("[data-tooltip]")',
   'data-tooltip="制作：株式会社アイズ測量"'
@@ -87,11 +91,30 @@ let browser;
   if(viewerTip!=="制作：株式会社アイズ測量")throw new Error(`viewer tooltip failed: ${viewerTip}`);
   await desktop.locator("#terrainToolbarBtn").click();
   if(!(await desktop.locator("#terrainPanel").isVisible()))throw new Error("terrain panel did not open from PC toolbar");
+  const terrainPlacement=await desktop.evaluate(()=>{
+    const button=document.getElementById("terrainToolbarBtn").getBoundingClientRect();
+    const panel=document.getElementById("terrainPanel").getBoundingClientRect();
+    const controls=["layerFab","undoFab","redoFab"].map(id=>document.getElementById(id)).filter(Boolean)
+      .filter(element=>getComputedStyle(element).display!=="none").map(element=>element.getBoundingClientRect());
+    return {buttonCenter:button.left+button.width/2,panelLeft:panel.left,panelRight:panel.right,panelTop:panel.top,safeBottom:Math.max(0,...controls.map(rect=>rect.bottom))};
+  });
+  if(terrainPlacement.panelTop<terrainPlacement.safeBottom+4||terrainPlacement.buttonCenter<terrainPlacement.panelLeft-12||terrainPlacement.buttonCenter>terrainPlacement.panelRight+12){
+    throw new Error(`terrain panel was not placed by its toolbar button: ${JSON.stringify(terrainPlacement)}`);
+  }
   if(!(await desktop.locator("#terrainToolbarBtn").evaluate(element=>element.classList.contains("modeActive"))))throw new Error("terrain toolbar active state was not shown");
   if(await desktop.locator("#aerialPhotoPanel").isVisible())throw new Error("background panel opened with PC terrain panel");
   await desktop.locator("#terrainToolbarBtn").click();
   if(await desktop.locator("#terrainPanel").isVisible())throw new Error("terrain panel did not close from PC toolbar");
   await desktop.locator("#bgBtn").click();
+
+  const fitState=await desktop.evaluate(()=>{
+    data.lines=[[0,0,1000,0,1,1,1],[1000,0,1000,500,1,1,1],[1000,500,0,500,1,1,1],[0,500,0,0,1,1,1]];
+    data.polylines=[];data.texts=[];data.circles=[];data.arcs=[];data.ellipses=[];data.ellipseArcs=[];data.markers=[];
+    initialLoadRotationDeg=45;rotationDeg=45;fitToScreen();
+    const points=[[0,0],[1000,0],[1000,500],[0,500]].map(([x,y])=>worldToScreen(x,y));
+    return {minY:Math.min(...points.map(point=>point[1])),maxY:Math.max(...points.map(point=>point[1])),height:canvas.clientHeight,safeTop:getFullViewSafeTop(canvas.clientHeight)};
+  });
+  if(fitState.minY<fitState.safeTop-2||fitState.maxY>fitState.height+2)throw new Error(`rotated full view clipped by toolbar area: ${JSON.stringify(fitState)}`);
   if(!(await desktop.locator("#aerialPhotoPanel").isVisible()))throw new Error("PC background panel did not open");
   if(await desktop.locator("#terrainPanelOpenBtn").isVisible())throw new Error("PC background panel still contains terrain button");
   await desktop.locator("#bgBtn").click();

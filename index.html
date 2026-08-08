@@ -1678,10 +1678,10 @@ gtag('config', 'G-88B9YPJXWP');
   <div id="registryMapPanel" class="panel">
     <div class="registryHeader"><div class="registryTitle">法務局地図・境界</div><button id="registryMapCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <div class="registryActions">
-      <button id="registryMapAutoBtn" type="button" aria-pressed="false">図面範囲</button>
+      <button id="registryMapAutoBtn" type="button" aria-pressed="false">境界</button>
       <button id="registryMapCadBtn" type="button" disabled>範囲を選んでCAD化</button>
     </div>
-    <div id="registryMapStatus">「図面範囲」を押すと、その範囲だけ取得します。</div>
+    <div id="registryMapStatus">「境界」を押すと、その範囲だけ取得します。</div>
     <div id="registryLayerList" aria-label="法務局地図レイヤー">
       <div class="registryLayerRow"><input id="registryParcelLayerToggle" type="checkbox" checked><label class="registryLayerToggleLabel" for="registryParcelLayerToggle">筆ポリゴンレイヤー</label><button id="registryParcelColorBtn" class="registryColorButton" type="button" data-registry-layer="parcel" aria-label="筆ポリゴンの色を変更" title="筆ポリゴンの色を変更"></button></div>
       <div class="registryLayerRow"><input id="registryBoundaryLayerToggle" type="checkbox" checked><label class="registryLayerToggleLabel" for="registryBoundaryLayerToggle">筆界線レイヤー</label><button id="registryBoundaryColorBtn" class="registryColorButton" type="button" data-registry-layer="boundary" aria-label="筆界線の色を変更" title="筆界線の色を変更"></button></div>
@@ -2043,7 +2043,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">背景色</div>上部の <b>背景</b> を押し、黒・白のうち表示したい背景色を選びます。青色になっている方が現在の設定です。</div>
               <div class="helpBlock"><div class="helpHead">航空写真</div><b>航空写真</b> のスイッチをONにすると、現在の場所で実際に利用できる写真年代を自動確認します。OFFの状態でもスライダーを操作すると自動的にONになります。</div>
               <div class="helpBlock"><div class="helpHead">基盤地図</div>図面と同じ位置の地理院地図Vectorを、必要なときだけ表示します。表示中の範囲だけ通信で取得し、等高線など地形解析の要素は混ぜません。PCは上部の<b>基盤地図</b>、スマホは背景内のスイッチを押すと表示し、もう一度押すと解除します。図面を開いた直後はOFFです。</div>
-      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開き、<b>図面範囲</b>を押すと、その範囲の公開データを取得して表示します。取得中は共通の進捗バーを表示し、同じボタンまたはPC上部の青い法務地図ボタンを押すとキャンセルできます。PCは容量確認なしで開始し、スマホだけ通信容量の確認を表示します。取得後のボタンは表示・非表示の切替になり、同じ図面を開いている間は取得データを保持するため再ダウンロードしません。<b>範囲を選んでCAD化</b>では、多角形で囲んだ筆ポリゴン・筆界線・筆界点・地番文字を専用レイヤーへ追加し、SFCと一緒に保存できます。筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
+      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開き、<b>境界</b>を押すと、その範囲の公開データを取得して表示します。取得中は共通の進捗バーを表示し、同じボタンまたはPC上部の青い法務地図ボタンを押すとキャンセルできます。PCは容量確認なしで開始し、スマホだけ通信容量の確認を表示します。取得後のボタンは表示・非表示の切替になり、同じ図面を開いている間は取得データを保持するため再ダウンロードしません。<b>範囲を選んでCAD化</b>では、多角形で囲んだ筆ポリゴン・筆界線・筆界点・地番文字を専用レイヤーへ追加し、SFCと一緒に保存できます。筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
               <div class="helpBlock"><div class="helpHead">ハザードマップ</div><b>ハザードマップ</b>から洪水・土砂災害・高潮・津波を1種類ずつ表示できます。選択中の青いボタンをもう一度押すと解除します。国土地理院ハザードマップポータルサイトの公開タイルを表示範囲だけ取得します。表示は参考情報のため、避難判断は自治体のハザードマップと最新の防災情報で確認してください。</div>
       <div class="helpBlock"><div class="helpHead">基準点・水準点</div><b>基準点・水準点</b>をONにすると、国土地理院の公開位置情報を図面へ重ね、図面上に種類の凡例を表示します。三角点・その他の基準点、水準点、電子基準点を個別に表示できます。記号をタップすると、点名・種類・基準点コード・成果状態を確認できます。表示位置は検索・現地確認の参考です。正式な成果値は国土地理院の基準点成果等閲覧サービスで確認してください。</div>
               <div class="helpBlock"><div class="helpHead">年代の変更</div>つまみは指に合わせて滑らかに動き、移動中は最も近い利用可能な年代の写真へ切り替わります。指を離すと、その年代の位置へ吸着します。左端が最新で、右へ動かすほど古くなります。</div>
@@ -2477,6 +2477,9 @@ let profileEndWorld = null;
 let profileHoverWorld = null;
 let profileData = null;
 let profileZone = null;
+let profileZoneResolvePromise = null;
+let profileZoneResolveKey = "";
+let mapFeatureWarmupTimer = 0;
 let activeCoordinateMeshTransform = null;
 let profileTouchCandidate = null;
 let profileGraphScaleX = 1;
@@ -3206,24 +3209,47 @@ async function resolveProfileZone(){
     updateCoordinateSystemStatus(manualZone);
     return manualZone;
   }
-  // A live device position must win over a stale per-drawing cache. Adjacent
-  // Japanese plane-coordinate zones can otherwise displace imagery by 100 km+.
-  if (gpsPosition){
-    const zone = profileZoneFromDevicePosition({coords:{latitude:gpsPosition.lat, longitude:gpsPosition.lon}});
-    if (zone){updateCoordinateSystemStatus(zone);return zone;}
+  const drawingKey=getProfileDrawingKey()||"__current__";
+  if(profileZone&&profileZone>=1&&profileZone<=19){
+    updateCoordinateSystemStatus(profileZone);
+    return profileZone;
   }
-  if (navigator.geolocation){
-    const pos = await new Promise(resolve=>{
-      navigator.geolocation.getCurrentPosition(resolve, ()=>resolve(null), {
-        enableHighAccuracy:false, maximumAge:300000, timeout:8000
+  if(profileZoneResolvePromise&&profileZoneResolveKey===drawingKey)return profileZoneResolvePromise;
+  const requestKey=drawingKey;
+  profileZoneResolveKey=requestKey;
+  profileZoneResolvePromise=(async()=>{
+    let resolved=null;
+    // A live device position must win over a stale per-drawing cache. Adjacent
+    // Japanese plane-coordinate zones can otherwise displace imagery by 100 km+.
+    if(gpsPosition){
+      resolved=profileZoneFromDevicePosition({coords:{latitude:gpsPosition.lat, longitude:gpsPosition.lon}});
+    }
+    if(!resolved&&navigator.geolocation){
+      const pos=await new Promise(resolve=>{
+        navigator.geolocation.getCurrentPosition(resolve,()=>resolve(null),{
+          enableHighAccuracy:false,maximumAge:300000,timeout:8000
+        });
       });
-    });
-    const zone=profileZoneFromDevicePosition(pos);
-    if(zone){updateCoordinateSystemStatus(zone);return zone;}
-  }
-  const remembered=getRememberedProfileZone();
-  updateCoordinateSystemStatus(remembered);
-  return remembered;
+      resolved=profileZoneFromDevicePosition(pos);
+    }
+    if(!resolved){
+      const remembered=getRememberedProfileZone();
+      if(remembered)resolved=remembered;
+    }
+    if(profileZoneResolveKey!==requestKey||getProfileDrawingKey()!==requestKey)return null;
+    const currentManualZone=getManualCoordinateZone();
+    if(currentManualZone){
+      profileZone=currentManualZone;
+      updateCoordinateSystemStatus(currentManualZone);
+      return currentManualZone;
+    }
+    profileZone=resolved||null;
+    updateCoordinateSystemStatus(profileZone);
+    return profileZone;
+  })().finally(()=>{
+    if(profileZoneResolveKey===requestKey){profileZoneResolvePromise=null;profileZoneResolveKey="";}
+  });
+  return profileZoneResolvePromise;
 }
 function profileTileRef(lat, lon, z){
   const n = Math.pow(2, z);
@@ -4574,6 +4600,25 @@ async function loadVectorTileDecoder(){
     })).catch(error=>{vectorTileDecoderPromise=null;throw error;});
   }
   return vectorTileDecoderPromise;
+}
+function scheduleMapFeatureWarmup(){
+  clearTimeout(mapFeatureWarmupTimer);
+  mapFeatureWarmupTimer=0;
+  if(!hasLoadedDrawing()||!isDesktopPhotoTool())return;
+  const drawingKey=getProfileDrawingKey();
+  const warmup=()=>{
+    mapFeatureWarmupTimer=0;
+    if(!hasLoadedDrawing()||!isDesktopPhotoTool()||getProfileDrawingKey()!==drawingKey)return;
+    // Prepare only the lightweight shared dependencies. Actual map tiles and
+    // registry ZIP data are still fetched only after the user requests them.
+    resolveProfileZone().catch(()=>{});
+    loadVectorTileDecoder().catch(()=>{});
+  };
+  if(typeof requestIdleCallback==="function"){
+    requestIdleCallback(warmup,{timeout:900});
+  }else{
+    mapFeatureWarmupTimer=setTimeout(warmup,180);
+  }
 }
 function paintVectorBaseFeature(tileCtx,feature,kind,scale){
   let geometry;
@@ -6560,6 +6605,7 @@ function openTextSearchPopup(){
   updateTextSearchModeUI();
   updateTextSearchResultUI();
   updateTextSearchPopupUI();
+  requestAnimationFrame(positionPcTextSearchPanel);
   if (textSearchInput){
     textSearchInput.value = textSearchState && textSearchState.raw ? textSearchState.raw : "";
     setTimeout(()=>{
@@ -6986,6 +7032,89 @@ function isTouchMobileLike(){
 }
 function isDesktopPhotoTool(){
   return window.innerWidth >= 821 && !isTouchMobileLike();
+}
+const PC_TOOLBAR_PANEL_ANCHORS=[
+  ["aerialPhotoPanel","bgBtn"],
+  ["foundationMapPanel","backgroundSxfToolbarBtn"],
+  ["terrainPanel","terrainToolbarBtn"],
+  ["registryMapPanel","registryToolbarBtn"],
+  ["controlPointPanel","controlPointToolbarBtn"],
+  ["hazardMapPanel","hazardToolbarBtn"],
+  ["measureModePanel","measureBtn"],
+  ["measureBox","measureBtn"],
+  ["drawPanel","drawBtn"],
+  ["settingsPanel","settingsBtn"]
+];
+function getPcToolbarPanelSafeTop(){
+  const wrapRect=wrap.getBoundingClientRect();
+  let safeTop=8;
+  for(const id of ["layerFab","undoFab","redoFab"]){
+    const element=document.getElementById(id);
+    if(!element||getComputedStyle(element).display==="none")continue;
+    const rect=element.getBoundingClientRect();
+    safeTop=Math.max(safeTop,rect.bottom-wrapRect.top+7);
+  }
+  return Math.max(8,safeTop);
+}
+function clearPcToolbarPanelPosition(panel){
+  if(!panel)return;
+  for(const property of ["left","right","top","bottom","transform"])panel.style.removeProperty(property);
+}
+function positionPcToolbarPanel(panel,anchorButton){
+  if(!panel||!anchorButton)return;
+  if(!isDesktopPhotoTool()){
+    clearPcToolbarPanelPosition(panel);
+    return;
+  }
+  if(getComputedStyle(panel).display==="none")return;
+  const wrapRect=wrap.getBoundingClientRect();
+  const anchorRect=anchorButton.getBoundingClientRect();
+  const panelRect=panel.getBoundingClientRect();
+  const margin=8,safeTop=getPcToolbarPanelSafeTop();
+  const panelWidth=Math.min(panelRect.width||panel.offsetWidth||280,Math.max(1,wrapRect.width-margin*2));
+  const panelHeight=Math.min(panelRect.height||panel.offsetHeight||120,Math.max(1,wrapRect.height-safeTop-margin));
+  let left=anchorRect.left-wrapRect.left+(anchorRect.width-panelWidth)/2;
+  left=Math.max(margin,Math.min(wrapRect.width-panelWidth-margin,left));
+  let top=Math.max(safeTop,anchorRect.bottom-wrapRect.top+7);
+  top=Math.max(safeTop,Math.min(wrapRect.height-panelHeight-margin,top));
+  panel.style.left=`${Math.round(left)}px`;
+  panel.style.right="auto";
+  panel.style.top=`${Math.round(top)}px`;
+  panel.style.bottom="auto";
+  panel.style.transform="none";
+}
+function positionPcTextSearchPanel(){
+  if(!textSearchModal||!textSearchModalBox||!textSearchOpenBtn)return;
+  if(!isDesktopPhotoTool()){
+    for(const property of ["padding","justify-content","align-items"])textSearchModal.style.removeProperty(property);
+    for(const property of ["position","left","right","top","bottom","transform"])textSearchModalBox.style.removeProperty(property);
+    return;
+  }
+  if(!textSearchPopupOpen||getComputedStyle(textSearchModal).display==="none")return;
+  const wrapRect=wrap.getBoundingClientRect(),buttonRect=textSearchOpenBtn.getBoundingClientRect();
+  const boxRect=textSearchModalBox.getBoundingClientRect(),margin=8;
+  const safeTop=wrapRect.top+getPcToolbarPanelSafeTop();
+  let left=buttonRect.left+(buttonRect.width-boxRect.width)/2;
+  left=Math.max(margin,Math.min(window.innerWidth-boxRect.width-margin,left));
+  let top=Math.max(safeTop,buttonRect.bottom+7);
+  top=Math.max(safeTop,Math.min(window.innerHeight-boxRect.height-margin,top));
+  textSearchModal.style.padding="0";
+  textSearchModal.style.justifyContent="flex-start";
+  textSearchModal.style.alignItems="flex-start";
+  textSearchModalBox.style.position="fixed";
+  textSearchModalBox.style.left=`${Math.round(left)}px`;
+  textSearchModalBox.style.right="auto";
+  textSearchModalBox.style.top=`${Math.round(top)}px`;
+  textSearchModalBox.style.bottom="auto";
+  textSearchModalBox.style.transform="none";
+}
+function refreshPcToolbarPanelPositions(){
+  for(const [panelId,buttonId] of PC_TOOLBAR_PANEL_ANCHORS){
+    const panel=document.getElementById(panelId),button=document.getElementById(buttonId);
+    if(!isDesktopPhotoTool())clearPcToolbarPanelPosition(panel);
+    else if(panel&&getComputedStyle(panel).display!=="none")positionPcToolbarPanel(panel,button);
+  }
+  positionPcTextSearchPanel();
 }
 function updatePcMapToolbarVisibility(){
   const desktop=isDesktopPhotoTool();
@@ -8615,7 +8744,13 @@ function getMainViewBounds(visibleOnly=true){
   }
   for(const t of data.texts||[]) if(shown(t.layer)) push(t.x,t.y);
   for(const m of data.markers||[]) if(shown(m.layer)) push(m.x,m.y);
-  if(pts.length<30) return full;
+  if(!pts.length)return full;
+  const rotatedFull={minx:Infinity,miny:Infinity,maxx:-Infinity,maxy:-Infinity};
+  for(const p of pts){
+    rotatedFull.minx=Math.min(rotatedFull.minx,p[0]);rotatedFull.miny=Math.min(rotatedFull.miny,p[1]);
+    rotatedFull.maxx=Math.max(rotatedFull.maxx,p[0]);rotatedFull.maxy=Math.max(rotatedFull.maxy,p[1]);
+  }
+  if(pts.length<30) return rotatedFull;
 
   // Limit sorting cost on very large drawings while sampling the entire file.
   if(pts.length>40000){
@@ -8629,7 +8764,7 @@ function getMainViewBounds(visibleOnly=true){
     for(const p of list){ minx=Math.min(minx,p[0]); miny=Math.min(miny,p[1]); maxx=Math.max(maxx,p[0]); maxy=Math.max(maxy,p[1]); }
     return {minx,miny,maxx,maxy};
   };
-  const fw=full.maxx-full.minx, fh=full.maxy-full.miny;
+  const fw=rotatedFull.maxx-rotatedFull.minx, fh=rotatedFull.maxy-rotatedFull.miny;
   const candidates=[];
   const addCandidate=(list,options={})=>{
     const authoritative=options.authoritative===true;
@@ -8700,11 +8835,23 @@ function getMainViewBounds(visibleOnly=true){
     addCandidate(pts.filter(p=>p[0]>=minx-padX&&p[0]<=maxx+padX&&p[1]>=miny-padY&&p[1]<=maxy+padY));
   }
 
-  if(!candidates.length) return full;
+  if(!candidates.length) return rotatedFull;
   // Prefer the candidate that preserves the most geometry; area is only the
   // tie breaker.  This avoids cutting a legitimate long or sparse drawing.
   candidates.sort((a,b)=>b.priority-a.priority||b.retained-a.retained||b.area-a.area);
   return candidates[0].b;
+}
+function getFullViewSafeTop(h){
+  const canvasRect=canvas.getBoundingClientRect();
+  let safeTop=0;
+  for(const id of ["layerFab","undoFab","redoFab","gpsBtn","compassFab"]){
+    const element=document.getElementById(id);
+    if(!element||getComputedStyle(element).display==="none")continue;
+    const rect=element.getBoundingClientRect();
+    const localTop=rect.top-canvasRect.top;
+    if(localTop<32)safeTop=Math.max(safeTop,rect.bottom-canvasRect.top+6);
+  }
+  return Math.max(0,Math.min(Math.max(0,h*.22),safeTop));
 }
 function fitToScreen(){
   rotationDeg = Number.isFinite(+initialLoadRotationDeg) ? +initialLoadRotationDeg : rotationDeg;
@@ -8721,14 +8868,17 @@ function fitToScreen(){
 
   const padX=Math.min(10,Math.max(4,w*0.015));
   const padY=Math.min(12,Math.max(5,h*0.012));
-  view.scale = Math.min(Math.max(1,w-padX*2) / bw, Math.max(1,h-padY*2) / bh);
+  const safeTop=getFullViewSafeTop(h);
+  const availableTop=Math.min(h-padY,safeTop+padY);
+  const availableBottom=Math.max(availableTop+1,h-padY);
+  view.scale = Math.min(Math.max(1,w-padX*2) / bw, Math.max(1,availableBottom-availableTop) / bh);
   baseFitScale = Math.max(view.scale, 0.0001);
 
   const cx = (b.minx + b.maxx) / 2;
   const cy = (b.miny + b.maxy) / 2;
 
   view.tx = w / 2 - cx * view.scale;
-  view.ty = h / 2 + cy * view.scale;
+  view.ty = (availableTop+availableBottom)/2 + cy * view.scale;
 
   draw();
 }
@@ -8740,6 +8890,7 @@ function applyDefaultFullViewAfterLoad(){
     updateWrapLayout();
     resize(false);
     fitToScreen();
+    scheduleMapFeatureWarmup();
     showFirstUseHint("drawing","2本指で移動・拡大・回転できます。1本指で2回タップし、2回目を離さず上下に動かすと拡大・縮小できます。",4800,900);
   }));
 }
@@ -12365,7 +12516,7 @@ async function loadRegistryMapAutomatically(options={}){
     updateRegistryMapUi();scheduleDraw();
     showToast(append
       ?`${requestedWorld?"指定地点周辺":"表示範囲"}を追加しました（合計 ${registryMapState.parcels.length}筆）`
-      :`図面範囲を取得しました（筆 ${registryMapState.parcels.length}件）`,2400);
+      :`境界を取得しました（筆 ${registryMapState.parcels.length}件）`,2400);
     updateToolbarActivationUI();
   }catch(error){
     const cancelled=registryOperationIsCancelled(operationId,signal)||error?.name==="AbortError";
@@ -12512,7 +12663,7 @@ function parseRegistryXml(xmlText,sourceName){
   return result;
 }
 function registryMapSummary(state=registryMapState){
-  if(!state.loaded)return "「図面範囲」を押すと、その範囲だけ取得します。";
+  if(!state.loaded)return "「境界」を押すと、その範囲だけ取得します。";
   const coordinate=state.coordinateMode+(state.zone?`・第${state.zone}系`:"");
   const areas=(state.acquiredBounds||[]).length;
   return `${state.sourceName}　筆 ${state.parcels.length}件／筆界線 ${state.looseLines.length}件／筆界点 ${state.points.length}点　${coordinate}${areas?`　取得範囲 ${areas}件`:""}`;
@@ -12545,7 +12696,7 @@ function updateRegistryMapUi(){
     registryMapAutoBtn.disabled=false;
     registryMapAutoBtn.classList.toggle("active",!!(registryMapAutoBusy||(registryMapState.loaded&&registryMapDisplayEnabled)));
     registryMapAutoBtn.setAttribute("aria-pressed",registryMapAutoBusy||(registryMapState.loaded&&registryMapDisplayEnabled)?"true":"false");
-    registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?(registryMapDisplayEnabled?"非表示":"表示"):"図面範囲";
+    registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?(registryMapDisplayEnabled?"非表示":"表示"):"境界";
   }
   if(registryMapCadBtn)registryMapCadBtn.disabled=registryMapAutoBusy||!registryMapState.loaded;
   if(registryMapAppendBtn){
@@ -13116,7 +13267,8 @@ function resetSessionFromLoad(){
   resetMeasureUI();
   measureMode=false; measureType="2point";
   clearTimeout(profileRefreshTimer);profileRefreshTimer=0;profileRefreshVersion++;profileRefreshPending=false;
-  profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;profileZone=null;profileTouchCandidate=null;profileLineDrag=null;
+  clearTimeout(mapFeatureWarmupTimer);mapFeatureWarmupTimer=0;
+  profileMode=false;profileStartWorld=null;profileEndWorld=null;profileHoverWorld=null;profileData=null;profileZone=null;profileZoneResolvePromise=null;profileZoneResolveKey="";profileTouchCandidate=null;profileLineDrag=null;
   terrainRequestVersion++;clearTimeout(terrainRefreshTimer);terrainRefreshTimer=0;terrainGrid=null;terrainMode="";terrainLoading=false;terrainRequestedMode="";terrainReferenceElevation=null;terrainElevationRange=null;updateTerrainUi();
   if(terrainPanel)terrainPanel.style.display="none";
   if(profileModal) profileModal.classList.remove("open","expanded");
@@ -17864,6 +18016,8 @@ document.getElementById("fitBtn").addEventListener("click", (event)=>{
   btn.classList.add(pressedClass);
   setTimeout(()=>btn.classList.remove(pressedClass),150);
   if (!isDrawingActionAvailable()) return;
+  updateWrapLayout();
+  resize(false);
   fitToScreen();
 });
 document.getElementById("gpsBtn").addEventListener("click", ()=>{
@@ -17907,6 +18061,7 @@ document.getElementById("bgBtn").addEventListener("click", ()=>{
   if(aerialPhotoPanel){
     aerialPhotoPanel.style.display='block';
     updateAerialPhotoUi();
+    positionPcToolbarPanel(aerialPhotoPanel,document.getElementById("bgBtn"));
   }
 });
 document.getElementById("photoPanelCloseBtn")?.addEventListener("click",()=>{if(aerialPhotoPanel)aerialPhotoPanel.style.display="none";updateToolbarActivationUI();});
@@ -18065,6 +18220,7 @@ function setSettingsPanelOpen(open){
     closePanelsExcept("settings");
     updateSettingsPanelUi();
     settingsPanel.style.display="block";
+    positionPcToolbarPanel(settingsPanel,settingsBtn);
   }else{
     settingsPanel.style.display="none";
   }
@@ -18084,6 +18240,8 @@ if(coordinateSystemSelect)coordinateSystemSelect.addEventListener("change",async
   const value=coordinateSystemSelect.value;
   saveDrawingCoordinateSetting(value);
   profileZone=null;
+  profileZoneResolvePromise=null;
+  profileZoneResolveKey="";
   const manual=Number.parseInt(value,10);
   if(manual>=1&&manual<=19){
     applyCoordinateZoneToActiveFeatures(manual);
@@ -18792,7 +18950,7 @@ document.getElementById("terrainCadUndoBtn")?.addEventListener("click",()=>{
 });
 document.getElementById("terrainCadFinishBtn")?.addEventListener("click",()=>finishActivePolygonSelection());
 document.getElementById("terrainCadCancelBtn")?.addEventListener("click",()=>cancelActivePolygonSelection());
-function togglePcMapToolbarPanel(panel,openButton){
+function togglePcMapToolbarPanel(panel,openButton,anchorButton){
   if(!isDesktopPhotoTool()||!panel||!openButton)return;
   const wasOpen=getComputedStyle(panel).display!=="none";
   if(wasOpen){
@@ -18802,9 +18960,10 @@ function togglePcMapToolbarPanel(panel,openButton){
     return;
   }
   openButton.click();
+  positionPcToolbarPanel(panel,anchorButton||openButton);
   updateToolbarActivationUI();
 }
-document.getElementById("terrainToolbarBtn")?.addEventListener("click",()=>togglePcMapToolbarPanel(terrainPanel,document.getElementById("terrainPanelOpenBtn")));
+document.getElementById("terrainToolbarBtn")?.addEventListener("click",event=>togglePcMapToolbarPanel(terrainPanel,document.getElementById("terrainPanelOpenBtn"),event.currentTarget));
 document.getElementById("registryToolbarBtn")?.addEventListener("click",()=>{
   if(registryMapAutoBusy){
     cancelRegistryMapOperation({closePanel:true});
@@ -18817,10 +18976,10 @@ document.getElementById("registryToolbarBtn")?.addEventListener("click",()=>{
     updateToolbarActivationUI();
     return;
   }
-  togglePcMapToolbarPanel(registryMapPanel,registryMapOpenBtn);
+  togglePcMapToolbarPanel(registryMapPanel,registryMapOpenBtn,document.getElementById("registryToolbarBtn"));
 });
-document.getElementById("controlPointToolbarBtn")?.addEventListener("click",()=>togglePcMapToolbarPanel(controlPointPanel,controlPointOpenBtn));
-document.getElementById("hazardToolbarBtn")?.addEventListener("click",()=>togglePcMapToolbarPanel(hazardMapPanel,hazardMapOpenBtn));
+document.getElementById("controlPointToolbarBtn")?.addEventListener("click",event=>togglePcMapToolbarPanel(controlPointPanel,controlPointOpenBtn,event.currentTarget));
+document.getElementById("hazardToolbarBtn")?.addEventListener("click",event=>togglePcMapToolbarPanel(hazardMapPanel,hazardMapOpenBtn,event.currentTarget));
 document.getElementById("terrainPanelOpenBtn")?.addEventListener("click",()=>{
   closePanelsExcept("terrain");
   if(terrainPanel)terrainPanel.style.display="block";
@@ -19050,6 +19209,7 @@ document.getElementById("measureBtn").addEventListener("click", ()=>{
   closePanelsExcept();
   if (measureModePanel) measureModePanel.style.display = 'none';
   measureBox.style.display = "block";
+  positionPcToolbarPanel(measureBox,document.getElementById("measureBtn"));
   updateStopBtnUI();
   scheduleInteractionDraw();
 });
@@ -19081,6 +19241,7 @@ document.getElementById("drawBtn").addEventListener("click", ()=>{
   inkEnabled = true;
   closePanelsExcept('draw');
   openDrawPanelFull();
+  positionPcToolbarPanel(drawPanel,document.getElementById("drawBtn"));
   updateInkUI();
   updateStopBtnUI();
   scheduleInteractionDraw();
@@ -20180,6 +20341,7 @@ function relayoutAndResizeStable(){
       refreshEnvironmentNotice();
       updateDrawingDependentUi();
       updateDrawingDependentUi();
+      refreshPcToolbarPanelPositions();
       if (profileModal?.classList.contains("open")) {
         resizeProfileChart();
         drawProfileChart();
@@ -20190,6 +20352,7 @@ function relayoutAndResizeStable(){
       refreshEnvironmentNotice();
       updateDrawingDependentUi();
       updateDrawingDependentUi();
+      refreshPcToolbarPanelPositions();
       if (profileModal?.classList.contains("open")) {
         resizeProfileChart();
         drawProfileChart();

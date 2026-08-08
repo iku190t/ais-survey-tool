@@ -6,7 +6,7 @@ const {chromium}=require("playwright");
 const root=__dirname;
 const source=fs.readFileSync(path.join(root,"index.html"),"utf8");
 for(const token of [
-  'id="registryMapAutoBtn" type="button" aria-pressed="false">図面範囲</button>',
+  'id="registryMapAutoBtn" type="button" aria-pressed="false">境界</button>',
   'registryMapAutoBtn.classList.toggle("active",!!(registryMapAutoBusy||(registryMapState.loaded&&registryMapDisplayEnabled)))',
   'if(registryMapState.loaded){',
   'clearRegistryMap();',
@@ -63,7 +63,7 @@ let browser;
     return {afterOpen,afterAcquireClick,initial,loaded,hidden};
   });
   if(result.afterOpen!==0||result.afterAcquireClick!==1)throw new Error(`registry download trigger failed: ${JSON.stringify(result)}`);
-  if(result.initial.active||result.initial.pressed!=="false"||result.initial.text!=="図面範囲")throw new Error(`registry initial state failed: ${JSON.stringify(result.initial)}`);
+  if(result.initial.active||result.initial.pressed!=="false"||result.initial.text!=="境界")throw new Error(`registry initial state failed: ${JSON.stringify(result.initial)}`);
   if(!result.loaded.active||result.loaded.pressed!=="true"||result.loaded.text!=="非表示")throw new Error(`registry loaded state failed: ${JSON.stringify(result.loaded)}`);
   if(!result.hidden.loaded||result.hidden.parcelCount!==1||result.hidden.visible||result.hidden.active||result.hidden.pressed!=="false"||result.hidden.text!=="表示")throw new Error(`registry retained hidden state failed: ${JSON.stringify(result.hidden)}`);
   const initialFoundation=await page.evaluate(async()=>{
