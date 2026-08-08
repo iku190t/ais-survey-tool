@@ -12,7 +12,8 @@ for(const token of [
   'aria-label="ストリートビュー"',
   'id="photoAlbumMiniMap"',
   'id="photoAlbumMapQr" type="checkbox" checked',
-  '<script src="google-maps-links.js?v=8"></script>',
+  '<script src="google-maps-links.js?v=9"></script>',
+  'window.__ezGoogleLinkPendingOpen=true',
   'const useMapQr=!!settings.mapQr',
   'a:hlinkClick r:id="rIdLink${image.id}"'
 ])if(!index.includes(token))throw new Error(`Google連携の実装が不足しています: ${token}`);
@@ -23,8 +24,9 @@ for(const token of [
   "data=!3m1!1e3",'map_action:"pano"',"heading",
   "ezviewer-google-streetview","prepareExternalWindows","createPhotoQrImage",
   "externalWindowRect","previewDirectionFrom",'window.open(streetUrl,"_self")',
-  'context.setLineDash([])','drawPoint(positionWorld);if(!isDesktop())drawPoint(directionWorld);'
+  'context.setLineDash([])','drawPoint(positionWorld);','if(window.__ezGoogleLinkPendingOpen)'
 ])if(!feature.includes(token))throw new Error(`Google URL連携が不足しています: ${token}`);
+if(feature.includes('drawPoint(directionWorld)'))throw new Error("スマホの2点目に不要な丸が残っています");
 if(/maps\.googleapis\.com|AIza[0-9A-Za-z_-]+/.test(feature))throw new Error("Google Maps Platform APIまたはAPIキーが混入しています");
 
 const server=http.createServer((req,res)=>{

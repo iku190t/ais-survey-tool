@@ -193,7 +193,9 @@
       context.setLineDash([]);context.beginPath();context.moveTo(b[0],b[1]);context.lineTo(b[0]-headLength*Math.cos(angle-spread),b[1]-headLength*Math.sin(angle-spread));context.moveTo(b[0],b[1]);context.lineTo(b[0]-headLength*Math.cos(angle+spread),b[1]-headLength*Math.sin(angle+spread));context.stroke();
       context.restore();
     }
-    drawPoint(positionWorld);if(!isDesktop())drawPoint(directionWorld);
+    // The second point is represented by the arrow tip on both PC and phone.
+    // Drawing another circle there makes the direction look like a point mark.
+    drawPoint(positionWorld);
   }
   function photoLatLon(item){
     if(!item)return null;const zone=typeof getPhotoCoordinateZone==="function"?getPhotoCoordinateZone(item):null;
@@ -231,13 +233,16 @@
       @media(max-width:700px),(pointer:coarse){#googleMapsLinkBox{left:8px;right:8px;top:auto;bottom:8px;width:auto}}
     `;document.head.appendChild(style);
     const modal=document.createElement("div");modal.id="googleMapsLinkModal";modal.innerHTML=`<div id="googleMapsLinkBox" role="dialog" aria-label="Google連携"><div id="googleMapsLinkHeader"><span>Google連携</span><button id="googleMapsLinkCloseBtn" type="button">閉じる</button></div><div id="googleMapsLinkStatus"></div></div>`;document.body.appendChild(modal);
-    byId("googleMapsLinkCloseBtn").addEventListener("click",close);byId("googleMapsLinkBtn")?.addEventListener("click",event=>{event.preventDefault();toggle();});
+    byId("googleMapsLinkCloseBtn").addEventListener("click",close);
     // interactionCanvas is a draw-only overlay with pointer-events:none.
     // Bind selection to the actual input canvas so CAD points can be hit.
     const target=byId("canvas")||byId("interactionCanvas");target?.addEventListener("mousedown",interceptMouseDown,true);target?.addEventListener("click",interceptClick,true);
     window.addEventListener("mousemove",interceptMouseMove,true);
     target?.addEventListener("touchstart",interceptTouchStart,{capture:true,passive:false});target?.addEventListener("touchmove",interceptTouchMove,{capture:true,passive:false});target?.addEventListener("touchend",interceptTouchEnd,{capture:true,passive:false});
     document.addEventListener("keydown",event=>{if(event.key==="Escape"&&active){event.preventDefault();event.stopImmediatePropagation();close();}},true);syncAvailability();setButtonState();
+    // The large single-file viewer can become visible before this auxiliary
+    // script finishes loading. Preserve an early first click instead of losing it.
+    if(window.__ezGoogleLinkPendingOpen){window.__ezGoogleLinkPendingOpen=false;setTimeout(open,0);}
   }
   window.GoogleMapsLinkFeature={open,close,toggle,isActive:()=>active,syncAvailability,drawOverlay,buildMapUrl:googleMapsUrl,buildStreetViewUrl:googleStreetViewUrl,buildMapSearchUrl:googleMapsSearchUrl,bearing,selectWorldPoint,photoLatLon,createPhotoQrImage,getSelection:()=>({positionWorld:positionWorld?{...positionWorld}:null,directionWorld:directionWorld?{...directionWorld}:null})};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",installUi,{once:true});else installUi();
