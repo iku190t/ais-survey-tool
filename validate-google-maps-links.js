@@ -12,7 +12,7 @@ for(const token of [
   'aria-label="ストリートビュー"',
   'id="photoAlbumMiniMap"',
   'id="photoAlbumMapQr" type="checkbox" checked',
-  '<script src="google-maps-links.js?v=7"></script>',
+  '<script src="google-maps-links.js?v=8"></script>',
   'const useMapQr=!!settings.mapQr',
   'a:hlinkClick r:id="rIdLink${image.id}"'
 ])if(!index.includes(token))throw new Error(`Google連携の実装が不足しています: ${token}`);
@@ -23,7 +23,7 @@ for(const token of [
   "data=!3m1!1e3",'map_action:"pano"',"heading",
   "ezviewer-google-streetview","prepareExternalWindows","createPhotoQrImage",
   "externalWindowRect","previewDirectionFrom",'window.open(streetUrl,"_self")',
-  'context.setLineDash([])','drawPoint(positionWorld);drawPoint(directionWorld);'
+  'context.setLineDash([])','drawPoint(positionWorld);if(!isDesktop())drawPoint(directionWorld);'
 ])if(!feature.includes(token))throw new Error(`Google URL連携が不足しています: ${token}`);
 if(/maps\.googleapis\.com|AIza[0-9A-Za-z_-]+/.test(feature))throw new Error("Google Maps Platform APIまたはAPIキーが混入しています");
 
@@ -127,7 +127,7 @@ let browser;
     fireTouch("touchend",[]);await new Promise(resolve=>setTimeout(resolve,230));
     return {opened,afterTap,onSecondTouch,livePreview,afterSecond:GoogleMapsLinkFeature.getSelection(),active:GoogleMapsLinkFeature.isActive(),status:document.getElementById("googleMapsLinkStatus").textContent};
   });
-  if(!mobile.afterTap.positionWorld||!mobile.afterTap.directionWorld)throw new Error(`スマホの1点タップで矢印が作成されません: ${JSON.stringify(mobile)}`);
+  if(!mobile.afterTap.positionWorld||mobile.afterTap.directionWorld)throw new Error(`スマホの1点目より先に矢印が表示されています: ${JSON.stringify(mobile)}`);
   if(Math.abs(mobile.onSecondTouch.directionWorld.x-380)>.01||Math.abs(mobile.livePreview.directionWorld.x-400)>.01)throw new Error(`スマホの実線矢印が指へ追従しません: ${JSON.stringify(mobile)}`);
   if(mobile.opened.length!==1||mobile.opened[0].name!=="_self"||!mobile.opened[0].url.includes("map_action=pano")||mobile.opened.some(item=>item.url==="about:blank"||item.url.includes("data=!3m1!1e3")))throw new Error(`スマホがストリートビューだけを直接開きません: ${JSON.stringify(mobile.opened)}`);
   if(mobile.active||Math.abs(mobile.afterSecond.directionWorld.x-400)>.01||Math.abs(mobile.afterSecond.directionWorld.y-260)>.01)throw new Error(`スマホの2点目確定後にGoogle連携が終了しません: ${JSON.stringify(mobile)}`);

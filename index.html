@@ -953,11 +953,12 @@ body.light #compassMenu{background:rgba(255,255,255,.90);}
 #googleMapsLinkBtn{
   position:absolute;right:12px;top:calc(58px + var(--cad-toolbar-offset,40px));z-index:70;
   width:40px;height:40px;padding:0!important;border-radius:9px;
-  background:#fff;border:1px solid rgba(0,0,0,.25);box-shadow:0 5px 15px rgba(0,0,0,.30);
+  color:#fff;background:rgba(24,24,28,.92);border:1px solid var(--border);box-shadow:0 5px 15px rgba(0,0,0,.30);
 }
-#googleMapsLinkBtn svg{width:27px;height:27px;stroke:none;fill:none;}
-#googleMapsLinkBtn.modeActive{background:#dcecff;border-color:#1677ff;box-shadow:0 0 0 2px rgba(22,119,255,.30),0 5px 15px rgba(0,0,0,.30);}
+#googleMapsLinkBtn svg{width:28px;height:28px;stroke:none;fill:none;}
+#googleMapsLinkBtn.modeActive{color:#17171a;background:#dcecff;border-color:#1677ff;box-shadow:0 0 0 2px rgba(22,119,255,.30),0 5px 15px rgba(0,0,0,.30);}
 #googleMapsLinkBtn.unavailableTool{opacity:.42;filter:grayscale(.55);cursor:default;}
+body.light #googleMapsLinkBtn{color:#17171a;background:rgba(255,255,255,.94);}
 
 
 .toolIconBtn{
@@ -1408,10 +1409,12 @@ gtag('config', 'G-88B9YPJXWP');
   </div>
   <button id="googleMapsLinkBtn" class="toolIconBtn" data-tooltip="図面上で2点を指定し、Googleストリートビューを開く" aria-label="ストリートビュー">
     <svg viewBox="0 0 28 28" aria-hidden="true">
-      <circle cx="14" cy="14" r="12" fill="#4285f4"></circle>
-      <ellipse cx="14" cy="24" rx="7.5" ry="1.7" fill="#174ea6" opacity=".65"></ellipse>
-      <circle cx="14" cy="7.3" r="3.2" fill="#fbbc04" stroke="#fff" stroke-width="1.1"></circle>
-      <path d="M14 11v7.2M8.5 13.2 14 15l5.5-1.8M14 18.2l-4.1 4.4M14 18.2l4.1 4.4" fill="none" stroke="#fbbc04" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path d="M5.35 9.6A10 10 0 0 1 13 4.05" stroke="#4285f4" stroke-width="2.35" stroke-linecap="round"></path>
+      <path d="M15 4.05a10 10 0 0 1 7.65 5.55" stroke="#ea4335" stroke-width="2.35" stroke-linecap="round"></path>
+      <path d="M22.65 18.4A10 10 0 0 1 15 23.95" stroke="#fbbc04" stroke-width="2.35" stroke-linecap="round"></path>
+      <path d="M13 23.95a10 10 0 0 1-7.65-5.55" stroke="#34a853" stroke-width="2.35" stroke-linecap="round"></path>
+      <circle cx="14" cy="8.4" r="2.45" fill="currentColor"></circle>
+      <path d="M14 11.8v6.05M9.55 13.25 14 14.7l4.45-1.45M14 17.85l-3.3 3.5M14 17.85l3.3 3.5" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"></path>
     </svg>
   </button>
   <div id="photoListPanel" class="panel" role="dialog" aria-labelledby="photoListTitle">
@@ -20264,7 +20267,7 @@ if (window.visualViewport){
   window.visualViewport.addEventListener("resize", relayoutAndResizeStableDelayed);
 }
 </script>
-<script src="google-maps-links.js?v=7"></script>
+<script src="google-maps-links.js?v=8"></script>
 <script src="p2p-share.js?v=3"></script>
 <script src="pc-web-guide.js?v=1"></script>
 </body>

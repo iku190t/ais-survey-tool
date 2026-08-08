@@ -95,7 +95,7 @@
     try{
       const ll=await worldToLatLon(world);if(!ll)return;
       if(selectionMode==="position"){
-        positionWorld={x:world.x,y:world.y};positionLatLon=ll;directionWorld=previewDirectionFrom(world);directionLatLon=null;selectionMode="direction";
+        positionWorld={x:world.x,y:world.y};positionLatLon=ll;directionWorld=isDesktop()?previewDirectionFrom(world):null;directionLatLon=null;selectionMode="direction";
       }else{
         directionWorld={x:world.x,y:world.y};directionLatLon=ll;
       }
@@ -193,7 +193,7 @@
       context.setLineDash([]);context.beginPath();context.moveTo(b[0],b[1]);context.lineTo(b[0]-headLength*Math.cos(angle-spread),b[1]-headLength*Math.sin(angle-spread));context.moveTo(b[0],b[1]);context.lineTo(b[0]-headLength*Math.cos(angle+spread),b[1]-headLength*Math.sin(angle+spread));context.stroke();
       context.restore();
     }
-    drawPoint(positionWorld);drawPoint(directionWorld);
+    drawPoint(positionWorld);if(!isDesktop())drawPoint(directionWorld);
   }
   function photoLatLon(item){
     if(!item)return null;const zone=typeof getPhotoCoordinateZone==="function"?getPhotoCoordinateZone(item):null;
