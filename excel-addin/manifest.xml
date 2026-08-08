@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
+  <Id>4fa66397-0a8c-4d46-a895-a6f63ef3fa31</Id>
+  <Version>0.1.0.0</Version>
+  <ProviderName>EZアイズ Survey Tools</ProviderName>
+  <DefaultLocale>ja-JP</DefaultLocale>
+  <DisplayName DefaultValue="EZ SFC Excelアドイン"/>
+  <Description DefaultValue="EZビューアと同じ描画エンジンでSFC平面図をExcelへ挿入します。"/>
+  <IconUrl DefaultValue="https://iku190t.github.io/ais-survey-tool/excel-addin/sfc-viewer-icon.png"/>
+  <HighResolutionIconUrl DefaultValue="https://iku190t.github.io/ais-survey-tool/excel-addin/sfc-viewer-icon.png"/>
+  <SupportUrl DefaultValue="https://iku190t.github.io/ais-survey-tool/"/>
+  <AppDomains><AppDomain>https://iku190t.github.io</AppDomain></AppDomains>
+  <Hosts><Host Name="Workbook"/></Hosts>
+  <Requirements><Sets DefaultMinVersion="1.9"><Set Name="ExcelApi" MinVersion="1.9"/></Sets></Requirements>
+  <DefaultSettings><SourceLocation DefaultValue="https://iku190t.github.io/ais-survey-tool/excel-addin/taskpane.html"/></DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Workbook">
+        <DesktopFormFactor>
+          <FunctionFile resid="Commands.Url"/>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="EzSfc.Group">
+                <Label resid="Group.Label"/>
+                <Icon><bt:Image size="16" resid="Icon.16"/><bt:Image size="32" resid="Icon.32"/><bt:Image size="80" resid="Icon.80"/></Icon>
+                <Control xsi:type="Button" id="EzSfc.ShowTaskpane">
+                  <Label resid="Button.Label"/><Supertip><Title resid="Button.Label"/><Description resid="Button.Description"/></Supertip>
+                  <Icon><bt:Image size="16" resid="Icon.16"/><bt:Image size="32" resid="Icon.32"/><bt:Image size="80" resid="Icon.80"/></Icon>
+                  <Action xsi:type="ShowTaskpane"><TaskpaneId>EzSfc.Taskpane</TaskpaneId><SourceLocation resid="Taskpane.Url"/></Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images><bt:Image id="Icon.16" DefaultValue="https://iku190t.github.io/ais-survey-tool/excel-addin/sfc-viewer-icon.png"/><bt:Image id="Icon.32" DefaultValue="https://iku190t.github.io/ais-survey-tool/excel-addin/sfc-viewer-icon.png"/><bt:Image id="Icon.80" DefaultValue="https://iku190t.github.io/ais-survey-tool/excel-addin/sfc-viewer-icon.png"/></bt:Images>
+      <bt:Urls><bt:Url id="Commands.Url" DefaultValue="https://iku190t.github.io/ais-survey-tool/excel-addin/commands.html"/><bt:Url id="Taskpane.Url" DefaultValue="https://iku190t.github.io/ais-survey-tool/excel-addin/taskpane.html"/></bt:Urls>
+      <bt:ShortStrings><bt:String id="Group.Label" DefaultValue="EZ SFC"/><bt:String id="Button.Label" DefaultValue="平面図挿入"/></bt:ShortStrings>
+      <bt:LongStrings><bt:String id="Button.Description" DefaultValue="SFC平面図を選択セル範囲へ挿入します。"/></bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

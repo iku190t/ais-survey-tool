@@ -1,0 +1,13 @@
+body.excelPreview{overflow:hidden;background:#fff}
+body.excelPreview #topbar,
+body.excelPreview #startupModal,
+body.excelPreview #toast,
+body.excelPreview #busyOverlay,
+body.excelPreview #wrap > :not(#canvas):not(#ezExcelMarker){display:none!important}
+body.excelPreview #wrap{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;min-height:0!important;max-height:none!important;background:#fff!important}
+body.excelPreview #canvas{inset:0!important;width:100%!important;height:100%!important;cursor:grab!important}
+body.excelPreview #canvas:active{cursor:grabbing!important}
+#ezExcelMarker{position:absolute;z-index:1000;width:24px;height:24px;margin:-12px 0 0 -12px;border:2px solid #fff;border-radius:50%;background:#e32222;box-shadow:0 0 0 2px #e32222,0 2px 7px rgba(0,0,0,.4);cursor:move;touch-action:none;display:none}
+#ezExcelMarker::before,#ezExcelMarker::after{content:"";position:absolute;background:#fff;left:50%;top:50%;transform:translate(-50%,-50%)}
+#ezExcelMarker::before{width:14px;height:2px}
+#ezExcelMarker::after{width:2px;height:14px}

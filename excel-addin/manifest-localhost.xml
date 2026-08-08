@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="TaskPaneApp">
+  <Id>8c1969b4-9670-47e2-a0b1-8b64eac0aa18</Id>
+  <Version>0.1.0.0</Version>
+  <ProviderName>EZアイズ Survey Tools</ProviderName>
+  <DefaultLocale>ja-JP</DefaultLocale>
+  <DisplayName DefaultValue="EZ SFC Excelアドイン（開発版）"/>
+  <Description DefaultValue="EZビューア共通エンジンを使用するExcelアドイン開発版です。"/>
+  <IconUrl DefaultValue="https://localhost:3000/sfc-viewer-icon.png"/>
+  <AppDomains><AppDomain>https://localhost:3000</AppDomain></AppDomains>
+  <Hosts><Host Name="Workbook"/></Hosts>
+  <Requirements><Sets DefaultMinVersion="1.9"><Set Name="ExcelApi" MinVersion="1.9"/></Sets></Requirements>
+  <DefaultSettings><SourceLocation DefaultValue="https://localhost:3000/taskpane.html"/></DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+</OfficeApp>
