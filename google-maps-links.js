@@ -58,9 +58,7 @@
   function externalWindowRect(){
     const leftBase=Number.isFinite(screen.availLeft)?screen.availLeft:0,topBase=Number.isFinite(screen.availTop)?screen.availTop:0;
     const availableWidth=Math.max(1,screen.availWidth||window.innerWidth||1200),availableHeight=Math.max(1,screen.availHeight||window.innerHeight||800);
-    const width=Math.max(420,Math.floor(availableWidth/2)),height=Math.max(320,Math.floor(availableHeight/2));
-    const top=topBase+availableHeight-height,left=leftBase;
-    return {left,top,width,height};
+    return {left:leftBase,top:topBase,width:availableWidth,height:availableHeight};
   }
   function popupFeatures(){
     if(!isDesktop())return "popup=yes";
@@ -72,8 +70,14 @@
     // Googleへ遷移した補助ウィンドウは、表示中でもブラウザから
     // closed=true と見える場合がある。closedだけを根拠に開き直すと
     // 地点を選ぶたびにウィンドウが増えるため、参照の有無だけで判断する。
-    if(streetWindow)return;
-    try{streetWindow=window.open("about:blank",GOOGLE_STREET_TARGET,popupFeatures());}catch(_error){streetWindow=null;}
+    if(streetWindow){
+      try{streetWindow.focus?.();}catch(_focusError){}
+      return;
+    }
+    try{
+      streetWindow=window.open("about:blank",GOOGLE_STREET_TARGET,popupFeatures());
+      if(streetWindow)placeExternalWindows();
+    }catch(_error){streetWindow=null;}
   }
   function placeExternalWindows(){
     if(!isDesktop())return;
@@ -83,7 +87,7 @@
   function openExternalPair(reposition=true){
     if(!positionLatLon||!directionLatLon)return;
     const heading=bearing(positionLatLon,directionLatLon),streetUrl=googleStreetViewUrl(positionLatLon,heading);
-    let reused=false;
+    let reused=false,openedNow=false;
     if(streetWindow){
       try{
         streetWindow.location.href=streetUrl;
@@ -91,8 +95,13 @@
         try{streetWindow.focus?.();}catch(_focusError){}
       }catch(_error){streetWindow=null;}
     }
-    try{if(!reused)streetWindow=window.open(streetUrl,GOOGLE_STREET_TARGET,popupFeatures());}catch(_error){streetWindow=null;}
-    if(reposition)placeExternalWindows();
+    try{
+      if(!reused){
+        streetWindow=window.open(streetUrl,GOOGLE_STREET_TARGET,popupFeatures());
+        openedNow=!!streetWindow;
+      }
+    }catch(_error){streetWindow=null;}
+    if(reposition&&openedNow)placeExternalWindows();
     if(!streetWindow){
       if(typeof showToast==="function")showToast("ブラウザーのポップアップを許可してください",3000);
     }
