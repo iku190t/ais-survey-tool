@@ -43,6 +43,11 @@
   function setStatus(message){const element=byId("googleMapsLinkStatus");if(element)element.textContent=message||"";}
   function setButtonState(){byId("googleMapsLinkBtn")?.classList.toggle("modeActive",active);}
   function updateStatus(){
+    if(!isDesktop()){
+      if(positionWorld&&directionWorld)setStatus("矢印の先を動かし、指を離すとストリートビューを開きます。");
+      else setStatus("CAD上で見る位置を1点タップしてください。");
+      return;
+    }
     if(positionWorld&&directionWorld&&selectionMode==="position"){
       setStatus("1点目・2点目・中央をドラッグして位置を調整できます。");return;
     }
@@ -74,6 +79,7 @@
     return `popup=yes,left=${left},top=${top},width=${width},height=${height},resizable=yes,scrollbars=yes`;
   }
   function prepareExternalWindows(){
+    if(!isDesktop())return;
     try{if(!streetWindow||streetWindow.closed)streetWindow=window.open("about:blank",GOOGLE_STREET_TARGET,popupFeatures("left"));}catch(_error){streetWindow=null;}
     try{if(!mapWindow||mapWindow.closed)mapWindow=window.open("about:blank",GOOGLE_MAP_TARGET,popupFeatures("right"));}catch(_error){mapWindow=null;}
   }
@@ -131,6 +137,40 @@
       if(typeof showToast==="function")showToast(error?.message||"位置を変換できません",2600);setStatus(error?.message||"位置を変換できません");
     }
   }
+  function defaultMobileDirection(point){
+    const canvas=byId("canvas")||byId("interactionCanvas");
+    if(!canvas||typeof screenToWorld!=="function")return null;
+    const rect=canvas.getBoundingClientRect(),margin=28,offset=76;
+    let screenX=point.screenX+offset;
+    if(screenX>rect.width-margin)screenX=Math.max(margin,point.screenX-offset);
+    const world=screenToWorld(screenX,point.screenY);
+    return {screenX,screenY:point.screenY,x:world[0],y:world[1]};
+  }
+  async function selectMobilePosition(point){
+    if(!point)return;
+    try{
+      const ll=await worldToLatLon(point),direction=defaultMobileDirection(point);if(!ll||!direction)return;
+      positionWorld={x:point.x,y:point.y};positionLatLon=ll;
+      directionWorld={x:direction.x,y:direction.y};directionLatLon=null;selectionMode="direction";
+      updateStatus();setButtonState();if(typeof scheduleInteractionDraw==="function")scheduleInteractionDraw();
+    }catch(error){
+      console.error("Google mobile position conversion failed",error);
+      if(typeof showToast==="function")showToast(error?.message||"位置を変換できません",2600);setStatus(error?.message||"位置を変換できません");
+    }
+  }
+  async function openMobileStreetView(point){
+    if(!positionLatLon||!point)return;
+    try{
+      const nextDirection=await worldToLatLon(point);if(!nextDirection)return;
+      directionWorld={x:point.x,y:point.y};directionLatLon=nextDirection;
+      const streetUrl=googleStreetViewUrl(positionLatLon,bearing(positionLatLon,directionLatLon));
+      updateStatus();if(typeof scheduleInteractionDraw==="function")scheduleInteractionDraw();
+      if(streetUrl)window.open(streetUrl,"_self");
+    }catch(error){
+      console.error("Google mobile Street View conversion failed",error);
+      if(typeof showToast==="function")showToast(error?.message||"位置を変換できません",2600);setStatus(error?.message||"位置を変換できません");
+    }
+  }
   function canvasPoint(event){
     const canvas=byId("canvas")||byId("interactionCanvas");if(!canvas||typeof screenToWorld!=="function")return null;
     const rect=canvas.getBoundingClientRect(),screenX=event.clientX-rect.left,screenY=event.clientY-rect.top;
@@ -180,7 +220,10 @@
     if(mouseDrag){
       if(point)moveMouseDrag(point);event.preventDefault();event.stopImmediatePropagation();return;
     }
-    const kind=point?hitTestDragHandle(point.screenX,point.screenY):"";setCanvasCursor(kind?"grab":"crosshair");
+    const kind=point?hitTestDragHandle(point.screenX,point.screenY):"";
+    if(typeof clearDesktopCadObjectHover==="function")clearDesktopCadObjectHover();
+    if(typeof updateDesktopCadCrosshair==="function")updateDesktopCadCrosshair(0,0,false,false);
+    setCanvasCursor(kind?"grab":"crosshair");event.stopImmediatePropagation();
   }
   function interceptMouseUp(event){
     if(!active||!mouseDrag)return;
@@ -197,16 +240,33 @@
   }
   function interceptTouchStart(event){
     if(!active||event.touches.length!==1){touchCandidate=null;return;}
-    const touch=event.touches[0];touchCandidate={x:touch.clientX,y:touch.clientY,moved:false};event.preventDefault();event.stopImmediatePropagation();
+    const touch=event.touches[0],point=canvasPoint(touch);
+    if(!isDesktop()&&point&&positionWorld&&directionWorld&&typeof worldToScreen==="function"){
+      const end=worldToScreen(directionWorld.x,directionWorld.y);
+      if(Math.hypot(point.screenX-end[0],point.screenY-end[1])<=38){
+        touchCandidate={mode:"direction-drag",x:touch.clientX,y:touch.clientY,lastX:touch.clientX,lastY:touch.clientY,moved:false};
+      }else touchCandidate={mode:"tap",x:touch.clientX,y:touch.clientY,lastX:touch.clientX,lastY:touch.clientY,moved:false};
+    }else touchCandidate={mode:"tap",x:touch.clientX,y:touch.clientY,lastX:touch.clientX,lastY:touch.clientY,moved:false};
+    event.preventDefault();event.stopImmediatePropagation();
   }
   function interceptTouchMove(event){
     if(!touchCandidate||event.touches.length!==1)return;const touch=event.touches[0];
-    if(Math.hypot(touch.clientX-touchCandidate.x,touch.clientY-touchCandidate.y)>12)touchCandidate.moved=true;
+    touchCandidate.lastX=touch.clientX;touchCandidate.lastY=touch.clientY;
+    if(touchCandidate.mode==="direction-drag"&&!isDesktop()){
+      const point=canvasPoint(touch);if(point){directionWorld={x:point.x,y:point.y};touchCandidate.moved=true;if(typeof scheduleInteractionDraw==="function")scheduleInteractionDraw();}
+    }else if(Math.hypot(touch.clientX-touchCandidate.x,touch.clientY-touchCandidate.y)>12)touchCandidate.moved=true;
     event.preventDefault();event.stopImmediatePropagation();
   }
   function interceptTouchEnd(event){
     if(!touchCandidate)return;const candidate=touchCandidate;touchCandidate=null;
-    event.preventDefault();event.stopImmediatePropagation();suppressClickUntil=Date.now()+500;if(candidate.moved)return;
+    event.preventDefault();event.stopImmediatePropagation();suppressClickUntil=Date.now()+500;
+    if(!isDesktop()){
+      if(candidate.mode==="direction-drag"){
+        const point=canvasPoint({clientX:candidate.lastX,clientY:candidate.lastY});if(point)void openMobileStreetView(point);
+      }else if(!candidate.moved)void selectMobilePosition(canvasPoint({clientX:candidate.x,clientY:candidate.y}));
+      return;
+    }
+    if(candidate.moved)return;
     if(selectionMode==="direction")prepareExternalWindows();selectWorldPoint(canvasPoint({clientX:candidate.x,clientY:candidate.y}));
   }
   function open(){
@@ -235,7 +295,9 @@
     if(positionWorld&&directionWorld){
       const a=worldToScreen(positionWorld.x,positionWorld.y),b=worldToScreen(directionWorld.x,directionWorld.y),mid=[(a[0]+b[0])/2,(a[1]+b[1])/2];
       context.save();context.strokeStyle="#00a8e8";context.lineWidth=2;context.setLineDash([7,5]);context.beginPath();context.moveTo(a[0],a[1]);context.lineTo(b[0],b[1]);context.stroke();
-      context.setLineDash([]);context.fillStyle="#00a8e8";context.strokeStyle="#fff";context.lineWidth=2;context.beginPath();context.arc(mid[0],mid[1],6,0,Math.PI*2);context.fill();context.stroke();context.restore();
+      const angle=Math.atan2(b[1]-a[1],b[0]-a[0]),headLength=isDesktop()?13:17,spread=.52;
+      context.setLineDash([]);context.beginPath();context.moveTo(b[0],b[1]);context.lineTo(b[0]-headLength*Math.cos(angle-spread),b[1]-headLength*Math.sin(angle-spread));context.moveTo(b[0],b[1]);context.lineTo(b[0]-headLength*Math.cos(angle+spread),b[1]-headLength*Math.sin(angle+spread));context.stroke();
+      if(isDesktop()){context.fillStyle="#00a8e8";context.strokeStyle="#fff";context.lineWidth=2;context.beginPath();context.arc(mid[0],mid[1],6,0,Math.PI*2);context.fill();context.stroke();}context.restore();
     }
     drawPoint(positionWorld,"#1677ff","1");drawPoint(directionWorld,"#17a05e","2");
   }

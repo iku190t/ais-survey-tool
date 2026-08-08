@@ -11,7 +11,7 @@ for(const token of [
   'id="googleMapsLinkBtn"',
   'id="photoAlbumMiniMap"',
   'id="photoAlbumMapQr" type="checkbox" checked',
-  '<script src="google-maps-links.js?v=4"></script>',
+  '<script src="google-maps-links.js?v=5"></script>',
   'const useMapQr=!!settings.mapQr',
   'a:hlinkClick r:id="rIdLink${image.id}"'
 ])if(!index.includes(token))throw new Error(`Google連携の実装が不足しています: ${token}`);
@@ -21,7 +21,8 @@ for(const absent of ['id="photoAlbumMapQrBtn"','id="googleOpenMapBtn"','id="goog
 for(const token of [
   "data=!3m1!1e3",'map_action:"pano"',"heading",
   "ezviewer-google-map","ezviewer-google-streetview","prepareExternalWindows","createPhotoQrImage",
-  "externalWindowRect","hitTestDragHandle","scheduleExternalPairSync","LIVE_SYNC_DELAY"
+  "externalWindowRect","hitTestDragHandle","scheduleExternalPairSync","LIVE_SYNC_DELAY",
+  "defaultMobileDirection","selectMobilePosition","openMobileStreetView",'window.open(streetUrl,"_self")'
 ])if(!feature.includes(token))throw new Error(`Google URL連携が不足しています: ${token}`);
 if(/maps\.googleapis\.com|AIza[0-9A-Za-z_-]+/.test(feature))throw new Error("Google Maps Platform APIまたはAPIキーが混入しています");
 
@@ -93,6 +94,8 @@ let browser;
     await new Promise(resolve=>setTimeout(resolve,20));
     click(200,100);
     await new Promise(resolve=>setTimeout(resolve,30));
+    fire("mousemove",200,100);
+    const hoverCursor=target.style.cursor;
     const initialNavigations=opened.reduce((sum,item)=>sum+item.urls.length,0);
     const duringDragNavigations=await drag(100,100,120,110,true);
     await drag(200,100,220,120);
@@ -102,12 +105,13 @@ let browser;
       modal:getComputedStyle(document.getElementById("googleMapsLinkModal")).display,
       active:document.getElementById("googleMapsLinkBtn").classList.contains("modeActive"),
       status:document.getElementById("googleMapsLinkStatus").textContent,
-      opened,initialNavigations,duringDragNavigations,selection:GoogleMapsLinkFeature.getSelection(),
+      opened,hoverCursor,initialNavigations,duringDragNavigations,selection:GoogleMapsLinkFeature.getSelection(),
       screen:{left:screen.availLeft||0,top:screen.availTop||0,width:screen.availWidth,height:screen.availHeight}
     };
   });
   if(ui.modal!=="flex"||!ui.active)throw new Error(`Google連携パネルが開きません: ${JSON.stringify(ui)}`);
   if(ui.opened.length!==2)throw new Error(`2画面を1回ずつ開いていません: ${JSON.stringify(ui.opened)}`);
+  if(ui.hoverCursor!=="grab")throw new Error(`Google方向ハンドルで手カーソルになりません: ${ui.hoverCursor}`);
   const street=ui.opened.find(item=>item.name==="ezviewer-google-streetview");
   const map=ui.opened.find(item=>item.name==="ezviewer-google-map");
   if(!street?.url.includes("map_action=pano")||!street.url.includes("heading="))throw new Error(`ストリートビューが方向付きで開きません: ${JSON.stringify(street)}`);
@@ -119,6 +123,22 @@ let browser;
   const streetMove=street.moves.at(-1),mapMove=map.moves.at(-1),streetSize=street.sizes.at(-1),mapSize=map.sizes.at(-1);
   const expectedWidth=Math.max(300,Math.floor(ui.screen.width/4)),expectedHeight=Math.max(320,Math.floor(ui.screen.height/2)),expectedTop=ui.screen.top+ui.screen.height-expectedHeight;
   if(streetMove[0]!==ui.screen.left||streetMove[1]!==expectedTop||mapMove[0]!==ui.screen.left+expectedWidth||mapMove[1]!==expectedTop||streetSize[0]!==expectedWidth||streetSize[1]!==expectedHeight||mapSize[0]!==expectedWidth||mapSize[1]!==expectedHeight)throw new Error(`左下4分の1の2画面配置が不正です: ${JSON.stringify({streetMove,mapMove,streetSize,mapSize,screen:ui.screen})}`);
+
+  const mobile=await page.evaluate(async()=>{
+    GoogleMapsLinkFeature.close();isDesktopPhotoTool=()=>false;
+    const opened=[];window.open=(url,name)=>{opened.push({url,name});return window;};
+    const target=document.getElementById("canvas")||document.getElementById("interactionCanvas"),rect=target.getBoundingClientRect();
+    const touch=(x,y)=>({clientX:rect.left+x,clientY:rect.top+y});
+    const fireTouch=(type,points)=>{const event=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(event,"touches",{value:points});target.dispatchEvent(event);};
+    document.getElementById("googleMapsLinkBtn").click();
+    fireTouch("touchstart",[touch(300,200)]);fireTouch("touchend",[]);await new Promise(resolve=>setTimeout(resolve,30));
+    const afterTap=GoogleMapsLinkFeature.getSelection();
+    fireTouch("touchstart",[touch(376,200)]);fireTouch("touchmove",[touch(380,240)]);fireTouch("touchend",[]);await new Promise(resolve=>setTimeout(resolve,30));
+    return {opened,afterTap,afterDrag:GoogleMapsLinkFeature.getSelection(),status:document.getElementById("googleMapsLinkStatus").textContent};
+  });
+  if(!mobile.afterTap.positionWorld||!mobile.afterTap.directionWorld)throw new Error(`スマホの1点タップで矢印が作成されません: ${JSON.stringify(mobile)}`);
+  if(mobile.opened.length!==1||mobile.opened[0].name!=="_self"||!mobile.opened[0].url.includes("map_action=pano")||mobile.opened.some(item=>item.url==="about:blank"||item.url.includes("data=!3m1!1e3")))throw new Error(`スマホがストリートビューだけを直接開きません: ${JSON.stringify(mobile.opened)}`);
+  if(Math.abs(mobile.afterDrag.directionWorld.x-380)>.01||Math.abs(mobile.afterDrag.directionWorld.y-240)>.01)throw new Error(`スマホの矢印先ドラッグが反映されません: ${JSON.stringify(mobile.afterDrag)}`);
 
   const qr=await page.evaluate(async()=>{
     window.QRCode=function(host,options){
