@@ -1477,7 +1477,7 @@ gtag('config', 'G-88B9YPJXWP');
           <label id="photoAlbumMiniMapLabel"><input id="photoAlbumMiniMap" type="checkbox">豆図を付ける</label>
           <label id="photoAlbumMapQrLabel"><input id="photoAlbumMapQr" type="checkbox" checked>QRコードを付ける</label>
         </div>
-        <div id="photoAlbumHint">豆図は写真位置を中心に図面を縮小し、中央へ写真番号と撮影方向を表示します。QRコードは各写真の右上に配置し、その写真位置をGoogleマップで開きます。8枚では豆図を使用できません。見開きは3枚・4枚だけ選択できます。</div>
+        <div id="photoAlbumHint">豆図は写真位置を中心に図面を縮小し、中央へ写真番号と撮影方向を表示します。QRコードは豆図ONでは写真の右上、豆図OFFでは豆図の位置に配置し、その写真位置をGoogleマップで開きます。8枚では豆図を使用できません。見開きは3枚・4枚だけ選択できます。</div>
       </div>
       <div id="photoAlbumActions"><button id="photoAlbumCancelBtn" type="button">キャンセル</button><button id="photoAlbumCreateBtn" type="button">Excelを作成</button></div>
     </div>
@@ -1927,7 +1927,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開く・保存</div><b>ファイル</b> を押し、<b>開く</b>、<b>上書き保存</b>、<b>名前を付けて保存</b>から選びます。PCでは通常の保存画面を使い、メール送信画面は表示しません。</div>
               <div class="helpBlock"><div class="helpHead">PCでドラッグして開く</div>PCではSFCを図面画面へドラッグし、「ここにドロップして開く」の表示上で離すと、そのまま図面を開けます。</div>
-              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置を選べます。<b>見開きにする</b> は3枚・4枚だけ選択でき、2枚・6枚・8枚では選択できません。見開きでは、表ページを写真・コメント、裏ページをコメント・写真の順にして、綴じたときにコメント欄が中央へ向くよう自動で反転します。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4・6枚では豆図を付けられますが、8枚では豆図を選択できません。通常配置では2・6・8枚は写真を上、コメントを下へ配置し、3・4枚は写真を左、コメントを右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4・6枚の空き領域に合わせて大きくし、高解像度で作成します。豆図の横にある<b>QRコードを付ける</b>チェックは初期状態でONです。各写真の右上に小さな位置情報QRを配置し、QR画像をクリックまたは読み取ると、その写真の調整後の座標位置が通常のGoogleマップで開きます。QRの下へ文字は付けず、Googleの画像自体も写真帳へ保存しません。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
+              <div class="helpBlock"><div class="helpHead">位置情報付き写真</div>PC版の上部にある <b>写真位置</b> からJPEG写真を開けます。GPS位置を番号付きの丸、撮影方向を矢印で表示し、番号とファイル名の一覧を図面枠の下へ自動配置します。丸・文字・矢印の長さ・矢印先端の幅を調整できます。<b>位置調整</b>を押すと、丸・番号・矢印をつかんで写真位置を移動でき、矢印先端をつかむと丸の中心を軸に撮影方向を回転できます。番号の文字は常に図面へ水平です。調整後のX・Y座標、DEM標高、8方向の撮影方向はCAD、画面一覧、一覧表Excel、写真帳Excelへ共通で反映され、元のEXIF情報は内部に保持されます。<b>Excel出力</b>から「一覧表を出力」または「写真帳を出力」を選べます。写真帳では、A4縦の2・3・4・6・8枚配置を選べます。<b>見開きにする</b> は3枚・4枚だけ選択でき、2枚・6枚・8枚では選択できません。見開きでは、表ページを写真・コメント、裏ページをコメント・写真の順にして、綴じたときにコメント欄が中央へ向くよう自動で反転します。各写真のコメントは3行まで選択でき、「自由入力」を選ぶと全写真に共通の文字を行ごとに入力できます。撮影方向は角度から8方向で表示できます。2・3・4・6枚では豆図を付けられますが、8枚では豆図を選択できません。通常配置では2・6・8枚は写真を上、コメントを下へ配置し、3・4枚は写真を左、コメントを右へ配置します。豆図は写真位置を中心に図面を縮小し、中央へ写真番号を表示します。写真には黒0.5ptの縁線を付け、写真とコメントの間を約1mm空けます。コメント欄は塗りつぶさず、点線を右端まで表示します。豆図は2・3・4・6枚の空き領域に合わせて大きくし、高解像度で作成します。豆図の横にある<b>QRコードを付ける</b>チェックは初期状態でONです。豆図ONでは各写真の右上、豆図OFFでは豆図の位置に小さな位置情報QRを配置し、QR画像をクリックまたは読み取ると、その写真の調整後の座標位置が通常のGoogleマップで開きます。QRの下へ文字は付けず、Googleの画像自体も写真帳へ保存しません。写真帳はA4縦・ページ中央で印刷され、行列見出しとグリッド線は印刷しません。写真帳を作るときは、元のJPEG写真を開いた同じ画面で実行してください。DEM標高は写真位置の地表面標高で、DEM1Aを優先し、取得できない場所だけDEM5Aを使用します。写真位置と写真一覧は別レイヤーです。</div>
               <div class="helpBlock"><div class="helpHead">Googleマップ連携</div>方位ボタンの下にあるカラフルなボタンを押し、図面上で<b>1点目（見る位置）</b>、続いて<b>2点目（見る方向）</b>を選びます。2点目を選ぶと、左側にGoogleストリートビュー、右側にGoogle航空写真を自動で開きます。次の位置を選んだ場合も同じ専用ウィンドウを再利用します。Google Maps Platform APIは使用せず、Google画像の取得・保存・加工・Ez Viewer内への埋め込みは行いません。</div>
               <div class="helpBlock"><div class="helpHead">上書き保存</div>手書きメモを含む現在の内容を、開いているSFCへ保存します。直接上書きに対応しないiPhoneでは、保存用の共有画面が開きます。</div>
               <div class="helpBlock"><div class="helpHead">名前を付けて保存</div>PCではエクスプローラーの保存画面からSFC名を指定します。CAD化した航空写真がある場合は保存先フォルダーを選び、SFCと参照JPEGを同じフォルダーへ保存します。SFCとJPEGは移動するときも同じフォルダーに置いてください。</div>
@@ -12335,10 +12335,12 @@ async function loadRegistryMapAutomatically(options={}){
     showBusy("法務局地図をダウンロード中…");
     updateBusyProgressValue(0,resource.size?`0B／${registryProgressByteText(resource.size)}`:"0B");
     await waitForUiPaint();
-    // The source is distributed per municipality rather than per viewport.
-    // Let the browser reuse its HTTP cache when the same municipality is
-    // extended, while parsing only the newly requested visible range.
-    const dataResponse=await fetch(resource.url,{cache:"force-cache",signal});
+    // CKAN redirects this URL to a short-lived signed S3 URL. Reusing a cached
+    // redirect after its signature expires produces HTTP 403, so always ask
+    // CKAN for a fresh redirect while keeping the parsed map state in memory.
+    const freshResourceUrl=new URL(resource.url,location.href);
+    freshResourceUrl.searchParams.set("_ezviewer",String(Date.now()));
+    const dataResponse=await fetch(freshResourceUrl.href,{cache:"no-store",signal});
     if(!dataResponse.ok)throw new Error(`データ取得に失敗しました（HTTP ${dataResponse.status}）`);
     const onProgress=progress=>{
       throwIfRegistryOperationCancelled(operationId,signal);
@@ -14996,19 +14998,33 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
     if(href)drawingRels.push(`<Relationship Id="rIdLink${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escapeSpreadsheetXml(href)}" TargetMode="External"/>`);
     images.push({id,name,rect,border:true,href});
   };
+  const createPhotoQr=async item=>{
+    const feature=window.GoogleMapsLinkFeature;
+    if(!feature||typeof feature.createPhotoQrImage!=="function")throw new Error("QRコード作成機能を読み込めません");
+    return feature.createPhotoQrImage(item);
+  };
+  const addStandalonePhotoQr=async(item,rect)=>{
+    if(!useMapQr)return;
+    const qr=await createPhotoQr(item);if(!qr)return;
+    const aspect=qr.height/Math.max(1,qr.width);
+    const qrWidth=Math.max(46,Math.min(62,rect.width*.38,rect.height*.72/Math.max(aspect,.1)));
+    const qrHeight=qrWidth*aspect;
+    addImage(qr,{x:rect.x+(rect.width-qrWidth)/2,y:rect.y+(rect.height-qrHeight)/2,width:qrWidth,height:qrHeight},`GoogleマップQR ${item.number}`,{href:qr.url});
+  };
   const addPhotoImage=async(photo,rect,name,item)=>{
     const placed=fitPhotoAlbumImage(photo,rect);
     addImage(photo,placed,name);
-    if(!useMapQr)return placed;
-    const feature=window.GoogleMapsLinkFeature;
-    if(!feature||typeof feature.createPhotoQrImage!=="function")throw new Error("QRコード作成機能を読み込めません");
-    const qr=await feature.createPhotoQrImage(item);
+    // If a mini-map slot exists but is switched off, the QR is placed in that
+    // slot later instead of covering the photo. The 8-photo layout has no
+    // mini-map slot, so it keeps the top-right photo placement.
+    if(!useMapQr||(!useMiniMap&&miniMapAllowed))return placed;
+    const qr=await createPhotoQr(item);
     if(!qr)return placed;
     const aspect=qr.height/Math.max(1,qr.width);
     const qrWidth=Math.max(48,Math.min(70,placed.width*.24,placed.height*.32/Math.max(aspect,.1)));
     const qrHeight=qrWidth*aspect;
     const inset=Math.max(3,qrWidth*.045);
-    addImage(qr,{x:placed.x+placed.width-qrWidth-inset,y:placed.y+inset,width:qrWidth,height:qrHeight},`GoogleマップQR ${item.number}`,{href:qr.url});
+    addImage(qr,{x:placed.x+placed.width-qrWidth-inset,y:placed.y+Math.max(0,inset-2),width:qrWidth,height:qrHeight},`GoogleマップQR ${item.number}`,{href:qr.url});
     return placed;
   };
   const fields=[settings.comment1,settings.comment2,settings.comment3];
@@ -15025,13 +15041,15 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       await addPhotoImage(photo,photoRect,`写真 ${item.number}`,item);
       fields.forEach((field,line)=>mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
       for(let line=fields.length;line<commentRows;line++)mergeComment(photoEnd+1+line,colStart,photoEnd+1+line,colEnd,"",false);
-      if(useMiniMap){
+      if(useMiniMap||(useMapQr&&miniMapAllowed)){
         const commentArea={x:columnLeftPx(colStart),y:photoEnd*rowPx,width:columnRangeWidthPx(colStart,colEnd),height:commentRows*rowPx};
         const miniWidth=commentArea.width*.34;
         const miniRect={x:commentArea.x+commentArea.width-miniWidth-2,y:commentArea.y+1,width:miniWidth,height:Math.max(1,commentArea.height-1)};
-        const renderScale=6;
-        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale),{zoom:1.25,markerScale:1.25});
-        addImage(mini,miniRect,`豆図 ${item.number}`);
+        if(useMiniMap){
+          const renderScale=6;
+          const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale),{zoom:1.25,markerScale:1.25});
+          addImage(mini,miniRect,`豆図 ${item.number}`);
+        }else await addStandalonePhotoQr(item,miniRect);
       }
     }else if(compact){
       const column=slot%columns,colStart=column===0?1:8,colEnd=column===0?6:13;
@@ -15043,15 +15061,17 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       const photoRect={x:columnLeftPx(colStart)+5,y:slotTop*rowPx+5,width:columnRangeWidthPx(colStart,colEnd)-10,height:(photoEnd-slotTop)*rowPx-10};
       await addPhotoImage(photo,photoRect,`写真 ${item.number}`,item);
       fields.forEach((field,line)=>mergeComment(photoEnd+1+line,commentColStart,photoEnd+1+line,commentColEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
-      if(sixPhotoLayout&&useMiniMap){
+      if(sixPhotoLayout&&(useMiniMap||(useMapQr&&miniMapAllowed))){
         // 以前の6枚書式（写真とコメント3行）は変えず、右側の点線上へ豆図だけを重ねる。
         const commentArea={x:columnLeftPx(colStart),y:photoEnd*rowPx,width:columnRangeWidthPx(colStart,colEnd),height:3*rowPx};
         const miniWidth=commentArea.width*.45,verticalExtension=6;
         const miniTop=commentArea.y-verticalExtension,miniBottom=slotBottom*rowPx;
         const miniRect={x:commentArea.x+commentArea.width-miniWidth-2,y:miniTop,width:miniWidth,height:Math.max(1,miniBottom-miniTop)};
-        const renderScale=6;
-        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale),{zoom:1.25,markerScale:1.25});
-        addImage(mini,miniRect,`豆図 ${item.number}`);
+        if(useMiniMap){
+          const renderScale=6;
+          const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.round(miniRect.width*renderScale),Math.round(miniRect.height*renderScale),{zoom:1.25,markerScale:1.25});
+          addImage(mini,miniRect,`豆図 ${item.number}`);
+        }else await addStandalonePhotoQr(item,miniRect);
       }
     }else{
       const front=!isSpread||page%2===0;
@@ -15064,15 +15084,17 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       const photoRect={x:columnLeftPx(photoColStart)+2,y:slotTop*rowPx+photoInsetY,width:columnRangeWidthPx(photoColStart,photoColEnd)-4,height:slotRows*rowPx-photoInsetY*2};
       await addPhotoImage(photo,photoRect,`写真 ${item.number}`,item);
       fields.forEach((field,line)=>mergeComment(slotTop+1+line*2,commentColStart,slotTop+2+line*2,commentColEnd,photoAlbumCommentText(item,field,customTexts[line]),line===0));
-      if(useMiniMap){
+      if(useMiniMap||(useMapQr&&miniMapAllowed)){
         // 次の写真枠の上辺と重なって太く見えないよう、3・4枚帳は全段で1行手前まで。
         const guideEnd=(photosPerPage===3||photosPerPage===4)?slotBottom-1:slotBottom;
         for(let guideRow=slotTop+7;guideRow<=guideEnd;guideRow++)mergeComment(guideRow,commentColStart,guideRow,commentColEnd,"",false);
         const area={x:columnLeftPx(commentColStart),y:(slotTop+6)*rowPx,width:columnRangeWidthPx(commentColStart,commentColEnd),height:(slotRows-6)*rowPx};
         const marginRatio=rowsPerPage<=2?.025:rowsPerPage<=3?.04:.065;
         const miniRect={x:area.x+area.width*marginRatio,y:area.y+area.height*marginRatio,width:area.width*(1-marginRatio*2),height:area.height*(1-marginRatio*2)};
-        const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.max(720,Math.round(miniRect.width*3)),Math.max(420,Math.round(miniRect.height*3)));
-        addImage(mini,miniRect,`豆図 ${item.number}`);
+        if(useMiniMap){
+          const mini=await makePhotoMiniMapImage(item,miniGeometry,Math.max(720,Math.round(miniRect.width*3)),Math.max(420,Math.round(miniRect.height*3)));
+          addImage(mini,miniRect,`豆図 ${item.number}`);
+        }else await addStandalonePhotoQr(item,miniRect);
       }else if(slotBottom>=slotTop+7){
         const guideEnd=(photosPerPage===3||photosPerPage===4)?slotBottom-1:slotBottom;
         for(let guideRow=slotTop+7;guideRow<=guideEnd;guideRow++)mergeComment(guideRow,commentColStart,guideRow,commentColEnd,"",false);
@@ -20256,7 +20278,7 @@ if (window.visualViewport){
   window.visualViewport.addEventListener("resize", relayoutAndResizeStableDelayed);
 }
 </script>
-<script src="google-maps-links.js?v=2"></script>
+<script src="google-maps-links.js?v=3"></script>
 <script src="p2p-share.js?v=3"></script>
 <script src="pc-web-guide.js?v=1"></script>
 </body>

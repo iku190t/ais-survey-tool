@@ -99,7 +99,7 @@
     }
   }
   function canvasPoint(event){
-    const canvas=byId("interactionCanvas")||byId("canvas");if(!canvas||typeof screenToWorld!=="function")return null;
+    const canvas=byId("canvas")||byId("interactionCanvas");if(!canvas||typeof screenToWorld!=="function")return null;
     const rect=canvas.getBoundingClientRect(),screenX=event.clientX-rect.left,screenY=event.clientY-rect.top,world=screenToWorld(screenX,screenY);
     return {screenX,screenY,x:world[0],y:world[1]};
   }
@@ -184,7 +184,9 @@
     `;document.head.appendChild(style);
     const modal=document.createElement("div");modal.id="googleMapsLinkModal";modal.innerHTML=`<div id="googleMapsLinkBox" role="dialog" aria-label="Google連携"><div id="googleMapsLinkHeader"><span>Google連携</span><button id="googleMapsLinkCloseBtn" type="button">閉じる</button></div><div id="googleMapsLinkStatus"></div></div>`;document.body.appendChild(modal);
     byId("googleMapsLinkCloseBtn").addEventListener("click",close);byId("googleMapsLinkBtn")?.addEventListener("click",event=>{event.preventDefault();toggle();});
-    const target=byId("interactionCanvas")||byId("canvas");target?.addEventListener("mousedown",interceptMouseDown,true);target?.addEventListener("click",interceptClick,true);
+    // interactionCanvas is a draw-only overlay with pointer-events:none.
+    // Bind selection to the actual input canvas so CAD points can be hit.
+    const target=byId("canvas")||byId("interactionCanvas");target?.addEventListener("mousedown",interceptMouseDown,true);target?.addEventListener("click",interceptClick,true);
     target?.addEventListener("touchstart",interceptTouchStart,{capture:true,passive:false});target?.addEventListener("touchmove",interceptTouchMove,{capture:true,passive:false});target?.addEventListener("touchend",interceptTouchEnd,{capture:true,passive:false});
     document.addEventListener("keydown",event=>{if(event.key==="Escape"&&active){event.preventDefault();event.stopImmediatePropagation();close();}},true);syncAvailability();setButtonState();
   }

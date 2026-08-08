@@ -11,7 +11,7 @@ for(const token of [
   'id="googleMapsLinkBtn"',
   'id="photoAlbumMiniMap"',
   'id="photoAlbumMapQr" type="checkbox" checked',
-  '<script src="google-maps-links.js?v=2"></script>',
+  '<script src="google-maps-links.js?v=3"></script>',
   'const useMapQr=!!settings.mapQr',
   'a:hlinkClick r:id="rIdLink${image.id}"'
 ])if(!index.includes(token))throw new Error(`Google連携の実装が不足しています: ${token}`);
@@ -79,7 +79,7 @@ let browser;
     let conversion=0;
     jgd2024XYToLatLon=()=>conversions[Math.min(conversion++,conversions.length-1)];
     document.getElementById("googleMapsLinkBtn").click();
-    const target=document.getElementById("interactionCanvas")||document.getElementById("canvas");
+    const target=document.getElementById("canvas")||document.getElementById("interactionCanvas");
     target.dispatchEvent(new MouseEvent("click",{bubbles:true,clientX:100,clientY:100,button:0}));
     await new Promise(resolve=>setTimeout(resolve,20));
     target.dispatchEvent(new MouseEvent("click",{bubbles:true,clientX:200,clientY:100,button:0}));
@@ -137,6 +137,8 @@ let browser;
     throw new Error("QR画像にGoogleマップのハイパーリンクが設定されていません");
   }
   if(pageErrors.length)throw new Error(`ページエラー: ${pageErrors.join(" | ")}`);
+  const qrAnchor=(drawing.match(/<xdr:twoCellAnchor[\s\S]*?<\/xdr:twoCellAnchor>/g)||[]).find(anchor=>anchor.includes('rIdLink2'))||"";
+  if(!/<xdr:from>[\s\S]*?<xdr:col>(?:7|8|9|10|11|12)<\/xdr:col>/.test(qrAnchor))throw new Error("Mini-map OFF QR is not in the mini-map area");
   console.log("Google two-point windows and clickable photo-album QR validated");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   if(browser)await browser.close();server.close();

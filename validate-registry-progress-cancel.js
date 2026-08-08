@@ -13,7 +13,8 @@ for(const token of [
   "function updateRegistryBusyProgress(progress={})",
   'registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?(registryMapDisplayEnabled?"非表示":"表示"):"図面範囲"',
   'cancelRegistryMapOperation({closePanel:true})',
-  'fetch(resource.url,{cache:"force-cache",signal})',
+  'freshResourceUrl.searchParams.set("_ezviewer",String(Date.now()))',
+  'fetch(freshResourceUrl.href,{cache:"no-store",signal})',
   'showBusy("法務局地図をダウンロード中…")'
 ])if(!source.includes(token))throw new Error(`法務局地図の進捗・キャンセル実装が不足しています: ${token}`);
 
