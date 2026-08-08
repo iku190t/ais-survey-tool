@@ -6,7 +6,7 @@ const {chromium}=require("playwright");
 const root=__dirname;
 const source=fs.readFileSync(path.join(root,"index.html"),"utf8");
 const toolbarIds=[
-  "openIconBtn","fitBtn","bgBtn","terrainToolbarBtn","registryToolbarBtn",
+  "openIconBtn","fitBtn","bgBtn","backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn",
   "controlPointToolbarBtn","hazardToolbarBtn","measureBtn","drawBtn","profileBtn",
   "photoToolBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab","undoFab",
   "redoFab","gpsBtn","gpsReturnBtn","compassFab","gpsDetailFab"
@@ -46,7 +46,7 @@ let browser;
       const button=svg.closest("button"),style=getComputedStyle(button);
       return Number(style.opacity)>=0.6&&getComputedStyle(svg).display!=="none";
     }),
-    pcMapButtons:["terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn"].map(id=>{
+    pcMapButtons:["backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn"].map(id=>{
       const button=document.getElementById(id),svg=button?.querySelector("svg");
       const buttonRect=button?.getBoundingClientRect(),svgRect=svg?.getBoundingClientRect();
       return {
@@ -74,7 +74,7 @@ let browser;
     data.lines=[[0,0,10,10,1,1,1]];
     updateDrawingDependentUi();
   });
-  for(const id of ["terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn"]){
+  for(const id of ["backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn"]){
     if(!(await desktop.locator(`#${id}`).isVisible()))throw new Error(`desktop map toolbar button is hidden: ${id}`);
   }
   await desktop.locator("#drawBtn").hover();
