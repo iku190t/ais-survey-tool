@@ -11,7 +11,7 @@ for(const token of [
   'id="googleMapsLinkBtn"',
   'id="photoAlbumMiniMap"',
   'id="photoAlbumMapQr" type="checkbox" checked',
-  '<script src="google-maps-links.js?v=5"></script>',
+  '<script src="google-maps-links.js?v=6"></script>',
   'const useMapQr=!!settings.mapQr',
   'a:hlinkClick r:id="rIdLink${image.id}"'
 ])if(!index.includes(token))throw new Error(`Google連携の実装が不足しています: ${token}`);
@@ -20,7 +20,7 @@ for(const absent of ['id="photoAlbumMapQrBtn"','id="googleOpenMapBtn"','id="goog
 }
 for(const token of [
   "data=!3m1!1e3",'map_action:"pano"',"heading",
-  "ezviewer-google-map","ezviewer-google-streetview","prepareExternalWindows","createPhotoQrImage",
+  "ezviewer-google-streetview","prepareExternalWindows","createPhotoQrImage",
   "externalWindowRect","hitTestDragHandle","scheduleExternalPairSync","LIVE_SYNC_DELAY",
   "defaultMobileDirection","selectMobilePosition","openMobileStreetView",'window.open(streetUrl,"_self")'
 ])if(!feature.includes(token))throw new Error(`Google URL連携が不足しています: ${token}`);
@@ -110,19 +110,18 @@ let browser;
     };
   });
   if(ui.modal!=="flex"||!ui.active)throw new Error(`Google連携パネルが開きません: ${JSON.stringify(ui)}`);
-  if(ui.opened.length!==2)throw new Error(`2画面を1回ずつ開いていません: ${JSON.stringify(ui.opened)}`);
+  if(ui.opened.length!==1)throw new Error(`PCでストリートビュー1画面だけを開いていません: ${JSON.stringify(ui.opened)}`);
   if(ui.hoverCursor!=="grab")throw new Error(`Google方向ハンドルで手カーソルになりません: ${ui.hoverCursor}`);
   const street=ui.opened.find(item=>item.name==="ezviewer-google-streetview");
-  const map=ui.opened.find(item=>item.name==="ezviewer-google-map");
   if(!street?.url.includes("map_action=pano")||!street.url.includes("heading="))throw new Error(`ストリートビューが方向付きで開きません: ${JSON.stringify(street)}`);
-  if(!map?.url.includes("data=!3m1!1e3"))throw new Error(`航空写真が開きません: ${JSON.stringify(map)}`);
-  if(!map.url.includes("34.0013,134.00125"))throw new Error(`ドラッグ後の位置へ航空写真を更新できません: ${JSON.stringify(map)}`);
+  if(ui.opened.some(item=>item.name==="ezviewer-google-map"||item.url.includes("data=!3m1!1e3")))throw new Error(`PCで不要な航空写真を開いています: ${JSON.stringify(ui.opened)}`);
+  if(!street.url.includes("viewpoint=34.0013%2C134.00125"))throw new Error(`ドラッグ後の位置へストリートビューを更新できません: ${JSON.stringify(street)}`);
   if(ui.duringDragNavigations<=ui.initialNavigations)throw new Error(`ドラッグ中にGoogle画面が同期更新されていません: ${JSON.stringify(ui)}`);
   if(Math.abs(ui.selection.positionWorld.x-130)>0.01||Math.abs(ui.selection.positionWorld.y-125)>0.01||Math.abs(ui.selection.directionWorld.x-230)>0.01||Math.abs(ui.selection.directionWorld.y-135)>0.01)throw new Error(`1・2・中央のドラッグ結果が不正です: ${JSON.stringify(ui.selection)}`);
-  if(!street.moves.length||!map.moves.length||!street.sizes.length||!map.sizes.length)throw new Error("PCの左下2画面配置が実行されていません");
-  const streetMove=street.moves.at(-1),mapMove=map.moves.at(-1),streetSize=street.sizes.at(-1),mapSize=map.sizes.at(-1);
-  const expectedWidth=Math.max(300,Math.floor(ui.screen.width/4)),expectedHeight=Math.max(320,Math.floor(ui.screen.height/2)),expectedTop=ui.screen.top+ui.screen.height-expectedHeight;
-  if(streetMove[0]!==ui.screen.left||streetMove[1]!==expectedTop||mapMove[0]!==ui.screen.left+expectedWidth||mapMove[1]!==expectedTop||streetSize[0]!==expectedWidth||streetSize[1]!==expectedHeight||mapSize[0]!==expectedWidth||mapSize[1]!==expectedHeight)throw new Error(`左下4分の1の2画面配置が不正です: ${JSON.stringify({streetMove,mapMove,streetSize,mapSize,screen:ui.screen})}`);
+  if(!street.moves.length||!street.sizes.length)throw new Error("PCの左下1画面配置が実行されていません");
+  const streetMove=street.moves.at(-1),streetSize=street.sizes.at(-1);
+  const expectedWidth=Math.max(420,Math.floor(ui.screen.width/2)),expectedHeight=Math.max(320,Math.floor(ui.screen.height/2)),expectedTop=ui.screen.top+ui.screen.height-expectedHeight;
+  if(streetMove[0]!==ui.screen.left||streetMove[1]!==expectedTop||streetSize[0]!==expectedWidth||streetSize[1]!==expectedHeight)throw new Error(`左下4分の1サイズのストリートビュー配置が不正です: ${JSON.stringify({streetMove,streetSize,screen:ui.screen})}`);
 
   const mobile=await page.evaluate(async()=>{
     GoogleMapsLinkFeature.close();isDesktopPhotoTool=()=>false;
@@ -175,7 +174,7 @@ let browser;
   if(pageErrors.length)throw new Error(`ページエラー: ${pageErrors.join(" | ")}`);
   const qrAnchor=(drawing.match(/<xdr:twoCellAnchor[\s\S]*?<\/xdr:twoCellAnchor>/g)||[]).find(anchor=>anchor.includes('rIdLink2'))||"";
   if(!/<xdr:from>[\s\S]*?<xdr:col>(?:4|5)<\/xdr:col>/.test(qrAnchor))throw new Error("Mini-map OFF QR is not at the photo's top-right");
-  console.log("Google two-point windows and clickable photo-album QR validated");
+  console.log("Google Street View windows and clickable photo-album QR validated");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   if(browser)await browser.close();server.close();
 });

@@ -1,13 +1,12 @@
 (()=>{
   "use strict";
 
-  const GOOGLE_MAP_TARGET="ezviewer-google-map";
   const GOOGLE_STREET_TARGET="ezviewer-google-streetview";
   const QR_SCRIPT_URL="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js";
   const QR_SCRIPT_INTEGRITY="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==";
   let active=false,selectionMode="position",positionWorld=null,directionWorld=null;
   let coordinateZone=null,positionLatLon=null,directionLatLon=null;
-  let mapWindow=null,streetWindow=null,qrScriptPromise=null,touchCandidate=null,suppressClickUntil=0;
+  let streetWindow=null,qrScriptPromise=null,touchCandidate=null,suppressClickUntil=0;
   let mouseDrag=null,liveSyncTimer=null,liveSyncRevision=0,lastLiveSyncAt=0;
   const LIVE_SYNC_DELAY=280;
 
@@ -66,36 +65,33 @@
     const plane=sfcWorldToPlane(point.x,point.y),ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);
     return normalizeLatLon(ll);
   }
-  function externalWindowRect(side){
+  function externalWindowRect(){
     const leftBase=Number.isFinite(screen.availLeft)?screen.availLeft:0,topBase=Number.isFinite(screen.availTop)?screen.availTop:0;
     const availableWidth=Math.max(1,screen.availWidth||window.innerWidth||1200),availableHeight=Math.max(1,screen.availHeight||window.innerHeight||800);
-    const width=Math.max(300,Math.floor(availableWidth/4)),height=Math.max(320,Math.floor(availableHeight/2));
-    const top=topBase+availableHeight-height,left=leftBase+(side==="right"?width:0);
+    const width=Math.max(420,Math.floor(availableWidth/2)),height=Math.max(320,Math.floor(availableHeight/2));
+    const top=topBase+availableHeight-height,left=leftBase;
     return {left,top,width,height};
   }
-  function popupFeatures(side){
+  function popupFeatures(){
     if(!isDesktop())return "popup=yes";
-    const {left,top,width,height}=externalWindowRect(side);
+    const {left,top,width,height}=externalWindowRect();
     return `popup=yes,left=${left},top=${top},width=${width},height=${height},resizable=yes,scrollbars=yes`;
   }
   function prepareExternalWindows(){
     if(!isDesktop())return;
-    try{if(!streetWindow||streetWindow.closed)streetWindow=window.open("about:blank",GOOGLE_STREET_TARGET,popupFeatures("left"));}catch(_error){streetWindow=null;}
-    try{if(!mapWindow||mapWindow.closed)mapWindow=window.open("about:blank",GOOGLE_MAP_TARGET,popupFeatures("right"));}catch(_error){mapWindow=null;}
+    try{if(!streetWindow||streetWindow.closed)streetWindow=window.open("about:blank",GOOGLE_STREET_TARGET,popupFeatures());}catch(_error){streetWindow=null;}
   }
   function placeExternalWindows(){
     if(!isDesktop())return;
-    const streetRect=externalWindowRect("left"),mapRect=externalWindowRect("right");
+    const streetRect=externalWindowRect();
     try{streetWindow?.moveTo(streetRect.left,streetRect.top);streetWindow?.resizeTo(streetRect.width,streetRect.height);}catch(_error){}
-    try{mapWindow?.moveTo(mapRect.left,mapRect.top);mapWindow?.resizeTo(mapRect.width,mapRect.height);}catch(_error){}
   }
   function openExternalPair(reposition=true){
     if(!positionLatLon||!directionLatLon)return;
-    const heading=bearing(positionLatLon,directionLatLon),streetUrl=googleStreetViewUrl(positionLatLon,heading),mapUrl=googleMapsUrl(positionLatLon);
-    try{if(streetWindow&&!streetWindow.closed)streetWindow.location.href=streetUrl;else streetWindow=window.open(streetUrl,GOOGLE_STREET_TARGET,popupFeatures("left"));}catch(_error){streetWindow=null;}
-    try{if(mapWindow&&!mapWindow.closed)mapWindow.location.href=mapUrl;else mapWindow=window.open(mapUrl,GOOGLE_MAP_TARGET,popupFeatures("right"));}catch(_error){mapWindow=null;}
+    const heading=bearing(positionLatLon,directionLatLon),streetUrl=googleStreetViewUrl(positionLatLon,heading);
+    try{if(streetWindow&&!streetWindow.closed)streetWindow.location.href=streetUrl;else streetWindow=window.open(streetUrl,GOOGLE_STREET_TARGET,popupFeatures());}catch(_error){streetWindow=null;}
     if(reposition)placeExternalWindows();
-    if(!streetWindow||!mapWindow){
+    if(!streetWindow){
       if(typeof showToast==="function")showToast("ブラウザーのポップアップを許可してください",3000);
     }
   }
