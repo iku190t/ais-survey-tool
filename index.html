@@ -564,9 +564,10 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 .controlPointTypeGrid button:disabled{opacity:.55;cursor:default;}
 .registryHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;}
 .registryTitle{font-size:15px;font-weight:800;}
-.registryActions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px;}
+.registryActions{display:grid;grid-template-columns:1fr;gap:7px;margin-bottom:8px;}
 .registryActions button,.registryFileLabel{min-height:36px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--btn);color:var(--fg);font-size:13px;font-weight:800;box-sizing:border-box;cursor:pointer;}
-#registryMapAutoBtn{grid-column:1/-1;background:#1677ff;color:#fff;border-color:#0f5ec8;}
+#registryMapAutoBtn{grid-column:1/-1;}
+#registryMapAutoBtn.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #registryMapAppendBtn{grid-column:1/-1;}
 #registryMapAppendBtn.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #registryMapAutoBtn:disabled{opacity:.55;cursor:default;}
@@ -1253,7 +1254,7 @@ gtag('config', 'G-88B9YPJXWP');
         <path d="M5 7h7v10H5z" fill="currentColor" stroke="none"></path>
       </svg>
     </button>
-    <button id="backgroundSxfToolbarBtn" class="toolIconBtn pcMapToolBtn" data-help-label="基盤地図" data-tooltip="国土地理院の基盤地図情報を縮尺レベル2500だけ背景に追加する" aria-label="基盤地図情報2500読込">
+    <button id="backgroundSxfToolbarBtn" class="toolIconBtn pcMapToolBtn" data-help-label="基盤地図" data-tooltip="図面位置の基盤地図を自動表示・解除する" aria-label="基盤地図を表示または解除">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M5 3.5h10l4 4v13H5z"></path>
         <path d="M15 3.5v4h4M8 11h8M8 14h8M8 17h5"></path>
@@ -1619,7 +1620,7 @@ gtag('config', 'G-88B9YPJXWP');
       <label class="photoSwitch"><input id="photoToggleSwitch" type="checkbox" aria-label="航空写真を表示"><span class="photoSwitchTrack"></span></label>
     </div>
     <div class="photoSettingRow">
-      <span class="photoSettingLabel mapLabel">地図（道路・建物・地名・鉄道・行政界・水域）</span>
+      <span class="photoSettingLabel mapLabel">基盤地図（道路・建物・地名・鉄道・行政界・水域）</span>
       <label class="photoSwitch"><input id="vectorMapToggleSwitch" type="checkbox" aria-label="道路・建物・地名・鉄道・行政界・水域を表示"><span class="photoSwitchTrack"></span></label>
     </div>
     <div id="vectorMapStatus" class="mapSettingStatus"></div>
@@ -1630,11 +1631,6 @@ gtag('config', 'G-88B9YPJXWP');
     <div id="photoTimeEnds"><span>現在</span><span>過去</span></div>
     <div id="photoStatus">スライダーを右へ動かすほど古い航空写真になります。</div>
     <button id="aerialPhotoSfcBtn" type="button" disabled>範囲を選んでCAD化</button>
-    <div id="backgroundSxfRow">
-      <button id="backgroundSxfOpenBtn" type="button"><span>基盤地図情報を読込</span></button>
-      <input id="backgroundSxfInput" type="file" accept=".zip,.xml,.gml,.sfc,.p21,.sxf,application/zip,application/xml,text/xml,application/octet-stream,text/plain">
-      <div id="backgroundSxfStatus">縮尺レベル2500だけを必要範囲へ追加します。</div>
-    </div>
     <button id="terrainPanelOpenBtn" type="button"><span>地形解析</span><span id="terrainPanelOpenState">開く</span></button>
     <button id="registryMapOpenBtn" type="button"><span>法務地図・境界</span><span id="registryMapOpenState">開く</span></button>
     <button id="controlPointOpenBtn" type="button"><span>基準点・水準点</span><span id="controlPointOpenState">開く</span></button>
@@ -1661,13 +1657,9 @@ gtag('config', 'G-88B9YPJXWP');
   <div id="registryMapPanel" class="panel">
     <div class="registryHeader"><div class="registryTitle">法務局地図・境界</div><button id="registryMapCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <div class="registryActions">
-      <button id="registryMapAutoBtn" type="button">図面範囲を取得</button>
-      <button id="registryMapAppendBtn" type="button" disabled>地点を指定して追加取得</button>
-      <label class="registryFileLabel" for="registryMapFileInput">ファイル読込</label>
-      <button id="registryMapClearBtn" type="button">解除</button>
+      <button id="registryMapAutoBtn" type="button" aria-pressed="false">図面範囲</button>
     </div>
-    <input id="registryMapFileInput" type="file" accept=".xml,.geojson,.json,.zip,application/xml,text/xml,application/geo+json,application/json,application/zip" hidden>
-    <div id="registryMapStatus">圧縮SHPを優先して自動取得します。法務省XML・GeoJSON・圧縮SHPの手動読込にも対応しています。</div>
+    <div id="registryMapStatus">「図面範囲」を押すと、その範囲だけ取得します。</div>
     <div id="registryLayerList" aria-label="法務局地図レイヤー">
       <div class="registryLayerRow"><input id="registryParcelLayerToggle" type="checkbox" checked><label class="registryLayerToggleLabel" for="registryParcelLayerToggle">筆ポリゴンレイヤー</label><button id="registryParcelColorBtn" class="registryColorButton" type="button" data-registry-layer="parcel" aria-label="筆ポリゴンの色を変更" title="筆ポリゴンの色を変更"></button></div>
       <div class="registryLayerRow"><input id="registryBoundaryLayerToggle" type="checkbox" checked><label class="registryLayerToggleLabel" for="registryBoundaryLayerToggle">筆界線レイヤー</label><button id="registryBoundaryColorBtn" class="registryColorButton" type="button" data-registry-layer="boundary" aria-label="筆界線の色を変更" title="筆界線の色を変更"></button></div>
@@ -2027,8 +2019,8 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">背景色</div>上部の <b>背景</b> を押し、黒・白のうち表示したい背景色を選びます。青色になっている方が現在の設定です。</div>
               <div class="helpBlock"><div class="helpHead">航空写真</div><b>航空写真</b> のスイッチをONにすると、現在の場所で実際に利用できる写真年代を自動確認します。OFFの状態でもスライダーを操作すると自動的にONになります。</div>
-              <div class="helpBlock"><div class="helpHead">地図</div><b>地図（道路・建物・地名・鉄道・行政界・水域）</b>をONにすると、図面と同じ位置の地理院地図Vectorを重ねます。表示中の範囲だけ通信で取得し、等高線など地形解析の要素は混ぜません。</div>
-      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開くと、最初は図面範囲に周囲1画面分を加えた範囲を取得します。横など別の範囲が必要な場合は、<b>地点を指定して追加取得</b>を押し、欲しい場所をPCではクリック、スマホではタップします。指定地点の周辺だけを解析して既存データへ追加し、重複する筆・筆界・筆界点・地番は自動で除外します。同じ市区町村の取得済みファイルは再利用します。通信量を抑えるため圧縮SHPを優先し、圧縮版がない場合のみGeoJSONを使用します。自動取得できない場合は、法務省XML・GeoJSON・圧縮SHPを手動で読み込めます。筆ポリゴン・筆界線・筆界点・地番文字を個別に表示でき、筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
+              <div class="helpBlock"><div class="helpHead">基盤地図</div>SFCを開くと、図面と同じ位置の地理院地図Vectorを自動表示します。表示中の範囲だけ通信で取得し、等高線など地形解析の要素は混ぜません。PCは上部の<b>基盤地図</b>、スマホは背景内のスイッチで表示・解除できます。</div>
+      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開き、<b>図面範囲</b>を押すと、その範囲の公開データを取得して表示します。表示中はボタンが青くなり、もう一度押すと解除します。筆ポリゴン・筆界線・筆界点・地番文字を個別に表示でき、筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
               <div class="helpBlock"><div class="helpHead">ハザードマップ</div><b>ハザードマップ</b>から洪水・土砂災害・高潮・津波を1種類ずつ表示できます。選択中の青いボタンをもう一度押すと解除します。国土地理院ハザードマップポータルサイトの公開タイルを表示範囲だけ取得します。表示は参考情報のため、避難判断は自治体のハザードマップと最新の防災情報で確認してください。</div>
       <div class="helpBlock"><div class="helpHead">基準点・水準点</div><b>基準点・水準点</b>をONにすると、国土地理院の公開位置情報を図面へ重ね、図面上に種類の凡例を表示します。三角点・その他の基準点、水準点、電子基準点を個別に表示できます。記号をタップすると、点名・種類・基準点コード・成果状態を確認できます。表示位置は検索・現地確認の参考です。正式な成果値は国土地理院の基準点成果等閲覧サービスで確認してください。</div>
               <div class="helpBlock"><div class="helpHead">年代の変更</div>つまみは指に合わせて滑らかに動き、移動中は最も近い利用可能な年代の写真へ切り替わります。指を離すと、その年代の位置へ吸着します。左端が最新で、右へ動かすほど古くなります。</div>
@@ -4633,10 +4625,21 @@ function getVectorBaseMapTile(z,x,y){
   }
   return entry;
 }
-async function enableVectorBaseMap(){
+function disableVectorBaseMap(){
+  vectorBaseMapEnabled=false;
+  vectorBaseMapResolveBusy=false;
+  vectorBaseMapZone=null;
+  setVectorMapStatus("");
+  updateAerialPhotoUi();
+  updateToolbarActivationUI();
+  scheduleDraw();
+}
+async function enableVectorBaseMap(options={}){
+  const silent=options&&options.silent===true;
   if(vectorBaseMapResolveBusy)return;
-  if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
+  if(!hasLoadedDrawing()){if(!silent)showToast("先にSFC図面を開いてください",2200);return;}
   vectorBaseMapEnabled=true;vectorBaseMapResolveBusy=true;updateAerialPhotoUi();setVectorMapStatus("図面の位置を確認中…");
+  updateToolbarActivationUI();
   try{
     vectorBaseMapZone=await resolveProfileZone();
     if(!vectorBaseMapZone)throw new Error("座標系未判定");
@@ -4644,10 +4647,19 @@ async function enableVectorBaseMap(){
   }catch(error){
     console.error("Vector base map enable failed",error);vectorBaseMapEnabled=false;vectorBaseMapZone=null;
     const reason=String(error&&error.message||error).includes("座標系")?"座標系未判定":"通信失敗";
-    setVectorMapStatus(`地図を表示できません（${reason}）`);showToast(`地図を表示できません（${reason}）`,2600);
+    setVectorMapStatus(`地図を表示できません（${reason}）`);
+    if(!silent)showToast(`地図を表示できません（${reason}）`,2600);
   }finally{
-    vectorBaseMapResolveBusy=false;updateAerialPhotoUi();scheduleDraw();
+    vectorBaseMapResolveBusy=false;updateAerialPhotoUi();updateToolbarActivationUI();scheduleDraw();
   }
+}
+function enableVectorBaseMapAfterDrawingLoad(){
+  // SFCの解析と初期全体表示を先に完了させ、利用者を待たせずに
+  // 現在の図面範囲に必要なベクトルタイルだけをバックグラウンド取得する。
+  setTimeout(()=>{
+    if(!hasLoadedDrawing()||vectorBaseMapEnabled||vectorBaseMapResolveBusy)return;
+    enableVectorBaseMap({silent:true}).catch(error=>console.error("Automatic foundation map enable failed",error));
+  },0);
 }
 function drawVectorBaseMap(w,h){
   if(!vectorBaseMapEnabled||!vectorBaseMapZone||!ensureProj4Defs())return;
@@ -12176,16 +12188,12 @@ async function loadRegistryMapAutomatically(options={}){
     showToast(append
       ?`${requestedWorld?"指定地点周辺":"表示範囲"}を追加しました（合計 ${registryMapState.parcels.length}筆）`
       :`図面範囲を取得しました（筆 ${registryMapState.parcels.length}件）`,2400);
-    if(!append){
-      if(registryMapPanel)registryMapPanel.style.display="none";
-      if(!isDesktopPhotoTool()&&aerialPhotoPanel){aerialPhotoPanel.style.display="block";updateAerialPhotoUi();}
-    }
     updateToolbarActivationUI();
   }catch(error){
     console.error("法務局地図の自動取得に失敗",error);
     registryMapState=previousState;
     const reason=String(error?.message||"通信に失敗しました");
-    if(registryMapStatus)registryMapStatus.textContent=`${append?"追加取得":"自動取得"}できません：${reason}。必要な場合は「ファイル読込」を使用してください。`;
+    if(registryMapStatus)registryMapStatus.textContent=`取得できません：${reason}`;
     if(registryMapCredit)registryMapCredit.style.display=previousState.loaded?"block":"none";
     showToast(`法務局地図を${append?"追加取得":"自動取得"}できません：${reason}`,3200);
     scheduleDraw();
@@ -12314,7 +12322,7 @@ function parseRegistryXml(xmlText,sourceName){
   return result;
 }
 function registryMapSummary(state=registryMapState){
-  if(!state.loaded)return "圧縮SHPを優先して自動取得します。法務省XML・GeoJSON・圧縮SHPの手動読込にも対応しています。";
+  if(!state.loaded)return "「図面範囲」を押すと、その範囲だけ取得します。";
   const coordinate=state.coordinateMode+(state.zone?`・第${state.zone}系`:"");
   const areas=(state.acquiredBounds||[]).length;
   return `${state.sourceName}　筆 ${state.parcels.length}件／筆界線 ${state.looseLines.length}件／筆界点 ${state.points.length}点　${coordinate}${areas?`　取得範囲 ${areas}件`:""}`;
@@ -12342,10 +12350,12 @@ function updateRegistryMapUi(){
   if(registryMapCredit)registryMapCredit.style.display=registryMapState.loaded?"block":"none";
   updateMapAttributionLayout();
   if(registryMapOpenBtn)registryMapOpenBtn.classList.toggle("active",!!(registryMapPanel&&getComputedStyle(registryMapPanel).display!=="none"));
-  if(registryMapOpenState)registryMapOpenState.textContent=registryMapAutoBusy?"取得中…":registryMapState.loaded?"読込済み":"開く";
+  if(registryMapOpenState)registryMapOpenState.textContent=registryMapState.loaded?"表示中":"開く";
   if(registryMapAutoBtn){
     registryMapAutoBtn.disabled=registryMapAutoBusy;
-    registryMapAutoBtn.textContent=registryMapAutoBusy?"取得中…":"図面範囲を取得";
+    registryMapAutoBtn.classList.toggle("active",!!registryMapState.loaded);
+    registryMapAutoBtn.setAttribute("aria-pressed",registryMapState.loaded?"true":"false");
+    registryMapAutoBtn.textContent=registryMapAutoBusy?"取得中…":"図面範囲";
   }
   if(registryMapAppendBtn){
     registryMapAppendBtn.disabled=registryMapAutoBusy||!registryMapState.loaded;
@@ -17287,6 +17297,7 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   document.getElementById("startupModal").style.display="none";
   if(options.restoreRecovery!==false)restoreRecoverySnapshotIfAvailable();
   applyDefaultFullViewAfterLoad();
+  enableVectorBaseMapAfterDrawingLoad();
   gaTrackOpenSfc("sfc");
   const loadModeLabel=(largeDrawingMode ? "大容量モード" : "通常モード")+
     (activeCoordinateMeshTransform ? "・座標メッシュ補正" : "");
@@ -17663,22 +17674,14 @@ photoToggleSwitch?.addEventListener("change",async()=>{
 });
 vectorMapToggleSwitch?.addEventListener("change",async()=>{
   if(vectorMapToggleSwitch.checked)await enableVectorBaseMap();
-  else{
-    vectorBaseMapEnabled=false;vectorBaseMapResolveBusy=false;vectorBaseMapZone=null;
-    setVectorMapStatus("");updateAerialPhotoUi();scheduleDraw();
-  }
+  else disableVectorBaseMap();
 });
-[backgroundSxfToolbarBtn,backgroundSxfOpenBtn].forEach(button=>button?.addEventListener("click",event=>{
+backgroundSxfToolbarBtn?.addEventListener("click",event=>{
   event.preventDefault();
-  if(button===backgroundSxfToolbarBtn&&foundationMapPanel&&getComputedStyle(foundationMapPanel).display!=="none"){
-    foundationMapPanel.style.display="none";updateToolbarActivationUI();return;
-  }
-  openFoundationMapPanel().catch(error=>{
-    console.error(error);
-    hideBusy();
-    showToast("基盤地図情報を開けませんでした",2600);
-  });
-}));
+  if(vectorBaseMapResolveBusy)return;
+  if(vectorBaseMapEnabled)disableVectorBaseMap();
+  else enableVectorBaseMap().catch(error=>console.error("Foundation map toggle failed",error));
+});
 foundationMapCloseBtn?.addEventListener("click",()=>{
   if(foundationMapPanel)foundationMapPanel.style.display="none";
   updateToolbarActivationUI();
@@ -18423,7 +18426,7 @@ function updateToolbarActivationUI(){
   const states={
     openIconBtn:visible(document.getElementById("saveMenuModal"))||visible(document.getElementById("saveAsChoiceModal")),
     bgBtn:visible(aerialPhotoPanel)||(!isDesktopPhotoTool()&&(visible(terrainPanel)||visible(registryMapPanel)||visible(hazardMapPanel)||visible(controlPointPanel)))||(terrainCadSelectionMode&&polygonSelectionPurpose==="aerial"),
-    backgroundSxfToolbarBtn:visible(foundationMapPanel)||foundationMapImportBusy,
+    backgroundSxfToolbarBtn:!!(vectorBaseMapEnabled||vectorBaseMapResolveBusy),
     terrainToolbarBtn:isDesktopPhotoTool()&&(visible(terrainPanel)||!!terrainLoading||!!terrainMode),
     registryToolbarBtn:isDesktopPhotoTool()&&(visible(registryMapPanel)||!!registryMapState.loaded||!!registryMapAutoBusy||registryMapPointPickMode),
     controlPointToolbarBtn:isDesktopPhotoTool()&&(visible(controlPointPanel)||!!controlPointEnabled||!!controlPointResolveBusy),
@@ -18566,7 +18569,6 @@ registryMapOpenBtn?.addEventListener("click",()=>{
   if(registryMapPanel)registryMapPanel.style.display="block";
   updateRegistryMapUi();
   updateToolbarActivationUI();
-  if(!registryMapState.loaded&&!registryMapAutoBusy)loadRegistryMapAutomatically();
 });
 document.getElementById("registryMapCloseBtn")?.addEventListener("click",()=>{
   setRegistryMapPointPickMode(false);
@@ -18575,31 +18577,18 @@ document.getElementById("registryMapCloseBtn")?.addEventListener("click",()=>{
   updateRegistryMapUi();
   updateToolbarActivationUI();
 });
-document.getElementById("registryMapClearBtn")?.addEventListener("click",clearRegistryMap);
 registryMapAutoBtn?.addEventListener("click",()=>{
+  if(registryMapAutoBusy)return;
+  if(registryMapState.loaded){
+    clearRegistryMap();
+    updateToolbarActivationUI();
+    return;
+  }
   setRegistryMapPointPickMode(false);
   loadRegistryMapAutomatically({append:false});
 });
-registryMapAppendBtn?.addEventListener("click",()=>{
-  if(registryMapAutoBusy||!registryMapState.loaded)return;
-  if(registryMapPointPickMode){
-    setRegistryMapPointPickMode(false);
-    showToast("地点指定を中止しました",1400);
-    return;
-  }
-  cancelTransientOperations("registryMap");
-  setRegistryMapPointPickMode(true);
-  if(registryMapPanel)registryMapPanel.style.display="none";
-  if(!isDesktopPhotoTool()&&aerialPhotoPanel)aerialPhotoPanel.style.display="none";
-  updateRegistryMapUi();
-  showToast(isTouchMobileLike()?"追加する地点を地図上でタップしてください":"追加する地点を図面上でクリックしてください",2600);
-});
 document.getElementById("registryDownloadConfirmNoBtn")?.addEventListener("click",()=>closeRegistryDownloadConfirm(false));
 document.getElementById("registryDownloadConfirmYesBtn")?.addEventListener("click",()=>closeRegistryDownloadConfirm(true));
-registryMapFileInput?.addEventListener("change",()=>{
-  const file=registryMapFileInput.files?.[0];
-  if(file)loadRegistryMapFileSafely(file);
-});
 hazardMapOpenBtn?.addEventListener("click",()=>{
   closePanelsExcept("hazardMap");
   if(hazardMapPanel)hazardMapPanel.style.display="block";
@@ -19872,6 +19861,7 @@ if (window.__EMBED_PAYLOAD_B64__) {
       updateStopBtnUI();
       restoreRecoverySnapshotIfAvailable();
       applyDefaultFullViewAfterLoad();
+      enableVectorBaseMapAfterDrawingLoad();
     }
   } catch(e) {
     console.error(e);

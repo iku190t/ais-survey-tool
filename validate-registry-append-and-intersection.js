@@ -6,24 +6,27 @@ const {chromium}=require("playwright");
 const root=__dirname;
 const source=fs.readFileSync(path.join(root,"index.html"),"utf8");
 for(const token of [
-  'id="registryMapAppendBtn"',
-  'function registryDrawingTargetBounds(zone)',
-  'function registryInitialTargetBounds(zone)',
-  'function registryAdditionalTargetBounds(zone,state=registryMapState)',
-  'function registryTargetBoundsAroundWorldPoint(worldPoint,zone)',
-  'function setRegistryMapPointPickMode(active)',
-  'function selectRegistryMapAdditionalPoint(screenX,screenY)',
-  'registryMapPointPickTouchCandidate',
-  '地点を指定して追加取得',
-  'function registryExpandGeoBoundsByViewport(bounds,visibleBounds,screenShare=.5)',
-  'function registryMergeMapStates(base,incoming,targetBounds,resourceUrl="")',
-  'fetch(resource.url,{cache:"force-cache"})',
-  'if(!firstInterior&&!secondInterior)continue',
+  'id="registryMapAutoBtn" type="button" aria-pressed="false">図面範囲</button>',
+  'registryMapAutoBtn.classList.toggle("active",!!registryMapState.loaded)',
+  'if(registryMapState.loaded){',
+  'clearRegistryMap();',
+  'loadRegistryMapAutomatically({append:false});',
+  'function enableVectorBaseMapAfterDrawingLoad()',
+  'enableVectorBaseMapAfterDrawingLoad();',
+  'backgroundSxfToolbarBtn:!!(vectorBaseMapEnabled||vectorBaseMapResolveBusy)',
   'desktopInkPencilCursor',
-  "%3Cpath fill='%23fff' d='M20.9 4.9",
-  '") 4 27,crosshair!important;',
   'event.clipboardData.setData("text/plain",plainText)'
 ])if(!source.includes(token))throw new Error(`missing implementation: ${token}`);
+for(const removed of [
+  'id="registryMapAppendBtn"',
+  'id="registryMapFileInput"',
+  'id="registryMapClearBtn"',
+  '>地点を指定して追加取得<',
+  '>ファイル読込<'
+])if(source.includes(removed))throw new Error(`removed registry control is still visible: ${removed}`);
+
+const openHandler=source.slice(source.indexOf('registryMapOpenBtn?.addEventListener("click"'),source.indexOf('document.getElementById("registryMapCloseBtn")'));
+if(openHandler.includes("loadRegistryMapAutomatically"))throw new Error("opening the registry panel still starts a download");
 
 const server=http.createServer((req,res)=>{
   const clean=decodeURIComponent((req.url||"/").split("?")[0]);
@@ -41,117 +44,44 @@ let browser;
   const errors=[];page.on("pageerror",error=>errors.push(String(error)));
   await page.route(/^https:\/\//,route=>route.abort());
   await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:"load",timeout:10000});
-
   const result=await page.evaluate(()=>{
     document.getElementById("startupModal").style.display="none";
-    const parcel=(lot,minx,miny,maxx,maxy)=>({
-      properties:{地番:lot},metadata:{lotNumber:lot},bbox:{minx,miny,maxx,maxy},
-      centroid:{x:(minx+maxx)/2,y:(miny+maxy)/2},rings:[[{x:minx,y:miny},{x:maxx,y:miny},{x:maxx,y:maxy}]],points:[]
-    });
-    const base=registryEmptyState();
-    base.loaded=true;base.zone=4;base.coordinateMode="緯度経度";
-    base.parcels=[parcel("1",0,0,100,100)];
-    base.points=[{x:0,y:0}];base.looseLines=[{points:[{x:0,y:0},{x:100,y:0}]}];
-    const incoming=registryEmptyState();
-    incoming.loaded=true;incoming.zone=4;incoming.coordinateMode="緯度経度";
-    incoming.parcels=[parcel("1",0,0,100,100),parcel("2",100,0,200,100)];
-    incoming.points=[{x:0,y:0},{x:200,y:0}];
-    incoming.looseLines=[{points:[{x:0,y:0},{x:100,y:0}]},{points:[{x:100,y:0},{x:200,y:0}]}];
-    const acquired={minLon:134,minLat:34,maxLon:134.01,maxLat:34.01,center:{lon:134.005,lat:34.005}};
-    const merged=registryMergeMapStates(base,incoming,acquired,"https://example.test/a.zip");
-    const expanded=registryExpandGeoBoundsByViewport(acquired,{
-      minLon:134.002,minLat:34.002,maxLon:134.008,maxLat:34.008
-    },.5);
-    const originalAutoTargetBounds=registryAutoTargetBounds;
-    registryAutoTargetBounds=()=>({
-      minLon:134.002,minLat:34.002,maxLon:134.008,maxLat:34.008,
-      center:{lon:134.005,lat:34.005}
-    });
-    const additional=registryAdditionalTargetBounds(4,merged);
-    registryAutoTargetBounds=originalAutoTargetBounds;
-
-    const originalWorldToPlane=sfcWorldToPlane;
-    const originalPlaneTargetBoundsLight=registryPlaneTargetBoundsLight;
-    const originalJgd2024XYToLatLon=jgd2024XYToLatLon;
-    sfcWorldToPlane=()=>({xNorth:1000,yEast:2000});
-    registryAutoTargetBounds=()=>({
-      minLon:134,minLat:34,maxLon:134.004,maxLat:34.004,
-      center:{lon:134.002,lat:34.002}
-    });
-    registryPlaneTargetBoundsLight=()=>({minX:0,minY:0,maxX:400,maxY:400});
-    jgd2024XYToLatLon=(xNorth,yEast)=>({lat:34+xNorth/100000,lon:134+yEast/100000});
-    const selectedTarget=registryTargetBoundsAroundWorldPoint({x:12,y:34},4);
-    sfcWorldToPlane=originalWorldToPlane;
-    registryAutoTargetBounds=originalAutoTargetBounds;
-    registryPlaneTargetBoundsLight=originalPlaneTargetBoundsLight;
-    jgd2024XYToLatLon=originalJgd2024XYToLatLon;
-
-    data.lines=[];data.polys=[];data.splines=[];data._lineRenderRuns=[];data._polyRenderRuns=[];data._splineRenderRuns=[];
-    layerVisibility={"1":true};view.scale=10;view.tx=400;view.ty=300;rotationDeg=0;
-    const hitFor=lines=>{
-      data.lines=lines;data._lineRenderRuns=[];
-      const screen=worldToScreen(0,0);
-      return findNearestVisibleIntersection(screen[0],screen[1],24);
-    };
-    const plus=hitFor([[-10,0,10,0,1],[0,-10,0,10,1]]);
-    const tee=hitFor([[-10,0,10,0,1],[0,0,0,10,1]]);
-    const corner=hitFor([[-10,0,0,0,1],[0,0,0,10,1]]);
-
-    inkEnabled=true;inkEraser=false;inkTool="line";updateInkUI();
-    const pencilOn=document.body.classList.contains("desktopInkPencilActive")&&canvas.classList.contains("desktopInkPencilCursor");
-    inkEraser=true;updateInkUI();
-    const pencilOff=!document.body.classList.contains("desktopInkPencilActive")&&!canvas.classList.contains("desktopInkPencilCursor");
-
-    registryMapState=merged;updateRegistryMapUi();
-    setRegistryMapPointPickMode(true);
-    const pointPickActive=registryMapPointPickMode
-      &&document.getElementById("registryMapAppendBtn").classList.contains("active")
-      &&document.getElementById("registryMapAppendBtn").getAttribute("aria-pressed")==="true";
-    setRegistryMapPointPickMode(false);
-    const pointPickInactive=!registryMapPointPickMode
-      &&!document.getElementById("registryMapAppendBtn").classList.contains("active")
-      &&document.getElementById("registryMapAppendBtn").getAttribute("aria-pressed")==="false";
-    const originalLoadRegistryMapAutomatically=loadRegistryMapAutomatically;
-    let selectedRequest=null;
-    loadRegistryMapAutomatically=options=>{selectedRequest=options;};
-    setRegistryMapPointPickMode(true);
-    const selectedByClick=selectRegistryMapAdditionalPoint(400,300);
-    loadRegistryMapAutomatically=originalLoadRegistryMapAutomatically;
-    return {
-      counts:[merged.parcels.length,merged.looseLines.length,merged.points.length],
-      covered:registryTargetAlreadyAcquired({minLon:134.001,minLat:34.001,maxLon:134.009,maxLat:34.009},merged),
-      outside:registryTargetAlreadyAcquired({minLon:135,minLat:35,maxLon:135.01,maxLat:35.01},merged),
-      appendEnabled:!document.getElementById("registryMapAppendBtn").disabled,
-      expanded:{
-        minLon:expanded.minLon,minLat:expanded.minLat,maxLon:expanded.maxLon,maxLat:expanded.maxLat
-      },
-      additional:{
-        minLon:additional.minLon,minLat:additional.minLat,maxLon:additional.maxLon,maxLat:additional.maxLat
-      },
-      selectedTarget:{
-        minLon:selectedTarget.minLon,minLat:selectedTarget.minLat,maxLon:selectedTarget.maxLon,maxLat:selectedTarget.maxLat
-      },
-      pointPickActive,pointPickInactive,selectedByClick,
-      selectedRequestValid:!!selectedRequest?.append
-        &&Number.isFinite(selectedRequest?.worldPoint?.x)
-        &&Number.isFinite(selectedRequest?.worldPoint?.y)
-        &&!registryMapPointPickMode,
-      intersections:{plus:!!plus,tee:!!tee,corner:!!corner},
-      pencilOn,pencilOff,
-      selectable:getComputedStyle(document.getElementById("registryMapStatus")).userSelect
-    };
+    data.lines=[[0,0,10,10,1,1,1]];
+    updateDrawingDependentUi();
+    let downloads=0;
+    const original=loadRegistryMapAutomatically;
+    loadRegistryMapAutomatically=()=>{downloads++;};
+    document.getElementById("registryMapOpenBtn").click();
+    const afterOpen=downloads;
+    const button=document.getElementById("registryMapAutoBtn");
+    const initial={active:button.classList.contains("active"),pressed:button.getAttribute("aria-pressed"),text:button.textContent.trim()};
+    button.click();
+    const afterAcquireClick=downloads;
+    registryMapState=registryEmptyState();registryMapState.loaded=true;updateRegistryMapUi();
+    const loaded={active:button.classList.contains("active"),pressed:button.getAttribute("aria-pressed"),text:button.textContent.trim()};
+    button.click();
+    const cleared={loaded:registryMapState.loaded,active:button.classList.contains("active"),pressed:button.getAttribute("aria-pressed"),text:button.textContent.trim()};
+    loadRegistryMapAutomatically=original;
+    return {afterOpen,afterAcquireClick,initial,loaded,cleared};
   });
-  if(JSON.stringify(result.counts)!==JSON.stringify([2,2,2]))throw new Error(`registry merge failed: ${JSON.stringify(result)}`);
-  if(!result.covered||result.outside||!result.appendEnabled)throw new Error(`registry coverage/UI failed: ${JSON.stringify(result)}`);
-  if(!(result.expanded.minLon<134&&result.expanded.minLat<34&&result.expanded.maxLon>134.01&&result.expanded.maxLat>34.01))throw new Error(`registry expansion failed: ${JSON.stringify(result.expanded)}`);
-  if(!(result.additional.minLon<134&&result.additional.minLat<34&&result.additional.maxLon>134.01&&result.additional.maxLat>34.01))throw new Error(`registry additional range did not extend acquired coverage: ${JSON.stringify(result.additional)}`);
-  if(!(result.selectedTarget.minLon<134.02&&result.selectedTarget.maxLon>134.02&&result.selectedTarget.minLat<34.01&&result.selectedTarget.maxLat>34.01))throw new Error(`registry selected-point range failed: ${JSON.stringify(result.selectedTarget)}`);
-  if(!result.pointPickActive||!result.pointPickInactive||!result.selectedByClick||!result.selectedRequestValid)throw new Error(`registry point-pick UI failed: ${JSON.stringify(result)}`);
-  if(!result.intersections.plus||!result.intersections.tee||result.intersections.corner)throw new Error(`intersection modes failed: ${JSON.stringify(result.intersections)}`);
-  if(!result.pencilOn||!result.pencilOff)throw new Error(`pencil cursor failed: ${JSON.stringify(result)}`);
-  if(result.selectable!=="text")throw new Error(`panel text is not selectable: ${result.selectable}`);
+  if(result.afterOpen!==0||result.afterAcquireClick!==1)throw new Error(`registry download trigger failed: ${JSON.stringify(result)}`);
+  if(result.initial.active||result.initial.pressed!=="false"||result.initial.text!=="図面範囲")throw new Error(`registry initial state failed: ${JSON.stringify(result.initial)}`);
+  if(!result.loaded.active||result.loaded.pressed!=="true"||result.loaded.text!=="図面範囲")throw new Error(`registry loaded state failed: ${JSON.stringify(result.loaded)}`);
+  if(result.cleared.loaded||result.cleared.active||result.cleared.pressed!=="false"||result.cleared.text!=="図面範囲")throw new Error(`registry clear state failed: ${JSON.stringify(result.cleared)}`);
+  const automatic=await page.evaluate(async()=>{
+    const original=enableVectorBaseMap;
+    let calls=0,silent=false;
+    enableVectorBaseMap=options=>{calls++;silent=options?.silent===true;vectorBaseMapEnabled=true;updateAerialPhotoUi();updateToolbarActivationUI();return Promise.resolve();};
+    await openBundledSampleDrawing();
+    await new Promise(resolve=>setTimeout(resolve,30));
+    const checked=document.getElementById("vectorMapToggleSwitch").checked;
+    const toolbarActive=document.getElementById("backgroundSxfToolbarBtn").classList.contains("modeActive");
+    enableVectorBaseMap=original;
+    return {calls,silent,checked,toolbarActive};
+  });
+  if(automatic.calls!==1||!automatic.silent||!automatic.checked||!automatic.toolbarActive)throw new Error(`foundation map auto-enable failed: ${JSON.stringify(automatic)}`);
   if(errors.length)throw new Error(`page errors: ${errors.join(" | ")}`);
-  console.log("Registry point append, T-intersection, pencil cursor and selectable text validated");
+  console.log("Automatic foundation map and single-button registry UI validated");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   if(browser)await browser.close();
   server.close();
