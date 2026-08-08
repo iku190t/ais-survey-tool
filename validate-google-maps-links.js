@@ -12,7 +12,7 @@ for(const token of [
   'aria-label="ストリートビュー"',
   'id="photoAlbumMiniMap"',
   'id="photoAlbumMapQr" type="checkbox" checked',
-  '<script src="google-maps-links.js?v=9"></script>',
+  '<script src="google-maps-links.js?v=10"></script>',
   'window.__ezGoogleLinkPendingOpen=true',
   'const useMapQr=!!settings.mapQr',
   'a:hlinkClick r:id="rIdLink${image.id}"'
@@ -22,7 +22,7 @@ for(const absent of ['id="photoAlbumMapQrBtn"','id="googleOpenMapBtn"','id="goog
 }
 for(const token of [
   "data=!3m1!1e3",'map_action:"pano"',"heading",
-  "ezviewer-google-streetview","prepareExternalWindows","createPhotoQrImage",
+  "ezviewer-google-streetview","prepareExternalWindows","createPhotoQrImage","let reused=false",
   "externalWindowRect","previewDirectionFrom",'window.open(streetUrl,"_self")',
   'context.setLineDash([])','drawPoint(positionWorld);','if(window.__ezGoogleLinkPendingOpen)'
 ])if(!feature.includes(token))throw new Error(`Google URL連携が不足しています: ${token}`);
@@ -71,10 +71,12 @@ let browser;
     document.getElementById("startupModal").style.display="none";
     data.lines=[[0,0,1000,1000,1,1,1]];loadedSfcText="test";updateDrawingDependentUi();
     const opened=[];
+    let lastStreetHandle=null;
     window.open=(url,name,features)=>{
       const record={url,name,features,moves:[],sizes:[],urls:[],closed:false};
       const handle={closed:false,moveTo:(...args)=>record.moves.push(args),resizeTo:(...args)=>record.sizes.push(args)};
       Object.defineProperty(handle,"location",{value:{get href(){return record.url;},set href(value){record.url=value;record.urls.push(value);}}});
+      lastStreetHandle=handle;
       opened.push(record);return handle;
     };
     resolveProfileZone=async()=>4;
@@ -93,11 +95,18 @@ let browser;
     fire("mousemove",180,140);await new Promise(resolve=>setTimeout(resolve,20));
     const livePreview=GoogleMapsLinkFeature.getSelection();
     fire("mousedown",200,150);click(200,150);await new Promise(resolve=>setTimeout(resolve,40));
+    const firstCompleted=GoogleMapsLinkFeature.getSelection();
+    // Google遷移後にブラウザがclosed=trueを返しても、同じ参照へURLを
+    // 更新し、新しいウィンドウを増やさないことを再現する。
+    lastStreetHandle.closed=true;
+    document.getElementById("googleMapsLinkBtn").click();
+    click(300,300);await new Promise(resolve=>setTimeout(resolve,20));
+    fire("mousedown",360,330);click(360,330);await new Promise(resolve=>setTimeout(resolve,40));
     return {
       modal:getComputedStyle(document.getElementById("googleMapsLinkModal")).display,
       active:document.getElementById("googleMapsLinkBtn").classList.contains("modeActive"),
       status:document.getElementById("googleMapsLinkStatus").textContent,
-      opened,afterFirst,livePreview,selection:GoogleMapsLinkFeature.getSelection(),
+      opened,afterFirst,livePreview,firstCompleted,selection:GoogleMapsLinkFeature.getSelection(),
       screen:{left:screen.availLeft||0,top:screen.availTop||0,width:screen.availWidth,height:screen.availHeight}
     };
   });
@@ -108,8 +117,9 @@ let browser;
   const street=ui.opened.find(item=>item.name==="ezviewer-google-streetview");
   if(!street?.url.includes("map_action=pano")||!street.url.includes("heading="))throw new Error(`ストリートビューが方向付きで開きません: ${JSON.stringify(street)}`);
   if(ui.opened.some(item=>item.name==="ezviewer-google-map"||item.url.includes("data=!3m1!1e3")))throw new Error(`PCで不要な航空写真を開いています: ${JSON.stringify(ui.opened)}`);
-  if(!street.url.includes("viewpoint=34.001%2C134.001"))throw new Error(`1点目の位置でストリートビューを開いていません: ${JSON.stringify(street)}`);
-  if(Math.abs(ui.selection.directionWorld.x-200)>.01||Math.abs(ui.selection.directionWorld.y-150)>.01)throw new Error(`2点目の青丸位置が不正です: ${JSON.stringify(ui.selection)}`);
+  if(street.urls.length!==2||!street.urls[0].includes("viewpoint=34.001%2C134.001")||!street.urls[1].includes("viewpoint=34.003%2C134.003"))throw new Error(`既存ストリートビューへ位置を更新できません: ${JSON.stringify(street)}`);
+  if(Math.abs(ui.firstCompleted.directionWorld.x-200)>.01||Math.abs(ui.firstCompleted.directionWorld.y-150)>.01)throw new Error(`2点目の青丸位置が不正です: ${JSON.stringify(ui.firstCompleted)}`);
+  if(Math.abs(ui.selection.directionWorld.x-360)>.01||Math.abs(ui.selection.directionWorld.y-330)>.01)throw new Error(`再選択した2点目の位置が不正です: ${JSON.stringify(ui.selection)}`);
   if(!street.moves.length||!street.sizes.length)throw new Error("PCの左下1画面配置が実行されていません");
   const streetMove=street.moves.at(-1),streetSize=street.sizes.at(-1);
   const expectedWidth=Math.max(420,Math.floor(ui.screen.width/2)),expectedHeight=Math.max(320,Math.floor(ui.screen.height/2)),expectedTop=ui.screen.top+ui.screen.height-expectedHeight;
