@@ -1,6 +1,7 @@
 body.excelPreview{overflow:hidden;background:#fff}
 body.excelPreview #topbar,
 body.excelPreview #startupModal,
+body.excelPreview #landscapeBlocker,
 body.excelPreview #toast,
 body.excelPreview #busyOverlay,
 body.excelPreview #wrap > :not(#canvas):not(#ezExcelMarker){display:none!important}
