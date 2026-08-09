@@ -151,7 +151,7 @@
   }
 
   function bindUi() {
-    for (const id of ["officeBadge", "sfcFile", "fileName", "readSelection", "selectionInfo", "viewerFrame", "status"]) {
+    for (const id of ["officeBadge", "sfcFile", "fileName", "readSelection", "selectionInfo", "previewStage", "viewerFrame", "status"]) {
       elements[id] = $(id);
     }
     elements.sfcFile.addEventListener("change", () => run(() => loadSfc(elements.sfcFile.files[0])));
