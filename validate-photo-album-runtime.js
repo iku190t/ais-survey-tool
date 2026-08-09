@@ -36,12 +36,19 @@ async function inspectWorkbook(buffer,expectedEndColumn,minimumImages){
   const workbook=await zip.file("xl/workbook.xml").async("string");
   const sheet=await zip.file("xl/worksheets/sheet1.xml").async("string");
   const drawing=await zip.file("xl/drawings/drawing1.xml").async("string");
+  const drawingRels=await zip.file("xl/drawings/_rels/drawing1.xml.rels").async("string");
   const media=Object.keys(zip.files).filter(name=>name.startsWith("xl/media/")&&!zip.files[name].dir);
   if(!workbook.includes(`$${expectedEndColumn}$`))throw new Error(`印刷範囲の終端が${expectedEndColumn}ではありません`);
   if(!sheet.includes('horizontalCentered="1" verticalCentered="1"'))throw new Error("ページ中央設定がありません");
   if(media.length<minimumImages)throw new Error(`豆図を含む画像数が不足しています: ${media.length}`);
   if(!drawing.includes('<a:ln w="6350">'))throw new Error("写真の0.5pt枠がありません");
-  return {media:media.length,workbook,sheet,drawing};
+  const qrCount=(drawing.match(/name="GoogleマップQR /g)||[]).length;
+  const shapeLinkCount=(drawing.match(/<xdr:sp macro="" textlink="">[\s\S]*?<xdr:cNvPr id="\d+" name="Googleマップリンク \d+">[\s\S]*?<a:hlinkClick r:id="rIdLink\d+"\/>[\s\S]*?<a:alpha val="0"\/>[\s\S]*?<\/xdr:sp>/g)||[]).length;
+  const drawingLinkRelCount=(drawingRels.match(/Type="http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships\/hyperlink"/g)||[]).length;
+  if(qrCount&&shapeLinkCount!==qrCount)throw new Error(`PDF用透明リンク数がQR数と一致しません: QR=${qrCount}, link=${shapeLinkCount}`);
+  if(qrCount&&drawingLinkRelCount!==qrCount)throw new Error(`QRリンク関係数がQR数と一致しません: QR=${qrCount}, rel=${drawingLinkRelCount}`);
+  if(qrCount&&!drawingRels.includes('Target="https://maps.google.com/?q=35,134" TargetMode="External"'))throw new Error("Googleマップ外部リンクがありません");
+  return {media:media.length,workbook,sheet,drawing,drawingRels,qrCount,shapeLinkCount};
 }
 
 let browser;

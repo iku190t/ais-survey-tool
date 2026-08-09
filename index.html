@@ -15251,6 +15251,8 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
     }
     rows.push(`<row r="${row}" ht="12.75" customHeight="1">${rowCells.join("")}</row>`);
   }
+  const linkShapeBaseId=media.length+1;
+  let linkShapeIndex=0;
   const anchors=images.map(image=>{
     const marker=(x,y)=>{
       let col=0,left=0;
@@ -15259,8 +15261,15 @@ async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
       return `<xdr:col>${col}</xdr:col><xdr:colOff>${Math.round((x-left)*9525)}</xdr:colOff><xdr:row>${row}</xdr:row><xdr:rowOff>${Math.round((y-row*rowPx)*9525)}</xdr:rowOff>`;
     };
     const from=marker(image.rect.x,image.rect.y),to=marker(image.rect.x+image.rect.width,image.rect.y+image.rect.height);
-    const hyperlink=image.href?`<a:hlinkClick r:id="rIdLink${image.id}"/>`:"";
-    return `<xdr:twoCellAnchor editAs="oneCell"><xdr:from>${from}</xdr:from><xdr:to>${to}</xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${image.id}" name="${escapeSpreadsheetXml(image.name)}">${hyperlink}</xdr:cNvPr><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId${image.id}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln w="6350"><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:prstDash val="solid"/></a:ln></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`;
+    const picture=`<xdr:twoCellAnchor editAs="oneCell"><xdr:from>${from}</xdr:from><xdr:to>${to}</xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${image.id}" name="${escapeSpreadsheetXml(image.name)}"/><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId${image.id}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln w="6350"><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:prstDash val="solid"/></a:ln></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`;
+    if(!image.href)return picture;
+    // QR画像そのもののリンクはExcel上では有効だが、PDF変換時に画像へ統合されて
+    // 消えることがある。QRと同じ位置へ透明な図形リンクを重ね、PDF注釈を残す。
+    const shapeId=linkShapeBaseId+linkShapeIndex++;
+    const x=Math.round(image.rect.x*9525),y=Math.round(image.rect.y*9525);
+    const cx=Math.max(1,Math.round(image.rect.width*9525)),cy=Math.max(1,Math.round(image.rect.height*9525));
+    const linkShape=`<xdr:twoCellAnchor editAs="oneCell"><xdr:from>${from}</xdr:from><xdr:to>${to}</xdr:to><xdr:sp macro="" textlink=""><xdr:nvSpPr><xdr:cNvPr id="${shapeId}" name="Googleマップリンク ${image.id}"><a:hlinkClick r:id="rIdLink${image.id}"/></xdr:cNvPr><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="FFFFFF"><a:alpha val="0"/></a:srgbClr></a:solidFill><a:ln><a:noFill/></a:ln><a:effectLst/></xdr:spPr><xdr:txBody><a:bodyPr/><a:lstStyle/><a:p/></xdr:txBody></xdr:sp><xdr:clientData/></xdr:twoCellAnchor>`;
+    return picture+linkShape;
   }).join("");
   const breaks=Array.from({length:Math.max(0,pageCount-1)},(_,i)=>`<brk id="${(i+1)*pageRows}" min="0" max="16383" man="1"/>`).join("");
   const types=[
