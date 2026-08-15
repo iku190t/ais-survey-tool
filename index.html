@@ -682,6 +682,9 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #startupBox p{margin:0 0 12px 0;font-size:14px;line-height:1.5;}
 #startupOpenBtn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:34px;padding:7px 12px;border:1px solid #333;border-radius:8px;background:#333;color:#fff;font-size:12px;font-weight:700;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #startupOpenBtn:active{transform:translateY(1px) scale(.98);filter:brightness(.92);}
+#startupGpsBtn{display:none;align-items:center;justify-content:center;box-sizing:border-box;width:max-content;max-width:100%;min-height:34px;margin:9px auto 0;padding:7px 12px;border:1px solid #176bc0;border-radius:8px;background:#0a84ff;color:#fff;font-size:12px;font-weight:800;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+#startupGpsBtn:active{transform:translateY(1px) scale(.98);filter:brightness(.92);}
+#startupGpsBtn:disabled{opacity:.55;cursor:default;transform:none;}
 #startupSampleBtn{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:max-content;max-width:100%;min-height:34px;margin:9px auto 0;padding:7px 12px;border:1px solid #777;border-radius:8px;background:#fff;color:#222;font-size:12px;font-weight:700;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
 #startupSampleBtn:active{transform:translateY(1px) scale(.98);filter:brightness(.94);}
 #startupSampleBtn:disabled{opacity:.55;cursor:default;transform:none;}
@@ -1780,6 +1783,7 @@ gtag('config', 'G-88B9YPJXWP');
         <div style="font-size:13px;line-height:1.6;color:#666;font-weight:700;">青い点＝あなたの現在地</div>
       </div>
       <label id="startupOpenBtn" for="fileInput" role="button">ファイルを開く</label>
+      <button id="startupGpsBtn" type="button">現在地で開く</button>
       <div id="startupRecentSection" class="recentDrawingSection">
         <div class="recentDrawingTitle">最近開いた図面</div>
         <div id="startupRecentList" class="recentDrawingList"></div>
@@ -1953,10 +1957,11 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="gps">
             <div class="helpSectionTitle">現在地GPS</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">開始・終了</div>図面右上の方位マーク横にある <b>現在地</b> を押すとGPSを開始し、現在位置を図面上へ表示します。もう一度押すと終了し、図面を全体表示へ戻します。</div>
+              <div class="helpBlock"><div class="helpHead">開始・終了</div>図面右上の方位マーク横にある <b>現在地</b> を押すとGPSを開始し、現在位置を図面上へ表示します。GPS中は現在地から座標系を自動判定し、終了すると開始前の図面の座標系・表示位置・倍率・回転・背景地図へ戻ります。</div>
+              <div class="helpBlock"><div class="helpHead">図面なしで開く</div>スマホでは最初の画面にある <b>現在地で開く</b> を押すと、SFC図面がなくても現在地周辺の地理院タイル（航空写真）を表示できます。知らない場所で周辺を確認したい時に使用できます。</div>
               <div class="helpBlock"><div class="helpHead">現在地への追従</div>GPS開始中は現在地を画面中央へ追従します。指で図面を移動・拡大縮小・回転すると追従だけを解除し、GPSの青い点は更新を続けます。画面左下の「現在地に戻る」を押すと中央へ戻り、追従を再開します。</div>
               <div class="helpBlock"><div class="helpHead">詳細</div>GPS開始中は左側の <b>詳細</b> から座標・誤差などを確認できます。詳細画面は同じボタンで閉じられます。</div>
-              <div class="helpBlock"><div class="helpHead">図面との距離</div>現在地が図面の外形から500m以上離れている場合は、図面までのおよその距離を表示します。測地系や座標系が違う場合も大きく離れて表示されます。</div>
+              <div class="helpBlock"><div class="helpHead">図面との距離</div>現在地が図面の外形から500m以上離れている場合は、図面までのおよその距離を表示し、現在地周辺の地理院タイル（航空写真）を自動表示します。GPSを終了すると、自動表示したタイルも解除して元の図面へ戻ります。</div>
               <div class="helpBlock"><div class="helpHead">誤差</div>表示される誤差は端末GPSの推定値です。屋外の開けた場所で少し待つと小さくなる場合がありますが、測量成果には使用しないでください。</div>
               <div class="helpBlock"><div class="helpHead">使えない時</div>位置情報を許可し、HTTPSの公開ページで使用してください。iPhoneで端末内のファイルを直接開いた場合はGPSが動かないことがあります。</div>
             </div>
@@ -2769,6 +2774,8 @@ let gpsPanelOpen = false;
 let gpsDetailOpen = false;
 let gpsOnlyBlankMode = false;
 let gpsOnlyBlankPrevDarkTheme = true;
+let gpsSessionState = null;
+let gpsTemporaryCoordinateZone = null;
 const JGD2024_NAME = "JGD2024";
 const JAPAN_PLANE_ZONES = [
   {zone:1, lat0:33, lon0:129.5},
@@ -2910,6 +2917,7 @@ function defaultSfcWorldToPlane(xWorldMm, yWorldMm){
   return {xNorth, yEast};
 }
 function planeToSfcWorld(xNorth, yEast){
+  if(gpsTemporaryCoordinateZone)return defaultPlaneToSfcWorld(xNorth,yEast);
   const tr=activeCoordinateMeshTransform;
   if(!tr) return defaultPlaneToSfcWorld(xNorth,yEast);
   if(tr.kind==="affine"){
@@ -2929,6 +2937,7 @@ function planeToSfcWorld(xNorth, yEast){
   return {x:world[0],y:world[1]};
 }
 function sfcWorldToPlane(xWorldMm, yWorldMm){
+  if(gpsTemporaryCoordinateZone)return defaultSfcWorldToPlane(xWorldMm,yWorldMm);
   const tr=activeCoordinateMeshTransform;
   if(!tr) return defaultSfcWorldToPlane(xWorldMm,yWorldMm);
   const world=[xWorldMm/1000,yWorldMm/1000];
@@ -3144,6 +3153,10 @@ function getManualCoordinateZone(){
 }
 function updateCoordinateSystemStatus(resolvedZone=null){
   if(!coordinateSystemStatus)return;
+  if(gpsTemporaryCoordinateZone){
+    coordinateSystemStatus.textContent=`現在地：第${gpsTemporaryCoordinateZone}系（自動）`;
+    return;
+  }
   const manual=getManualCoordinateZone();
   if(manual){
     coordinateSystemStatus.textContent=`手動指定：第${manual}系`;
@@ -3153,7 +3166,10 @@ function updateCoordinateSystemStatus(resolvedZone=null){
   coordinateSystemStatus.textContent=zone?`自動判定：第${zone}系`:"自動判定（GPS・図面位置から判断）";
 }
 function updateSettingsPanelUi(){
-  if(coordinateSystemSelect)coordinateSystemSelect.value=getDrawingCoordinateSetting();
+  if(coordinateSystemSelect){
+    coordinateSystemSelect.value=gpsTemporaryCoordinateZone?String(gpsTemporaryCoordinateZone):getDrawingCoordinateSetting();
+    coordinateSystemSelect.disabled=!!gpsTemporaryCoordinateZone;
+  }
   if(lineDisplayScaleRange){
     lineDisplayScaleRange.value=String(displayLineWidthScale);
     lineDisplayScaleRange.setAttribute("aria-valuenow",String(displayLineWidthScale));
@@ -6182,7 +6198,7 @@ function refreshEnvironmentNotice(){
 function updateGpsUi(){
   const btn = document.getElementById("gpsBtn");
   if (btn){
-    const available = hasLoadedDrawing();
+    const available = hasLoadedDrawing() || gpsOnlyBlankMode;
     btn.classList.toggle("activeGpsBtn", !!gpsEnabled && available);
     btn.classList.toggle("dimmed", !available);
     btn.disabled = false;
@@ -6197,6 +6213,12 @@ function updateGpsUi(){
       btn.style.borderColor = "";
     }
   }
+  const startupGpsBtn=document.getElementById("startupGpsBtn");
+  if(startupGpsBtn){
+    const show=isTouchMobileLike()&&!hasLoadedDrawing()&&!gpsOnlyBlankMode;
+    startupGpsBtn.style.display=show?"inline-flex":"none";
+    startupGpsBtn.disabled=!!gpsEnabled;
+  }
   const gpsDetailFab = document.getElementById("gpsDetailFab");
   if (gpsDetailFab){
     gpsDetailFab.classList.toggle("activeGpsDetailBtn", !!gpsDetailOpen);
@@ -6205,7 +6227,7 @@ function updateGpsUi(){
     gpsDetailFab.style.borderColor = gpsDetailOpen ? "#0066cc" : "";
   }
   if(gpsReturnBtn){
-    const showReturn=!!(gpsEnabled&&!gpsFollow&&gpsPosition&&hasLoadedDrawing());
+    const showReturn=!!(gpsEnabled&&!gpsFollow&&gpsPosition&&(hasLoadedDrawing()||gpsOnlyBlankMode));
     gpsReturnBtn.classList.toggle("show",showReturn);
     gpsReturnBtn.setAttribute("aria-hidden",showReturn?"false":"true");
   }
@@ -6224,7 +6246,9 @@ function updateGpsUi(){
     return;
   }
   const manualZone=getManualCoordinateZone();
-  const zoneMemo = manualZone
+  const zoneMemo = gpsTemporaryCoordinateZone
+    ? `${gpsPosition.zone}系（現在地から自動）`
+    : manualZone
     ? `${gpsPosition.zone}系（手動指定）`
     : (gpsPosition.zone === 4 && gpsPosition.lat >= 32.4 && gpsPosition.lat <= 34.9 && gpsPosition.lon >= 132.0 && gpsPosition.lon <= 134.95
       ? "4系（四国エリア自動判定）"
@@ -6244,11 +6268,13 @@ function enterGpsOnlyBlankMode(){
   rotationDeg = 0;
   const w = canvas.clientWidth || window.innerWidth || 1000;
   const h = canvas.clientHeight || window.innerHeight || 700;
-  view = { scale:1, tx:w/2, ty:h/2 };
-  baseFitScale = 1;
+  view = { scale:.001, tx:w/2, ty:h/2 };
+  baseFitScale = .001;
   updateThemeUI();
   const startupModal = document.getElementById("startupModal");
   if (startupModal) startupModal.style.display = "none";
+  updateDrawingDependentUi();
+  updateGpsUi();
 }
 function exitGpsOnlyBlankMode(showStartup = true){
   if (!gpsOnlyBlankMode) return;
@@ -6280,11 +6306,76 @@ function resumeGpsFollow(){
   scheduleDraw();
   scheduleRecoverySnapshot();
 }
+function captureGpsSessionState(){
+  if(gpsSessionState)return gpsSessionState;
+  const drawingZone=getManualCoordinateZone()||profileZone||getRememberedProfileZone()||null;
+  gpsSessionState={
+    hadDrawing:hasLoadedDrawing(),
+    drawingZone,
+    profileZone:profileZone||null,
+    view:{scale:view.scale,tx:view.tx,ty:view.ty},
+    baseFitScale,
+    rotationDeg,
+    aerialPhotoEnabled:!!aerialPhotoEnabled,
+    aerialPhotoZone:aerialPhotoZone||null,
+    aerialPhotoSourceIndex,
+    aerialAvailableSources:[...aerialAvailableSources],
+    aerialPhotoAvailabilityKey,
+    aerialPhotoStatus:photoStatus?photoStatus.textContent:"",
+    vectorBaseMapEnabled:!!vectorBaseMapEnabled,
+    vectorBaseMapZone:vectorBaseMapZone||null,
+    vectorMapStatus:vectorMapStatus?vectorMapStatus.textContent:""
+  };
+  return gpsSessionState;
+}
+function enableGpsContextTiles(zone){
+  if(!zone)return;
+  aerialPhotoEnableRequestId++;
+  aerialPhotoEnabled=true;
+  aerialPhotoResolveBusy=false;
+  aerialPhotoZone=zone;
+  aerialAvailableSources=[AERIAL_PHOTO_SOURCES[0]];
+  aerialPhotoSourceIndex=0;
+  aerialPhotoAvailabilityKey="";
+  setAerialPhotoStatus("現在地周辺の地理院タイルを表示中…");
+  updateAerialPhotoUi();
+  updateToolbarActivationUI();
+  scheduleDraw();
+}
+function restoreGpsSessionState(){
+  const state=gpsSessionState;
+  if(!state)return false;
+  profileZone=state.profileZone;
+  gpsTemporaryCoordinateZone=null;
+  aerialPhotoEnableRequestId++;
+  aerialPhotoEnabled=state.aerialPhotoEnabled;
+  aerialPhotoResolveBusy=false;
+  aerialPhotoZone=state.aerialPhotoZone;
+  aerialPhotoSourceIndex=state.aerialPhotoSourceIndex;
+  aerialAvailableSources=[...state.aerialAvailableSources];
+  aerialPhotoAvailabilityKey=state.aerialPhotoAvailabilityKey;
+  setAerialPhotoStatus(state.aerialPhotoStatus||"");
+  vectorBaseMapEnabled=state.vectorBaseMapEnabled;
+  vectorBaseMapResolveBusy=false;
+  vectorBaseMapZone=state.vectorBaseMapZone;
+  setVectorMapStatus(state.vectorMapStatus||"");
+  if(state.hadDrawing){
+    view={scale:state.view.scale,tx:state.view.tx,ty:state.view.ty};
+    baseFitScale=state.baseFitScale;
+    rotationDeg=state.rotationDeg;
+  }
+  gpsSessionState=null;
+  updateAerialPhotoUi();
+  updateSettingsPanelUi();
+  updateToolbarActivationUI();
+  return true;
+}
 function stopGps(fitIfFar = false){
   if (gpsWatchId != null && navigator.geolocation){
     navigator.geolocation.clearWatch(gpsWatchId);
   }
-  if (!gpsOnlyBlankMode && fitIfFar){
+  const hadSession=restoreGpsSessionState();
+  if (!gpsOnlyBlankMode && fitIfFar && !hadSession){
     fitToScreen();
   }
   gpsWatchId = null;
@@ -6298,7 +6389,10 @@ function stopGps(fitIfFar = false){
   if (gpsOnlyBlankMode && !hasLoadedDrawing()){
     exitGpsOnlyBlankMode(true);
   }
+  gpsTemporaryCoordinateZone=null;
   updateGpsUi();
+  updateDrawingDependentUi();
+  updateSettingsPanelUi();
   scheduleDraw();
 }
 
@@ -6311,8 +6405,7 @@ function calcDistanceFromSfcBoundsMeters(xMeters, yMeters){
   const dy = y < bounds.minY ? (bounds.minY - y) : (y > bounds.maxY ? (y - bounds.maxY) : 0);
   return Math.hypot(dx, dy) / 1000;
 }
-function maybeShowGpsFarMessage(xNorth,yEast,useMeshTransform){
-  const distMeters = calcDistanceFromPlaneToSfcBoundsMeters(xNorth,yEast,useMeshTransform);
+function maybeShowGpsFarMessage(distMeters){
   gpsLastDistanceMeters = distMeters;
   if (distMeters == null){
     gpsIsFarFromDrawing = false;
@@ -6323,51 +6416,80 @@ function maybeShowGpsFarMessage(xNorth,yEast,useMeshTransform){
     const distanceText=distMeters<1000
       ? `${Math.round(distMeters)}m`
       : `${(Math.round(distMeters/100)/10).toFixed(1)}km`;
-    showToast(`離れすぎています 約${distanceText}です`, 3000);
+    showToast(`図面から約${distanceText}離れています。現在地周辺の地理院タイルを表示します`, 3600);
   }
   gpsIsFarFromDrawing = isFar;
 }
 
-function startGps(){
+function startGps(options={}){
   gpsIsFarFromDrawing = false;
-  if (!hasLoadedDrawing()){
+  const allowWithoutDrawing=!!(options&&options.allowWithoutDrawing);
+  if (!hasLoadedDrawing()&&!allowWithoutDrawing){
     updateGpsUi();
-    return;
+    return false;
   }
   const envMsg = getGpsEnvironmentMessage();
   if (envMsg){
     showToast(envMsg);
     refreshEnvironmentNotice();
-    return;
+    return false;
   }
   if (!ensureProj4Defs()){
     showToast("座標変換ライブラリの読み込み待ちです");
     refreshEnvironmentNotice();
-    return;
+    return false;
   }
+  captureGpsSessionState();
+  if(!hasLoadedDrawing())enterGpsOnlyBlankMode();
   gpsEnabled = true;
   gpsFollow = true;
   gaTrackUseGps();
   updateGpsUi();
   gpsWatchId = navigator.geolocation.watchPosition((pos)=>{
     try{
+      if(!gpsEnabled)return;
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
       const accuracy = pos.coords.accuracy || 0;
-      const zone = getManualCoordinateZone() || chooseJapanPlaneZone(lat, lon);
+      const zone = chooseJapanPlaneZone(lat, lon);
       const xy = latLonToJgd2024XY(lat, lon, zone);
-      const placement = chooseSfcPlacementFromDeviceXY(xy.x, xy.y);
+      const state=gpsSessionState;
+      const drawingZone=state&&state.drawingZone;
+      let placement=chooseSfcPlacementFromDeviceXY(xy.x,xy.y);
+      let distance=null;
+      if(state&&state.hadDrawing){
+        if(drawingZone){
+          const drawingXy=drawingZone===zone?xy:latLonToJgd2024XY(lat,lon,drawingZone);
+          distance=calcDistanceFromPlaneToSfcBoundsMeters(drawingXy.x,drawingXy.y,!!activeCoordinateMeshTransform);
+        }else{
+          distance=calcDistanceFromPlaneToSfcBoundsMeters(xy.x,xy.y,placement.usedMesh);
+        }
+      }
+      const isFar=state&&state.hadDrawing?distance!=null&&distance>=500:false;
+      const useGpsCoordinateSystem=!!(gpsOnlyBlankMode||isFar||(drawingZone&&drawingZone!==zone));
+      if(useGpsCoordinateSystem){
+        placement={sfc:defaultPlaneToSfcWorld(xy.x,xy.y),usedMesh:false};
+        gpsTemporaryCoordinateZone=zone;
+        profileZone=zone;
+        enableGpsContextTiles(zone);
+      }else{
+        gpsTemporaryCoordinateZone=null;
+        profileZone=zone;
+      }
       const sfc = placement.sfc;
       gpsPosition = { lat, lon, accuracy, altitude: pos.coords.altitude, zone, x: xy.x, y: xy.y, sfcX: sfc.x, sfcY: sfc.y, usedMeshTransform:placement.usedMesh };
-      maybeShowGpsFarMessage(xy.x,xy.y,placement.usedMesh);
+      if(state&&state.hadDrawing)maybeShowGpsFarMessage(distance);
       updateGpsUi();
+      updateSettingsPanelUi();
       if (gpsFollow) fitGpsInView();
       scheduleDraw();
     }catch(err){
       console.error(err);
       showToast("現在地の変換に失敗しました");
+      if(!gpsPosition)stopGps();
     }
   }, (err)=>{
+    if(!gpsEnabled)return;
     console.error(err);
     const map = {1:"位置情報の利用が拒否されました。iPhoneの設定とブラウザ設定を確認してください",2:"現在地を取得できません。屋外または電波の良い場所で試してください",3:"GPSがタイムアウトしました。少し待ってもう一度試してください"};
     showToast(map[err.code] || "GPS取得に失敗しました");
@@ -6377,6 +6499,7 @@ function startGps(){
     maximumAge: 3000,
     timeout: 15000
   });
+  return true;
 }
 
 function updateToastPosition(){
@@ -7356,6 +7479,11 @@ function updateStopBtnUI(){
 }
 function applyMobileUiTweaks(){
   // File operations are exposed from the single File button on every device.
+  const startupGpsBtn=document.getElementById("startupGpsBtn");
+  if(startupGpsBtn){
+    const show=isTouchMobileLike()&&!hasLoadedDrawing()&&!gpsOnlyBlankMode;
+    startupGpsBtn.style.display=show?"inline-flex":"none";
+  }
 }
 
 let __lastTouchEndTs = 0;
@@ -13204,13 +13332,21 @@ function applyPortraitPreference(){
 }
 function updateDrawingDependentUi(){
   const available = hasLoadedDrawing();
-  const ids = ["fitBtn","bgBtn","backgroundSxfToolbarBtn","backgroundSxfOpenBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","googleMapsLinkBtn","gpsBtn","measureBtn","profileBtn","photoToolBtn","drawBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab","gpsDetailFab"];
+  const ids = ["fitBtn","bgBtn","backgroundSxfToolbarBtn","backgroundSxfOpenBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","googleMapsLinkBtn","measureBtn","profileBtn","photoToolBtn","drawBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab"];
   ids.forEach(id=>{
     const el = document.getElementById(id);
     if (!el) return;
     el.classList.toggle("unavailableTool", !available);
     el.classList.toggle("dimmed", !available);
     el.setAttribute("aria-disabled", available ? "false" : "true");
+  });
+  const gpsAvailable=available||gpsOnlyBlankMode;
+  ["gpsBtn","gpsDetailFab"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.classList.toggle("unavailableTool",!gpsAvailable);
+    el.classList.toggle("dimmed",!gpsAvailable);
+    el.setAttribute("aria-disabled",gpsAvailable?"false":"true");
   });
   const photoTool=document.getElementById("photoToolBtn");
   if(photoTool)photoTool.style.display=isDesktopPhotoTool()?"":"none";
@@ -13295,6 +13431,7 @@ function resetSessionFromLoad(){
   updateSettingsPanelUi();
 }
 function clearLoadedState(){
+  if(gpsEnabled||gpsSessionState)stopGps(false);
   setPhotoListPanelOpen(false);
   exitGpsOnlyBlankMode(false);
   activeCoordinateMeshTransform=null;
@@ -17958,6 +18095,12 @@ document.getElementById("startupOpenBtn")?.addEventListener("click",event=>{
   event.preventDefault();
   openSfcViaPickerOrInput().catch(console.error);
 });
+document.getElementById("startupGpsBtn")?.addEventListener("click",event=>{
+  event.preventDefault();
+  event.stopPropagation();
+  if(!isTouchMobileLike()||gpsEnabled)return;
+  startGps({allowWithoutDrawing:true});
+});
 renderRecentDrawingHistory().catch(console.error);
 const earlyFileState=window.__sfcFileOpenState;
 if(earlyFileState){
@@ -18036,7 +18179,7 @@ document.getElementById("fitBtn").addEventListener("click", (event)=>{
   fitToScreen();
 });
 document.getElementById("gpsBtn").addEventListener("click", ()=>{
-  if (!hasLoadedDrawing()) return;
+  if (!hasLoadedDrawing()&&!gpsOnlyBlankMode) return;
   if (gpsEnabled){
     stopGps(true);
   }else{
@@ -18045,7 +18188,7 @@ document.getElementById("gpsBtn").addEventListener("click", ()=>{
   }
 });
 document.getElementById("gpsDetailFab").addEventListener("click", ()=>{
-  if (!hasLoadedDrawing()) return;
+  if (!hasLoadedDrawing()&&!gpsOnlyBlankMode) return;
   gpsDetailOpen = !gpsDetailOpen;
   updateGpsUi();
 });
@@ -18252,6 +18395,10 @@ if(settingsCloseBtn)settingsCloseBtn.addEventListener("click",e=>{
   setSettingsPanelOpen(false);
 });
 if(coordinateSystemSelect)coordinateSystemSelect.addEventListener("change",async()=>{
+  if(gpsTemporaryCoordinateZone){
+    updateSettingsPanelUi();
+    return;
+  }
   const value=coordinateSystemSelect.value;
   saveDrawingCoordinateSetting(value);
   profileZone=null;
@@ -20337,6 +20484,7 @@ if (!loadedSfcText && !(data && ((data.lines&&data.lines.length)||(data.polyline
   document.getElementById("startupModal").style.display = "flex";
 }
 updateMeasureBox();
+updateGpsUi();
 updateDrawingDependentUi();
 updateAerialPhotoUi();
 updateSettingsPanelUi();
