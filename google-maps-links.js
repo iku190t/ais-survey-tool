@@ -9,7 +9,9 @@
 
   const byId=id=>document.getElementById(id);
   const isDesktop=()=>typeof isDesktopPhotoTool==="function"?isDesktopPhotoTool():matchMedia("(pointer:fine)").matches;
-  const drawingAvailable=()=>typeof hasLoadedDrawing==="function"&&hasLoadedDrawing();
+  const drawingAvailable=()=>typeof isDrawingActionAvailable==="function"
+    ?isDrawingActionAvailable()
+    :typeof hasLoadedDrawing==="function"&&hasLoadedDrawing();
   const normalizeLatLon=value=>{
     const lat=Number(value&&value.lat),lon=Number(value&&value.lon);
     return Number.isFinite(lat)&&Number.isFinite(lon)?{lat,lon}:null;
@@ -184,7 +186,7 @@
     if(candidate.mode==="second-point"&&isDesktop())prepareExternalWindows();void selectWorldPoint(point);
   }
   function open(){
-    if(!drawingAvailable()){if(typeof showToast==="function")showToast("先にSFC図面を開いてください",1800);return;}
+    if(!drawingAvailable()){if(typeof showToast==="function")showToast("先にSFC図面を開くか、現在地モードを開始してください",1800);return;}
     if(typeof closePanelsExcept==="function")closePanelsExcept("googleMapsLink");
     active=true;selectionMode="position";positionWorld=null;directionWorld=null;positionLatLon=null;directionLatLon=null;
     const modal=byId("googleMapsLinkModal");if(modal)modal.style.display="flex";updateStatus();setButtonState();

@@ -1958,7 +1958,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionTitle">現在地GPS</div>
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開始・終了</div>図面右上の方位マーク横にある <b>現在地</b> を押すとGPSを開始し、現在位置を図面上へ表示します。GPS中は現在地から座標系を自動判定し、終了すると開始前の図面の座標系・表示位置・倍率・回転・背景地図へ戻ります。</div>
-              <div class="helpBlock"><div class="helpHead">図面なしで開く</div>スマホでは最初の画面にある <b>現在地で開く</b> を押すと、SFC図面がなくても現在地周辺の地理院タイル（航空写真）を表示できます。知らない場所で周辺を確認したい時に使用できます。</div>
+              <div class="helpBlock"><div class="helpHead">図面なしで開く</div>スマホでは最初の画面で、ファイルを開くボタンの下にある <b>現在地で開く</b> を押すと、SFC図面がなくても現在地周辺の地理院タイル（航空写真）を表示できます。現在地モードでも計測・手書き・断面・地形解析・各地図表示・ストリートビューを使用できます。計測は任意の場所を選べる「フリー」を自動で有効にします。</div>
               <div class="helpBlock"><div class="helpHead">現在地への追従</div>GPS開始中は現在地を画面中央へ追従します。指で図面を移動・拡大縮小・回転すると追従だけを解除し、GPSの青い点は更新を続けます。画面左下の「現在地に戻る」を押すと中央へ戻り、追従を再開します。</div>
               <div class="helpBlock"><div class="helpHead">詳細</div>GPS開始中は左側の <b>詳細</b> から座標・誤差などを確認できます。詳細画面は同じボタンで閉じられます。</div>
               <div class="helpBlock"><div class="helpHead">図面との距離</div>現在地が図面の外形から500m以上離れている場合は、図面までのおよその距離を表示し、現在地周辺の地理院タイル（航空写真）を自動表示します。GPSを終了すると、自動表示したタイルも解除して元の図面へ戻ります。</div>
@@ -3218,7 +3218,7 @@ function profileZoneFromDevicePosition(pos){
   return zone;
 }
 async function resolveProfileZone(){
-  if (!hasLoadedDrawing() || !ensureProj4Defs()) return null;
+  if (!isDrawingActionAvailable() || !ensureProj4Defs()) return null;
   const manualZone=getManualCoordinateZone();
   if(manualZone){
     profileZone=manualZone;
@@ -3427,7 +3427,7 @@ function updateBackgroundIconState(){
 async function enableAerialPhoto(){
   if(aerialPhotoResolveBusy){setAerialPhotoStatus("図面の位置を確認しています…");return;}
   if(aerialPhotoEnabled&&aerialAvailableSources.length) return;
-  if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
+  if(!isDrawingActionAvailable()){showToast("先にSFC図面を開くか、現在地モードを開始してください",2200);return;}
   const requestId=++aerialPhotoEnableRequestId;
   aerialPhotoResolveBusy=true;
   aerialPhotoEnabled=true;
@@ -3648,7 +3648,7 @@ async function activateHazardMap(mode){
     updateHazardMapUi();scheduleDraw();return;
   }
   if(hazardMapResolveBusy)return;
-  if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
+  if(!isDrawingActionAvailable()){showToast("先にSFC図面を開くか、現在地モードを開始してください",2200);return;}
   hazardMapResolveBusy=true;updateHazardMapUi();setHazardMapStatus("図面の位置を確認しています…");
   try{
     const zone=await resolveProfileZone();
@@ -3721,7 +3721,7 @@ async function setControlPointEnabled(enabled){
     setControlPointStatus("国土地理院の公開位置情報を表示します。");
     updateControlPointUi();scheduleDraw();return;
   }
-  if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);updateControlPointUi();return;}
+  if(!isDrawingActionAvailable()){showToast("先にSFC図面を開くか、現在地モードを開始してください",2200);updateControlPointUi();return;}
   controlPointResolveBusy=true;updateControlPointUi();setControlPointStatus("図面の位置を確認しています…");
   try{
     const zone=await resolveProfileZone();
@@ -4729,7 +4729,7 @@ function disableVectorBaseMap(){
 async function enableVectorBaseMap(options={}){
   const silent=options&&options.silent===true;
   if(vectorBaseMapResolveBusy)return;
-  if(!hasLoadedDrawing()){if(!silent)showToast("先にSFC図面を開いてください",2200);return;}
+  if(!isDrawingActionAvailable()){if(!silent)showToast("先にSFC図面を開くか、現在地モードを開始してください",2200);return;}
   vectorBaseMapEnabled=true;vectorBaseMapResolveBusy=true;updateAerialPhotoUi();setVectorMapStatus("図面の位置を確認中…");
   updateToolbarActivationUI();
   try{
@@ -5333,9 +5333,9 @@ async function buildAlignedTerrainContourGrid(zone,viewport,quality="auto"){
   };
 }
 async function buildTerrainGrid(purpose="surface",contourQuality="auto"){
-  if(!hasLoadedDrawing()) return null;
+  if(!isDrawingActionAvailable()) return null;
   const zone=await resolveProfileZone();
-  if(!zone) throw new Error("このSFC図面の座標系を確認できません");
+  if(!zone) throw new Error("表示位置の座標系を確認できません");
   const viewport=getTerrainViewportState();
   if(purpose==="contour")return buildAlignedTerrainContourGrid(zone,viewport,contourQuality);
   const {cols,rows}=chooseTerrainGridSize(viewport);
@@ -5542,7 +5542,7 @@ function formatTerrainError(error){
   return raw?`表示できません：${raw}`:"表示できません：原因を確認できません";
 }
 async function activateTerrainMode(mode,force=false){
-  if(!hasLoadedDrawing()){showToast("先に図面を開いてください");return;}
+  if(!isDrawingActionAvailable()){showToast("先にSFC図面を開くか、現在地モードを開始してください");return;}
   if(terrainLoading)return;
   if(!force&&terrainMode===mode){clearTerrainAnalysis();return;}
   if(!force){
@@ -6146,7 +6146,7 @@ function selectProfileWorldPoint(world){
   profileEndWorld={x:world.x,y:world.y};profileHoverWorld=null;scheduleInteractionDraw();completeProfileSelection();
 }
 async function beginProfileMode(){
-  if(!hasLoadedDrawing()) return;
+  if(!isDrawingActionAvailable()) return;
   if(profileZoneResolving) return;
   // A section is an exclusive operation. Clear measurement/drawing/search and
   // their snap buttons before the asynchronous coordinate-system lookup starts.
@@ -6261,6 +6261,9 @@ function updateGpsUi(){
 function hasLoadedDrawing(){
   return !!(data && ((data.lines && data.lines.length) || (data.polys && data.polys.length) || (data.texts && data.texts.length) || (data.circles && data.circles.length)));
 }
+function hasActiveWorkspace(){
+  return hasLoadedDrawing()||gpsOnlyBlankMode;
+}
 function enterGpsOnlyBlankMode(){
   gpsOnlyBlankMode = true;
   gpsOnlyBlankPrevDarkTheme = darkTheme;
@@ -6316,6 +6319,7 @@ function captureGpsSessionState(){
     view:{scale:view.scale,tx:view.tx,ty:view.ty},
     baseFitScale,
     rotationDeg,
+    activePickModes:[...activePickModes],
     aerialPhotoEnabled:!!aerialPhotoEnabled,
     aerialPhotoZone:aerialPhotoZone||null,
     aerialPhotoSourceIndex,
@@ -6364,10 +6368,14 @@ function restoreGpsSessionState(){
     baseFitScale=state.baseFitScale;
     rotationDeg=state.rotationDeg;
   }
+  if(Array.isArray(state.activePickModes))activePickModes=[...state.activePickModes];
   gpsSessionState=null;
   updateAerialPhotoUi();
   updateSettingsPanelUi();
   updateToolbarActivationUI();
+  updateModeIcons();
+  updatePickStatus();
+  updateMeasureBox();
   return true;
 }
 function stopGps(fitIfFar = false){
@@ -6387,6 +6395,8 @@ function stopGps(fitIfFar = false){
   gpsPanelOpen = false;
   gpsDetailOpen = false;
   if (gpsOnlyBlankMode && !hasLoadedDrawing()){
+    cancelTransientOperations();
+    closePanelsExcept("");
     exitGpsOnlyBlankMode(true);
   }
   gpsTemporaryCoordinateZone=null;
@@ -9871,7 +9881,7 @@ function closeCoordinateInspectModal(){
   if(wasVisible)scheduleDraw();
 }
 function canStartCoordinateInspectLongPress(){
-  return hasLoadedDrawing()&&!measureMode&&!profileWorkflowIsActive()&&
+  return isDrawingActionAvailable()&&!measureMode&&!profileWorkflowIsActive()&&
     !terrainCadSelectionMode&&!inkEnabled;
 }
 async function openCoordinateInspectModal(screenX,screenY){
@@ -11922,6 +11932,7 @@ function registryExpandGeoBoundsByViewport(bounds,visibleBounds,screenShare=.5){
   });
 }
 function registryInitialTargetBounds(zone){
+  if(!hasLoadedDrawing())return registryAutoTargetBounds(zone);
   const drawing=registryDrawingTargetBounds(zone);
   const visible=registryAutoTargetBounds(zone);
   // Add one current screen in total around the drawing (half a screen on
@@ -12011,7 +12022,7 @@ function registryMergeMapStates(base,incoming,targetBounds,resourceUrl=""){
   return base;
 }
 function registryAutoTargetBounds(zone){
-  if(!hasLoadedDrawing()||!zone)throw new Error("先にSFC図面を開いてください");
+  if(!isDrawingActionAvailable()||!zone)throw new Error("先にSFC図面を開くか、現在地モードを開始してください");
   const w=Math.max(1,canvas.clientWidth),h=Math.max(1,canvas.clientHeight);
   const screenCorners=[[0,0],[w,0],[w,h],[0,h],[w/2,h/2]];
   const points=[];
@@ -12561,7 +12572,7 @@ async function loadRegistryMapAutomatically(options={}){
   const append=options===true||options?.append===true;
   const requestedWorld=options&&typeof options==="object"?options.worldPoint:null;
   if(registryMapAutoBusy)return;
-  if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
+  if(!isDrawingActionAvailable()){showToast("先にSFC図面を開くか、現在地モードを開始してください",2200);return;}
   const previousState=registryMapState;
   const operationId=++registryMapOperationSerial;
   const abortController=new AbortController();
@@ -13315,7 +13326,7 @@ function deleteCurrentRecoverySnapshot(){
   }
 }
 function isDrawingActionAvailable(){
-  return hasLoadedDrawing();
+  return hasActiveWorkspace();
 }
 function applyPortraitPreference(){
   document.body.classList.add("portrait-preferred");
@@ -13331,7 +13342,7 @@ function applyPortraitPreference(){
   lock();
 }
 function updateDrawingDependentUi(){
-  const available = hasLoadedDrawing();
+  const available = hasActiveWorkspace();
   const ids = ["fitBtn","bgBtn","backgroundSxfToolbarBtn","backgroundSxfOpenBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","googleMapsLinkBtn","measureBtn","profileBtn","photoToolBtn","drawBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab"];
   ids.forEach(id=>{
     const el = document.getElementById(id);
@@ -18176,6 +18187,13 @@ document.getElementById("fitBtn").addEventListener("click", (event)=>{
   if (!isDrawingActionAvailable()) return;
   updateWrapLayout();
   resize(false);
+  if(gpsOnlyBlankMode&&gpsPosition){
+    gpsFollow=true;
+    fitGpsInView();
+    updateGpsUi();
+    scheduleDraw();
+    return;
+  }
   fitToScreen();
 });
 document.getElementById("gpsBtn").addEventListener("click", ()=>{
@@ -18782,7 +18800,7 @@ document.getElementById("layerDeleteConfirmModal")?.addEventListener("click",eve
 
 layerFab.addEventListener("click", (e)=>{
   e.stopPropagation();
-  if (!hasLoadedDrawing()) return;
+  if (!isDrawingActionAvailable()) return;
   const opening=getComputedStyle(layerPanel).display==="none";
   closePanelsExcept('layer');
   layerPanel.style.display = opening ? 'flex' : 'none';
@@ -19348,7 +19366,7 @@ if(profileChart){
 }
 
 document.getElementById("measureBtn").addEventListener("click", ()=>{
-  if (!hasLoadedDrawing()) return;
+  if (!isDrawingActionAvailable()) return;
   const wasMeasuring = !!(measureMode||(measureModePanel&&getComputedStyle(measureModePanel).display!=="none"));
   cancelTransientOperations("measure");
   if (wasMeasuring) {
@@ -19370,6 +19388,7 @@ document.getElementById("measureBtn").addEventListener("click", ()=>{
   resetMeasureUI();
   measureMode = true;
   measureType = "2point";
+  if(gpsOnlyBlankMode&&!activePickModes.includes("free"))activePickModes=[...activePickModes,"free"];
   updateModeIcons();
   updateMeasureBox();
   closePanelsExcept();
@@ -19394,7 +19413,7 @@ document.getElementById("measureCloseBtn")?.addEventListener("click", ()=>{
 document.getElementById("measureBackBtn")?.addEventListener("click", undoMeasureSelection);
 
 document.getElementById("drawBtn").addEventListener("click", ()=>{
-  if (!hasLoadedDrawing()) return;
+  if (!isDrawingActionAvailable()) return;
   const wasDrawing=!!(inkEnabled||(drawPanel&&getComputedStyle(drawPanel).display!=="none"));
   cancelTransientOperations("draw");
   if(wasDrawing){
@@ -20374,7 +20393,7 @@ if (compassFab) {
   compassFab.title="図面の向きを変更";
   compassFab.addEventListener("click", event=>{
     event.stopPropagation();
-    if(!hasLoadedDrawing())return;
+    if(!isDrawingActionAvailable())return;
     setCompassMenuOpen(!compassMenu?.classList.contains("open"));
   });
 }

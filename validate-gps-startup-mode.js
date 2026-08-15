@@ -14,6 +14,8 @@ const required=[
   'view={scale:state.view.scale,tx:state.view.tx,ty:state.view.ty};',
   'aerialPhotoEnabled=state.aerialPhotoEnabled;',
   'coordinateSystemSelect.disabled=!!gpsTemporaryCoordinateZone;',
+  'return hasLoadedDrawing()||gpsOnlyBlankMode;',
+  'if(gpsOnlyBlankMode&&!activePickModes.includes("free"))',
 ];
 for(const token of required)if(!source.includes(token))throw new Error(`missing GPS startup implementation: ${token}`);
 
@@ -70,6 +72,35 @@ let browser;
   if(!active.gpsEnabled||!active.gpsOnlyBlankMode||active.gpsTemporaryCoordinateZone!==4||!active.aerialPhotoEnabled||active.aerialPhotoZone!==4||active.startupDisplay!=="none"){
     throw new Error(`GPS-only mode did not initialize correctly: ${JSON.stringify(active)}`);
   }
+  const enabledTools=await page.evaluate(()=>window.eval(`(()=>{
+    const ids=["fitBtn","bgBtn","measureBtn","drawBtn","profileBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab","googleMapsLinkBtn"];
+    return {
+      activeWorkspace:isDrawingActionAvailable(),
+      states:Object.fromEntries(ids.map(id=>{const element=document.getElementById(id);return [id,{disabled:element?.getAttribute("aria-disabled"),unavailable:element?.classList.contains("unavailableTool")}];}))
+    };
+  })()`));
+  if(!enabledTools.activeWorkspace||Object.values(enabledTools.states).some(state=>state.disabled!=="false"||state.unavailable)){
+    throw new Error(`tools remain disabled in GPS-only mode: ${JSON.stringify(enabledTools)}`);
+  }
+  await page.locator("#bgBtn").click();
+  if(await page.locator("#aerialPhotoPanel").evaluate(element=>getComputedStyle(element).display)==="none")throw new Error("background panel did not open in GPS-only mode");
+  await page.locator("#terrainPanelOpenBtn").click();
+  if(await page.locator("#terrainPanel").evaluate(element=>getComputedStyle(element).display)==="none")throw new Error("terrain panel did not open in GPS-only mode");
+  await page.locator("#terrainPanelCloseBtn").click();
+  await page.locator("#settingsBtn").click();
+  if(await page.locator("#settingsPanel").evaluate(element=>getComputedStyle(element).display)==="none")throw new Error("settings panel did not open in GPS-only mode");
+  await page.locator("#settingsCloseBtn").click();
+  await page.locator("#measureBtn").click();
+  const measuring=await page.evaluate(()=>window.eval(`({measureMode,free:activePickModes.includes("free"),panel:getComputedStyle(measureBox).display})`));
+  if(!measuring.measureMode||!measuring.free||measuring.panel==="none")throw new Error(`measurement did not start in GPS-only mode: ${JSON.stringify(measuring)}`);
+  await page.locator("#measureBtn").click();
+  await page.locator("#drawBtn").click();
+  const drawing=await page.evaluate(()=>window.eval(`({inkEnabled,panel:getComputedStyle(drawPanel).display})`));
+  if(!drawing.inkEnabled||drawing.panel==="none")throw new Error(`drawing did not start in GPS-only mode: ${JSON.stringify(drawing)}`);
+  await page.locator("#drawBtn").click();
+  await page.locator("#profileBtn").click();
+  await page.waitForFunction(()=>window.eval("profileMode&&!profileZoneResolving"),null,{timeout:3000});
+  await page.locator("#profileBtn").click();
   await page.evaluate(()=>window.eval("stopGps(false)"));
   const stopped=await page.evaluate(()=>window.eval(`({
     gpsEnabled,gpsOnlyBlankMode,gpsTemporaryCoordinateZone,aerialPhotoEnabled,
