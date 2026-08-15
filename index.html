@@ -356,7 +356,9 @@ label.fileBtn{
 #fileDropOverlay.show{display:flex;}
 #fileDropOverlay span{padding:16px 22px;border-radius:14px;background:rgba(0,0,0,.24);}
 .panel{
-  position:absolute; z-index:60; background:var(--panel2); color:var(--fg);
+  /* Keep every ordinary popup above the map-side tool icons (z-index:70).
+     Confirmation dialogs and busy overlays keep their higher dedicated layers. */
+  position:absolute; z-index:90!important; background:var(--panel2); color:var(--fg);
   border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.28);
 }
 #topLeftToolbarMask{position:absolute;left:8px;top:calc(8px + var(--cad-toolbar-offset,40px));width:174px;height:42px;z-index:69;background:var(--bg);border-radius:12px;pointer-events:none;opacity:0.96;}
