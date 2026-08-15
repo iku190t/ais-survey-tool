@@ -54,7 +54,12 @@ let browser;
       getCurrentPosition(success){setTimeout(()=>success(position),0);}
     }});
   });
-  await page.route(/^https:\/\//,route=>route.abort());
+  const tilePng=fs.readFileSync(path.join(root,"sfc-viewer-icon-180.png"));
+  await page.route(/^https:\/\//,route=>{
+    if(route.request().url().startsWith("https://cyberjapandata.gsi.go.jp/xyz/")){
+      route.fulfill({status:200,contentType:"image/png",body:tilePng});
+    }else route.abort();
+  });
   await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:"load",timeout:15000});
   await page.waitForFunction(()=>typeof window.eval("startGps")==="function");
   const before=await page.evaluate(()=>({
@@ -75,6 +80,17 @@ let browser;
   if(!active.gpsEnabled||!active.gpsOnlyBlankMode||active.gpsTemporaryCoordinateZone!==4||!active.aerialPhotoEnabled||active.aerialPhotoZone!==4||active.startupDisplay!=="none"){
     throw new Error(`GPS-only mode did not initialize correctly: ${JSON.stringify(active)}`);
   }
+  await page.evaluate(()=>window.eval("scheduleAerialPhotoSourceRefresh({lat:gpsPosition.lat,lon:gpsPosition.lon})"));
+  try{
+    await page.waitForFunction(()=>window.eval("aerialAvailableSources.length>1&&!aerialPhotoResolveBusy"),null,{timeout:8000});
+  }catch(error){
+    const diagnostic=await page.evaluate(()=>window.eval(`({enabled:aerialPhotoEnabled,busy:aerialPhotoResolveBusy,count:aerialAvailableSources.length,key:aerialPhotoAvailabilityKey,rescanKey:aerialPhotoRescanKey,status:photoStatus?.textContent})`));
+    throw new Error(`aerial-photo periods were not restored: ${JSON.stringify(diagnostic)} / ${error.message}`);
+  }
+  const aerialSourceCount=await page.evaluate(()=>window.eval("aerialAvailableSources.length"));
+  await page.evaluate(()=>window.eval("enableGpsContextTiles(4)"));
+  const preservedSourceCount=await page.evaluate(()=>window.eval("aerialAvailableSources.length"));
+  if(preservedSourceCount!==aerialSourceCount)throw new Error(`GPS update reset aerial-photo periods: ${aerialSourceCount} -> ${preservedSourceCount}`);
   const enabledTools=await page.evaluate(()=>window.eval(`(()=>{
     const ids=["fitBtn","bgBtn","measureBtn","drawBtn","profileBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab","googleMapsLinkBtn"];
     return {

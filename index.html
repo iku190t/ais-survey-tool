@@ -2671,6 +2671,7 @@ let aerialPhotoResolveBusy = false;
 let aerialPhotoEnableRequestId = 0;
 let aerialPhotoAvailabilityKey = "";
 let aerialPhotoRescanTimer = 0;
+let aerialPhotoRescanKey = "";
 const aerialPhotoProbeCache = new Map();
 let aerialPhotoSliderDragging = false;
 let aerialPhotoSliderRatio = 0;
@@ -3467,10 +3468,12 @@ function scheduleAerialPhotoSourceRefresh(centerLl){
   if(!aerialPhotoEnabled||aerialPhotoResolveBusy||!centerLl) return;
   const ref=profileTileRef(centerLl.lat,centerLl.lon,14);
   const nextKey=`${aerialPhotoZone}|${ref.x}|${ref.y}`;
-  if(!aerialPhotoAvailabilityKey||nextKey===aerialPhotoAvailabilityKey) return;
+  if(nextKey===aerialPhotoAvailabilityKey||nextKey===aerialPhotoRescanKey) return;
   clearTimeout(aerialPhotoRescanTimer);
+  aerialPhotoRescanKey=nextKey;
   aerialPhotoRescanTimer=setTimeout(async()=>{
-    if(!aerialPhotoEnabled||aerialPhotoResolveBusy) return;
+    aerialPhotoRescanTimer=0;
+    if(!aerialPhotoEnabled||aerialPhotoResolveBusy){aerialPhotoRescanKey="";return;}
     const requestId=++aerialPhotoEnableRequestId;
     aerialPhotoResolveBusy=true;updateAerialPhotoUi();
     try{
@@ -3486,6 +3489,7 @@ function scheduleAerialPhotoSourceRefresh(centerLl){
       if(requestId===aerialPhotoEnableRequestId){
         aerialPhotoResolveBusy=false;updateAerialPhotoUi();scheduleDraw();
       }
+      aerialPhotoRescanKey="";
     }
   },700);
 }
@@ -6337,14 +6341,20 @@ function captureGpsSessionState(){
 }
 function enableGpsContextTiles(zone){
   if(!zone)return;
+  if(aerialPhotoEnabled&&aerialPhotoZone===zone&&aerialAvailableSources.length){
+    updateAerialPhotoUi();
+    updateToolbarActivationUI();
+    return;
+  }
   aerialPhotoEnableRequestId++;
+  clearTimeout(aerialPhotoRescanTimer);aerialPhotoRescanTimer=0;aerialPhotoRescanKey="";
   aerialPhotoEnabled=true;
   aerialPhotoResolveBusy=false;
   aerialPhotoZone=zone;
   aerialAvailableSources=[AERIAL_PHOTO_SOURCES[0]];
   aerialPhotoSourceIndex=0;
   aerialPhotoAvailabilityKey="";
-  setAerialPhotoStatus("現在地周辺の地理院タイルを表示中…");
+  setAerialPhotoStatus("現在写真を表示中です。利用できる過去年代を確認します…");
   updateAerialPhotoUi();
   updateToolbarActivationUI();
   scheduleDraw();
@@ -13422,7 +13432,7 @@ function resetSessionFromLoad(){
   terrainRequestVersion++;clearTimeout(terrainRefreshTimer);terrainRefreshTimer=0;terrainGrid=null;terrainMode="";terrainLoading=false;terrainRequestedMode="";terrainReferenceElevation=null;terrainElevationRange=null;updateTerrainUi();
   if(terrainPanel)terrainPanel.style.display="none";
   if(profileModal) profileModal.classList.remove("open","expanded");
-  aerialPhotoEnableRequestId++;aerialPhotoEnabled=false;aerialPhotoZone=null;aerialPhotoResolveBusy=false;
+  aerialPhotoEnableRequestId++;clearTimeout(aerialPhotoRescanTimer);aerialPhotoRescanTimer=0;aerialPhotoRescanKey="";aerialPhotoEnabled=false;aerialPhotoZone=null;aerialPhotoResolveBusy=false;
   aerialAvailableSources=[];aerialPhotoSourceIndex=0;aerialPhotoAvailabilityKey="";
   vectorBaseMapEnabled=false;vectorBaseMapZone=null;vectorBaseMapResolveBusy=false;setVectorMapStatus("");
   foundationMapTargetState=null;foundationMapImportBusy=false;
