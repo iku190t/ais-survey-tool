@@ -60,8 +60,11 @@ let browser;
   const before=await page.evaluate(()=>({
     display:getComputedStyle(document.getElementById("startupGpsBtn")).display,
     startup:getComputedStyle(document.getElementById("startupModal")).display,
+    fileBottom:document.getElementById("startupOpenBtn").getBoundingClientRect().bottom,
+    gpsTop:document.getElementById("startupGpsBtn").getBoundingClientRect().top,
   }));
   if(before.display==="none"||before.startup==="none")throw new Error(`mobile startup GPS button is hidden: ${JSON.stringify(before)}`);
+  if(before.gpsTop<=before.fileBottom)throw new Error(`startup GPS button is not below file button: ${JSON.stringify(before)}`);
   await page.locator("#startupGpsBtn").click();
   await page.waitForFunction(()=>window.eval("gpsEnabled&&gpsOnlyBlankMode&&gpsPosition&&aerialPhotoEnabled"),null,{timeout:5000});
   const active=await page.evaluate(()=>window.eval(`({

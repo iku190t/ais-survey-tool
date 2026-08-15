@@ -682,7 +682,8 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #startupBox p{margin:0 0 12px 0;font-size:14px;line-height:1.5;}
 #startupOpenBtn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:34px;padding:7px 12px;border:1px solid #333;border-radius:8px;background:#333;color:#fff;font-size:12px;font-weight:700;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #startupOpenBtn:active{transform:translateY(1px) scale(.98);filter:brightness(.92);}
-#startupGpsBtn{display:none;align-items:center;justify-content:center;box-sizing:border-box;width:max-content;max-width:100%;min-height:34px;margin:9px auto 0;padding:7px 12px;border:1px solid #176bc0;border-radius:8px;background:#0a84ff;color:#fff;font-size:12px;font-weight:800;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+#startupPrimaryActions{display:flex;flex-direction:column;align-items:center;gap:9px;}
+#startupGpsBtn{display:none;align-items:center;justify-content:center;box-sizing:border-box;width:max-content;max-width:100%;min-height:34px;margin:0 auto;padding:7px 12px;border:1px solid #176bc0;border-radius:8px;background:#0a84ff;color:#fff;font-size:12px;font-weight:800;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
 #startupGpsBtn:active{transform:translateY(1px) scale(.98);filter:brightness(.92);}
 #startupGpsBtn:disabled{opacity:.55;cursor:default;transform:none;}
 #startupSampleBtn{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:max-content;max-width:100%;min-height:34px;margin:9px auto 0;padding:7px 12px;border:1px solid #777;border-radius:8px;background:#fff;color:#222;font-size:12px;font-weight:700;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
@@ -1782,8 +1783,10 @@ gtag('config', 'G-88B9YPJXWP');
         <div style="width:18px;height:18px;border-radius:50%;margin:0 auto 8px;background:#2f7dff;box-shadow:0 0 8px rgba(47,125,255,.35);"></div>
         <div style="font-size:13px;line-height:1.6;color:#666;font-weight:700;">青い点＝あなたの現在地</div>
       </div>
-      <label id="startupOpenBtn" for="fileInput" role="button">ファイルを開く</label>
-      <button id="startupGpsBtn" type="button">現在地で開く</button>
+      <div id="startupPrimaryActions">
+        <label id="startupOpenBtn" for="fileInput" role="button">ファイルを開く</label>
+        <button id="startupGpsBtn" type="button">現在地で開く</button>
+      </div>
       <div id="startupRecentSection" class="recentDrawingSection">
         <div class="recentDrawingTitle">最近開いた図面</div>
         <div id="startupRecentList" class="recentDrawingList"></div>
