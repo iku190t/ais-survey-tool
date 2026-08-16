@@ -14,8 +14,10 @@ for(const [mode,label] of Object.entries(modes)){
   if(!html.includes(`data-terrain-mode="${mode}"`))throw new Error(`${mode}: button missing`);
   if(!html.includes(`${mode}:"${label}"`))throw new Error(`${mode}: label missing`);
 }
-if(!html.includes('<script src="terrain-advanced.js?v=1"></script>'))throw new Error('advanced terrain script missing');
-if(!html.includes('window.EzTerrainAdvanced?.draw?.(ctx,grid,terrainDerived,staleViewport)'))throw new Error('advanced terrain draw hook missing');
+if(!html.includes('<script src="terrain-advanced.js?v=2"></script>'))throw new Error('advanced terrain script missing');
+if(!html.includes('window.EzTerrainAdvanced?.draw?.(ctx,grid,terrainDerived,staleViewport,worldToScreen)'))throw new Error('advanced terrain draw hook missing');
+if(!html.includes('gridPurpose:"advanced"'))throw new Error('meter-based advanced grid missing');
+if(!html.includes('fillTerrainPointsByDemPriority(points,120)'))throw new Error('DEM1A-first advanced sampling missing');
 if(!html.includes('terrainDerived=null'))throw new Error('single-result memory release missing');
 if(!html.includes('terrainInundationSlider?.addEventListener("input"'))throw new Error('inundation control missing');
 console.log(`OK: ${Object.keys(modes).length} terrain buttons and inline syntax`);

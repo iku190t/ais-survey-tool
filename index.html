@@ -2096,7 +2096,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">等高線</div>表示中は縮尺に応じて線を間引きます。<b>等高線をCAD化</b>では、多角形で囲んだ範囲を約220mずつに分割して1m間隔で再計算します。各区画はDEM1Aを優先し、欠けた地点だけDEM5Aで補完します。区画境界を重ねて接続し、重複線を除去したうえで、使用した標高データごとに<b>等高線_DEM1A_主曲線</b>・<b>等高線_DEM1A_計曲線</b>・<b>等高線_DEM5A_主曲線</b>・<b>等高線_DEM5A_計曲線</b>へ分けて追加します。計曲線の標高文字は線の長さにかかわらず線上の中央へ置き、実際に文字位置を含む計曲線へ結び付けます。線は互換性を優先したポリラインで、安全な長さへの分割を行います。凡例には、実際に使用した国土地理院DEMの種類・作成方法・標高精度の目安（標準偏差）を表示します。</div>
               <div class="helpBlock"><div class="helpHead">水の流れ</div>細かいDEMで方向を計算し、矢印数は高密度表示時の約10%まで間引いて低い方向を表示します。排水施設を考慮した流域解析ではありません。</div>
               <div class="helpBlock"><div class="helpHead">概算土量</div>表示範囲の平均標高を基準面として切土・盛土を概算します。正式な施工数量には使用できません。</div>
-              <div class="helpBlock"><div class="helpHead">精細表示と軽量化</div>表示中の範囲だけを、倍率とDEM解像度に合わせて画面で識別できる最細密度まで自動解析します。移動・拡大後は新しい表示範囲へ自動更新し、取得済みDEMキャッシュを再利用します。</div>
+              <div class="helpBlock"><div class="helpHead">精細表示と軽量化</div>微地形解析は画面ピクセルではなく現地のメートル単位で計算し、通常はDEM1Aを使った1m格子を優先します。広域表示ではブラウザ停止を防ぐため2mまたは5m格子へ自動調整し、凡例に実際の解析格子を表示します。標高はDEM1Aを先に取得し、欠損地点だけDEM5Aで補完します。人工地形候補の赤線は、固定しきい値で連続する段差・法肩・旧道などの地形変化を抽出した参考表示であり、現地確認が必要です。</div>
             </div>
           </div>
 
@@ -5114,6 +5114,55 @@ function chooseTerrainGridSize(viewport){
   }
   return {cols,rows,targetPx};
 }
+function terrainAdvancedGridSpec(viewport){
+  const corners=[[0,0],[viewport.w,0],[viewport.w,viewport.h],[0,viewport.h]].map(([sx,sy])=>{
+    const world=screenToWorld(sx,sy);return sfcWorldToPlane(world[0],world[1]);
+  });
+  const bounds={
+    minX:Math.min(...corners.map(point=>point.xNorth)),maxX:Math.max(...corners.map(point=>point.xNorth)),
+    minY:Math.min(...corners.map(point=>point.yEast)),maxY:Math.max(...corners.map(point=>point.yEast))
+  };
+  // 微地形解析は画面ピクセル数ではなく、現地のメートル単位で計算する。
+  // DEM1Aを使う範囲では1 m格子を優先し、広域表示だけ2 m / 5 mへ落として
+  // ブラウザ停止を防ぐ。どの格子間隔でも標高の取得順はDEM1A→DEM5Aのまま。
+  const maxPoints=isTouchMobileLike()?90000:180000;
+  let spacing=1,spec=null;
+  for(const candidate of [1,2,5]){
+    const padding=Math.max(5,candidate*2);
+    spec=terrainContourGridSpecForPlaneBounds({
+      minX:bounds.minX-padding,maxX:bounds.maxX+padding,
+      minY:bounds.minY-padding,maxY:bounds.maxY+padding
+    },candidate);
+    spacing=candidate;
+    if(spec.rows*spec.cols<=maxPoints)break;
+  }
+  if(!spec||spec.rows*spec.cols>maxPoints)throw new Error("高精度解析には範囲が広すぎます。少し拡大してから実行してください");
+  return {...spec,spacing,maxPoints};
+}
+async function buildAdvancedTerrainGrid(zone,viewport){
+  const spec=terrainAdvancedGridSpec(viewport);
+  const points=new Array(spec.rows*spec.cols);
+  for(let row=0;row<spec.rows;row++){
+    const xNorth=spec.minX+row*spec.spacing;
+    for(let col=0;col<spec.cols;col++){
+      const yEast=spec.minY+col*spec.spacing,plane={xNorth,yEast};
+      const mapped=planeToSfcWorld(xNorth,yEast),ll=jgd2024XYToLatLon(xNorth,yEast,zone);
+      points[row*spec.cols+col]={
+        row,col,worldX:mapped.x*1000,worldY:mapped.y*1000,
+        plane,lat:ll.lat,lon:ll.lon,elevation:null,source:null
+      };
+    }
+  }
+  const filled=await fillTerrainPointsByDemPriority(points,120);
+  if(filled.tooWide)throw new Error("高精度解析には範囲が広すぎます。少し拡大してから実行してください");
+  if(filled.validCount<Math.ceil(points.length*.35))throw new Error("標高データを取得できません");
+  const sourceId=filled.sourceCounts.DEM1A&&filled.sourceCounts.DEM5A?"MIXED":filled.sourceCounts.DEM1A?"DEM1A":"DEM5A";
+  return {
+    cols:spec.cols,rows:spec.rows,zone,points,createdAt:Date.now(),
+    width:viewport.w,height:viewport.h,viewport,gridPurpose:"advanced",
+    advancedTerrainGrid:{...spec,sourceId,sourceCounts:filled.sourceCounts,analysisSpacing:spec.spacing}
+  };
+}
 function terrainContourDisplaySpacing(viewport){
   const oneMeterPx=Math.max(0,viewport.scale*1000);
   if(oneMeterPx>=2.5)return 1;
@@ -5197,6 +5246,17 @@ function terrainContourGridCoversViewport(grid){
 }
 function terrainViewportNeedsRefresh(grid){
   if(!grid||!grid.viewport)return true;
+  if(grid.gridPurpose==="advanced"&&grid.advancedTerrainGrid){
+    const aligned=grid.advancedTerrainGrid,tolerance=Math.max(.01,aligned.spacing*.01);
+    const corners=[[0,0],[canvas.clientWidth,0],[canvas.clientWidth,canvas.clientHeight],[0,canvas.clientHeight]];
+    const covered=corners.every(([sx,sy])=>{
+      const world=screenToWorld(sx,sy),plane=sfcWorldToPlane(world[0],world[1]);
+      return plane.xNorth>=aligned.minX-tolerance&&plane.xNorth<=aligned.maxX+tolerance&&
+        plane.yEast>=aligned.minY-tolerance&&plane.yEast<=aligned.maxY+tolerance;
+    });
+    if(!covered)return true;
+    try{return terrainAdvancedGridSpec(getTerrainViewportState()).spacing!==aligned.spacing;}catch(_error){return false;}
+  }
   if(grid.gridPurpose==="contour"&&grid.planeContourGrid){
     return !terrainContourGridCoversViewport(grid)||grid.planeContourGrid.spacing!==terrainContourDisplaySpacing(getTerrainViewportState());
   }
@@ -5378,6 +5438,7 @@ async function buildTerrainGrid(purpose="surface",contourQuality="auto"){
   if(!zone) throw new Error("表示位置の座標系を確認できません");
   const viewport=getTerrainViewportState();
   if(purpose==="contour")return buildAlignedTerrainContourGrid(zone,viewport,contourQuality);
+  if(purpose==="advanced")return buildAdvancedTerrainGrid(zone,viewport);
   const {cols,rows}=chooseTerrainGridSize(viewport);
   const w=viewport.w,h=viewport.h;
   const inset=8;
@@ -5523,7 +5584,9 @@ function terrainDemInfoHtml(grid){
   const methods=[...new Set(used.map(source=>source.method))];
   const worstDeviation=Math.max(...used.map(source=>source.standardDeviation));
   const mixed=used.length>1?"（混在）":"";
-  return `<span class="terrainDemInfo"><span><b>使用データ：</b>${used.map(source=>source.id).join("・")}${mixed}</span><span><b>作成方法：</b>${methods.join("／")}</span><span><b>標高精度の目安：</b>標準偏差 ${worstDeviation.toFixed(1)}m以内</span><span id="terrainDemPositionInfo"></span><span>${GSI_DEM_ATTRIBUTION_TEXT}</span></span>`;
+  const analysisSpacing=grid?.advancedTerrainGrid?.analysisSpacing;
+  const spacingText=Number.isFinite(analysisSpacing)?`<span><b>解析格子：</b>${analysisSpacing}m${analysisSpacing===1?"（高精度）":"（拡大すると1m）"}</span>`:"";
+  return `<span class="terrainDemInfo"><span><b>使用データ：</b>${used.map(source=>source.id).join("・")}${mixed}</span>${spacingText}<span><b>作成方法：</b>${methods.join("／")}</span><span><b>標高精度の目安：</b>標準偏差 ${worstDeviation.toFixed(1)}m以内</span><span id="terrainDemPositionInfo"></span><span>${GSI_DEM_ATTRIBUTION_TEXT}</span></span>`;
 }
 function terrainPointAtScreen(grid,screenX,screenY){
   if(!grid||terrainViewportNeedsRefresh(grid)||!Number.isFinite(screenX)||!Number.isFinite(screenY))return null;
@@ -5581,7 +5644,8 @@ function setTerrainLegend(mode){
 }
 async function ensureTerrainGrid(force=false){
   if(terrainLoading)return terrainGrid;
-  const purpose=(terrainRequestedMode||terrainMode)==="contour"?"contour":"surface";
+  const requestedMode=terrainRequestedMode||terrainMode;
+  const purpose=requestedMode==="contour"?"contour":isAdvancedTerrainMode(requestedMode)?"advanced":"surface";
   if(terrainGrid&&!force&&terrainGrid.gridPurpose===purpose)return terrainGrid;
   terrainLoading=true;const request=++terrainRequestVersion;setTerrainStatus("現在の表示範囲の標高を取得しています…");updateTerrainUi();
   try{
@@ -5621,7 +5685,7 @@ async function prepareAdvancedTerrain(mode,grid){
   }
 }
 function terrainAdvancedStatus(mode,result){
-  if(mode==="artificial")return "人工地形の可能性を示す参考表示です。現地確認が必要です。";
+  if(mode==="artificial")return `赤線は連続する地形変化の候補です（${Number.isFinite(result?.spacing)?`解析格子${result.spacing}m・`:""}現地確認が必要）。`;
   if(mode==="viewshed")return "画面中央・地上高1.5mを視点とした地形上の概算です。";
   if(mode==="inundation")return "地形標高だけによる参考表示です。正式な浸水想定ではありません。";
   if(mode==="flatland")return "傾斜と局所的な標高変化から抽出した平坦面候補です。";
@@ -11745,7 +11809,7 @@ function drawTerrainOverlay(){
   if(staleViewport)queueTerrainViewportRefresh();
   ctx.save();
   if(isAdvancedTerrainMode(mode)){
-    window.EzTerrainAdvanced?.draw?.(ctx,grid,terrainDerived,staleViewport);
+    window.EzTerrainAdvanced?.draw?.(ctx,grid,terrainDerived,staleViewport,worldToScreen);
   }else if(mode==="elevation"||mode==="slope"||mode==="volume"){
     for(let r=0;r<grid.rows-1;r++)for(let c=0;c<grid.cols-1;c++){
       const ps=[getTerrainPoint(grid,r,c),getTerrainPoint(grid,r,c+1),getTerrainPoint(grid,r+1,c+1),getTerrainPoint(grid,r+1,c)];
@@ -20730,7 +20794,7 @@ if (window.visualViewport){
   window.visualViewport.addEventListener("resize", relayoutAndResizeStableDelayed);
 }
 </script>
-<script src="terrain-advanced.js?v=1"></script>
+<script src="terrain-advanced.js?v=2"></script>
 <script src="google-maps-links.js?v=12"></script>
 <script src="p2p-share.js?v=3"></script>
 <script src="pc-web-guide.js?v=1"></script>

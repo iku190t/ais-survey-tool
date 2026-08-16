@@ -21,6 +21,7 @@ const modes=[...globalThis.EzTerrainAdvanced.modes];
     if(!visible)throw new Error(`${mode}: no visible pixels`);
     const legend=globalThis.EzTerrainAdvanced.legend(mode,result);
     if(!legend)throw new Error(`${mode}: legend missing`);
+    if(mode==='artificial'&&!(result.candidateCount>0))throw new Error('artificial: red line candidates missing');
   }
   console.log(`OK: ${modes.length} advanced terrain modes`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

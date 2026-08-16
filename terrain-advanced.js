@@ -138,6 +138,84 @@ function divergingPixel(pixels,index,value,scale,negative=[35,120,235],positive=
   const target=value>=0?positive:negative;
   setPixel(pixels,index,245+(target[0]-245)*t,245+(target[1]-245)*t,245+(target[2]-245)*t,alpha*(.30+.70*t));
 }
+function paintNeutralBase(pixels,z,metrics,withShade=false){
+  for(let index=0;index<z.length;index++){
+    if(!finite(z[index])){
+      // NoDataを透明にすると黒背景が穴として見える。解析値ではなく中立色で示す。
+      setPixel(pixels,index,205,205,205,238);
+      continue;
+    }
+    if(withShade){
+      const shade=multidirectionalShade(metrics,index);
+      const value=finite(shade)?55+shade*190:220;
+      setPixel(pixels,index,value,value,value,244);
+    }else setPixel(pixels,index,242,242,242,238);
+  }
+}
+function thinBinary(input,rows,cols,maxPasses=20){
+  const data=new Uint8Array(input),remove=new Uint8Array(input.length);
+  const transitions=neighbors=>{
+    let count=0;
+    for(let index=0;index<neighbors.length;index++)if(!neighbors[index]&&neighbors[(index+1)%neighbors.length])count++;
+    return count;
+  };
+  for(let pass=0;pass<maxPasses;pass++){
+    let changed=false;
+    for(let phase=0;phase<2;phase++){
+      remove.fill(0);
+      for(let row=1;row<rows-1;row++)for(let col=1;col<cols-1;col++){
+        const index=row*cols+col;if(!data[index])continue;
+        const p2=data[index-cols],p3=data[index-cols+1],p4=data[index+1],p5=data[index+cols+1];
+        const p6=data[index+cols],p7=data[index+cols-1],p8=data[index-1],p9=data[index-cols-1];
+        const neighbors=[p2,p3,p4,p5,p6,p7,p8,p9],sum=neighbors.reduce((total,value)=>total+value,0);
+        if(sum<2||sum>6||transitions(neighbors)!==1)continue;
+        const first=phase===0?p2*p4*p6:p2*p4*p8;
+        const second=phase===0?p4*p6*p8:p2*p6*p8;
+        if(first===0&&second===0)remove[index]=1;
+      }
+      for(let index=0;index<data.length;index++)if(remove[index]){data[index]=0;changed=true;}
+    }
+    if(!changed)break;
+  }
+  return data;
+}
+function removeShortComponents(mask,rows,cols,minCells){
+  const result=new Uint8Array(mask),visited=new Uint8Array(mask.length),queue=new Int32Array(mask.length);
+  for(let start=0;start<mask.length;start++){
+    if(!mask[start]||visited[start])continue;
+    let head=0,tail=0;queue[tail++]=start;visited[start]=1;
+    while(head<tail){
+      const index=queue[head++],row=Math.floor(index/cols),col=index%cols;
+      for(const [dr,dc] of DIRECTIONS){
+        const rr=row+dr,cc=col+dc;if(rr<0||rr>=rows||cc<0||cc>=cols)continue;
+        const next=rr*cols+cc;if(mask[next]&&!visited[next]){visited[next]=1;queue[tail++]=next;}
+      }
+    }
+    if(tail<minCells)for(let position=0;position<tail;position++)result[queue[position]]=0;
+  }
+  return result;
+}
+function artificialLineMask(grid,z,metrics,neighborhood){
+  const spacing=Math.max(.25,cellSpacing(grid)),raw=new Uint8Array(z.length);
+  const relief=neighborhood?.relief;
+  for(let row=1;row<grid.rows-1;row++)for(let col=1;col<grid.cols-1;col++){
+    const index=row*grid.cols+col;
+    if(!finite(z[index])||!finite(metrics.curvature[index])||!finite(metrics.slope[index])||!finite(relief?.[index]))continue;
+    let slopeJump=0;
+    for(const [dr,dc] of DIRECTIONS){
+      const next=(row+dr)*grid.cols+col+dc;
+      if(finite(metrics.slope[next]))slopeJump=Math.max(slopeJump,Math.abs(metrics.slope[index]-metrics.slope[next]));
+    }
+    // 0.3 m級の標高ノイズだけでは線にならない固定しきい値を使用する。
+    // 画面ごとの自動伸張は行わず、段差・法肩・旧道などの連続した変化だけを残す。
+    const curvatureHeight=Math.abs(metrics.curvature[index])*spacing*spacing;
+    const localHeight=Math.abs(relief[index]);
+    const score=.46*clamp(curvatureHeight/.18)+.34*clamp(slopeJump/12)+.20*clamp(localHeight/.45);
+    if(score>=.70&&(curvatureHeight>=.08||slopeJump>=7)&&localHeight>=.12)raw[index]=1;
+  }
+  const thinned=thinBinary(raw,grid.rows,grid.cols);
+  return removeShortComponents(thinned,grid.rows,grid.cols,Math.max(4,Math.round(6/spacing)));
+}
 function makeRaster(grid,pixels){
   let canvas=null;
   try{
@@ -213,23 +291,32 @@ function connectedInundation(grid,z,threshold){
 }
 function renderForMode(mode,grid,z,metrics,neighborhood,extra,options){
   const pixels=new Uint8ClampedArray(z.length*4),relief=neighborhood?.relief,roughness=neighborhood?.roughness;
-  const reliefScale=relief?robustAbsScale(relief,.15):1,curvatureScale=robustAbsScale(metrics.curvature,.002),opennessScale=extra?.openness?robustAbsScale(extra.openness,1):1;
+  const spacing=Math.max(.25,cellSpacing(grid));
+  // DEM1Aの標高精度以下の揺らぎを色域いっぱいに拡大しない。
+  const reliefScale=relief?robustAbsScale(relief,.75):1;
+  const curvatureScale=robustAbsScale(metrics.curvature,.03/Math.max(1,spacing));
+  const opennessScale=extra?.openness?robustAbsScale(extra.openness,4):1;
   if(mode==="multihillshade"){
-    for(let i=0;i<z.length;i++){const shade=multidirectionalShade(metrics,i);if(finite(shade)){const value=25+shade*225;setPixel(pixels,i,value,value,value,220);}}
+    paintNeutralBase(pixels,z,metrics,true);
   }else if(mode==="localrelief"){
-    for(let i=0;i<z.length;i++)if(finite(relief[i]))divergingPixel(pixels,i,relief[i],reliefScale,[35,110,230],[235,75,40],205);
+    paintNeutralBase(pixels,z,metrics,false);
+    for(let i=0;i<z.length;i++)if(finite(relief[i]))divergingPixel(pixels,i,relief[i],reliefScale,[35,110,230],[235,75,40],242);
   }else if(mode==="openness"){
-    for(let i=0;i<z.length;i++)if(finite(extra.openness[i]))divergingPixel(pixels,i,extra.openness[i],opennessScale,[35,115,225],[238,145,35],205);
+    paintNeutralBase(pixels,z,metrics,false);
+    for(let i=0;i<z.length;i++)if(finite(extra.openness[i]))divergingPixel(pixels,i,extra.openness[i],opennessScale,[35,115,225],[238,145,35],242);
   }else if(mode==="curvature"){
-    for(let i=0;i<z.length;i++)if(finite(metrics.curvature[i]))divergingPixel(pixels,i,metrics.curvature[i],curvatureScale,[35,125,235],[238,72,48],200);
+    paintNeutralBase(pixels,z,metrics,false);
+    for(let i=0;i<z.length;i++)if(finite(metrics.curvature[i]))divergingPixel(pixels,i,metrics.curvature[i],curvatureScale,[35,125,235],[238,72,48],242);
   }else if(mode==="microterrain"){
+    paintNeutralBase(pixels,z,metrics,true);
     for(let i=0;i<z.length;i++){
       const shade=multidirectionalShade(metrics,i);if(!finite(shade)||!finite(relief[i]))continue;
       const signed=clamp(relief[i]/reliefScale,-1,1),base=35+shade*190;
       const red=base+(signed>0?55*signed:0),blue=base+(signed<0?-60*signed:0),green=base-Math.abs(signed)*25;
-      setPixel(pixels,i,red,green,blue,225);
+      setPixel(pixels,i,red,green,blue,244);
     }
   }else if(mode==="accumulation"){
+    paintNeutralBase(pixels,z,metrics,true);
     let max=1;for(const value of extra.flow.accumulation)if(value>max)max=value;
     const logMax=Math.log1p(max);
     for(let i=0;i<z.length;i++)if(finite(z[i])){
@@ -237,29 +324,27 @@ function renderForMode(mode,grid,z,metrics,neighborhood,extra,options){
       if(t>.18)setPixel(pixels,i,15,125+80*t,255,clamp((t-.12)*280,35,220));
     }
   }else if(mode==="ridgevalley"){
+    paintNeutralBase(pixels,z,metrics,false);
     for(let i=0;i<z.length;i++)if(finite(relief[i])&&finite(metrics.curvature[i])){
       const value=clamp(relief[i]/reliefScale*.68+metrics.curvature[i]/curvatureScale*.32,-1,1);
       divergingPixel(pixels,i,value,1,[25,120,240],[240,70,42],210);
     }
   }else if(mode==="flatland"){
+    paintNeutralBase(pixels,z,metrics,true);
     const roughScale=Math.max(.15,robustAbsScale(roughness,.2,.85));
     for(let i=0;i<z.length;i++)if(finite(metrics.slope[i])&&finite(roughness[i])){
       const score=clamp(1-metrics.slope[i]/8)*clamp(1-roughness[i]/roughScale);
       if(score>.18)setPixel(pixels,i,45,205,105,35+score*175);
     }
   }else if(mode==="artificial"){
-    const roughScale=Math.max(.12,robustAbsScale(roughness,.2,.85));
-    for(let row=1;row<grid.rows-1;row++)for(let col=1;col<grid.cols-1;col++){
-      const i=row*grid.cols+col;if(!finite(metrics.slope[i])||!finite(roughness[i]))continue;
-      const flat=clamp(1-metrics.slope[i]/12)*clamp(1-roughness[i]/roughScale);
-      let edge=0;
-      for(const [dr,dc] of DIRECTIONS){const q=(row+dr)*grid.cols+col+dc;if(finite(metrics.curvature[q]))edge=Math.max(edge,Math.abs(metrics.curvature[q])/curvatureScale);}
-      const score=flat*clamp(edge);
-      if(score>.16)setPixel(pixels,i,235,65,190,45+score*190);
-    }
+    paintNeutralBase(pixels,z,metrics,true);
+    const lineMask=extra.artificialLines||artificialLineMask(grid,z,metrics,neighborhood);
+    for(let i=0;i<lineMask.length;i++)if(lineMask[i])setPixel(pixels,i,245,28,35,255);
   }else if(mode==="viewshed"){
+    paintNeutralBase(pixels,z,metrics,true);
     for(let i=0;i<z.length;i++)if(extra.viewshed.values[i]===1)setPixel(pixels,i,45,205,105,110);else if(extra.viewshed.values[i]===2)setPixel(pixels,i,225,75,60,90);
   }else if(mode==="inundation"){
+    paintNeutralBase(pixels,z,metrics,true);
     for(let i=0;i<z.length;i++)if(extra.flooded[i])setPixel(pixels,i,20,125,245,175);
   }
   return makeRaster(grid,pixels);
@@ -270,10 +355,10 @@ async function prepare(mode,grid,options={}){
   const isCancelled=typeof options.isCancelled==="function"?options.isCancelled:()=>false;
   const onProgress=typeof options.onProgress==="function"?options.onProgress:()=>{};
   const z=elevations(grid),metrics=gradientMetrics(grid,z),spacing=cellSpacing(grid);
-  const localRadius=clamp(Math.round(20/Math.max(.25,spacing)),2,18);
+  const localRadius=clamp(Math.round(20/Math.max(.25,spacing)),2,24);
   let neighborhood=null,extra={};
   if(["localrelief","microterrain","ridgevalley","flatland","artificial"].includes(mode)){
-    const radius=["flatland","artificial"].includes(mode)?clamp(Math.round(3/Math.max(.25,spacing)),1,5):localRadius;
+    const radius=mode==="artificial"?clamp(Math.round(6/Math.max(.25,spacing)),2,10):mode==="flatland"?clamp(Math.round(3/Math.max(.25,spacing)),1,5):localRadius;
     onProgress(.12,"局所地形を計算中…");neighborhood=neighborhoodMetrics(grid,z,radius);await sleep();
   }
   if(mode==="openness"){
@@ -296,19 +381,30 @@ async function prepare(mode,grid,options={}){
   onProgress(.92,"表示を作成中…");
   const raster=renderForMode(mode,grid,z,metrics,neighborhood,extra,options);
   await sleep();
-  return {mode,raster,threshold,observerIndex:extra.viewshed?.observerIndex??null,createdAt:Date.now()};
+  let candidateCount=0;
+  if(mode==="artificial")for(let index=0;index<raster.pixels.length;index+=4)if(raster.pixels[index]>240&&raster.pixels[index+1]<50)candidateCount++;
+  return {mode,raster,threshold,observerIndex:extra.viewshed?.observerIndex??null,spacing,candidateCount,createdAt:Date.now()};
 }
-function draw(context,grid,result,staleViewport=false){
+function draw(context,grid,result,staleViewport=false,toScreen=null){
   if(!context||!grid||!result?.raster||staleViewport)return;
   const raster=result.raster;
   if(raster.canvas){
     context.imageSmoothingEnabled=true;
-    context.drawImage(raster.canvas,raster.left,raster.top,Math.max(1,raster.right-raster.left),Math.max(1,raster.bottom-raster.top));
+    const aligned=grid.advancedTerrainGrid;
+    if(aligned&&typeof toScreen==="function"&&grid.cols>1&&grid.rows>1){
+      const topLeft=toScreen(grid.points[0].worldX,grid.points[0].worldY);
+      const topRight=toScreen(grid.points[grid.cols-1].worldX,grid.points[grid.cols-1].worldY);
+      const bottomLeft=toScreen(grid.points[(grid.rows-1)*grid.cols].worldX,grid.points[(grid.rows-1)*grid.cols].worldY);
+      const a=(topRight[0]-topLeft[0])/(grid.cols-1),b=(topRight[1]-topLeft[1])/(grid.cols-1);
+      const c=(bottomLeft[0]-topLeft[0])/(grid.rows-1),d=(bottomLeft[1]-topLeft[1])/(grid.rows-1);
+      context.save();context.transform(a,b,c,d,topLeft[0]-(a+c)*.5,topLeft[1]-(b+d)*.5);
+      context.drawImage(raster.canvas,0,0,grid.cols,grid.rows);context.restore();
+    }else context.drawImage(raster.canvas,raster.left,raster.top,Math.max(1,raster.right-raster.left),Math.max(1,raster.bottom-raster.top));
   }
   if(result.mode==="viewshed"&&Number.isInteger(result.observerIndex)){
-    const point=grid.points[result.observerIndex];
-    if(point&&finite(point.sx)&&finite(point.sy)){
-      context.beginPath();context.arc(point.sx,point.sy,6,0,Math.PI*2);context.fillStyle="#ffe04d";context.fill();context.lineWidth=2;context.strokeStyle="#111";context.stroke();
+    const point=grid.points[result.observerIndex],screen=point&&(finite(point.sx)&&finite(point.sy)?[point.sx,point.sy]:typeof toScreen==="function"?toScreen(point.worldX,point.worldY):null);
+    if(screen){
+      context.beginPath();context.arc(screen[0],screen[1],6,0,Math.PI*2);context.fillStyle="#ffe04d";context.fill();context.lineWidth=2;context.strokeStyle="#111";context.stroke();
     }
   }
 }
@@ -322,7 +418,7 @@ function legend(mode,result){
     accumulation:'<span class="terrainSwatch" style="background:#158cff"></span> 濃い青ほど水が集まりやすい',
     ridgevalley:'<span class="terrainGradient terrainBlueRed"></span> 青：谷　赤：尾根',
     flatland:'<span class="terrainSwatch" style="background:#2dcd69"></span> 緑：平坦面候補',
-    artificial:'<span class="terrainSwatch" style="background:#eb41be"></span> 紫：人工的な平場・段差の候補',
+    artificial:'<span class="terrainSwatch" style="background:#f51c23"></span> 赤線：連続する段差・法肩・旧道などの候補（現地確認が必要）',
     viewshed:'<span class="terrainSwatch" style="background:#2dcd69"></span>見える <span class="terrainSwatch" style="background:#e14b3c"></span>隠れる　黄点：画面中央の視点（高さ1.5m）',
     inundation:`<span class="terrainSwatch" style="background:#147df5"></span> 外周から連続する標高 ${finite(result?.threshold)?result.threshold.toFixed(1):"－"}m 以下`
   };
