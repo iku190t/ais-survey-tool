@@ -455,7 +455,10 @@ label.fileBtn{
     max-height:min(500px,calc(100dvh - 28px - env(safe-area-inset-bottom)));
   }
   #textLayerBox.textLayerChooseView{height:min(500px,calc(100dvh - 28px - env(safe-area-inset-bottom)));}
-  #textLayerNewArea{padding-bottom:10px;}
+  #textLayerBox.textLayerNewView{height:min(330px,calc(var(--text-layer-visible-height,100dvh) - 24px - env(safe-area-inset-bottom)));max-height:calc(var(--text-layer-visible-height,100dvh) - 24px - env(safe-area-inset-bottom));overflow:hidden;display:flex;flex-direction:column;}
+  #textLayerBox.textLayerNewView #textLayerHeader{flex:0 0 auto;}
+  #textLayerBox.textLayerNewView #textLayerNewArea{display:block!important;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:0;}
+  #textLayerBox.textLayerNewView #textLayerCreateApplyBtn{position:sticky;bottom:0;z-index:2;margin-top:9px;background:var(--button);box-shadow:0 -7px 10px var(--panel2);}
 }
 #coordinateInspectModal{display:none;position:fixed;inset:0;z-index:231;background:transparent;align-items:flex-end;justify-content:center;padding:12px 12px calc(14px + env(safe-area-inset-bottom));box-sizing:border-box;pointer-events:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #coordinateInspectBox{width:min(238px,86vw);background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:8px;box-shadow:0 12px 30px rgba(0,0,0,.42);box-sizing:border-box;pointer-events:auto;}
@@ -9793,6 +9796,9 @@ function applySelectedTextLayerChange(targetLayerCode,targetLayerName,colorCode,
 }
 function closeTextLayerModal(){
   const modal=document.getElementById("textLayerModal");if(modal)modal.style.display="none";
+  const nameInput=document.getElementById("textLayerNewName");
+  if(document.activeElement===nameInput)nameInput.blur();
+  keyboardResizeLock=false;
   selectedTextForLayerChange=null;
   setTextLayerModalView("menu");
   scheduleDraw();
@@ -9817,6 +9823,23 @@ function setTextLayerModalView(view="menu"){
   if(box)box.scrollTop=0;
   const list=document.getElementById("textLayerChoiceList");
   if(list)list.scrollTop=0;
+  syncTextLayerKeyboardLayout();
+}
+function syncTextLayerKeyboardLayout(){
+  const modal=document.getElementById("textLayerModal");
+  const box=document.getElementById("textLayerBox");
+  const isMobileNew=!!(modal&&box&&isTouchMobileLike()&&box.classList.contains("textLayerNewView")&&getComputedStyle(modal).display!=="none");
+  if(!isMobileNew){
+    if(modal){modal.style.top="";modal.style.bottom="";modal.style.height="";modal.style.removeProperty("--text-layer-visible-height");}
+    return;
+  }
+  const viewport=window.visualViewport;
+  const height=Math.max(180,Math.round(viewport?.height||window.innerHeight||document.documentElement.clientHeight||0));
+  const offsetTop=Math.max(0,Math.round(viewport?.offsetTop||0));
+  modal.style.top=`${offsetTop}px`;
+  modal.style.bottom="auto";
+  modal.style.height=`${height}px`;
+  modal.style.setProperty("--text-layer-visible-height",`${height}px`);
 }
 function renderTextLayerNewPalette(){
   const grid=document.getElementById("textLayerNewPalette");if(!grid)return;
@@ -19053,8 +19076,26 @@ document.getElementById("textLayerChooseBtn")?.addEventListener("click",()=>{
 });
 document.getElementById("textLayerNewBtn")?.addEventListener("click",()=>{
   setTextLayerModalView("new");
-  requestAnimationFrame(()=>document.getElementById("textLayerNewName")?.focus({preventScroll:true}));
+  requestAnimationFrame(()=>{
+    document.getElementById("textLayerNewName")?.focus({preventScroll:true});
+    syncTextLayerKeyboardLayout();
+  });
+  setTimeout(syncTextLayerKeyboardLayout,120);
+  setTimeout(syncTextLayerKeyboardLayout,320);
   requestAnimationFrame(()=>ensureSelectedTextVisibleAboveTextLayerModal(selectedTextForLayerChange));
+});
+document.getElementById("textLayerNewName")?.addEventListener("focus",()=>{
+  keyboardResizeLock=true;
+  requestAnimationFrame(syncTextLayerKeyboardLayout);
+  setTimeout(syncTextLayerKeyboardLayout,120);
+  setTimeout(syncTextLayerKeyboardLayout,320);
+});
+document.getElementById("textLayerNewName")?.addEventListener("blur",()=>{
+  setTimeout(()=>{
+    keyboardResizeLock=false;
+    syncTextLayerKeyboardLayout();
+    relayoutAndResizeStableDelayed();
+  },220);
 });
 for(const buttonId of ["textLayerRecentBtn","textLayerRecentBtn2"]){
   document.getElementById(buttonId)?.addEventListener("click",event=>{
@@ -20812,6 +20853,8 @@ window.addEventListener("orientationchange", relayoutAndResizeStableDelayed);
 window.addEventListener("scroll",hideToolbarTooltip,{passive:true});
 if (window.visualViewport){
   window.visualViewport.addEventListener("resize", relayoutAndResizeStableDelayed);
+  window.visualViewport.addEventListener("resize", syncTextLayerKeyboardLayout);
+  window.visualViewport.addEventListener("scroll", syncTextLayerKeyboardLayout);
 }
 </script>
 <script src="terrain-advanced.js?v=2"></script>
