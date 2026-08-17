@@ -13,7 +13,10 @@ for(let index=0;index<scripts.length;index++){
 const required=[
   "overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain",
   "#textLayerBox.textLayerSubviewActive #textLayerActions{display:none;}",
-  "scroll-padding-bottom:12px",
+  "#textLayerBox.textLayerChooseView{height:min(500px,82vh);overflow:hidden;display:flex;flex-direction:column;}",
+  "#textLayerBox.textLayerChooseView #textLayerChooseArea{display:flex!important;flex:1 1 auto;min-height:0;overflow:hidden;flex-direction:column;}",
+  "scroll-padding-bottom:28px",
+  "box?.classList.toggle(\"textLayerChooseView\",isChoose)",
   "function setTextLayerModalView(view=\"menu\")",
   "setTextLayerModalView(\"choose\")",
   "setTextLayerModalView(\"new\")",
