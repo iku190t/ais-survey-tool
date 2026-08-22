@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-22 / `4abdab7`
+最終実行: 2026-08-22 / `e2dfb67`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -15,6 +15,7 @@
 |自動保存・レイヤー色・SFC保存|`validate-recovery-autosave.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |DEM・等高線・地形解析|`validate-terrain-advanced.js`、`validate-terrain-ui.js`、`validate-contour-text-horizontal.js`、`validate-contour-label-raster-quality.js`|
 |現在地・GPS|`validate-gps-startup-mode.js`、`validate-gps-detail-dem.js`|
+|スマホ方位追従・ホーム|`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-gps-startup-mode.js`|
 |PCツールバー・ポップアップ|`validate-pc-map-toolbar.js`、`validate-pc-object-interaction.js`、`validate-text-layer-ui.js`|
 |スマホタッチ|`validate-mobile-touch.js`、`validate-gps-startup-mode.js`|
 |SFC/SFZ・ラスター|`validate-real-sfc-rendering.js <実ファイル>`、`validate-raster-placement.js`、`validate-ui.js`|
@@ -33,6 +34,7 @@
 - `validate-photo-album.js` — 70 checks
 - `validate-photo-album-runtime.js`
 - `validate-gps-startup-mode.js`
+- `validate-compass-follow.js` — GPS非依存、自動開始、最短方向の滑らかな補間、ホーム停止を確認。3回連続成功。
 - `validate-terrain-advanced.js` — 11 modes
 - `validate-terrain-ui.js` — 16 buttons
 - `validate-text-layer-ui.js`
