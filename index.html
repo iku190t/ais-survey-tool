@@ -15792,8 +15792,28 @@ async function exportPhotoAlbumExcel(){
     downloadBlob(blob,fileName);showToast("写真帳を作成しました");
   }catch(error){hideBusy();console.error(error);showToast(error&&error.message||"写真帳を作成できませんでした",3600);}
 }
-async function importGeotaggedPhotos(files){
+function replacePhotoImportState(imported){
+  photoAnnotations=[];
+  photoSourceFiles.clear();
+  selectedPhotoAnnotations.clear();
+  selectedPhotoPositionItem=null;
+  photoPositionAdjustDrag=null;
+  setPhotoPositionAdjustMode(false);
+  photoReconnectOpenAlbumAfter=false;
+  const keepNonPhotoAction=action=>!(action&&(action.type==="photo-change"||(action.type==="layer-delete"&&action.photoEntries)));
+  editUndoActions=editUndoActions.filter(keepNonPhotoAction);
+  redoStrokes=redoStrokes.filter(keepNonPhotoAction);
+  updateUndoRedoUI();
+  for(const url of photoPreviewUrls.values())try{URL.revokeObjectURL(url);}catch(_error){}
+  photoPreviewUrls.clear();
+  for(const item of imported||[]){
+    const file=item&&item._sourceFile;
+    if(file)attachPhotoSourceFile(item,file);
+  }
+}
+async function importGeotaggedPhotos(files,options={}){
   if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2400);return;}
+  const replaceExisting=options&&options.replaceExisting===true;
   const selected=Array.from(files||[]).filter(file=>/\.jpe?g$/i.test(String(file.name||""))||String(file.type||"").toLowerCase()==="image/jpeg");
   if(!selected.length){showToast("JPEG写真を選択してください",2200);return;}
   showBusy("写真の位置情報を読み込み中…");await waitForUiPaint();
@@ -15837,6 +15857,7 @@ async function importGeotaggedPhotos(files){
   // features. Remove that copy before enabling the live photo layer so its
   // arrows cannot reappear together with newly imported photos.
   removeStalePhotoSourceGeometry();
+  if(replaceExisting)replacePhotoImportState(imported);
   const merged=new Map(photoAnnotations.map(item=>[String(item.fileName).toLocaleLowerCase("ja"),item]));
   for(const item of imported)merged.set(String(item.fileName).toLocaleLowerCase("ja"),item);
   photoAnnotations=[...merged.values()].sort((a,b)=>String(a.fileName).localeCompare(String(b.fileName),"ja",{numeric:true,sensitivity:"base"}));
@@ -18561,7 +18582,7 @@ window.addEventListener("drop",event=>{
   const dropped=Array.from(files||[]);
   const photos=dropped.filter(item=>/\.jpe?g$/i.test(String(item.name||""))||String(item.type||"").toLowerCase()==="image/jpeg");
   if(photos.length){
-    importGeotaggedPhotos(photos).catch(err=>{console.error(err);hideBusy();showToast("写真を読み込めませんでした",2400);});
+    importGeotaggedPhotos(photos,{replaceExisting:true}).catch(err=>{console.error(err);hideBusy();showToast("写真を読み込めませんでした",2400);});
     return;
   }
   if(!/\.(?:sfc|sfz)$/i.test(String(file.name||""))){

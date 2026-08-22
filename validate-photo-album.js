@@ -20,6 +20,7 @@ const checks = [
   ["豆図設定の保持", /dataset\.preferred=settings\.miniMap\?"true":"false"[\s\S]*savePhotoAlbumSettings\(getPhotoAlbumSettingsFromUi\(\)\)/],
   ["元写真のセッション保持", /const photoSourceFiles = new Map\(\)/],
   ["写真情報にも元ファイルを直接保持", /function attachPhotoSourceFile\(item,file\)[\s\S]*Object\.defineProperty\(item,"_sourceFile"[\s\S]*function getPhotoSourceFile\(item\)/],
+  ["ドラッグ写真は成功後に前回分を置換", /function replacePhotoImportState\(imported\)[\s\S]*photoAnnotations=\[\];[\s\S]*photoSourceFiles\.clear\(\)[\s\S]*setPhotoPositionAdjustMode\(false\)[\s\S]*editUndoActions=editUndoActions\.filter\(keepNonPhotoAction\)[\s\S]*async function importGeotaggedPhotos\(files,options=\{\}\)[\s\S]*if\(replaceExisting\)replacePhotoImportState\(imported\)[\s\S]*importGeotaggedPhotos\(photos,\{replaceExisting:true\}\)/],
   ["写真帳は直接参照を優先して元写真を解決", /function getMissingPhotoSourceItems\(\)[\s\S]*!getPhotoSourceFile\(item\)[\s\S]*const sources=photoAnnotations\.map\(item=>getPhotoSourceFile\(item\)\)/],
   ["写真帳のファイル名は見出しと拡張子なし", /if\(field==="fileName"\)return String\(item\.fileName\|\|""\)\.replace\(\/\\\.\[\^\.\]\+\$\/u,""\)/],
   ["再起動後の元写真再接続", /function getMissingPhotoSourceItems\(\)[\s\S]*function reconnectPhotoSourceFiles\(files\)[\s\S]*function requestPhotoSourceReconnect\(openAlbumAfter=true\)/],
