@@ -2335,10 +2335,10 @@ const compassFab = document.getElementById("compassFab");
 const compassNeedle = compassFab ? compassFab.querySelector(".compassNeedle") : null;
 const compassN = compassFab ? compassFab.querySelector(".compassN") : null;
 const COMPASS_FOLLOW_DEFAULT_ENABLED = true;
-const COMPASS_FOLLOW_SENSOR_INTERVAL_MS = 25;
+const COMPASS_FOLLOW_SENSOR_INTERVAL_MS = 16;
 const COMPASS_FOLLOW_FRAME_MS = 1000/60;
-const COMPASS_FOLLOW_RESPONSE_MS = 90;
-const COMPASS_FOLLOW_TARGET_FILTER = 0.42;
+const COMPASS_FOLLOW_RESPONSE_MS = 45;
+const COMPASS_FOLLOW_TARGET_FILTER = 0.72;
 let compassFollowEnabled = false;
 let compassFollowLastAppliedAt = 0;
 let compassFollowTargetRotationDeg = null;
@@ -2347,6 +2347,8 @@ let compassFollowAnimationLastAt = 0;
 let compassFollowStartPromise = null;
 let compassFollowStartGeneration = 0;
 let compassFollowDefaultArmed = COMPASS_FOLLOW_DEFAULT_ENABLED;
+let compassOrientationPermissionState = "unknown";
+let compassOrientationPermissionPromise = null;
 
 let data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [], ellipseArcs: [], markers: [], layerNames: {}, source_name: "" };
 /*__EMBED_PAYLOAD_START__*/ window.__EMBED_PAYLOAD_B64__ = ""; /*__EMBED_PAYLOAD_END__*/
@@ -8795,11 +8797,42 @@ function headingFromOrientationEvent(event){
   if(Number.isFinite(alpha))return normalizeRotation360(360-alpha);
   return null;
 }
+function requestCompassOrientationPermissionFromGesture(){
+  if(typeof DeviceOrientationEvent==="undefined")return Promise.resolve(false);
+  if(typeof DeviceOrientationEvent.requestPermission!=="function"){
+    compassOrientationPermissionState="granted";
+    return Promise.resolve(true);
+  }
+  if(compassOrientationPermissionState==="granted")return Promise.resolve(true);
+  if(compassOrientationPermissionPromise)return compassOrientationPermissionPromise;
+  let request;
+  try{
+    // iOS requires this call to happen synchronously inside the user's gesture.
+    request=DeviceOrientationEvent.requestPermission();
+  }catch(error){
+    compassOrientationPermissionState="denied";
+    return Promise.reject(error);
+  }
+  const pending=Promise.resolve(request).then(permission=>{
+    const granted=permission==="granted";
+    compassOrientationPermissionState=granted?"granted":"denied";
+    return granted;
+  }).catch(error=>{
+    compassOrientationPermissionState="denied";
+    throw error;
+  }).finally(()=>{
+    if(compassOrientationPermissionPromise===pending)compassOrientationPermissionPromise=null;
+  });
+  compassOrientationPermissionPromise=pending;
+  return pending;
+}
 async function requestCurrentDeviceHeading(){
   if(typeof DeviceOrientationEvent==="undefined")throw new Error("この端末では方位センサーを利用できません");
   if(typeof DeviceOrientationEvent.requestPermission==="function"){
-    const permission=await DeviceOrientationEvent.requestPermission();
-    if(permission!=="granted")throw new Error("方位センサーの使用が許可されていません");
+    const granted=compassOrientationPermissionState==="granted"
+      ? true
+      : await requestCompassOrientationPermissionFromGesture();
+    if(!granted)throw new Error("方位センサーの使用が許可されていません");
   }
   return await new Promise((resolve,reject)=>{
     let settled=false;
@@ -8922,7 +8955,14 @@ function startDefaultCompassFollow(fromUserGesture=false){
     compassFollowDefaultArmed=false;
     return;
   }
-  if(typeof DeviceOrientationEvent.requestPermission==="function"&&!fromUserGesture)return;
+  if(typeof DeviceOrientationEvent.requestPermission==="function"&&compassOrientationPermissionState!=="granted"&&!fromUserGesture){
+    if(compassOrientationPermissionPromise){
+      compassOrientationPermissionPromise.then(granted=>{
+        if(granted)startDefaultCompassFollow(false);
+      }).catch(error=>console.warn("Compass permission warm-up failed",error));
+    }
+    return;
+  }
   compassFollowDefaultArmed=false;
   startCompassFollow().catch(error=>{
     stopCompassFollow();
@@ -8930,8 +8970,24 @@ function startDefaultCompassFollow(fromUserGesture=false){
     if(fromUserGesture)showToast(error&&error.message?error.message:"方位を取得できません",2600);
   });
 }
+document.addEventListener("change",event=>{
+  const target=event.target instanceof Element?event.target:null;
+  if(target?.id!=="fileInput"||!compassFollowDefaultArmed||!isTouchMobileLike())return;
+  // The file is already selected, so the iOS permission prompt cannot block the picker.
+  requestCompassOrientationPermissionFromGesture().then(granted=>{
+    if(granted)startDefaultCompassFollow(false);
+  }).catch(error=>console.warn("Compass permission warm-up failed",error));
+},{capture:true});
+document.addEventListener("click",event=>{
+  const target=event.target instanceof Element?event.target:null;
+  if(!target?.closest("#startupSampleBtn")||!compassFollowDefaultArmed||!isTouchMobileLike())return;
+  requestCompassOrientationPermissionFromGesture().then(granted=>{
+    if(granted)startDefaultCompassFollow(false);
+  }).catch(error=>console.warn("Compass permission warm-up failed",error));
+},{capture:true});
 document.addEventListener("pointerdown",event=>{
-  if(event.target instanceof Element&&event.target.closest("#fitBtn,#compassFab"))return;
+  const target=event.target instanceof Element?event.target:null;
+  if(target&&target.closest("#fitBtn,#compassFab"))return;
   startDefaultCompassFollow(true);
 },{capture:true,passive:true});
 function updateCompassUi(){
@@ -18345,6 +18401,8 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   await waitForUiPaint();
   try{
   window.__EMBED_PAYLOAD_B64__ = "";
+  stopCompassFollow();
+  compassFollowDefaultArmed=COMPASS_FOLLOW_DEFAULT_ENABLED;
   clearLoadedState();
   currentLoadedKind = "sfc";
   currentOpenHandle = handleOverride || null;
@@ -21023,6 +21081,8 @@ if (window.__EMBED_PAYLOAD_B64__) {
       if (payload.view) view = payload.view;
       rotationDeg = Number.isFinite(+payload.rotationDeg) ? +payload.rotationDeg : determineBestRotation(data);
       initialLoadRotationDeg = rotationDeg;
+      stopCompassFollow();
+      compassFollowDefaultArmed=COMPASS_FOLLOW_DEFAULT_ENABLED;
       updateThemeUI();
       ensureLayerVisibility();
       renderLayerList();
