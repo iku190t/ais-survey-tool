@@ -35,7 +35,7 @@
 - `validate-performance-indexes.js`
 - `validate-photo-album.js` — 70 checks
 - `validate-photo-album-runtime.js`
-- `validate-gps-startup-mode.js` — 端末既定を未設定図面の距離計算へ自動適用しないこと、図面別手動指定の優先、座標系未設定通知、主図面部分と離れた別配置を含む場合の距離、GPS一時状態に依存しないメッシュ変換、現在地中の保存済み図面航空写真抑止、GPS中の最新航空写真固定、終了時の状態復元を確認。
+- `validate-gps-startup-mode.js` — スマホの未設定図面へ最初の現在地系を保存すること、端末共通既定UIが無いこと、図面別手動指定の優先、主図面部分と離れた別配置を含む場合の距離、GPS一時状態に依存しないメッシュ変換、現在地中の保存済み図面航空写真抑止、GPS中の最新航空写真固定、終了時の状態復元を確認。
 - `validate-compass-follow.js` — 初期OFF・ファイル読込時の許可要求なし、iPhone相当で方位ボタン押下時だけ許可要求、直接ON/OFF、黒背景・白背景の両方で外周と方位盤全体の青表示と`aria-pressed=true`、Android/WebViewの非absolute方位、28ms・88%の高速な補間、ホーム停止と初期角度復帰を確認。
 - `validate-terrain-advanced.js` — 11 modes
 - `validate-terrain-ui.js` — 16 buttons
