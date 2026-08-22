@@ -7,9 +7,9 @@
 ### BASE-20260822-HEAD
 
 - 状態: `検証済み`
-- コミット: `5120e98`
+- コミット: `7e6f76d`
 - ブランチ: `main`
-- 内容: 2026-08-22時点の検証版。法務局データの容量先読み、スマホ初回GPSから保存する端末既定の図面座標系、図面座標系未判定時を含む現在地の航空写真保持、GPS非依存・方位ボタン手動開始のスマホ方位追従、追従中の青表示、直接ON/OFF、応答高速化、AGPL v3の公開ライセンスとアプリ内法的表示を含む。
+- 内容: 2026-08-22時点の検証版。法務局データの容量先読み、図面座標系未設定時の誤距離防止、GPS中の航空写真固定、GPS非依存・方位ボタン手動開始のスマホ方位追従、追従中の明瞭な青表示、直接ON/OFF、応答高速化、AGPL v3の公開ライセンスとアプリ内法的表示を含む。
 - 成功した主要検証: 方位追従、法務局4本、写真帳2本、写真ネットワーク読込、写真位置調整、復元保存、性能、現在地起動、地形2本、等高線文字2本、基盤地図2本、Google連携、PC操作2本、実SFC読込。
 - 注意: `PROJECT_STATE.md` の「未解決の検証課題」5本はこのHEADでも失敗する。全テスト成功とは記録しない。
 
@@ -31,7 +31,7 @@
 ### BASE-COMPASS-FOLLOW-20260822
 
 - 状態: `検証済み`
-- コミット: `cf87287`
+- コミット: `7e6f76d`
 - 対象: スマホの方位ボタン手動回転とホーム操作。
 - 確認内容:
   - 図面読込時は回転OFFで、方位センサー許可も要求しない。
@@ -39,23 +39,23 @@
   - Android/WebViewで `absolute=false` の方位イベントしか届かない場合も、有限なalpha値を回転入力として使用する。
   - 方位変化は最短回転方向へ指数補間する。応答時定数28ms・目標追従率88%とし、通常図面は最大60fps、大規模図面は既存の約32ms描画制限を使う。
   - ホームを押すと追従、補間フレーム、再開待ちを停止し、図面の読み込み時の角度へ戻す。
-  - 追従中は方位ボタンへ `following` 状態を付け、枠色を青 `rgb(22, 119, 255)`、`aria-pressed=true` にする。停止時は解除する。
-- 検証: `fc28eb7` の `validate-compass-follow.js` で実際の計算済み枠色を含め確認。iPhone相当の権限APIモック、`validate-performance-indexes.js`、`validate-gps-startup-mode.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc` も成功。
+  - 追従中は方位ボタンへ `following` 状態を付け、ボタン全体を青いグラデーションと枠・発光で表示し、`aria-pressed=true` にする。停止時は解除する。
+- 検証: `7e6f76d` の `validate-compass-follow.js` でボタン全体の実際の計算済み色を含め確認。iPhone相当の権限APIモック、`validate-performance-indexes.js`、`validate-gps-startup-mode.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc` も成功。
 
 ### BASE-GPS-AERIAL-20260822
 
 - 状態: `検証済み`
-- コミット: `5120e98`
+- コミット: `7e6f76d`
 - 対象: 図面から離れた現在地での航空写真自動表示。
 - 確認内容:
   - 図面から500m以上離れた場合は現在地座標系と最新航空写真へ切り替える。
   - 図面距離を計算できない場合も、図面側へ誤って残らず現在地側へ切り替える。
-  - 図面の座標系が未判定の場合、端末現在地の座標系を図面の座標系と仮定しない。距離計算不能として現在地座標系と航空写真へ切り替える。
-  - スマホで最初にGPSを取得した場所の座標系を端末既定として1回だけ保存する。優先順位は、図面別手動指定、図面別判定・記憶、端末既定の順とする。
-  - 端末既定は設定画面で確認・変更・解除できる。解除後は次のスマホGPS取得時に再設定する。
+  - 図面の座標系が未設定の場合、端末現在地の座標系や自動記憶値を図面の座標系と仮定しない。誤った数値距離を出さず、未設定通知後に現在地座標系と航空写真へ切り替える。
+  - スマホで最初にGPSを取得した場所の座標系は端末既定として保存するが、設定補助に限定し、図面との距離計算へ自動適用しない。正確な距離には図面別の手動座標系を使う。
+  - GPS中の航空写真は現在地の最新写真1種類へ固定する。GPSの座標揺れで過去年代検索を繰り返し、写真一覧を空にしない。
   - 過去年代の確認用fetchが失敗しても、画像タイルとして表示する最新写真は維持する。
   - GPS終了時は開始前の座標系、表示、回転、航空写真状態へ戻す。
-- 検証: `validate-gps-startup-mode.js`（初回GPS保存、新規未判定図面への適用、図面別手動指定の優先、端末既定も無い場合の安全側切替、年代確認通信失敗、距離計算不能を含む）、`validate-performance-indexes.js`、`validate-compass-follow.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc`。
+- 検証: `validate-gps-startup-mode.js`（端末既定を距離へ使わないこと、図面別手動指定、座標系未設定通知、現在地の最新写真固定、GPS終了時の復元を含む）、`validate-performance-indexes.js`、`validate-compass-follow.js`、`validate-default-settings.js`、`validate-recovery-autosave.js`、`validate-real-sfc-rendering.js sample.sfc`。
 
 ### BASE-REGISTRY-SIZE-20260822
 
