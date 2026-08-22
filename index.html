@@ -2350,8 +2350,19 @@ const compassN = compassFab ? compassFab.querySelector(".compassN") : null;
 const compassMenu = document.getElementById("compassMenu");
 const compassNorthBtn = document.getElementById("compassNorthBtn");
 const compassFieldBtn = document.getElementById("compassFieldBtn");
+const COMPASS_FOLLOW_DEFAULT_ENABLED = true;
+const COMPASS_FOLLOW_SENSOR_INTERVAL_MS = 25;
+const COMPASS_FOLLOW_FRAME_MS = 1000/60;
+const COMPASS_FOLLOW_RESPONSE_MS = 90;
+const COMPASS_FOLLOW_TARGET_FILTER = 0.42;
 let compassFollowEnabled = false;
 let compassFollowLastAppliedAt = 0;
+let compassFollowTargetRotationDeg = null;
+let compassFollowAnimationFrame = 0;
+let compassFollowAnimationLastAt = 0;
+let compassFollowStartPromise = null;
+let compassFollowStartGeneration = 0;
+let compassFollowDefaultArmed = COMPASS_FOLLOW_DEFAULT_ENABLED;
 
 let data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [], ellipseArcs: [], markers: [], layerNames: {}, source_name: "" };
 /*__EMBED_PAYLOAD_START__*/ window.__EMBED_PAYLOAD_B64__ = ""; /*__EMBED_PAYLOAD_END__*/
@@ -8777,9 +8788,9 @@ function getNorthUpRotationDeg(){
   }catch(e){ console.error(e); }
   return 0;
 }
-function setDrawingRotationPreserveCenter(targetRotationDeg){
+function applyDrawingRotationPreserveCenter(targetRotationDeg){
   const target=normalizeRotation360(targetRotationDeg);
-  if(Math.abs(normalizeAngleDeltaDeg(rotationDeg-target))<0.01)return;
+  if(Math.abs(normalizeAngleDeltaDeg(rotationDeg-target))<0.01)return false;
   const w=canvas.clientWidth||window.innerWidth||1000;
   const h=canvas.clientHeight||window.innerHeight||700;
   const cx=w/2,cy=h/2;
@@ -8787,6 +8798,10 @@ function setDrawingRotationPreserveCenter(targetRotationDeg){
   rotationDeg=target;
   setViewFromWorldAnchor(anchor[0],anchor[1],cx,cy,view.scale);
   updateCompassUi();
+  return true;
+}
+function setDrawingRotationPreserveCenter(targetRotationDeg){
+  if(!applyDrawingRotationPreserveCenter(targetRotationDeg))return;
   scheduleDraw();
 }
 function setCompassMenuOpen(open){
@@ -8835,37 +8850,107 @@ function updateCompassFollowUi(){
   compassFieldBtn?.setAttribute("aria-pressed",compassFollowEnabled?"true":"false");
   compassFab?.classList.toggle("following",compassFollowEnabled);
 }
+function scheduleCompassFollowDraw(){
+  if(largeDrawingMode)scheduleTouchTransformDraw();
+  else scheduleDraw();
+}
+function stepCompassFollowAnimation(now){
+  compassFollowAnimationFrame=0;
+  if(!compassFollowEnabled||!Number.isFinite(compassFollowTargetRotationDeg))return;
+  if(compassFollowAnimationLastAt&&now-compassFollowAnimationLastAt<COMPASS_FOLLOW_FRAME_MS-1){
+    compassFollowAnimationFrame=requestAnimationFrame(stepCompassFollowAnimation);
+    return;
+  }
+  const previousAt=compassFollowAnimationLastAt||now-16.67;
+  const elapsed=Math.max(1,Math.min(50,now-previousAt));
+  compassFollowAnimationLastAt=now;
+  const delta=normalizeAngleDeltaDeg(compassFollowTargetRotationDeg-rotationDeg);
+  if(Math.abs(delta)<=0.04){
+    if(applyDrawingRotationPreserveCenter(compassFollowTargetRotationDeg))scheduleCompassFollowDraw();
+    compassFollowAnimationLastAt=0;
+    return;
+  }
+  const blend=1-Math.exp(-elapsed/COMPASS_FOLLOW_RESPONSE_MS);
+  if(applyDrawingRotationPreserveCenter(rotationDeg+delta*blend))scheduleCompassFollowDraw();
+  compassFollowAnimationFrame=requestAnimationFrame(stepCompassFollowAnimation);
+}
+function requestCompassFollowAnimation(){
+  if(compassFollowAnimationFrame||!compassFollowEnabled||!Number.isFinite(compassFollowTargetRotationDeg))return;
+  compassFollowAnimationLastAt=0;
+  compassFollowAnimationFrame=requestAnimationFrame(stepCompassFollowAnimation);
+}
 function applyCompassFollowHeading(heading,force=false){
   if(!Number.isFinite(heading))return;
-  const target=normalizeRotation360(getNorthUpRotationDeg()+heading);
-  const delta=normalizeAngleDeltaDeg(target-rotationDeg);
-  if(!force&&Math.abs(delta)<1)return;
-  setDrawingRotationPreserveCenter(rotationDeg+delta);
+  const rawTarget=normalizeRotation360(getNorthUpRotationDeg()+heading);
+  if(force||!Number.isFinite(compassFollowTargetRotationDeg)){
+    compassFollowTargetRotationDeg=rawTarget;
+  }else{
+    const targetDelta=normalizeAngleDeltaDeg(rawTarget-compassFollowTargetRotationDeg);
+    if(Math.abs(targetDelta)<0.25)return;
+    compassFollowTargetRotationDeg=normalizeRotation360(compassFollowTargetRotationDeg+targetDelta*COMPASS_FOLLOW_TARGET_FILTER);
+  }
+  requestCompassFollowAnimation();
 }
 function onCompassFollowOrientation(event){
   if(!compassFollowEnabled)return;
   const heading=headingFromOrientationEvent(event);
   if(!Number.isFinite(heading))return;
   const now=performance.now();
-  if(now-compassFollowLastAppliedAt<50)return;
+  if(now-compassFollowLastAppliedAt<COMPASS_FOLLOW_SENSOR_INTERVAL_MS)return;
   compassFollowLastAppliedAt=now;
   applyCompassFollowHeading(heading);
 }
 function stopCompassFollow(){
+  compassFollowStartGeneration++;
+  compassFollowDefaultArmed=false;
   compassFollowEnabled=false;
+  compassFollowTargetRotationDeg=null;
+  compassFollowAnimationLastAt=0;
+  if(compassFollowAnimationFrame){cancelAnimationFrame(compassFollowAnimationFrame);compassFollowAnimationFrame=0;}
   window.removeEventListener("deviceorientationabsolute",onCompassFollowOrientation,true);
   window.removeEventListener("deviceorientation",onCompassFollowOrientation,true);
   updateCompassFollowUi();
 }
-async function startCompassFollow(){
-  const heading=await requestCurrentDeviceHeading();
-  compassFollowEnabled=true;
-  compassFollowLastAppliedAt=0;
-  window.addEventListener("deviceorientationabsolute",onCompassFollowOrientation,true);
-  window.addEventListener("deviceorientation",onCompassFollowOrientation,true);
-  updateCompassFollowUi();
-  applyCompassFollowHeading(heading,true);
+function startCompassFollow(){
+  if(compassFollowEnabled)return Promise.resolve(true);
+  if(compassFollowStartPromise)return compassFollowStartPromise;
+  const generation=++compassFollowStartGeneration;
+  const promise=(async()=>{
+    const heading=await requestCurrentDeviceHeading();
+    if(generation!==compassFollowStartGeneration)return false;
+    compassFollowEnabled=true;
+    compassFollowLastAppliedAt=0;
+    compassFollowTargetRotationDeg=null;
+    window.addEventListener("deviceorientationabsolute",onCompassFollowOrientation,true);
+    window.addEventListener("deviceorientation",onCompassFollowOrientation,true);
+    updateCompassFollowUi();
+    applyCompassFollowHeading(heading,true);
+    return true;
+  })();
+  const wrappedPromise=promise.finally(()=>{
+    if(compassFollowStartPromise===wrappedPromise)compassFollowStartPromise=null;
+  });
+  compassFollowStartPromise=wrappedPromise;
+  return wrappedPromise;
 }
+function startDefaultCompassFollow(fromUserGesture=false){
+  if(!compassFollowDefaultArmed||!isTouchMobileLike()||!hasLoadedDrawing()||compassFollowEnabled||compassFollowStartPromise)return;
+  if(typeof DeviceOrientationEvent==="undefined"){
+    compassFollowDefaultArmed=false;
+    return;
+  }
+  if(typeof DeviceOrientationEvent.requestPermission==="function"&&!fromUserGesture)return;
+  compassFollowDefaultArmed=false;
+  startCompassFollow().catch(error=>{
+    stopCompassFollow();
+    console.warn("Automatic compass follow could not start",error);
+    if(fromUserGesture)showToast(error&&error.message?error.message:"方位を取得できません",2600);
+  });
+}
+document.addEventListener("pointerdown",event=>{
+  if(event.target instanceof Element&&event.target.closest("#fitBtn,#compassFab,#compassMenu"))return;
+  startDefaultCompassFollow(true);
+},{capture:true,passive:true});
 function updateCompassUi(){
   const deg = normalizeRotation360(getNorthUpRotationDeg()-rotationDeg);
   if (compassNeedle) compassNeedle.style.transform = `translate(-50%,-50%) rotate(${deg}deg)`;
@@ -18323,6 +18408,7 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   document.getElementById("startupModal").style.display="none";
   if(options.restoreRecovery!==false)restoreRecoverySnapshotIfAvailable();
   applyDefaultFullViewAfterLoad();
+  startDefaultCompassFollow(false);
   gaTrackOpenSfc("sfc");
   const loadModeLabel=(largeDrawingMode ? "大容量モード" : "通常モード")+
     (activeCoordinateMeshTransform ? "・座標メッシュ補正" : "");
@@ -18647,6 +18733,8 @@ document.getElementById("fitBtn").addEventListener("click", (event)=>{
   btn.classList.remove("homePressed");
   btn.classList.add(pressedClass);
   setTimeout(()=>btn.classList.remove(pressedClass),150);
+  stopCompassFollow();
+  setCompassMenuOpen(false);
   if (!isDrawingActionAvailable()) return;
   updateWrapLayout();
   resize(false);
@@ -20984,6 +21072,7 @@ if (window.__EMBED_PAYLOAD_B64__) {
       updateStopBtnUI();
       restoreRecoverySnapshotIfAvailable();
       applyDefaultFullViewAfterLoad();
+      startDefaultCompassFollow(false);
     }
   } catch(e) {
     console.error(e);
