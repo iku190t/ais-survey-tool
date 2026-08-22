@@ -12,9 +12,10 @@ for(const token of [
   "requestAnimationFrame(stepCompassFollowAnimation)",
   "if(largeDrawingMode)scheduleTouchTransformDraw()",
   "startDefaultCompassFollow(false);",
-  "!hasLoadedDrawing()",
-  "stopCompassFollow();\n  setCompassMenuOpen(false);"
+  "!hasLoadedDrawing()"
 ])if(!source.includes(token))throw new Error(`missing smooth compass-follow implementation: ${token}`);
+const homeHandler=source.slice(source.indexOf('document.getElementById("fitBtn").addEventListener'),source.indexOf('document.getElementById("gpsBtn").addEventListener'));
+if(!/stopCompassFollow\(\);\s*setCompassMenuOpen\(false\);/.test(homeHandler))throw new Error("Home does not cancel compass follow");
 
 const server=http.createServer((req,res)=>{
   const clean=decodeURIComponent((req.url||"/").split("?")[0]);
