@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-22 / `cf87287`
+最終実行: 2026-08-22 / `0628582`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -19,6 +19,7 @@
 |PCツールバー・ポップアップ|`validate-pc-map-toolbar.js`、`validate-pc-object-interaction.js`、`validate-text-layer-ui.js`|
 |スマホタッチ|`validate-mobile-touch.js`、`validate-gps-startup-mode.js`|
 |SFC/SFZ・ラスター|`validate-real-sfc-rendering.js <実ファイル>`、`validate-raster-placement.js`、`validate-ui.js`|
+|ライセンス・著作権表示|`validate-open-source-license.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |広いUI変更|上記関連テストに加え `validate-ui.js`、`validate-real-sfc-rendering.js sample.sfc`|
 
 ## 2026-08-22 実行結果
@@ -53,6 +54,7 @@
 - `validate-pc-object-interaction.js`
 - `validate-photo-network-import.js`
 - `validate-photo-position-adjustment.js`
+- `validate-open-source-license.js` — AGPL v3本文、追加条件、原作者表示、ソース導線、無保証、旧禁止表記の除去を確認。
 
 ### 既知の失敗・要調査
 
