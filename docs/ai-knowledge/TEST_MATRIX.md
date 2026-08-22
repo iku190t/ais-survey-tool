@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-22 / `fc28eb7`
+最終実行: 2026-08-22 / `5120e98`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -34,7 +34,7 @@
 - `validate-performance-indexes.js`
 - `validate-photo-album.js` — 70 checks
 - `validate-photo-album-runtime.js`
-- `validate-gps-startup-mode.js` — 現在地の最新航空写真、年代確認通信失敗時の表示維持、距離計算不能時と図面座標系未判定時の現在地切替、終了時の状態復元を確認。
+- `validate-gps-startup-mode.js` — 初回GPSの端末既定保存、新規未判定図面への適用、図面別手動指定の優先、現在地の最新航空写真、年代確認通信失敗時の表示維持、距離計算不能時と端末既定も無い図面座標系未判定時の現在地切替、終了時の状態復元を確認。
 - `validate-compass-follow.js` — 初期OFF・ファイル読込時の許可要求なし、iPhone相当で方位ボタン押下時だけ許可要求、直接ON/OFF、追従中の青枠と`aria-pressed=true`、Android/WebViewの非absolute方位、28ms・88%の高速な補間、ホーム停止と初期角度復帰を確認。
 - `validate-terrain-advanced.js` — 11 modes
 - `validate-terrain-ui.js` — 16 buttons
