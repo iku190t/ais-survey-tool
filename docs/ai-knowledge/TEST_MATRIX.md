@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-22 / `7e6f76d`
+最終実行: 2026-08-22 / `2f1214d`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -12,7 +12,7 @@
 |写真読込・削除・位置|`validate-photo-album.js`、`validate-photo-album-runtime.js`、`validate-photo-network-import.js`、`validate-photo-position-adjustment.js`|
 |Excel写真帳・QR|`validate-photo-album.js`、`validate-photo-album-runtime.js`、`validate-google-maps-links.js`|
 |パン・拡大縮小・ヒット|`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-coordinate-inspect.js`|
-|自動保存・レイヤー色・SFC保存|`validate-recovery-autosave.js`、`validate-real-sfc-rendering.js sample.sfc`|
+|自動保存・前回作業復元・レイヤー色・SFC保存|`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |DEM・等高線・地形解析|`validate-terrain-advanced.js`、`validate-terrain-ui.js`、`validate-contour-text-horizontal.js`、`validate-contour-label-raster-quality.js`|
 |現在地・GPS|`validate-gps-startup-mode.js`、`validate-gps-detail-dem.js`|
 |スマホ方位追従・ホーム|`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-gps-startup-mode.js`|
@@ -31,6 +31,7 @@
 - `validate-registry-cad.js`
 - `validate-registry-layer-colors.js`
 - `validate-recovery-autosave.js`
+- `validate-last-work-recovery.js` — 元SFCと編集差分をIndexedDBへ保存し、localStorageスナップショットなし・ブラウザ再読込後でも初回画面のボタンから復元できることを確認。
 - `validate-performance-indexes.js`
 - `validate-photo-album.js` — 70 checks
 - `validate-photo-album-runtime.js`

@@ -14,7 +14,7 @@
 - Run the tests routed by `TEST_MATRIX.md`; report pre-existing failures separately from new regressions.
 - Add a knowledge entry only after evidence is available. Promote a rule to a permanent decision only after it is confirmed independently at least twice.
 - Never record secrets, personal information, customer data, or attached customer drawing contents.
-- Do not publish or push unless the user explicitly asks.
+- Standing authorization (2026-08-22): after a verified change for this project, commit and push `main`, then verify GitHub Pages without asking again. Do not publish unverified work or unrelated uncommitted changes. A later explicit request not to publish takes precedence.
 
 ## Finish every verified change
 
