@@ -2934,11 +2934,63 @@ function getLoadedSfcBoundsWorld(){
     return null;
   }
 }
-function calcDistanceFromPlaneToSfcBoundsMeters(xNorth,yEast,useMeshTransform=!!activeCoordinateMeshTransform){
-  const bounds=getLoadedSfcBoundsWorld();
+function getGpsDrawingReferenceBoundsWorld(){
+  if(!data)return null;
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity,count=0;
+  const add=(x,y)=>{
+    x=Number(x);y=Number(y);
+    if(!Number.isFinite(x)||!Number.isFinite(y))return;
+    minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);count++;
+  };
+  const addItem=(item,kind)=>{
+    if(!item||item._sxfPartIsMain!==true)return;
+    if(kind==="line"){add(item[0],item[1]);add(item[2],item[3]);}
+    else if(kind==="points")for(const point of item[0]||[])add(point&&point[0],point&&point[1]);
+    else if(kind==="text")add(item.x,item.y);
+    else if(kind==="circle"){const r=Math.abs(Number(item[2])||0);add(item[0]-r,item[1]-r);add(item[0]+r,item[1]+r);}
+    else if(kind==="arc"){const r=Math.abs(Number(item.r)||0);add(item.cx-r,item.cy-r);add(item.cx+r,item.cy+r);}
+    else if(kind==="ellipse"){const rx=Math.abs(Number(item.rx)||0),ry=Math.abs(Number(item.ry)||0);add(item.cx-rx,item.cy-ry);add(item.cx+rx,item.cy+ry);}
+  };
+  if(data._mainDrawingPlacement){
+    for(const item of data.lines||[])addItem(item,"line");
+    for(const item of data.polys||[])addItem(item,"points");
+    for(const item of data.splines||[])addItem(item,"points");
+    for(const item of data.texts||[])addItem(item,"text");
+    for(const item of data.circles||[])addItem(item,"circle");
+    for(const item of data.arcs||[])addItem(item,"arc");
+    for(const item of data.ellipses||[])addItem(item,"ellipse");
+    for(const item of data.ellipseArcs||[])addItem(item,"ellipse");
+  }
+  if(count&&[minX,minY,maxX,maxY].every(Number.isFinite)){
+    return {minX,minY,maxX,maxY,cx:(minX+maxX)/2,cy:(minY+maxY)/2,source:"main-part",pointCount:count};
+  }
+  const robust=typeof getMemoClassificationBounds==="function"?getMemoClassificationBounds():null;
+  if(robust&&[robust.minx,robust.miny,robust.maxx,robust.maxy].every(Number.isFinite)){
+    return {minX:robust.minx,minY:robust.miny,maxX:robust.maxx,maxY:robust.maxy,cx:(robust.minx+robust.maxx)/2,cy:(robust.miny+robust.maxy)/2,source:"trimmed-drawing",pointCount:null};
+  }
+  const fallback=getLoadedSfcBoundsWorld();
+  return fallback?Object.assign({source:"all-drawing",pointCount:null},fallback):null;
+}
+function coordinateMeshSfcWorldToPlane(xWorldMm,yWorldMm){
+  const tr=activeCoordinateMeshTransform;
+  if(!tr)return defaultSfcWorldToPlane(xWorldMm,yWorldMm);
+  const world=[xWorldMm/1000,yWorldMm/1000];
+  if(tr.kind==="affine"){
+    return {
+      xNorth:tr.xNorth.a*world[0]+tr.xNorth.b*world[1]+tr.xNorth.offset,
+      yEast:tr.yEast.a*world[0]+tr.yEast.b*world[1]+tr.yEast.offset
+    };
+  }
+  return {
+    xNorth:tr.xNorth.slope*world[tr.xNorth.worldAxis]+tr.xNorth.offset,
+    yEast:tr.yEast.slope*world[tr.yEast.worldAxis]+tr.yEast.offset
+  };
+}
+function calcDistanceFromPlaneToSfcBoundsMeters(xNorth,yEast,useMeshTransform=!!activeCoordinateMeshTransform,boundsOverride=null){
+  const bounds=boundsOverride||getLoadedSfcBoundsWorld();
   if(!bounds||!Number.isFinite(xNorth)||!Number.isFinite(yEast)) return null;
   const toPlane=(x,y)=>useMeshTransform&&activeCoordinateMeshTransform
-    ? sfcWorldToPlane(x,y)
+    ? coordinateMeshSfcWorldToPlane(x,y)
     : defaultSfcWorldToPlane(x,y);
   const polygon=[
     toPlane(bounds.minX,bounds.minY),
@@ -3035,19 +3087,7 @@ function planeToSfcWorld(xNorth, yEast){
 }
 function sfcWorldToPlane(xWorldMm, yWorldMm){
   if(gpsTemporaryCoordinateZone)return defaultSfcWorldToPlane(xWorldMm,yWorldMm);
-  const tr=activeCoordinateMeshTransform;
-  if(!tr) return defaultSfcWorldToPlane(xWorldMm,yWorldMm);
-  const world=[xWorldMm/1000,yWorldMm/1000];
-  if(tr.kind==="affine"){
-    return {
-      xNorth:tr.xNorth.a*world[0]+tr.xNorth.b*world[1]+tr.xNorth.offset,
-      yEast:tr.yEast.a*world[0]+tr.yEast.b*world[1]+tr.yEast.offset
-    };
-  }
-  return {
-    xNorth:tr.xNorth.slope*world[tr.xNorth.worldAxis]+tr.xNorth.offset,
-    yEast:tr.yEast.slope*world[tr.yEast.worldAxis]+tr.yEast.offset
-  };
+  return coordinateMeshSfcWorldToPlane(xWorldMm,yWorldMm);
 }
 function medianNumber(values){
   const sorted=(values||[]).filter(Number.isFinite).sort((a,b)=>a-b);
@@ -4090,7 +4130,14 @@ function ensureAerialCadImageRuntime(entry){
   image.src=entry.jpegDataUrl;
   return runtime;
 }
+function shouldDrawAerialCadImages(){
+  return !(gpsEnabled&&gpsTemporaryCoordinateZone);
+}
 function drawAerialCadImages(){
+  // 現在地へ一時的に座標系を切り替えている間、図面に保存された
+  // 航空写真を現在地座標へ再投影すると、現在地タイルの上へ別地点の
+  // 画像が後から重なる。図面座標へ戻るまで保存画像だけを隠す。
+  if(!shouldDrawAerialCadImages())return;
   for(const entry of aerialCadImages){
     if(!isLayerVisible(aerialCadLayerId(entry.layerName)))continue;
     const runtime=ensureAerialCadImageRuntime(entry);
@@ -6645,6 +6692,7 @@ function captureGpsSessionState(){
   gpsSessionState={
     hadDrawing:hasLoadedDrawing(),
     drawingZone,
+    drawingReferenceBounds:getGpsDrawingReferenceBoundsWorld(),
     profileZone:profileZone||null,
     view:{scale:view.scale,tx:view.tx,ty:view.ty},
     baseFitScale,
@@ -6820,7 +6868,7 @@ function startGps(options={}){
       // mode safely shows the current-location tiles instead of a false 0 m.
       if(state&&state.hadDrawing&&drawingZone){
         const drawingXy=drawingZone===zone?xy:latLonToJgd2024XY(lat,lon,drawingZone);
-        distance=calcDistanceFromPlaneToSfcBoundsMeters(drawingXy.x,drawingXy.y,!!activeCoordinateMeshTransform);
+        distance=calcDistanceFromPlaneToSfcBoundsMeters(drawingXy.x,drawingXy.y,!!activeCoordinateMeshTransform,state.drawingReferenceBounds);
       }
       const isFar=state&&state.hadDrawing?distance!=null&&distance>=500:false;
       const distanceUnavailable=!!(state&&state.hadDrawing&&distance==null);

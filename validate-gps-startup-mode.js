@@ -13,6 +13,9 @@ const required=[
   'ensureDefaultDrawingCoordinateZone(zone)',
   'getDefaultDrawingCoordinateZone()',
   'const drawingZone=getManualCoordinateZone()||null;',
+  'drawingReferenceBounds:getGpsDrawingReferenceBoundsWorld()',
+  'state.drawingReferenceBounds',
+  'if(!shouldDrawAerialCadImages())return;',
   'if(gpsEnabled&&gpsTemporaryCoordinateZone&&aerialPhotoZone===gpsTemporaryCoordinateZone)return;',
   'const distanceUnavailable=!!(state&&state.hadDrawing&&distance==null);',
   'if(!available&&gpsContextSource)',
@@ -256,6 +259,33 @@ let browser;
   })()`));
   if(coordinatePriority.drawingZone!==3||coordinatePriority.manual!==3||coordinatePriority.savedDefault!==4){
     throw new Error(`per-drawing coordinate zone did not override the device default: ${JSON.stringify(coordinatePriority)}`);
+  }
+  const distantMultiPartDrawing=await page.evaluate(()=>window.eval(`(()=>{
+    const main=Object.assign([0,0,1000,1000,1,1,1],{_sxfPartIsMain:true});
+    const unrelated=Object.assign([100000000,0,100001000,1000,1,1,1],{_sxfPartIsMain:false});
+    data.lines=[main,unrelated];data.polys=[];data.splines=[];data.texts=[];data.circles=[];data.arcs=[];data.ellipses=[];data.ellipseArcs=[];
+    data._mainDrawingPlacement={name:"MAIN",originX:0,originY:0,angle:0,sx:1,sy:1};
+    const allBounds=getLoadedSfcBoundsWorld();
+    const referenceBounds=getGpsDrawingReferenceBoundsWorld();
+    const allBoundsDistance=calcDistanceFromPlaneToSfcBoundsMeters(0,100000,false,allBounds);
+    const mainDistance=calcDistanceFromPlaneToSfcBoundsMeters(0,100000,false,referenceBounds);
+    const previousTransform=activeCoordinateMeshTransform;
+    const previousTemporaryZone=gpsTemporaryCoordinateZone;
+    const previousGpsEnabled=gpsEnabled;
+    activeCoordinateMeshTransform={kind:"affine",xNorth:{a:0,b:1,offset:1000},yEast:{a:1,b:0,offset:2000}};
+    gpsTemporaryCoordinateZone=4;
+    const stableMeshDistance=calcDistanceFromPlaneToSfcBoundsMeters(1000,2000,true,{minX:0,minY:0,maxX:1000,maxY:1000});
+    gpsEnabled=true;
+    const savedAerialHidden=shouldDrawAerialCadImages()===false;
+    gpsTemporaryCoordinateZone=null;
+    const savedAerialRestored=shouldDrawAerialCadImages()===true;
+    activeCoordinateMeshTransform=previousTransform;
+    gpsTemporaryCoordinateZone=previousTemporaryZone;
+    gpsEnabled=previousGpsEnabled;
+    return {source:referenceBounds?.source,allBoundsDistance,mainDistance,stableMeshDistance,savedAerialHidden,savedAerialRestored};
+  })()`));
+  if(distantMultiPartDrawing.source!=="main-part"||distantMultiPartDrawing.allBoundsDistance!==0||distantMultiPartDrawing.mainDistance<99000||distantMultiPartDrawing.stableMeshDistance!==0||!distantMultiPartDrawing.savedAerialHidden||!distantMultiPartDrawing.savedAerialRestored){
+    throw new Error(`distant multi-part drawing reused a false global bound or overlaid its saved aerial photo: ${JSON.stringify(distantMultiPartDrawing)}`);
   }
   const desktop=await browser.newPage({viewport:{width:1280,height:800}});
   await desktop.addInitScript(()=>{
