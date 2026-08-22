@@ -967,16 +967,7 @@ body.light #compassFab .compassN{
   color:#ff3030;
   text-shadow:0 1px 1px rgba(255,255,255,.95), 0 0 1px rgba(255,255,255,.85);
 }
-#compassMenu{
-  display:none;position:absolute;right:10px;top:calc(58px + var(--cad-toolbar-offset,40px));z-index:86;
-  width:184px;padding:7px;box-sizing:border-box;border:1px solid var(--border);border-radius:11px;
-  background:rgba(24,24,28,.90);box-shadow:0 8px 24px rgba(0,0,0,.38);
-}
-#compassMenu.open{display:grid;gap:7px;}
-#compassMenu button{width:100%;min-height:38px;padding:7px 9px;font-size:13px;font-weight:700;text-align:center;}
-#compassMenu button.active{background:#1677ff;color:#fff;border-color:#0f5ec8;}
 #compassFab.following .compassFace{border-color:#1677ff;box-shadow:0 0 0 3px rgba(22,119,255,.38),inset 0 0 0 1px rgba(255,255,255,.28);}
-body.light #compassMenu{background:rgba(255,255,255,.90);}
 #googleMapsLinkBtn{
   position:absolute;right:12px;top:calc(58px + var(--cad-toolbar-offset,40px));z-index:70;
   width:40px;height:40px;padding:0!important;border-radius:9px;
@@ -1407,11 +1398,7 @@ gtag('config', 'G-88B9YPJXWP');
   <button id="gpsReturnBtn" type="button" data-tooltip="現在地を中心に戻す" aria-label="現在地に戻る">
     現在地に戻る
   </button>
-  <button id="compassFab" data-tooltip="図面の向きを設定する" aria-label="図面の向き"><span class="compassFace"><span class="compassN">N</span><span class="compassNeedle"></span><span class="compassDot"></span></span></button>
-  <div id="compassMenu" role="dialog" aria-label="図面の向き">
-    <button id="compassNorthBtn" type="button">北を上</button>
-    <button id="compassFieldBtn" type="button" aria-pressed="false">現場の向きに追従</button>
-  </div>
+  <button id="compassFab" data-tooltip="図面自動回転：ON／OFF" aria-label="図面自動回転" aria-pressed="false"><span class="compassFace"><span class="compassN">N</span><span class="compassNeedle"></span><span class="compassDot"></span></span></button>
   <button id="gpsDetailFab" data-tooltip="現在地の詳細情報を表示する" style="position:absolute;left:12px;top:58px;bottom:auto;z-index:70;display:inline-flex;align-items:center;gap:6px;">
       <svg class="gpsDotIcon" viewBox="0 0 24 24" aria-hidden="true" style="width:17px;height:17px;flex:0 0 auto;">
         <circle class="gpsHalo" cx="12" cy="12" r="8"></circle>
@@ -2078,7 +2065,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">1本指</div>通常時は1本指で図面を移動できます。1本指で2回タップし、2回目の指を離さず下へ動かすと拡大、上へ動かすと縮小します。</div>
               <div class="helpBlock"><div class="helpHead">2本指</div>2本指で移動・拡大縮小・回転できます。</div>
-              <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークを押すと、<b>北を上</b>または<b>現場の向きに追従</b>を選べます。追従中は方位マークとボタンが青くなり、スマホの向きに合わせて図面が自動回転します。もう一度押すと追従を停止します。</div>
+              <div class="helpBlock"><div class="helpHead">方位マーク</div>図面を開くと、スマホの向きに合わせた自動回転が初期状態で始まります。右上の方位マークを押すたびに自動回転のON／OFFを切り替えられ、ONの間は方位マークが青くなります。ホームを押すと自動回転を停止し、図面を読み込み時の水平な向きへ戻します。</div>
               <div class="helpBlock"><div class="helpHead">ホーム／閉じる</div>通常時は<b>ホーム</b>で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。画面や作業を開いている間は薄い赤の<b>閉じる</b>に変わり、図面位置を変えずに現在の画面・作業だけを終了します。ダブルタップや方位長押しでは全体表示になりません。</div>
               <div class="helpBlock"><div class="helpHead">縦画面専用</div>このアプリは縦画面用です。端末が横向きになった場合は、縦向きへ戻す案内を表示します。</div>
               <div class="helpBlock"><div class="helpHead">青いボタン</div>ファイル・背景・計測・断面・手書き・検索・ヘルプは起動中に青くなります。同じボタンをもう一度押すと終了します。</div>
@@ -2347,9 +2334,6 @@ const PICK_CENTER_DEFAULT_TITLE = pickCenterBtn ? (pickCenterBtn.getAttribute("t
 const compassFab = document.getElementById("compassFab");
 const compassNeedle = compassFab ? compassFab.querySelector(".compassNeedle") : null;
 const compassN = compassFab ? compassFab.querySelector(".compassN") : null;
-const compassMenu = document.getElementById("compassMenu");
-const compassNorthBtn = document.getElementById("compassNorthBtn");
-const compassFieldBtn = document.getElementById("compassFieldBtn");
 const COMPASS_FOLLOW_DEFAULT_ENABLED = true;
 const COMPASS_FOLLOW_SENSOR_INTERVAL_MS = 25;
 const COMPASS_FOLLOW_FRAME_MS = 1000/60;
@@ -8804,19 +8788,11 @@ function setDrawingRotationPreserveCenter(targetRotationDeg){
   if(!applyDrawingRotationPreserveCenter(targetRotationDeg))return;
   scheduleDraw();
 }
-function setCompassMenuOpen(open){
-  if(!compassMenu)return;
-  if(open)closeCoordinateInspectForOtherPopup();
-  compassMenu.classList.toggle("open",!!open);
-  compassFab?.setAttribute("aria-expanded",open?"true":"false");
-}
 function headingFromOrientationEvent(event){
   const iosHeading=Number(event&&event.webkitCompassHeading);
   if(Number.isFinite(iosHeading))return normalizeRotation360(iosHeading);
   const alpha=Number(event&&event.alpha);
-  if(Number.isFinite(alpha)&&(event.absolute===true||event.type==="deviceorientationabsolute")){
-    return normalizeRotation360(360-alpha);
-  }
+  if(Number.isFinite(alpha))return normalizeRotation360(360-alpha);
   return null;
 }
 async function requestCurrentDeviceHeading(){
@@ -8846,9 +8822,13 @@ async function requestCurrentDeviceHeading(){
   });
 }
 function updateCompassFollowUi(){
-  compassFieldBtn?.classList.toggle("active",compassFollowEnabled);
-  compassFieldBtn?.setAttribute("aria-pressed",compassFollowEnabled?"true":"false");
-  compassFab?.classList.toggle("following",compassFollowEnabled);
+  const active=!!(compassFollowEnabled||compassFollowStartPromise);
+  compassFab?.classList.toggle("following",active);
+  compassFab?.setAttribute("aria-pressed",active?"true":"false");
+  if(compassFab){
+    compassFab.dataset.tooltip=active?"図面自動回転：ON（押すと停止）":"図面自動回転：OFF（押すと開始）";
+    compassFab.title=compassFab.dataset.tooltip;
+  }
 }
 function scheduleCompassFollowDraw(){
   if(largeDrawingMode)scheduleTouchTransformDraw();
@@ -8904,6 +8884,7 @@ function stopCompassFollow(){
   compassFollowStartGeneration++;
   compassFollowDefaultArmed=false;
   compassFollowEnabled=false;
+  compassFollowStartPromise=null;
   compassFollowTargetRotationDeg=null;
   compassFollowAnimationLastAt=0;
   if(compassFollowAnimationFrame){cancelAnimationFrame(compassFollowAnimationFrame);compassFollowAnimationFrame=0;}
@@ -8929,8 +8910,10 @@ function startCompassFollow(){
   })();
   const wrappedPromise=promise.finally(()=>{
     if(compassFollowStartPromise===wrappedPromise)compassFollowStartPromise=null;
+    updateCompassFollowUi();
   });
   compassFollowStartPromise=wrappedPromise;
+  updateCompassFollowUi();
   return wrappedPromise;
 }
 function startDefaultCompassFollow(fromUserGesture=false){
@@ -8948,7 +8931,7 @@ function startDefaultCompassFollow(fromUserGesture=false){
   });
 }
 document.addEventListener("pointerdown",event=>{
-  if(event.target instanceof Element&&event.target.closest("#fitBtn,#compassFab,#compassMenu"))return;
+  if(event.target instanceof Element&&event.target.closest("#fitBtn,#compassFab"))return;
   startDefaultCompassFollow(true);
 },{capture:true,passive:true});
 function updateCompassUi(){
@@ -18734,7 +18717,6 @@ document.getElementById("fitBtn").addEventListener("click", (event)=>{
   btn.classList.add(pressedClass);
   setTimeout(()=>btn.classList.remove(pressedClass),150);
   stopCompassFollow();
-  setCompassMenuOpen(false);
   if (!isDrawingActionAvailable()) return;
   updateWrapLayout();
   resize(false);
@@ -19566,7 +19548,6 @@ function handleEscapeBackStep(){
   if(textSearchPopupOpen){closeTextSearchPopup();return true;}
   if(photoPositionAdjustIsActive()){setPhotoPositionAdjustMode(false);return true;}
   if(photoPositionPanelIsOpen()){setPhotoListPanelOpen(false);return true;}
-  if(compassMenu?.classList.contains("open")){setCompassMenuOpen(false);return true;}
   if(helpModalOpen){closeHelpModal();return true;}
   // 各コマンドの後退先がなくなった時だけ、残っている設定面を閉じて終了する。
   const visiblePanels=[settingsPanel,layerPanel,terrainPanel,foundationMapPanel,aerialPhotoPanel,registryMapPanel,hazardMapPanel,controlPointPanel,measureModePanel,drawPanel];
@@ -20965,45 +20946,25 @@ canvas.addEventListener("touchcancel", ()=>{
 }, {passive:true});
 
 if (compassFab) {
-  compassFab.setAttribute("aria-haspopup","dialog");
-  compassFab.setAttribute("aria-expanded","false");
-  compassFab.title="図面の向きを変更";
-  compassFab.addEventListener("click", event=>{
+  updateCompassFollowUi();
+  compassFab.addEventListener("click", async event=>{
     event.stopPropagation();
     if(!isDrawingActionAvailable())return;
-    setCompassMenuOpen(!compassMenu?.classList.contains("open"));
+    if(compassFollowEnabled||compassFollowStartPromise){
+      stopCompassFollow();
+      return;
+    }
+    compassFollowDefaultArmed=false;
+    try{
+      await startCompassFollow();
+    }catch(error){
+      stopCompassFollow();
+      showToast(error&&error.message?error.message:"方位を取得できません",2600);
+    }finally{
+      updateCompassFollowUi();
+    }
   });
 }
-compassNorthBtn?.addEventListener("click",event=>{
-  event.stopPropagation();
-  stopCompassFollow();
-  setDrawingRotationPreserveCenter(getNorthUpRotationDeg());
-  setCompassMenuOpen(false);
-});
-compassFieldBtn?.addEventListener("click",async event=>{
-  event.stopPropagation();
-  if(compassFollowEnabled){
-    stopCompassFollow();
-    setCompassMenuOpen(false);
-    return;
-  }
-  compassFieldBtn.disabled=true;
-  compassFieldBtn.textContent="方位を取得中…";
-  try{
-    await startCompassFollow();
-    setCompassMenuOpen(false);
-  }catch(error){
-    stopCompassFollow();
-    showToast(error&&error.message?error.message:"方位を取得できません",2600);
-  }finally{
-    compassFieldBtn.disabled=false;
-    compassFieldBtn.textContent="現場の向きに追従";
-    updateCompassFollowUi();
-  }
-});
-compassMenu?.addEventListener("click",event=>event.stopPropagation());
-document.addEventListener("click",()=>setCompassMenuOpen(false));
-document.addEventListener("keydown",event=>{if(event.key==="Escape")setCompassMenuOpen(false);});
 function circleDiameterMmFromLevel(v){
   const level=normalizeCircleSizeLevel(v);
   const t=(level-CIRCLE_SIZE_MIN_LEVEL)/(CIRCLE_SIZE_MAX_LEVEL-CIRCLE_SIZE_MIN_LEVEL);

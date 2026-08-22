@@ -12,10 +12,15 @@ for(const token of [
   "requestAnimationFrame(stepCompassFollowAnimation)",
   "if(largeDrawingMode)scheduleTouchTransformDraw()",
   "startDefaultCompassFollow(false);",
-  "!hasLoadedDrawing()"
+  "!hasLoadedDrawing()",
+  'compassFab.addEventListener("click", async event=>',
+  'compassFab?.setAttribute("aria-pressed",active?"true":"false")'
 ])if(!source.includes(token))throw new Error(`missing smooth compass-follow implementation: ${token}`);
+for(const obsolete of ['id="compassMenu"','id="compassNorthBtn"','id="compassFieldBtn"']){
+  if(source.includes(obsolete))throw new Error(`obsolete compass popup remains: ${obsolete}`);
+}
 const homeHandler=source.slice(source.indexOf('document.getElementById("fitBtn").addEventListener'),source.indexOf('document.getElementById("gpsBtn").addEventListener'));
-if(!/stopCompassFollow\(\);\s*setCompassMenuOpen\(false\);/.test(homeHandler))throw new Error("Home does not cancel compass follow");
+if(!/stopCompassFollow\(\);/.test(homeHandler)||!/fitToScreen\(\);/.test(homeHandler))throw new Error("Home does not cancel compass follow and restore the drawing orientation");
 
 const server=http.createServer((req,res)=>{
   const clean=decodeURIComponent((req.url||"/").split("?")[0]);
@@ -43,7 +48,6 @@ let browser;
       getCurrentPosition(success){setTimeout(()=>success({coords:{latitude:34.0703,longitude:134.5548,accuracy:4}}),0);}
     }});
     class MockDeviceOrientationEvent extends Event{}
-    MockDeviceOrientationEvent.requestPermission=async()=>"granted";
     Object.defineProperty(window,"DeviceOrientationEvent",{configurable:true,value:MockDeviceOrientationEvent});
     setInterval(()=>{
       const event=new Event("deviceorientationabsolute");
@@ -58,11 +62,22 @@ let browser;
     data.lines=[[0,0,1000,1000,1,1,1]];
     data.source_name="compass-test.sfc";
     document.getElementById("startupModal").style.display="none";
-    startDefaultCompassFollow(true);
+    startDefaultCompassFollow(false);
   })()`));
   await page.waitForFunction(()=>window.eval("compassFollowEnabled"),null,{timeout:5000});
-  const defaultState=await page.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,active:compassFieldBtn.classList.contains("active"),defaultEnabled:COMPASS_FOLLOW_DEFAULT_ENABLED,gpsEnabled})`));
-  if(!defaultState.enabled||!defaultState.active||!defaultState.defaultEnabled||defaultState.gpsEnabled)throw new Error(`GPS-independent automatic rotation did not start by default: ${JSON.stringify(defaultState)}`);
+  const defaultState=await page.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,active:compassFab.classList.contains("following"),pressed:compassFab.getAttribute("aria-pressed"),defaultEnabled:COMPASS_FOLLOW_DEFAULT_ENABLED,gpsEnabled})`));
+  if(!defaultState.enabled||!defaultState.active||defaultState.pressed!=="true"||!defaultState.defaultEnabled||defaultState.gpsEnabled)throw new Error(`GPS-independent automatic rotation did not start by default: ${JSON.stringify(defaultState)}`);
+
+  const relativeHeading=await page.evaluate(()=>window.eval(`headingFromOrientationEvent({alpha:315,absolute:false,type:"deviceorientation"})`));
+  if(Math.abs(relativeHeading-45)>0.001)throw new Error(`Android/WebView relative alpha was ignored: ${relativeHeading}`);
+
+  await page.locator("#compassFab").click();
+  const toggledOff=await page.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,pending:!!compassFollowStartPromise,active:compassFab.classList.contains("following"),pressed:compassFab.getAttribute("aria-pressed")})`));
+  if(toggledOff.enabled||toggledOff.pending||toggledOff.active||toggledOff.pressed!=="false")throw new Error(`Compass button did not stop rotation directly: ${JSON.stringify(toggledOff)}`);
+  await page.locator("#compassFab").click();
+  await page.waitForFunction(()=>window.eval("compassFollowEnabled"),null,{timeout:5000});
+  const toggledOn=await page.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,active:compassFab.classList.contains("following"),pressed:compassFab.getAttribute("aria-pressed")})`));
+  if(!toggledOn.enabled||!toggledOn.active||toggledOn.pressed!=="true")throw new Error(`Compass button did not restart rotation directly: ${JSON.stringify(toggledOn)}`);
 
   await page.evaluate(()=>window.eval(`(()=>{
     stopCompassFollow();
@@ -85,12 +100,12 @@ let browser;
   if(settled.remaining>0.2)throw new Error(`rotation did not settle at the target: ${JSON.stringify(settled)}`);
   if(settled.draws<5||settled.draws>100)throw new Error(`unexpected redraw count during smoothing: ${JSON.stringify(settled)}`);
 
-  await page.evaluate(()=>window.eval("compassFollowEnabled=true;compassFollowTargetRotationDeg=90;requestCompassFollowAnimation();"));
+  await page.evaluate(()=>window.eval("initialLoadRotationDeg=0;rotationDeg=37;compassFollowEnabled=true;compassFollowTargetRotationDeg=90;requestCompassFollowAnimation();"));
   await page.locator("#fitBtn").click();
-  const homeState=await page.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,target:compassFollowTargetRotationDeg,frame:compassFollowAnimationFrame,armed:compassFollowDefaultArmed})`));
-  if(homeState.enabled||homeState.target!==null||homeState.frame!==0||homeState.armed)throw new Error(`Home did not cancel automatic rotation: ${JSON.stringify(homeState)}`);
+  const homeState=await page.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,target:compassFollowTargetRotationDeg,frame:compassFollowAnimationFrame,armed:compassFollowDefaultArmed,rotation:rotationDeg,active:compassFab.classList.contains("following"),pressed:compassFab.getAttribute("aria-pressed")})`));
+  if(homeState.enabled||homeState.target!==null||homeState.frame!==0||homeState.armed||Math.abs(homeState.rotation)>0.001||homeState.active||homeState.pressed!=="false")throw new Error(`Home did not cancel automatic rotation and restore the initial orientation: ${JSON.stringify(homeState)}`);
 
-  console.log(`smooth compass follow checks passed (mid=${middle.remaining.toFixed(2)}deg, final=${settled.remaining.toFixed(3)}deg, draws=${settled.draws})`);
+  console.log(`direct compass toggle checks passed (mid=${middle.remaining.toFixed(2)}deg, final=${settled.remaining.toFixed(3)}deg, draws=${settled.draws})`);
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   if(browser)await browser.close();
   server.close();
