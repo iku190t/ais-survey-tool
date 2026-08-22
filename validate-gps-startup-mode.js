@@ -10,8 +10,8 @@ const required=[
   'const zone = chooseJapanPlaneZone(lat, lon);',
   'gpsTemporaryCoordinateZone=zone;',
   'enableGpsContextTiles(zone);',
-  'ensureDefaultDrawingCoordinateZone(zone)',
-  'getDefaultDrawingCoordinateZone()',
+  'adoptCurrentLocationZoneForDrawing(zone)',
+  'drawingZone=adoptCurrentLocationZoneForDrawing(zone);',
   'const drawingZone=getManualCoordinateZone()||null;',
   'drawingReferenceBounds:getGpsDrawingReferenceBoundsWorld()',
   'state.drawingReferenceBounds',
@@ -85,12 +85,13 @@ let browser;
   await page.waitForFunction(()=>window.eval("gpsEnabled&&gpsOnlyBlankMode&&gpsPosition&&aerialPhotoEnabled"),null,{timeout:5000});
   const active=await page.evaluate(()=>window.eval(`({
     gpsEnabled,gpsOnlyBlankMode,gpsTemporaryCoordinateZone,aerialPhotoEnabled,aerialPhotoZone,
-    startupDisplay:document.getElementById("startupModal").style.display,defaultDrawingZone:getDefaultDrawingCoordinateZone(),
+    startupDisplay:document.getElementById("startupModal").style.display,
     scale:view.scale
   })`));
-  if(!active.gpsEnabled||!active.gpsOnlyBlankMode||active.gpsTemporaryCoordinateZone!==4||!active.aerialPhotoEnabled||active.aerialPhotoZone!==4||active.defaultDrawingZone!==4||active.startupDisplay!=="none"){
+  if(!active.gpsEnabled||!active.gpsOnlyBlankMode||active.gpsTemporaryCoordinateZone!==4||!active.aerialPhotoEnabled||active.aerialPhotoZone!==4||active.startupDisplay!=="none"){
     throw new Error(`GPS-only mode did not initialize correctly: ${JSON.stringify(active)}`);
   }
+  if(await page.locator("#defaultCoordinateSystemSelect").count())throw new Error("obsolete default drawing coordinate control is still visible");
   await page.evaluate(()=>window.eval("scheduleAerialPhotoSourceRefresh({lat:gpsPosition.lat,lon:gpsPosition.lon})"));
   await page.waitForTimeout(900);
   const gpsAerialStable=await page.evaluate(()=>window.eval(`({
@@ -199,66 +200,42 @@ let browser;
     delete window.__originalGpsDistance;
   })()`));
   await page.evaluate(()=>window.eval(`(()=>{
-    window.__originalGetDefaultDrawingCoordinateZone=getDefaultDrawingCoordinateZone;
-    window.__originalEnsureDefaultDrawingCoordinateZone=ensureDefaultDrawingCoordinateZone;
-    getDefaultDrawingCoordinateZone=()=>null;
-    ensureDefaultDrawingCoordinateZone=()=>null;
     data.lines=[[134554000,34070000,134555000,34071000,1,1,1]];
-    data.source_name="gps-unknown-drawing-zone-test.sfc";
+    data.source_name="gps-current-zone-adoption-test.sfc";
+    saveDrawingCoordinateSetting("auto");
     profileZone=null;
     aerialPhotoEnabled=false;aerialPhotoZone=null;aerialAvailableSources=[];aerialPhotoAvailabilityKey="";
     startGps();
   })()`));
-  await page.waitForFunction(()=>window.eval("gpsEnabled&&gpsPosition&&gpsTemporaryCoordinateZone===4&&aerialPhotoEnabled"),null,{timeout:5000});
-  const unknownDrawingZone=await page.evaluate(()=>window.eval(`({
+  await page.waitForFunction(()=>window.eval("gpsEnabled&&gpsPosition&&gpsSessionState?.drawingZone===4"),null,{timeout:5000});
+  const adoptedDrawingZone=await page.evaluate(()=>window.eval(`({
     drawingZone:gpsSessionState?.drawingZone??null,
+    savedZone:getManualCoordinateZone(),
     distance:gpsLastDistanceMeters,
     gpsZone:gpsTemporaryCoordinateZone,
     aerial:aerialPhotoEnabled,
-    aerialZone:aerialPhotoZone,
-    distanceNotice:gpsDistanceUnavailableNotified,
-    toast:toastEl?.textContent||""
+    defaultControl:document.getElementById("defaultCoordinateSystemSelect"),
+    status:coordinateSystemStatus?.textContent||""
   })`));
-  if(unknownDrawingZone.drawingZone!==null||unknownDrawingZone.distance!==null||unknownDrawingZone.gpsZone!==4||!unknownDrawingZone.aerial||unknownDrawingZone.aerialZone!==4||!unknownDrawingZone.distanceNotice||!unknownDrawingZone.toast.includes("座標系が未設定")){
-    throw new Error(`unknown drawing zone was treated as the current GPS zone: ${JSON.stringify(unknownDrawingZone)}`);
+  if(adoptedDrawingZone.drawingZone!==4||adoptedDrawingZone.savedZone!==4||adoptedDrawingZone.distance!==0||adoptedDrawingZone.gpsZone!==null||adoptedDrawingZone.aerial||adoptedDrawingZone.defaultControl!==null||!adoptedDrawingZone.status.includes("第4系")){
+    throw new Error(`smartphone did not adopt and remember its current coordinate zone for the drawing: ${JSON.stringify(adoptedDrawingZone)}`);
   }
   await page.evaluate(()=>window.eval(`(()=>{
     stopGps(true);
-    getDefaultDrawingCoordinateZone=window.__originalGetDefaultDrawingCoordinateZone;
-    ensureDefaultDrawingCoordinateZone=window.__originalEnsureDefaultDrawingCoordinateZone;
-    delete window.__originalGetDefaultDrawingCoordinateZone;
-    delete window.__originalEnsureDefaultDrawingCoordinateZone;
-    saveDefaultDrawingCoordinateZone(4);
   })()`));
-  await page.evaluate(()=>window.eval(`(()=>{
-    data.lines=[[500000000,500000000,500010000,500010000,1,1,1]];
-    data.source_name="gps-default-drawing-zone-test.sfc";
-    profileZone=null;
-    aerialPhotoEnabled=false;aerialPhotoZone=null;aerialAvailableSources=[];aerialPhotoAvailabilityKey="";
-    startGps();
-  })()`));
-  await page.waitForFunction(()=>window.eval("gpsEnabled&&gpsPosition&&gpsTemporaryCoordinateZone===4&&aerialPhotoEnabled"),null,{timeout:5000});
-  const defaultDrawingZone=await page.evaluate(()=>window.eval(`({
-    drawingZone:gpsSessionState?.drawingZone??null,
-    saved:getDefaultDrawingCoordinateZone(),
-    selectOptions:defaultCoordinateSystemSelect.options.length
-  })`));
-  if(defaultDrawingZone.drawingZone!==null||defaultDrawingZone.saved!==4||defaultDrawingZone.selectOptions!==20){
-    throw new Error(`saved device default was incorrectly trusted for distance calculation: ${JSON.stringify(defaultDrawingZone)}`);
-  }
-  await page.evaluate(()=>window.eval("stopGps(true)"));
   const coordinatePriority=await page.evaluate(()=>window.eval(`(()=>{
     data.lines=[[700000000,700000000,700010000,700010000,1,1,1]];
     data.source_name="gps-manual-zone-priority-test.sfc";
     profileZone=null;gpsSessionState=null;
+    saveDrawingCoordinateSetting("auto");
     saveDrawingCoordinateSetting("3");
     const state=captureGpsSessionState();
-    const result={drawingZone:state.drawingZone,manual:getManualCoordinateZone(),savedDefault:getDefaultDrawingCoordinateZone()};
+    const result={drawingZone:state.drawingZone,manual:getManualCoordinateZone()};
     gpsSessionState=null;
     return result;
   })()`));
-  if(coordinatePriority.drawingZone!==3||coordinatePriority.manual!==3||coordinatePriority.savedDefault!==4){
-    throw new Error(`per-drawing coordinate zone did not override the device default: ${JSON.stringify(coordinatePriority)}`);
+  if(coordinatePriority.drawingZone!==3||coordinatePriority.manual!==3){
+    throw new Error(`manual per-drawing coordinate zone was not preserved: ${JSON.stringify(coordinatePriority)}`);
   }
   const distantMultiPartDrawing=await page.evaluate(()=>window.eval(`(()=>{
     const main=Object.assign([0,0,1000,1000,1,1,1],{_sxfPartIsMain:true});
