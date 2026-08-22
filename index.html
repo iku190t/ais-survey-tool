@@ -2065,7 +2065,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">1本指</div>通常時は1本指で図面を移動できます。1本指で2回タップし、2回目の指を離さず下へ動かすと拡大、上へ動かすと縮小します。</div>
               <div class="helpBlock"><div class="helpHead">2本指</div>2本指で移動・拡大縮小・回転できます。</div>
-              <div class="helpBlock"><div class="helpHead">方位マーク</div>図面を開くと、スマホの向きに合わせた自動回転が初期状態で始まります。右上の方位マークを押すたびに自動回転のON／OFFを切り替えられ、ONの間は方位マークが青くなります。ホームを押すと自動回転を停止し、図面を読み込み時の水平な向きへ戻します。</div>
+              <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークを押すと、スマホの向きに合わせた自動回転を開始します。もう一度押すと停止し、ONの間は方位マークが青くなります。ホームを押すと自動回転を停止し、図面を読み込み時の水平な向きへ戻します。</div>
               <div class="helpBlock"><div class="helpHead">ホーム／閉じる</div>通常時は<b>ホーム</b>で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。画面や作業を開いている間は薄い赤の<b>閉じる</b>に変わり、図面位置を変えずに現在の画面・作業だけを終了します。ダブルタップや方位長押しでは全体表示になりません。</div>
               <div class="helpBlock"><div class="helpHead">縦画面専用</div>このアプリは縦画面用です。端末が横向きになった場合は、縦向きへ戻す案内を表示します。</div>
               <div class="helpBlock"><div class="helpHead">青いボタン</div>ファイル・背景・計測・断面・手書き・検索・ヘルプは起動中に青くなります。同じボタンをもう一度押すと終了します。</div>
@@ -2334,7 +2334,6 @@ const PICK_CENTER_DEFAULT_TITLE = pickCenterBtn ? (pickCenterBtn.getAttribute("t
 const compassFab = document.getElementById("compassFab");
 const compassNeedle = compassFab ? compassFab.querySelector(".compassNeedle") : null;
 const compassN = compassFab ? compassFab.querySelector(".compassN") : null;
-const COMPASS_FOLLOW_DEFAULT_ENABLED = true;
 const COMPASS_FOLLOW_SENSOR_INTERVAL_MS = 16;
 const COMPASS_FOLLOW_FRAME_MS = 1000/60;
 const COMPASS_FOLLOW_RESPONSE_MS = 45;
@@ -2346,9 +2345,6 @@ let compassFollowAnimationFrame = 0;
 let compassFollowAnimationLastAt = 0;
 let compassFollowStartPromise = null;
 let compassFollowStartGeneration = 0;
-let compassFollowDefaultArmed = COMPASS_FOLLOW_DEFAULT_ENABLED;
-let compassOrientationPermissionState = "unknown";
-let compassOrientationPermissionPromise = null;
 
 let data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [], ellipseArcs: [], markers: [], layerNames: {}, source_name: "" };
 /*__EMBED_PAYLOAD_START__*/ window.__EMBED_PAYLOAD_B64__ = ""; /*__EMBED_PAYLOAD_END__*/
@@ -8797,42 +8793,11 @@ function headingFromOrientationEvent(event){
   if(Number.isFinite(alpha))return normalizeRotation360(360-alpha);
   return null;
 }
-function requestCompassOrientationPermissionFromGesture(){
-  if(typeof DeviceOrientationEvent==="undefined")return Promise.resolve(false);
-  if(typeof DeviceOrientationEvent.requestPermission!=="function"){
-    compassOrientationPermissionState="granted";
-    return Promise.resolve(true);
-  }
-  if(compassOrientationPermissionState==="granted")return Promise.resolve(true);
-  if(compassOrientationPermissionPromise)return compassOrientationPermissionPromise;
-  let request;
-  try{
-    // iOS requires this call to happen synchronously inside the user's gesture.
-    request=DeviceOrientationEvent.requestPermission();
-  }catch(error){
-    compassOrientationPermissionState="denied";
-    return Promise.reject(error);
-  }
-  const pending=Promise.resolve(request).then(permission=>{
-    const granted=permission==="granted";
-    compassOrientationPermissionState=granted?"granted":"denied";
-    return granted;
-  }).catch(error=>{
-    compassOrientationPermissionState="denied";
-    throw error;
-  }).finally(()=>{
-    if(compassOrientationPermissionPromise===pending)compassOrientationPermissionPromise=null;
-  });
-  compassOrientationPermissionPromise=pending;
-  return pending;
-}
 async function requestCurrentDeviceHeading(){
   if(typeof DeviceOrientationEvent==="undefined")throw new Error("この端末では方位センサーを利用できません");
   if(typeof DeviceOrientationEvent.requestPermission==="function"){
-    const granted=compassOrientationPermissionState==="granted"
-      ? true
-      : await requestCompassOrientationPermissionFromGesture();
-    if(!granted)throw new Error("方位センサーの使用が許可されていません");
+    const permission=await DeviceOrientationEvent.requestPermission();
+    if(permission!=="granted")throw new Error("方位センサーの使用が許可されていません");
   }
   return await new Promise((resolve,reject)=>{
     let settled=false;
@@ -8915,7 +8880,6 @@ function onCompassFollowOrientation(event){
 }
 function stopCompassFollow(){
   compassFollowStartGeneration++;
-  compassFollowDefaultArmed=false;
   compassFollowEnabled=false;
   compassFollowStartPromise=null;
   compassFollowTargetRotationDeg=null;
@@ -8949,47 +8913,6 @@ function startCompassFollow(){
   updateCompassFollowUi();
   return wrappedPromise;
 }
-function startDefaultCompassFollow(fromUserGesture=false){
-  if(!compassFollowDefaultArmed||!isTouchMobileLike()||!hasLoadedDrawing()||compassFollowEnabled||compassFollowStartPromise)return;
-  if(typeof DeviceOrientationEvent==="undefined"){
-    compassFollowDefaultArmed=false;
-    return;
-  }
-  if(typeof DeviceOrientationEvent.requestPermission==="function"&&compassOrientationPermissionState!=="granted"&&!fromUserGesture){
-    if(compassOrientationPermissionPromise){
-      compassOrientationPermissionPromise.then(granted=>{
-        if(granted)startDefaultCompassFollow(false);
-      }).catch(error=>console.warn("Compass permission warm-up failed",error));
-    }
-    return;
-  }
-  compassFollowDefaultArmed=false;
-  startCompassFollow().catch(error=>{
-    stopCompassFollow();
-    console.warn("Automatic compass follow could not start",error);
-    if(fromUserGesture)showToast(error&&error.message?error.message:"方位を取得できません",2600);
-  });
-}
-document.addEventListener("change",event=>{
-  const target=event.target instanceof Element?event.target:null;
-  if(target?.id!=="fileInput"||!compassFollowDefaultArmed||!isTouchMobileLike())return;
-  // The file is already selected, so the iOS permission prompt cannot block the picker.
-  requestCompassOrientationPermissionFromGesture().then(granted=>{
-    if(granted)startDefaultCompassFollow(false);
-  }).catch(error=>console.warn("Compass permission warm-up failed",error));
-},{capture:true});
-document.addEventListener("click",event=>{
-  const target=event.target instanceof Element?event.target:null;
-  if(!target?.closest("#startupSampleBtn")||!compassFollowDefaultArmed||!isTouchMobileLike())return;
-  requestCompassOrientationPermissionFromGesture().then(granted=>{
-    if(granted)startDefaultCompassFollow(false);
-  }).catch(error=>console.warn("Compass permission warm-up failed",error));
-},{capture:true});
-document.addEventListener("pointerdown",event=>{
-  const target=event.target instanceof Element?event.target:null;
-  if(target&&target.closest("#fitBtn,#compassFab"))return;
-  startDefaultCompassFollow(true);
-},{capture:true,passive:true});
 function updateCompassUi(){
   const deg = normalizeRotation360(getNorthUpRotationDeg()-rotationDeg);
   if (compassNeedle) compassNeedle.style.transform = `translate(-50%,-50%) rotate(${deg}deg)`;
@@ -18402,7 +18325,6 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   try{
   window.__EMBED_PAYLOAD_B64__ = "";
   stopCompassFollow();
-  compassFollowDefaultArmed=COMPASS_FOLLOW_DEFAULT_ENABLED;
   clearLoadedState();
   currentLoadedKind = "sfc";
   currentOpenHandle = handleOverride || null;
@@ -18449,7 +18371,6 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   document.getElementById("startupModal").style.display="none";
   if(options.restoreRecovery!==false)restoreRecoverySnapshotIfAvailable();
   applyDefaultFullViewAfterLoad();
-  startDefaultCompassFollow(false);
   gaTrackOpenSfc("sfc");
   const loadModeLabel=(largeDrawingMode ? "大容量モード" : "通常モード")+
     (activeCoordinateMeshTransform ? "・座標メッシュ補正" : "");
@@ -21012,7 +20933,6 @@ if (compassFab) {
       stopCompassFollow();
       return;
     }
-    compassFollowDefaultArmed=false;
     try{
       await startCompassFollow();
     }catch(error){
@@ -21082,7 +21002,6 @@ if (window.__EMBED_PAYLOAD_B64__) {
       rotationDeg = Number.isFinite(+payload.rotationDeg) ? +payload.rotationDeg : determineBestRotation(data);
       initialLoadRotationDeg = rotationDeg;
       stopCompassFollow();
-      compassFollowDefaultArmed=COMPASS_FOLLOW_DEFAULT_ENABLED;
       updateThemeUI();
       ensureLayerVisibility();
       renderLayerList();
@@ -21093,7 +21012,6 @@ if (window.__EMBED_PAYLOAD_B64__) {
       updateStopBtnUI();
       restoreRecoverySnapshotIfAvailable();
       applyDefaultFullViewAfterLoad();
-      startDefaultCompassFollow(false);
     }
   } catch(e) {
     console.error(e);

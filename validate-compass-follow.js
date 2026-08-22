@@ -6,18 +6,18 @@ const {chromium}=require("playwright");
 const root=__dirname;
 const source=fs.readFileSync(path.join(root,"index.html"),"utf8");
 for(const token of [
-  "const COMPASS_FOLLOW_DEFAULT_ENABLED = true",
   "function stepCompassFollowAnimation(now)",
   "const COMPASS_FOLLOW_FRAME_MS = 1000/60",
   "const COMPASS_FOLLOW_RESPONSE_MS = 45",
   "const COMPASS_FOLLOW_TARGET_FILTER = 0.72",
   "requestAnimationFrame(stepCompassFollowAnimation)",
   "if(largeDrawingMode)scheduleTouchTransformDraw()",
-  "startDefaultCompassFollow(false);",
-  "!hasLoadedDrawing()",
   'compassFab.addEventListener("click", async event=>',
   'compassFab?.setAttribute("aria-pressed",active?"true":"false")'
 ])if(!source.includes(token))throw new Error(`missing smooth compass-follow implementation: ${token}`);
+for(const obsolete of ["COMPASS_FOLLOW_DEFAULT_ENABLED","startDefaultCompassFollow(","requestCompassOrientationPermissionFromGesture"]){
+  if(source.includes(obsolete))throw new Error(`automatic compass startup remains: ${obsolete}`);
+}
 for(const obsolete of ['id="compassMenu"','id="compassNorthBtn"','id="compassFieldBtn"']){
   if(source.includes(obsolete))throw new Error(`obsolete compass popup remains: ${obsolete}`);
 }
@@ -64,11 +64,15 @@ let browser;
     data.lines=[[0,0,1000,1000,1,1,1]];
     data.source_name="compass-test.sfc";
     document.getElementById("startupModal").style.display="none";
-    startDefaultCompassFollow(false);
+    updateDrawingDependentUi();
   })()`));
+  const defaultState=await page.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,pending:!!compassFollowStartPromise,active:compassFab.classList.contains("following"),pressed:compassFab.getAttribute("aria-pressed"),gpsEnabled})`));
+  if(defaultState.enabled||defaultState.pending||defaultState.active||defaultState.pressed!=="false"||defaultState.gpsEnabled)throw new Error(`Compass rotation was not OFF initially: ${JSON.stringify(defaultState)}`);
+
+  await page.locator("#compassFab").click();
   await page.waitForFunction(()=>window.eval("compassFollowEnabled"),null,{timeout:5000});
-  const defaultState=await page.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,active:compassFab.classList.contains("following"),pressed:compassFab.getAttribute("aria-pressed"),defaultEnabled:COMPASS_FOLLOW_DEFAULT_ENABLED,gpsEnabled})`));
-  if(!defaultState.enabled||!defaultState.active||defaultState.pressed!=="true"||!defaultState.defaultEnabled||defaultState.gpsEnabled)throw new Error(`GPS-independent automatic rotation did not start by default: ${JSON.stringify(defaultState)}`);
+  const manualStartState=await page.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,active:compassFab.classList.contains("following"),pressed:compassFab.getAttribute("aria-pressed"),gpsEnabled})`));
+  if(!manualStartState.enabled||!manualStartState.active||manualStartState.pressed!=="true"||manualStartState.gpsEnabled)throw new Error(`Compass button did not start GPS-independent rotation: ${JSON.stringify(manualStartState)}`);
 
   const relativeHeading=await page.evaluate(()=>window.eval(`headingFromOrientationEvent({alpha:315,absolute:false,type:"deviceorientation"})`));
   if(Math.abs(relativeHeading-45)>0.001)throw new Error(`Android/WebView relative alpha was ignored: ${relativeHeading}`);
@@ -104,8 +108,8 @@ let browser;
 
   await page.evaluate(()=>window.eval("initialLoadRotationDeg=0;rotationDeg=37;compassFollowEnabled=true;compassFollowTargetRotationDeg=90;requestCompassFollowAnimation();"));
   await page.locator("#fitBtn").click();
-  const homeState=await page.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,target:compassFollowTargetRotationDeg,frame:compassFollowAnimationFrame,armed:compassFollowDefaultArmed,rotation:rotationDeg,active:compassFab.classList.contains("following"),pressed:compassFab.getAttribute("aria-pressed")})`));
-  if(homeState.enabled||homeState.target!==null||homeState.frame!==0||homeState.armed||Math.abs(homeState.rotation)>0.001||homeState.active||homeState.pressed!=="false")throw new Error(`Home did not cancel automatic rotation and restore the initial orientation: ${JSON.stringify(homeState)}`);
+  const homeState=await page.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,target:compassFollowTargetRotationDeg,frame:compassFollowAnimationFrame,rotation:rotationDeg,active:compassFab.classList.contains("following"),pressed:compassFab.getAttribute("aria-pressed")})`));
+  if(homeState.enabled||homeState.target!==null||homeState.frame!==0||Math.abs(homeState.rotation)>0.001||homeState.active||homeState.pressed!=="false")throw new Error(`Home did not cancel automatic rotation and restore the initial orientation: ${JSON.stringify(homeState)}`);
 
   const iosPage=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,userAgent:"Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148"});
   await iosPage.addInitScript(()=>{
@@ -125,22 +129,22 @@ let browser;
   });
   await iosPage.route(/^https:\/\//,route=>route.abort());
   await iosPage.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:"load",timeout:15000});
-  await iosPage.waitForFunction(()=>typeof window.eval("requestCompassOrientationPermissionFromGesture")==="function");
-  await iosPage.locator("#fileInput").dispatchEvent("change");
-  await iosPage.waitForFunction(()=>window.eval('compassOrientationPermissionState==="granted"'));
+  await iosPage.waitForFunction(()=>typeof window.eval("startCompassFollow")==="function");
   await iosPage.evaluate(()=>window.eval(`(()=>{
     data.lines=[[0,0,1000,1000,1,1,1]];
     data.source_name="ios-compass-test.sfc";
     document.getElementById("startupModal").style.display="none";
-    compassFollowDefaultArmed=true;
-    startDefaultCompassFollow(false);
+    updateDrawingDependentUi();
   })()`));
+  const iosBeforeClick=await iosPage.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,calls:window.__compassPermissionCalls})`));
+  if(iosBeforeClick.enabled||iosBeforeClick.calls!==0)throw new Error(`iPhone requested orientation permission before the compass button: ${JSON.stringify(iosBeforeClick)}`);
+  await iosPage.locator("#compassFab").click();
   await iosPage.waitForFunction(()=>window.eval("compassFollowEnabled"),null,{timeout:5000});
-  const iosState=await iosPage.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,permission:compassOrientationPermissionState,calls:window.__compassPermissionCalls,active:compassFab.classList.contains("following")})`));
-  if(!iosState.enabled||iosState.permission!=="granted"||iosState.calls!==1||!iosState.active)throw new Error(`iPhone file-open gesture did not prime automatic rotation: ${JSON.stringify(iosState)}`);
+  const iosState=await iosPage.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,calls:window.__compassPermissionCalls,active:compassFab.classList.contains("following")})`));
+  if(!iosState.enabled||iosState.calls!==1||!iosState.active)throw new Error(`iPhone compass button did not request permission and start rotation: ${JSON.stringify(iosState)}`);
   await iosPage.close();
 
-  console.log(`responsive compass startup checks passed (mid=${middle.remaining.toFixed(2)}deg, final=${settled.remaining.toFixed(3)}deg, draws=${settled.draws}, iOS permission calls=${iosState.calls})`);
+  console.log(`manual responsive compass checks passed (mid=${middle.remaining.toFixed(2)}deg, final=${settled.remaining.toFixed(3)}deg, draws=${settled.draws}, iOS permission calls=${iosState.calls})`);
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   if(browser)await browser.close();
   server.close();
