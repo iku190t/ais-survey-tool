@@ -44,7 +44,7 @@
 ### BASE-COMPASS-FOLLOW-20260822
 
 - 状態: `検証済み`
-- コミット: `7e6f76d`
+- コミット: `3c1b8f4`
 - 対象: スマホの方位ボタン手動回転とホーム操作。
 - 確認内容:
   - 図面読込時は回転OFFで、方位センサー許可も要求しない。
@@ -52,8 +52,8 @@
   - Android/WebViewで `absolute=false` の方位イベントしか届かない場合も、有限なalpha値を回転入力として使用する。
   - 方位変化は最短回転方向へ指数補間する。応答時定数28ms・目標追従率88%とし、通常図面は最大60fps、大規模図面は既存の約32ms描画制限を使う。
   - ホームを押すと追従、補間フレーム、再開待ちを停止し、図面の読み込み時の角度へ戻す。
-  - 追従中は方位ボタンへ `following` 状態を付け、ボタン全体を青いグラデーションと枠・発光で表示し、`aria-pressed=true` にする。停止時は解除する。
-- 検証: `7e6f76d` の `validate-compass-follow.js` でボタン全体の実際の計算済み色を含め確認。iPhone相当の権限APIモック、`validate-performance-indexes.js`、`validate-gps-startup-mode.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc` も成功。
+  - 追従中は方位ボタンへ `following` 状態を付け、黒背景・白背景のどちらでも外周と内側方位盤を青いグラデーションと枠・発光で表示し、`aria-pressed=true` にする。停止時は解除する。
+- 検証: `3c1b8f4` の `validate-compass-follow.js` で黒背景・白背景のボタンと方位盤の実際の計算済み色を確認。iPhone相当の権限APIモック、`validate-gps-startup-mode.js`、`validate-default-settings.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc` も成功。
 
 ### BASE-GPS-AERIAL-20260822
 
