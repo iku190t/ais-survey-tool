@@ -1,3 +1,18 @@
-Copyright (c) 2026 株式会社アイズ測量 / 豊川 郁雄. All Rights Reserved.
+Ez Viewer
+Copyright (c) 2026 株式会社アイズ測量 / 豊川 郁雄
 
-本ソフトウェア、画面およびプログラムの無断複製、改変、転載、再配布および販売を禁止します。
+This program is licensed under the GNU Affero General Public License,
+version 3 only (AGPL-3.0-only), subject to the additional attribution
+term in ADDITIONAL_TERMS.md.
+
+Required attribution / 必須の原作者表示:
+
+Ez Viewerを基に作成
+Original project: Ez Viewer
+Copyright © 2026 株式会社アイズ測量 / 豊川 郁雄
+
+This notice, the license notice, and the author attribution must remain
+available as described in ADDITIONAL_TERMS.md. No warranty is provided.
+
+Third-party components remain subject to their respective licenses.
+See THIRD_PARTY_NOTICES.md.
