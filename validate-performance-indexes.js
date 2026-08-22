@@ -12,8 +12,20 @@ for(const token of [
   "function buildBoundsSpatialIndex(",
   "function queryBoundsSpatialIndex(",
   "target._textHitSpatialIndex=buildBoundsSpatialIndex",
-  "function getPhotoMiniMapVisibleSegments("
+  "function getPhotoMiniMapVisibleSegments(",
+  "const LARGE_DRAWING_TOUCH_FRAME_MS=32",
+  "function scheduleTouchTransformDraw()",
+  "function finishTouchTransformDraw()"
 ])if(!source.includes(token))throw new Error(`missing performance implementation: ${token}`);
+
+const desktopWheelBlock=source.slice(source.indexOf('canvas.addEventListener("wheel"'),source.indexOf('canvas.addEventListener("dblclick"'));
+const desktopDoubleClickBlock=source.slice(source.indexOf('canvas.addEventListener("dblclick"'),source.indexOf('// iOS Safari'));
+const desktopWheelFinishBlock=source.slice(source.indexOf('function finishDesktopWheelZoomPreview()'),source.indexOf('function finishTouchPanPreview('));
+if([desktopWheelBlock,desktopDoubleClickBlock,desktopWheelFinishBlock].some(block=>block.includes("scheduleRecoverySnapshot"))){
+  throw new Error("view-only zoom still triggers a full recovery snapshot");
+}
+if(!/applyTwoFingerTransformFromTouches\(t1, t2\);[\s\S]{0,180}scheduleTouchTransformDraw\(\)/.test(source))throw new Error("two-finger zoom is not using throttled drawing");
+if(!/touchMode==="onefingerzoom"[\s\S]{0,900}scheduleTouchTransformDraw\(\)/.test(source))throw new Error("one-finger zoom is not using throttled drawing");
 
 const server=http.createServer((req,res)=>{
   const clean=decodeURIComponent((req.url||"/").split("?")[0]);

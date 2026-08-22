@@ -20,7 +20,9 @@ const required=[
   "void flushRecoveryIndexedDbSave()",
   "let recoverySnapshotDirty = false",
   "if(recoverySnapshotDirty)saveRecoverySnapshot({immediate:true})",
-  "markMemoChanged();"
+  "markMemoChanged();",
+  "if(wasDragging) scheduleDraw();",
+  "finishTouchTransformDraw();"
 ];
 
 for(const token of required){

@@ -2416,6 +2416,8 @@ let touchPanPreviewDy = 0;
 let touchPanPreviewActive = false;
 let desktopWheelZoomPreviewBase = null;
 let desktopWheelZoomTimer = null;
+let touchTransformDrawTimer = null;
+let touchTransformLastDraw = 0;
 let interactionNeedsDraw = false;
 let measureHoverRaf = 0;
 let pendingMeasureHoverScreen = null;
@@ -6534,7 +6536,6 @@ function resumeGpsFollow(){
   fitGpsInView();
   updateGpsUi();
   scheduleDraw();
-  scheduleRecoverySnapshot();
 }
 function captureGpsSessionState(){
   if(gpsSessionState)return gpsSessionState;
@@ -7122,6 +7123,28 @@ function scheduleInteractionDraw(){
     drawInteractionOverlay();
   });
 }
+const LARGE_DRAWING_TOUCH_FRAME_MS=32;
+function scheduleTouchTransformDraw(){
+  if(!largeDrawingMode){scheduleDraw();return;}
+  const now=performance.now();
+  const wait=LARGE_DRAWING_TOUCH_FRAME_MS-(now-touchTransformLastDraw);
+  if(wait<=0){
+    touchTransformLastDraw=now;
+    scheduleDraw();
+    return;
+  }
+  if(touchTransformDrawTimer)return;
+  touchTransformDrawTimer=setTimeout(()=>{
+    touchTransformDrawTimer=null;
+    touchTransformLastDraw=performance.now();
+    scheduleDraw();
+  },wait);
+}
+function finishTouchTransformDraw(){
+  if(touchTransformDrawTimer){clearTimeout(touchTransformDrawTimer);touchTransformDrawTimer=null;}
+  touchTransformLastDraw=0;
+  scheduleDraw();
+}
 const TOUCH_PAN_ACTIVATION_PX=16;
 function setTouchPanPreview(dx,dy){
   touchPanPreviewDx=Number.isFinite(dx)?dx:0;
@@ -7163,7 +7186,6 @@ function finishDesktopWheelZoomPreview(){
   interactionCanvas.style.transform="";
   interactionCanvas.style.transformOrigin="";
   scheduleDraw();
-  scheduleRecoverySnapshot();
 }
 function finishTouchPanPreview(commit=true){
   if(touchPanPreviewActive&&commit){
@@ -8766,7 +8788,6 @@ function setDrawingRotationPreserveCenter(targetRotationDeg){
   setViewFromWorldAnchor(anchor[0],anchor[1],cx,cy,view.scale);
   updateCompassUi();
   scheduleDraw();
-  scheduleRecoverySnapshot();
 }
 function setCompassMenuOpen(open){
   if(!compassMenu)return;
@@ -20197,7 +20218,7 @@ window.addEventListener("mouseup", ()=>{
     currentStroke=null; inkDrawing=false; scheduleDraw();
     if(committedInkStroke)keepOrCompactDrawPanelAfterInkAction();
   }
-  if(wasDragging){ scheduleDraw(); scheduleRecoverySnapshot(); }
+  if(wasDragging) scheduleDraw();
 });
 window.addEventListener("mousemove", e=>{
   cancelTextLongPressIfMoved(e.clientX,e.clientY);
@@ -20291,7 +20312,6 @@ canvas.addEventListener("wheel", e=>{
   }
   setScaleAroundScreenPoint(mx, my, view.scale * factor);
   scheduleDraw();
-  scheduleRecoverySnapshot();
 }, {passive:false});
 canvas.addEventListener("dblclick", e=>{
   e.preventDefault();
@@ -20302,7 +20322,6 @@ canvas.addEventListener("dblclick", e=>{
   const mx=local.x, my=local.y, factor=1.9;
   setScaleAroundScreenPoint(mx, my, view.scale * factor);
   scheduleDraw();
-  scheduleRecoverySnapshot();
 });
 
 // iOS Safariのページ全体ダブルタップ拡大だけを止める。
@@ -20488,7 +20507,6 @@ canvas.addEventListener("touchmove", e=>{
     suspendGpsFollowFromUserGesture();
     pendingTouchInk = null;
     suppressTouchInkUntil = Date.now() + 420;
-    scheduleDraw();
     let t1 = getTouchByIdentifier(e.touches, twoFingerStartTouches && twoFingerStartTouches.id1);
     let t2 = getTouchByIdentifier(e.touches, twoFingerStartTouches && twoFingerStartTouches.id2);
     if (!t1 || !t2) {
@@ -20497,7 +20515,7 @@ canvas.addEventListener("touchmove", e=>{
     }
     applyTwoFingerTransformFromTouches(t1, t2);
     lastX=(t1.clientX+t2.clientX)/2; lastY=(t1.clientY+t2.clientY)/2;
-    scheduleDraw();
+    scheduleTouchTransformDraw();
     return;
   }
   if(e.touches.length!==1) return;
@@ -20536,7 +20554,7 @@ canvas.addEventListener("touchmove", e=>{
     const factor=Math.exp(dy*0.012);
     setScaleAroundScreenPoint(oneFingerZoomGesture.anchorX,oneFingerZoomGesture.anchorY,oneFingerZoomGesture.startScale*factor);
     e.preventDefault();
-    scheduleDraw();
+    scheduleTouchTransformDraw();
     return;
   }
 
@@ -20642,8 +20660,7 @@ canvas.addEventListener("touchend", e=>{
     // The remaining finger cannot start an ink stroke without a new
     // touchstart. Once the pinch ends, accept that next touch immediately.
     suppressTouchInkUntil = 0;
-    scheduleDraw();
-    scheduleRecoverySnapshot();
+    finishTouchTransformDraw();
   }
   if(profileLineDrag&&profileLineDrag.pointerType==="touch"&&e.touches.length===0){
     finishProfileLineDrag();
@@ -20659,8 +20676,7 @@ canvas.addEventListener("touchend", e=>{
     touchPanCandidate=null;
     touchPanMoved=false;
     suppressClickUntil=Date.now()+700;
-    scheduleDraw();
-    scheduleRecoverySnapshot();
+    finishTouchTransformDraw();
     return;
   }
   if(profileMode&&profileTouchCandidate&&e.touches.length===0){
@@ -20728,7 +20744,6 @@ canvas.addEventListener("touchend", e=>{
     touchPanCandidate = null;
     touchPanMoved = false;
     scheduleDraw();
-    scheduleRecoverySnapshot();
     return;
   }
   if(!measureMode || !touchTapCandidate) return;
@@ -20775,6 +20790,7 @@ canvas.addEventListener("pointerup",finishPointerLongPress,{passive:true});
 canvas.addEventListener("pointercancel",finishPointerLongPress,{passive:true});
 canvas.addEventListener("touchcancel", ()=>{
   finishTouchPanPreview(true);
+  finishTouchTransformDraw();
   clearTextLongPressTimer();
   textLongPressTriggered=false;
   twoFingerStartTouches = null;
