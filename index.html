@@ -2450,6 +2450,7 @@ let recoveryDbPendingRecord = null;
 let recoveryDbFlushBusy = false;
 let recoveryDbFlushTimer = null;
 let recoveryRestoreInFlightKey = "";
+let recoverySnapshotDirty = false;
 const recoveryHistoryLastSaved = new Map();
 let inkDrawing = false;
 let inkTool = "line";
@@ -9636,7 +9637,7 @@ function applyLayerPaletteColor(color){
   closeLayerColorPalette();
   renderLayerList();
   draw();
-  saveRecoverySnapshot();
+  markMemoChanged();
 }
 function openLayerColorPalette(target,currentColor){
   const modal=document.getElementById("layerColorPaletteModal");
@@ -16737,6 +16738,71 @@ function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   return {ok:true};
 }
 const SFC_LAYER_DRAWABLE_FEATURES=new Set(["line_feature","polyline_feature","spline_feature","circle_feature","arc_feature","ellipse_feature","ellipse_arc_feature","point_marker_feature","text_string_feature","fill_area_style_colour_feature","externally_defined_hatch_feature"]);
+function formatSxfNumericArgLike(raw,value){
+  const source=String(raw==null?"":raw).trim();
+  const next=String(value);
+  if(source.startsWith("\\'")&&source.endsWith("\\'"))return `\\'${next}\\'`;
+  if(source.startsWith("'")&&source.endsWith("'"))return `'${next}'`;
+  if(source.startsWith('"')&&source.endsWith('"'))return `"${next}"`;
+  return next;
+}
+function replaceSxfRecordArgument(inner,record,argIndex,value){
+  const source=String(inner||"");
+  const token=`${record.name}(`;
+  const nameAt=source.toLowerCase().indexOf(token);
+  if(nameAt<0)return source;
+  const open=nameAt+record.name.length;
+  let depth=0,quote="",close=-1;
+  for(let index=open;index<source.length;index++){
+    const ch=source[index];
+    if(quote==="escaped-single"){
+      if(ch==="\\"&&source[index+1]==="'"){index+=1;quote="";}
+      continue;
+    }
+    if(quote){if(ch===quote)quote="";continue;}
+    if(ch==="\\"&&source[index+1]==="'"){index+=1;quote="escaped-single";continue;}
+    if(ch==="'"||ch==='"'){quote=ch;continue;}
+    if(ch==="(")depth+=1;
+    else if(ch===")"&&--depth===0){close=index;break;}
+  }
+  if(close<0)return source;
+  const args=splitSxfArgs(source.slice(open+1,close));
+  if(argIndex<0||argIndex>=args.length)return source;
+  args[argIndex]=formatSxfNumericArgLike(args[argIndex],value);
+  return source.slice(0,open+1)+args.join(",")+source.slice(close);
+}
+function applyLayerColorOverridesToSfc(srcText){
+  const text=String(srcText||"");
+  if(!layerColorOverrides||!Object.keys(layerColorOverrides).length)return text;
+  return text.replace(/\/\*SXF(?:3(?:\.1)?)?\r?\n([\s\S]*?)\r?\nSXF(?:3(?:\.1)?)?\*\//g,(block,inner)=>{
+    const records=parseSxfFeatureRecords(inner);
+    if(records.length!==1)return block;
+    const record=records[0];
+    if(!SFC_LAYER_DRAWABLE_FEATURES.has(record.name)||record.args.length<2)return block;
+    const layerCode=Number(unquoteSxfValue(record.args[0]));
+    if(!Number.isInteger(layerCode)||layerCode<1)return block;
+    const override=getLayerColorOverride(layerCode);
+    if(!override)return block;
+    const colorCode=nearestSxfPredefinedColorCode(override);
+    const replaced=replaceSxfRecordArgument(inner,record,1,colorCode);
+    return replaced===inner?block:block.replace(inner,replaced);
+  });
+}
+function buildLayerOverrideColorDefinitions(baseText){
+  const colors=[...new Set(Object.values(layerColorOverrides||{}).map(value=>String(value||"").toLowerCase()).filter(Boolean))];
+  if(!colors.length)return "";
+  const existing=new Set(parsePredefinedColourFeatureDefsFlat(getFlatSxfText(baseText)).map(def=>def.name));
+  let id=getNextSfcFeatureId(baseText);
+  const parts=[];
+  for(const color of colors){
+    const code=nearestSxfPredefinedColorCode(color);
+    const name=SXF_PREDEFINED_COLOR_NAMES_BY_CODE[code];
+    if(!name||existing.has(name))continue;
+    existing.add(name);
+    parts.push(`/*SXF\r\n#${id++} = pre_defined_colour_feature('${name}')\r\nSXF*/`);
+  }
+  return parts.join("\r\n");
+}
 function stripDeletedLayersFromSfc(srcText){
   let text=String(srcText||"");
   const namesToRemove=new Set([...deletedLayerNames,...removedSourceLayerNames]);
@@ -16766,8 +16832,15 @@ function stripDeletedLayersFromSfc(srcText){
     return block.replace(inner,replaced);
   });
 }
+function prepareSfcExportBase(){
+  let source=stripEmbeddedAnnotations(String(loadedSfcText||""));
+  source=applyLayerColorOverridesToSfc(source);
+  let base=stripDeletedLayersFromSfc(source).replace(/[\s\r\n]+$/,"");
+  base=insertMemoColorDefinitions(base,buildLayerOverrideColorDefinitions(base));
+  return base;
+}
 function buildSfcExportBlobAndName(){
-  let base = stripDeletedLayersFromSfc(stripEmbeddedAnnotations(String(loadedSfcText || ""))).replace(/[\s\r\n]+$/, "");
+  let base = prepareSfcExportBase();
   const ann = buildSfcAnnotations(base);
   const validation = validateSfcExportAgainstSource(base, ann);
   if (!validation.ok) return { ok:false, reason: validation.reason || 'SFC保存を中止しました' };
@@ -16789,7 +16862,7 @@ function buildSfcExportBlobAndName(){
 async function buildSfcExportBlobAndNameAsync(){
   updateBusy("既存のSFCデータを整理中…");
   await waitForUiPaint();
-  let base=stripDeletedLayersFromSfc(stripEmbeddedAnnotations(String(loadedSfcText||""))).replace(/[\s\r\n]+$/,"");
+  let base=prepareSfcExportBase();
 
   updateBusy("写真方向・一覧表を書き込み中…");
   await waitForUiPaint();
@@ -17225,7 +17298,11 @@ async function flushRecoveryIndexedDbSave(){
 function queueRecoveryIndexedDbSave(record,immediate=false){
   recoveryDbPendingRecord=record;
   clearTimeout(recoveryDbFlushTimer);
-  recoveryDbFlushTimer=setTimeout(flushRecoveryIndexedDbSave,immediate?0:300);
+  if(immediate){
+    void flushRecoveryIndexedDbSave();
+    return;
+  }
+  recoveryDbFlushTimer=setTimeout(flushRecoveryIndexedDbSave,300);
 }
 async function deleteRecoveryIndexedDbKey(key){
   try{
@@ -17288,13 +17365,16 @@ function saveRecoverySnapshot(options={}){
       fingerprint:payload.fingerprint,
       json
     },!!options.immediate);
+    recoverySnapshotDirty=false;
     return true;
   }catch(err){
     console.error(err);
+    recoverySnapshotDirty=true;
     return false;
   }
 }
 function scheduleRecoverySnapshot(delayMs=AUTO_SAVE_DEBOUNCE_MS){
+  recoverySnapshotDirty=true;
   clearTimeout(recoverySnapshotTimer);
   recoverySnapshotTimer=setTimeout(()=>saveRecoverySnapshot(),Math.max(120,delayMs||AUTO_SAVE_DEBOUNCE_MS));
 }
@@ -17505,6 +17585,7 @@ function markMemoChanged(){
   gaTrackMemoWrite();
   ensureLayerVisibility();
   renderLayerList();
+  recoverySnapshotDirty=true;
   saveRecoverySnapshot({immediate:true});
 }
 async function saveSfcOverwrite(){
@@ -20685,6 +20766,9 @@ document.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="hidden")saveRecoverySnapshot({immediate:true});
 });
 window.addEventListener("pagehide",()=>{saveRecoverySnapshot({immediate:true});});
+window.setInterval(()=>{
+  if(recoverySnapshotDirty)saveRecoverySnapshot({immediate:true});
+},30000);
 
 loadUiPreferences();
 // Drawing controls intentionally start from the field-use defaults on every app launch.
