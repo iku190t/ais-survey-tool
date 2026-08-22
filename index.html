@@ -12456,6 +12456,38 @@ function registryFormatDownloadSize(bytes){
   if(value>=1024*1024)return `約${(value/(1024*1024)).toFixed(value>=100*1024*1024?0:1)}MB`;
   return `約${Math.max(1,Math.round(value/1024))}KB`;
 }
+function registryDownloadSizeFromHeaders(headers){
+  const contentRange=String(headers?.get?.("content-range")||"");
+  const rangeMatch=/\/(\d+)\s*$/.exec(contentRange);
+  const rangeTotal=rangeMatch?Number(rangeMatch[1]):0;
+  if(Number.isFinite(rangeTotal)&&rangeTotal>0)return rangeTotal;
+  const contentLength=Number(headers?.get?.("content-length"))||0;
+  return Number.isFinite(contentLength)&&contentLength>0?contentLength:0;
+}
+async function registryProbeDownloadSize(resource,signal){
+  const known=Math.max(0,Number(resource?.size)||0);
+  if(known)return known;
+  const probeUrl=new URL(resource?.url||"",location.href);
+  probeUrl.searchParams.set("_ezviewer_size",String(Date.now()));
+  const probe=async options=>{
+    const response=await fetch(probeUrl.href,{cache:"no-store",signal,...options});
+    const size=response.ok?registryDownloadSizeFromHeaders(response.headers):0;
+    try{await response.body?.cancel();}catch(_error){}
+    return size;
+  };
+  try{
+    const headSize=await probe({method:"HEAD"});
+    if(headSize)return headSize;
+  }catch(error){
+    if(error?.name==="AbortError"||signal?.aborted)throw error;
+  }
+  try{
+    return await probe({method:"GET",headers:{Range:"bytes=0-0"}});
+  }catch(error){
+    if(error?.name==="AbortError"||signal?.aborted)throw error;
+    return 0;
+  }
+}
 let registryDownloadConfirmResolver=null;
 function shouldConfirmRegistryDownload(alreadyDownloaded=false){
   return !alreadyDownloaded&&!isDesktopPhotoTool();
@@ -12908,7 +12940,19 @@ async function loadRegistryMapAutomatically(options={}){
     if(!resource?.url)throw new Error("この地域の境界データが見つかりません");
     const resourceUrl=String(resource.url||"");
     const alreadyDownloaded=append&&(previousState.resourceUrls||[]).includes(resourceUrl);
-    const accepted=!shouldConfirmRegistryDownload(alreadyDownloaded)||await confirmRegistryDownload(resource,String(packageJson.result?.title||locality||municipalityCode));
+    const needsDownloadConfirmation=shouldConfirmRegistryDownload(alreadyDownloaded);
+    let resourceSize=Math.max(0,Number(resource.size)||0);
+    if(needsDownloadConfirmation&&!resourceSize){
+      if(registryMapStatus)registryMapStatus.textContent="境界データの容量を確認しています…";
+      showBusy("法務局地図の容量を確認中…");
+      clearBusyProgress();
+      await waitForUiPaint();
+      resourceSize=await registryProbeDownloadSize(resource,signal);
+      throwIfRegistryOperationCancelled(operationId,signal);
+      hideBusy();
+    }
+    const confirmationResource=resourceSize?{...resource,size:resourceSize}:resource;
+    const accepted=!needsDownloadConfirmation||await confirmRegistryDownload(confirmationResource,String(packageJson.result?.title||locality||municipalityCode));
     if(!accepted){
       if(registryOperationIsCancelled(operationId,signal))return;
       if(registryMapStatus)registryMapStatus.textContent="ダウンロードを中止しました。";
@@ -12916,7 +12960,7 @@ async function loadRegistryMapAutomatically(options={}){
     }
     throwIfRegistryOperationCancelled(operationId,signal);
     showBusy("法務局地図をダウンロード中…");
-    updateBusyProgressValue(0,resource.size?`0B／${registryProgressByteText(resource.size)}`:"0B");
+    updateBusyProgressValue(0,resourceSize?`0B／${registryProgressByteText(resourceSize)}`:"0B");
     await waitForUiPaint();
     // CKAN redirects this URL to a short-lived signed S3 URL. Reusing a cached
     // redirect after its signature expires produces HTTP 403, so always ask
@@ -12932,7 +12976,7 @@ async function loadRegistryMapAutomatically(options={}){
       updateRegistryBusyProgress(progress);
     };
     const featureCollection=selected.kind==="shpzip"
-      ?await registryReadShpZipAreaLight(dataResponse,target,onProgress,resource.size,zone)
+      ?await registryReadShpZipAreaLight(dataResponse,target,onProgress,resourceSize,zone)
       :await registryReadGeoJsonArea(dataResponse,target,progress=>{
         onProgress(progress);
         if(registryMapStatus&&progress.matched!=null)registryMapStatus.textContent+=`（図面周辺 ${progress.matched}件）`;

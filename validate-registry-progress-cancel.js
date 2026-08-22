@@ -11,6 +11,10 @@ for(const token of [
   "function cancelRegistryMapOperation(options={})",
   "registryMapAbortController?.abort()",
   "function updateRegistryBusyProgress(progress={})",
+  "function registryDownloadSizeFromHeaders(headers)",
+  "async function registryProbeDownloadSize(resource,signal)",
+  'headers:{Range:"bytes=0-0"}',
+  'showBusy("法務局地図の容量を確認中…")',
   'registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?(registryMapDisplayEnabled?"非表示":"表示"):"境界"',
   'cancelRegistryMapOperation({closePanel:true})',
   'freshResourceUrl.searchParams.set("_ezviewer",String(Date.now()))',
@@ -78,14 +82,24 @@ let browser;
   await mobile.goto(base,{waitUntil:"load",timeout:10000});
   const mobileResult=await mobile.evaluate(async()=>{
     const confirmation=shouldConfirmRegistryDownload(false);
+    const originalFetch=window.fetch;
+    const calls=[];
+    window.fetch=async(_url,options={})=>{
+      calls.push({method:options.method||"GET",range:options.headers?.Range||""});
+      if(options.method==="HEAD")return new Response(null,{status:405});
+      return new Response(new Uint8Array([0]),{status:206,headers:{"content-range":`bytes 0-0/${13*1024*1024}`,"content-length":"1"}});
+    };
+    const probedSize=await registryProbeDownloadSize({url:"https://example.test/map.zip"},new AbortController().signal);
+    window.fetch=originalFetch;
     const promise=confirmRegistryDownload({size:13*1024*1024},"テスト地域");
     const visible=getComputedStyle(document.getElementById("registryDownloadConfirmModal")).display;
     const message=document.getElementById("registryDownloadConfirmMessage").textContent;
     closeRegistryDownloadConfirm(false);
     const accepted=await promise;
-    return {confirmation,visible,message,accepted};
+    return {confirmation,visible,message,accepted,probedSize,calls};
   });
-  if(!mobileResult.confirmation||mobileResult.visible!=="flex"||!mobileResult.message.includes("13.0MB")||mobileResult.accepted)throw new Error(`スマホ容量確認が不正です: ${JSON.stringify(mobileResult)}`);
+  if(!mobileResult.confirmation||mobileResult.visible!=="flex"||!mobileResult.message.includes("13.0MB")||mobileResult.accepted||mobileResult.probedSize!==13*1024*1024)throw new Error(`スマホ容量確認が不正です: ${JSON.stringify(mobileResult)}`);
+  if(mobileResult.calls.length!==2||mobileResult.calls[0].method!=="HEAD"||mobileResult.calls[1].range!=="bytes=0-0")throw new Error(`容量先読みの代替取得が不正です: ${JSON.stringify(mobileResult.calls)}`);
   if(errors.length)throw new Error(`ページエラー: ${errors.join(" | ")}`);
   console.log("Registry mobile-only confirmation, shared progress and cancel controls validated");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
