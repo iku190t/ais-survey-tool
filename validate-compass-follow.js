@@ -8,8 +8,8 @@ const source=fs.readFileSync(path.join(root,"index.html"),"utf8");
 for(const token of [
   "function stepCompassFollowAnimation(now)",
   "const COMPASS_FOLLOW_FRAME_MS = 1000/60",
-  "const COMPASS_FOLLOW_RESPONSE_MS = 45",
-  "const COMPASS_FOLLOW_TARGET_FILTER = 0.72",
+  "const COMPASS_FOLLOW_RESPONSE_MS = 28",
+  "const COMPASS_FOLLOW_TARGET_FILTER = 0.88",
   "requestAnimationFrame(stepCompassFollowAnimation)",
   "if(largeDrawingMode)scheduleTouchTransformDraw()",
   'compassFab.addEventListener("click", async event=>',

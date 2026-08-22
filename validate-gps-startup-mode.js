@@ -10,6 +10,8 @@ const required=[
   'const zone = chooseJapanPlaneZone(lat, lon);',
   'gpsTemporaryCoordinateZone=zone;',
   'enableGpsContextTiles(zone);',
+  'const distanceUnavailable=!!(state&&state.hadDrawing&&distance==null);',
+  'if(!available&&gpsContextSource)',
   'restoreGpsSessionState()',
   'view={scale:state.view.scale,tx:state.view.tx,ty:state.view.ty};',
   'aerialPhotoEnabled=state.aerialPhotoEnabled;',
@@ -55,9 +57,11 @@ let browser;
     }});
   });
   const tilePng=fs.readFileSync(path.join(root,"sfc-viewer-icon-180.png"));
+  let failAerialProbeRequests=false;
   await page.route(/^https:\/\//,route=>{
     if(route.request().url().startsWith("https://cyberjapandata.gsi.go.jp/xyz/")){
-      route.fulfill({status:200,contentType:"image/png",body:tilePng});
+      if(failAerialProbeRequests&&route.request().resourceType()==="fetch")route.abort();
+      else route.fulfill({status:200,contentType:"image/png",body:tilePng});
     }else route.abort();
   });
   await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:"load",timeout:15000});
@@ -151,6 +155,39 @@ let browser;
   if(restored.profileZone!==3||restored.gpsTemporaryCoordinateZone!==null||restored.aerialPhotoEnabled||restored.aerialPhotoZone!==null||restored.vectorBaseMapEnabled||restored.vectorBaseMapZone!==null||restored.scale!==.037||restored.tx!==123||restored.ty!==456||restored.baseFitScale!==.029||restored.rotationDeg!==17){
     throw new Error(`drawing state was not restored after distant GPS mode: ${JSON.stringify(restored)}`);
   }
+  failAerialProbeRequests=true;
+  await page.evaluate(()=>window.eval(`(()=>{
+    aerialPhotoProbeCache.clear();
+    data.lines=[[500000000,500000000,500010000,500010000,1,1,1]];
+    data.source_name="gps-aerial-fallback-test.sfc";
+    profileZone=3;
+    aerialPhotoEnabled=false;aerialPhotoZone=null;aerialAvailableSources=[];aerialPhotoAvailabilityKey="";
+    startGps();
+  })()`));
+  await page.waitForFunction(()=>window.eval("gpsEnabled&&gpsPosition&&gpsTemporaryCoordinateZone===4&&aerialPhotoEnabled"),null,{timeout:5000});
+  await page.evaluate(()=>window.eval("scheduleAerialPhotoSourceRefresh({lat:gpsPosition.lat,lon:gpsPosition.lon})"));
+  await page.waitForTimeout(1800);
+  const probeFailureFallback=await page.evaluate(()=>window.eval(`({enabled:aerialPhotoEnabled,zone:aerialPhotoZone,source:aerialAvailableSources[aerialPhotoSourceIndex]?.id,status:photoStatus?.textContent})`));
+  if(!probeFailureFallback.enabled||probeFailureFallback.zone!==4||probeFailureFallback.source!=="latest"){
+    throw new Error(`GPS aerial photo was disabled by a failed period probe: ${JSON.stringify(probeFailureFallback)}`);
+  }
+  await page.evaluate(()=>window.eval("stopGps(true)"));
+  failAerialProbeRequests=false;
+  await page.evaluate(()=>window.eval(`(()=>{
+    window.__originalGpsDistance=calcDistanceFromPlaneToSfcBoundsMeters;
+    calcDistanceFromPlaneToSfcBoundsMeters=()=>null;
+    data.lines=[[1000,1000,2000,2000,1,1,1]];
+    data.source_name="gps-distance-unavailable-test.sfc";
+    profileZone=4;
+    aerialPhotoEnabled=false;aerialPhotoZone=null;aerialAvailableSources=[];aerialPhotoAvailabilityKey="";
+    startGps();
+  })()`));
+  await page.waitForFunction(()=>window.eval("gpsEnabled&&gpsPosition&&gpsTemporaryCoordinateZone===4&&aerialPhotoEnabled"),null,{timeout:5000});
+  await page.evaluate(()=>window.eval(`(()=>{
+    stopGps(true);
+    calcDistanceFromPlaneToSfcBoundsMeters=window.__originalGpsDistance;
+    delete window.__originalGpsDistance;
+  })()`));
   const desktop=await browser.newPage({viewport:{width:1280,height:800}});
   await desktop.addInitScript(()=>{
     const mock=(from,to,coordinate)=>coordinate;

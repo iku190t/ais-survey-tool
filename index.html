@@ -2336,8 +2336,8 @@ const compassNeedle = compassFab ? compassFab.querySelector(".compassNeedle") : 
 const compassN = compassFab ? compassFab.querySelector(".compassN") : null;
 const COMPASS_FOLLOW_SENSOR_INTERVAL_MS = 16;
 const COMPASS_FOLLOW_FRAME_MS = 1000/60;
-const COMPASS_FOLLOW_RESPONSE_MS = 45;
-const COMPASS_FOLLOW_TARGET_FILTER = 0.72;
+const COMPASS_FOLLOW_RESPONSE_MS = 28;
+const COMPASS_FOLLOW_TARGET_FILTER = 0.88;
 let compassFollowEnabled = false;
 let compassFollowLastAppliedAt = 0;
 let compassFollowTargetRotationDeg = null;
@@ -3516,16 +3516,36 @@ function scheduleAerialPhotoSourceRefresh(centerLl){
     aerialPhotoRescanTimer=0;
     if(!aerialPhotoEnabled||aerialPhotoResolveBusy){aerialPhotoRescanKey="";return;}
     const requestId=++aerialPhotoEnableRequestId;
+    const keepGpsContextPhoto=!!(gpsEnabled&&gpsTemporaryCoordinateZone&&aerialPhotoZone===gpsTemporaryCoordinateZone);
+    const gpsContextSource=keepGpsContextPhoto
+      ?(aerialAvailableSources[aerialPhotoSourceIndex]||AERIAL_PHOTO_SOURCES[0])
+      :null;
     aerialPhotoResolveBusy=true;updateAerialPhotoUi();
     try{
       const available=await refreshAerialPhotoSources(requestId);
       if(requestId!==aerialPhotoEnableRequestId)return;
-      if(!available)aerialPhotoEnabled=false;
+      if(!available&&gpsContextSource){
+        // 現在地モードでは、年代確認用fetchが一時的に失敗しても、
+        // 画像タイルとして表示できる最新写真までOFFにしない。
+        aerialPhotoEnabled=true;
+        aerialAvailableSources=[gpsContextSource];
+        aerialPhotoSourceIndex=0;
+        aerialPhotoAvailabilityKey=nextKey;
+        setAerialPhotoStatus("現在写真を表示中です。過去年代は確認できませんでした。");
+      }else if(!available)aerialPhotoEnabled=false;
     }catch(e){
       if(requestId!==aerialPhotoEnableRequestId)return;
       console.error("Aerial photo refresh failed",e);
-      aerialPhotoEnabled=false;
-      setAerialPhotoStatus("航空写真を更新できません。図面の座標変換または通信状態を確認してください。");
+      if(gpsContextSource){
+        aerialPhotoEnabled=true;
+        aerialAvailableSources=[gpsContextSource];
+        aerialPhotoSourceIndex=0;
+        aerialPhotoAvailabilityKey=nextKey;
+        setAerialPhotoStatus("現在写真を表示中です。過去年代は確認できませんでした。");
+      }else{
+        aerialPhotoEnabled=false;
+        setAerialPhotoStatus("航空写真を更新できません。図面の座標変換または通信状態を確認してください。");
+      }
     }finally{
       if(requestId===aerialPhotoEnableRequestId){
         aerialPhotoResolveBusy=false;updateAerialPhotoUi();scheduleDraw();
@@ -6705,7 +6725,8 @@ function startGps(options={}){
         }
       }
       const isFar=state&&state.hadDrawing?distance!=null&&distance>=500:false;
-      const useGpsCoordinateSystem=!!(gpsOnlyBlankMode||isFar||(drawingZone&&drawingZone!==zone));
+      const distanceUnavailable=!!(state&&state.hadDrawing&&distance==null);
+      const useGpsCoordinateSystem=!!(gpsOnlyBlankMode||isFar||distanceUnavailable||(drawingZone&&drawingZone!==zone));
       if(useGpsCoordinateSystem){
         placement={sfc:defaultPlaneToSfcWorld(xy.x,xy.y),usedMesh:false};
         gpsTemporaryCoordinateZone=zone;
