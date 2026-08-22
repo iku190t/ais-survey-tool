@@ -188,6 +188,25 @@ let browser;
     calcDistanceFromPlaneToSfcBoundsMeters=window.__originalGpsDistance;
     delete window.__originalGpsDistance;
   })()`));
+  await page.evaluate(()=>window.eval(`(()=>{
+    data.lines=[[134554000,34070000,134555000,34071000,1,1,1]];
+    data.source_name="gps-unknown-drawing-zone-test.sfc";
+    profileZone=null;
+    aerialPhotoEnabled=false;aerialPhotoZone=null;aerialAvailableSources=[];aerialPhotoAvailabilityKey="";
+    startGps();
+  })()`));
+  await page.waitForFunction(()=>window.eval("gpsEnabled&&gpsPosition&&gpsTemporaryCoordinateZone===4&&aerialPhotoEnabled"),null,{timeout:5000});
+  const unknownDrawingZone=await page.evaluate(()=>window.eval(`({
+    drawingZone:gpsSessionState?.drawingZone??null,
+    distance:gpsLastDistanceMeters,
+    gpsZone:gpsTemporaryCoordinateZone,
+    aerial:aerialPhotoEnabled,
+    aerialZone:aerialPhotoZone
+  })`));
+  if(unknownDrawingZone.drawingZone!==null||unknownDrawingZone.distance!==null||unknownDrawingZone.gpsZone!==4||!unknownDrawingZone.aerial||unknownDrawingZone.aerialZone!==4){
+    throw new Error(`unknown drawing zone was treated as the current GPS zone: ${JSON.stringify(unknownDrawingZone)}`);
+  }
+  await page.evaluate(()=>window.eval("stopGps(true)"));
   const desktop=await browser.newPage({viewport:{width:1280,height:800}});
   await desktop.addInitScript(()=>{
     const mock=(from,to,coordinate)=>coordinate;

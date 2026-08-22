@@ -6729,13 +6729,12 @@ function startGps(options={}){
       const drawingZone=state&&state.drawingZone;
       let placement=chooseSfcPlacementFromDeviceXY(xy.x,xy.y);
       let distance=null;
-      if(state&&state.hadDrawing){
-        if(drawingZone){
-          const drawingXy=drawingZone===zone?xy:latLonToJgd2024XY(lat,lon,drawingZone);
-          distance=calcDistanceFromPlaneToSfcBoundsMeters(drawingXy.x,drawingXy.y,!!activeCoordinateMeshTransform);
-        }else{
-          distance=calcDistanceFromPlaneToSfcBoundsMeters(xy.x,xy.y,placement.usedMesh);
-        }
+      // Plane coordinates are ambiguous without the drawing's zone. Do not
+      // assume the device zone: leave the distance unavailable so GPS context
+      // mode safely shows the current-location tiles instead of a false 0 m.
+      if(state&&state.hadDrawing&&drawingZone){
+        const drawingXy=drawingZone===zone?xy:latLonToJgd2024XY(lat,lon,drawingZone);
+        distance=calcDistanceFromPlaneToSfcBoundsMeters(drawingXy.x,drawingXy.y,!!activeCoordinateMeshTransform);
       }
       const isFar=state&&state.hadDrawing?distance!=null&&distance>=500:false;
       const distanceUnavailable=!!(state&&state.hadDrawing&&distance==null);

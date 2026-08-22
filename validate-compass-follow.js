@@ -71,8 +71,14 @@ let browser;
 
   await page.locator("#compassFab").click();
   await page.waitForFunction(()=>window.eval("compassFollowEnabled"),null,{timeout:5000});
-  const manualStartState=await page.evaluate(()=>window.eval(`({enabled:compassFollowEnabled,active:compassFab.classList.contains("following"),pressed:compassFab.getAttribute("aria-pressed"),gpsEnabled})`));
-  if(!manualStartState.enabled||!manualStartState.active||manualStartState.pressed!=="true"||manualStartState.gpsEnabled)throw new Error(`Compass button did not start GPS-independent rotation: ${JSON.stringify(manualStartState)}`);
+  const manualStartState=await page.evaluate(()=>window.eval(`({
+    enabled:compassFollowEnabled,
+    active:compassFab.classList.contains("following"),
+    pressed:compassFab.getAttribute("aria-pressed"),
+    borderColor:getComputedStyle(compassFab.querySelector(".compassFace")).borderTopColor,
+    gpsEnabled
+  })`));
+  if(!manualStartState.enabled||!manualStartState.active||manualStartState.pressed!=="true"||manualStartState.borderColor!=="rgb(22, 119, 255)"||manualStartState.gpsEnabled)throw new Error(`Compass button did not start GPS-independent rotation with a blue active state: ${JSON.stringify(manualStartState)}`);
 
   const relativeHeading=await page.evaluate(()=>window.eval(`headingFromOrientationEvent({alpha:315,absolute:false,type:"deviceorientation"})`));
   if(Math.abs(relativeHeading-45)>0.001)throw new Error(`Android/WebView relative alpha was ignored: ${relativeHeading}`);
