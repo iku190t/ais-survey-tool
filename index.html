@@ -701,6 +701,7 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #startupBox{
   position:relative;z-index:1;
   width:min(320px,86vw);background:#fff;color:#000;border-radius:14px;
+  max-height:calc(100% - 24px);overflow:auto;box-sizing:border-box;
   padding:18px 16px;box-shadow:0 12px 32px rgba(0,0,0,.35);text-align:center;
 }
 #startupBox h2{margin:0 0 8px 0;font-size:18px;}
@@ -711,6 +712,10 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #startupGpsBtn{display:none;align-items:center;justify-content:center;box-sizing:border-box;width:max-content;max-width:100%;min-height:34px;margin:0 auto;padding:7px 12px;border:1px solid #176bc0;border-radius:8px;background:#0a84ff;color:#fff;font-size:12px;font-weight:800;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
 #startupGpsBtn:active{transform:translateY(1px) scale(.98);filter:brightness(.92);}
 #startupGpsBtn:disabled{opacity:.55;cursor:default;transform:none;}
+#startupRecoveryBtn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:max-content;max-width:100%;min-height:34px;margin:0 auto;padding:7px 12px;border:1px solid #116a44;border-radius:8px;background:#16885a;color:#fff;font-size:12px;font-weight:800;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+#startupRecoveryBtn:active{transform:translateY(1px) scale(.98);filter:brightness(.92);}
+#startupRecoveryBtn:disabled{opacity:.48;cursor:default;transform:none;filter:grayscale(.35);}
+#startupRecoveryHint{display:none;max-width:290px;margin:5px auto 0;color:#666;font-size:11px;line-height:1.45;overflow-wrap:anywhere;}
 #startupSampleBtn{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:max-content;max-width:100%;min-height:34px;margin:9px auto 0;padding:7px 12px;border:1px solid #777;border-radius:8px;background:#fff;color:#222;font-size:12px;font-weight:700;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
 #startupSampleBtn:active{transform:translateY(1px) scale(.98);filter:brightness(.94);}
 #startupSampleBtn:disabled{opacity:.55;cursor:default;transform:none;}
@@ -1830,7 +1835,9 @@ gtag('config', 'G-88B9YPJXWP');
       <div id="startupPrimaryActions">
         <label id="startupOpenBtn" for="fileInput" role="button">ファイルを開く</label>
         <button id="startupGpsBtn" type="button">現在地で開く</button>
+        <button id="startupRecoveryBtn" type="button" disabled>前回の作業を復元</button>
       </div>
+      <div id="startupRecoveryHint" aria-live="polite"></div>
       <div id="startupRecentSection" class="recentDrawingSection">
         <div class="recentDrawingTitle">最近開いた図面</div>
         <div id="startupRecentList" class="recentDrawingList"></div>
@@ -2130,10 +2137,10 @@ gtag('config', 'G-88B9YPJXWP');
           <div class="helpSection" data-help-section="recovery">
             <div class="helpSectionTitle">復元保存</div>
             <div class="helpSectionBody">
-              <div class="helpBlock"><div class="helpHead">どこに残るか</div>復元データはこの端末・このブラウザーのIndexedDBと予備保存の両方に残します。SFCや別保存ファイルとは別のデータです。</div>
+              <div class="helpBlock"><div class="helpHead">どこに残るか</div>復元データと復元に必要な元SFCの複製は、この端末・このブラウザーのIndexedDBへ保存します。元のOneDriveやフォルダーを探し直さなくても、初回画面の <b>前回の作業を復元</b> から開けます。</div>
               <div class="helpBlock"><div class="helpHead">いつ残るか</div>手書き、丸、消去、Undo・Redoは操作直後に保存します。表示位置、レイヤー表示、表示色は操作終了後にまとめて保存し、連続操作中の負荷を抑えます。</div>
               <div class="helpBlock"><div class="helpHead">何件残るか</div>図面は最新10件、各図面は最新状態に加えて直近3世代まで残し、古いものを自動で削除します。</div>
-              <div class="helpBlock"><div class="helpHead">注意</div>Safariの履歴・Webサイトデータを消すと復元データも消える場合があります。必要な成果は上書きまたは別保存してください。</div>
+              <div class="helpBlock"><div class="helpHead">注意</div>復元した写真位置・ファイル名・方向は戻りますが、元JPEGそのものは再接続が必要な場合があります。Safariの履歴・Webサイトデータを消すと復元データも消えるため、必要な成果は上書きまたは別保存してください。</div>
               <div class="helpBlock"><div class="helpHead">消したい時</div>下のボタンで、今開いている図面の復元データだけを消せます。元のSFCや保存済みファイルは削除しません。</div>
               <button id="deleteRecoveryBtn" type="button">この図面の復元メモを消す</button>
             </div>
@@ -2467,9 +2474,10 @@ const RECOVERY_STORAGE_PREFIX = "sfcviewer-recovery::";
 const RECOVERY_INDEX_KEY = RECOVERY_STORAGE_PREFIX + "__index__";
 const RECOVERY_MAX_ENTRIES = 10;
 const RECOVERY_DB_NAME = "sfcviewer-recovery-v2";
-const RECOVERY_DB_VERSION = 1;
+const RECOVERY_DB_VERSION = 2;
 const RECOVERY_DB_SNAPSHOT_STORE = "snapshots";
 const RECOVERY_DB_HISTORY_STORE = "history";
+const RECOVERY_DB_BASE_STORE = "bases";
 const RECOVERY_HISTORY_PER_DRAWING = 3;
 const RECOVERY_HISTORY_INTERVAL_MS = 15000;
 
@@ -2481,6 +2489,9 @@ let recoveryDbFlushTimer = null;
 let recoveryRestoreInFlightKey = "";
 let recoverySnapshotDirty = false;
 const recoveryHistoryLastSaved = new Map();
+const recoveryBaseStoredKeys = new Set();
+let recoveryStoragePersistenceRequested = false;
+let startupRecoveryRefreshSerial = 0;
 let inkDrawing = false;
 let inkTool = "line";
 let inkStrokes = [];
@@ -17555,6 +17566,10 @@ function openRecoveryDb(){
         store.createIndex("key","key",{unique:false});
         store.createIndex("updatedAt","updatedAt",{unique:false});
       }
+      if(!db.objectStoreNames.contains(RECOVERY_DB_BASE_STORE)){
+        const store=db.createObjectStore(RECOVERY_DB_BASE_STORE,{keyPath:"key"});
+        store.createIndex("updatedAt","updatedAt",{unique:false});
+      }
     };
     request.onsuccess=()=>resolve(request.result);
     request.onerror=()=>reject(request.error||new Error("IndexedDB open failed"));
@@ -17564,6 +17579,41 @@ function openRecoveryDb(){
     throw err;
   });
   return recoveryDbPromise;
+}
+function requestRecoveryStoragePersistence(){
+  if(recoveryStoragePersistenceRequested)return;
+  recoveryStoragePersistenceRequested=true;
+  try{
+    if(navigator.storage&&typeof navigator.storage.persist==="function"){
+      navigator.storage.persist().catch(()=>false);
+    }
+  }catch(_e){}
+}
+async function persistRecoveryBaseSource(){
+  if(!data||!loadedSfcText)return false;
+  const key=getRecoveryStorageKey();
+  if(recoveryBaseStoredKeys.has(key))return true;
+  const record={
+    key,
+    updatedAt:Date.now(),
+    sourceName:String(data.source_name||"recovery.sfc"),
+    currentLoadedKind:String(currentLoadedKind||"sfc"),
+    sourceText:String(loadedSfcText)
+  };
+  try{
+    requestRecoveryStoragePersistence();
+    const db=await openRecoveryDb();
+    const tx=db.transaction(RECOVERY_DB_BASE_STORE,"readwrite");
+    const done=recoveryDbTransactionDone(tx);
+    tx.objectStore(RECOVERY_DB_BASE_STORE).put(record);
+    await done;
+    recoveryBaseStoredKeys.add(key);
+    refreshStartupRecoveryButton().catch(()=>{});
+    return true;
+  }catch(err){
+    console.warn("Recovery base source save failed",err);
+    return false;
+  }
 }
 async function pruneRecoveryHistory(db,key){
   const tx=db.transaction(RECOVERY_DB_HISTORY_STORE,"readwrite");
@@ -17631,9 +17681,10 @@ async function deleteRecoveryIndexedDbKey(key){
       clearTimeout(recoveryDbFlushTimer);
     }
     const db=await openRecoveryDb();
-    const tx=db.transaction([RECOVERY_DB_SNAPSHOT_STORE,RECOVERY_DB_HISTORY_STORE],"readwrite");
+    const tx=db.transaction([RECOVERY_DB_SNAPSHOT_STORE,RECOVERY_DB_HISTORY_STORE,RECOVERY_DB_BASE_STORE],"readwrite");
     const done=recoveryDbTransactionDone(tx);
     tx.objectStore(RECOVERY_DB_SNAPSHOT_STORE).delete(key);
+    tx.objectStore(RECOVERY_DB_BASE_STORE).delete(key);
     const historyStore=tx.objectStore(RECOVERY_DB_HISTORY_STORE);
     const request=historyStore.index("key").getAll(IDBKeyRange.only(key));
     request.onsuccess=()=>{
@@ -17642,6 +17693,8 @@ async function deleteRecoveryIndexedDbKey(key){
     };
     await done;
     recoveryHistoryLastSaved.delete(key);
+    recoveryBaseStoredKeys.delete(key);
+    refreshStartupRecoveryButton().catch(()=>{});
   }catch(err){
     console.warn("Recovery IndexedDB delete failed",err);
   }
@@ -17672,12 +17725,15 @@ function saveRecoverySnapshot(options={}){
     const payload=buildRecoveryPayload();
     const key=getRecoveryStorageKey();
     const json=JSON.stringify(payload);
+    void persistRecoveryBaseSource();
     try{
       if(window.localStorage)localStorage.setItem(key,json);
-      touchRecoveryIndex(key,payload.sourceName);
     }catch(err){
       console.warn("Recovery localStorage save failed",err);
     }
+    // Large photos can exceed localStorage, but the small index and IndexedDB
+    // record must still be updated so the startup recovery button can find it.
+    touchRecoveryIndex(key,payload.sourceName);
     queueRecoveryIndexedDbSave({
       key,
       updatedAt:payload.ts,
@@ -17686,6 +17742,7 @@ function saveRecoverySnapshot(options={}){
       json
     },!!options.immediate);
     recoverySnapshotDirty=false;
+    refreshStartupRecoveryButton().catch(()=>{});
     return true;
   }catch(err){
     console.error(err);
@@ -17899,6 +17956,100 @@ function restoreRecoverySnapshotIfAvailable(){
   }catch(err){
     console.error(err);
     return false;
+  }
+}
+async function readLatestRecoverableWork(){
+  try{
+    const db=await openRecoveryDb();
+    return await new Promise((resolve,reject)=>{
+      const tx=db.transaction([RECOVERY_DB_SNAPSHOT_STORE,RECOVERY_DB_BASE_STORE],"readonly");
+      const snapshots=tx.objectStore(RECOVERY_DB_SNAPSHOT_STORE);
+      const bases=tx.objectStore(RECOVERY_DB_BASE_STORE);
+      const request=snapshots.index("updatedAt").openCursor(null,"prev");
+      request.onerror=()=>reject(request.error||new Error("Recovery cursor failed"));
+      request.onsuccess=()=>{
+        const cursor=request.result;
+        if(!cursor){resolve(null);return;}
+        const snapshotRecord=cursor.value;
+        const baseRequest=bases.get(snapshotRecord.key);
+        baseRequest.onerror=()=>cursor.continue();
+        baseRequest.onsuccess=()=>{
+          const baseRecord=baseRequest.result;
+          if(!baseRecord||!baseRecord.sourceText){cursor.continue();return;}
+          try{
+            const payload=JSON.parse(snapshotRecord.json);
+            if(!payload||`${RECOVERY_STORAGE_PREFIX}${payload.fingerprint}`!==snapshotRecord.key){cursor.continue();return;}
+            resolve({key:snapshotRecord.key,snapshotRecord,baseRecord,payload});
+          }catch(_e){cursor.continue();}
+        };
+      };
+    });
+  }catch(err){
+    console.warn("Latest recovery lookup failed",err);
+    return null;
+  }
+}
+function formatRecoveryUpdatedAt(value){
+  const date=new Date(Number(value)||0);
+  if(!Number.isFinite(date.getTime()))return "";
+  try{return date.toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});}
+  catch(_e){return "";}
+}
+async function refreshStartupRecoveryButton(){
+  const button=document.getElementById("startupRecoveryBtn");
+  const hint=document.getElementById("startupRecoveryHint");
+  const startup=document.getElementById("startupModal");
+  if(!button||!hint)return null;
+  if(loadedSfcText&&startup&&getComputedStyle(startup).display==="none")return null;
+  const serial=++startupRecoveryRefreshSerial;
+  button.disabled=true;
+  button.textContent="前回の作業を確認中…";
+  hint.style.display="none";
+  const work=await readLatestRecoverableWork();
+  if(serial!==startupRecoveryRefreshSerial)return null;
+  button.textContent="前回の作業を復元";
+  button.disabled=!work;
+  button.dataset.recoveryKey=work?.key||"";
+  if(work){
+    const name=String(work.baseRecord.sourceName||work.snapshotRecord.sourceName||"前回の図面");
+    const dateText=formatRecoveryUpdatedAt(work.snapshotRecord.updatedAt);
+    hint.textContent=`${name}${dateText?` ・ ${dateText}`:""}`;
+    hint.style.display="block";
+  }else{
+    hint.textContent="復元できる前回作業はありません";
+    hint.style.display="block";
+  }
+  return work;
+}
+async function restoreLatestRecoveryWork(){
+  const button=document.getElementById("startupRecoveryBtn");
+  if(button?.disabled)return false;
+  if(button)button.disabled=true;
+  showBusy("前回の作業を復元中…");
+  await waitForUiPaint();
+  try{
+    const work=await readLatestRecoverableWork();
+    if(!work){showToast("復元できる前回作業がありません",2400);return false;}
+    const {key,baseRecord,payload}=work;
+    recoveryBaseStoredKeys.add(key);
+    await handleLoadedSource(
+      String(baseRecord.sourceText||""),
+      String(baseRecord.sourceName||payload.sourceName||"recovery.sfc"),
+      null,
+      {restoreRecovery:false}
+    );
+    currentLoadedKind=String(baseRecord.currentLoadedKind||payload.currentLoadedKind||"sfc");
+    if(!applyRecoveryPayload(payload))throw new Error("復元データと元図面が一致しません");
+    touchRecoveryIndex(key,payload.sourceName);
+    saveRecoverySnapshot({immediate:true});
+    return true;
+  }catch(err){
+    console.error(err);
+    showToast(err?.message||"前回の作業を復元できませんでした",3000);
+    return false;
+  }finally{
+    hideBusy();
+    if(!loadedSfcText)refreshStartupRecoveryButton().catch(()=>{});
   }
 }
 function markMemoChanged(){
@@ -18474,6 +18625,7 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   document.getElementById("startupModal").style.display="none";
   if(options.restoreRecovery!==false)restoreRecoverySnapshotIfAvailable();
   applyDefaultFullViewAfterLoad();
+  await persistRecoveryBaseSource();
   gaTrackOpenSfc("sfc");
   const loadModeLabel=(largeDrawingMode ? "大容量モード" : "通常モード")+
     (activeCoordinateMeshTransform ? "・座標メッシュ補正" : "");
@@ -18726,7 +18878,13 @@ document.getElementById("startupGpsBtn")?.addEventListener("click",event=>{
   if(!isTouchMobileLike()||gpsEnabled)return;
   startGps({allowWithoutDrawing:true});
 });
+document.getElementById("startupRecoveryBtn")?.addEventListener("click",event=>{
+  event.preventDefault();
+  event.stopPropagation();
+  restoreLatestRecoveryWork().catch(console.error);
+});
 renderRecentDrawingHistory().catch(console.error);
+refreshStartupRecoveryButton().catch(console.error);
 const earlyFileState=window.__sfcFileOpenState;
 if(earlyFileState){
   earlyFileState.consumeFile=file=>handleSelectedDrawingFile(file);

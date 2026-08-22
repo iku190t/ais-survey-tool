@@ -20,6 +20,10 @@ const required=[
   "void flushRecoveryIndexedDbSave()",
   "let recoverySnapshotDirty = false",
   "if(recoverySnapshotDirty)saveRecoverySnapshot({immediate:true})",
+  'id="startupRecoveryBtn"',
+  'const RECOVERY_DB_BASE_STORE = "bases"',
+  "async function persistRecoveryBaseSource()",
+  "async function restoreLatestRecoveryWork()",
   "markMemoChanged();",
   "if(wasDragging) scheduleDraw();",
   "finishTouchTransformDraw();"
