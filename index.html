@@ -544,8 +544,9 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #settingsPanel .settingsSection{padding-top:9px;margin-top:9px;border-top:1px solid rgba(128,128,128,.25);}
 #settingsPanel .settingsSection:first-of-type{padding-top:0;margin-top:0;border-top:0;}
 #settingsPanel .settingsLabel{display:block;margin-bottom:6px;font-size:13px;font-weight:800;}
-#coordinateSystemSelect{display:block;width:100%;min-height:38px;box-sizing:border-box;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--button);color:var(--buttonText);font-size:13px;}
-#coordinateSystemStatus{min-height:18px;margin-top:6px;color:var(--muted);font-size:11px;line-height:1.45;}
+#coordinateSystemSelect,#defaultCoordinateSystemSelect{display:block;width:100%;min-height:38px;box-sizing:border-box;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--button);color:var(--buttonText);font-size:13px;}
+#coordinateSystemStatus,#defaultCoordinateSystemStatus{min-height:18px;margin-top:6px;color:var(--muted);font-size:11px;line-height:1.45;}
+#defaultCoordinateSystemLabel{margin-top:10px;}
 #lineDisplayScaleRow{display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:9px;align-items:center;}
 #lineDisplayScaleRange{width:100%;min-width:0;}
 #lineDisplayScaleValue{font-size:13px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums;}
@@ -1610,7 +1611,7 @@ gtag('config', 'G-88B9YPJXWP');
   <div id="settingsPanel" class="panel">
     <div class="panelHeaderCompact"><div class="panelTitle">設定</div><button id="settingsCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <div class="settingsSection">
-      <label class="settingsLabel" for="coordinateSystemSelect">座標系</label>
+      <label class="settingsLabel" for="coordinateSystemSelect">この図面の座標系</label>
       <select id="coordinateSystemSelect" aria-label="座標系">
         <option value="auto">自動判定</option>
         <option value="1">第1系（長崎・鹿児島の一部）</option>
@@ -1634,6 +1635,11 @@ gtag('config', 'G-88B9YPJXWP');
         <option value="19">第19系（東京・島しょ部の一部）</option>
       </select>
       <div id="coordinateSystemStatus">自動判定</div>
+      <label id="defaultCoordinateSystemLabel" class="settingsLabel" for="defaultCoordinateSystemSelect">新しい図面の既定座標系</label>
+      <select id="defaultCoordinateSystemSelect" aria-label="新しい図面の既定座標系">
+        <option value="">未設定（最初の現在地から設定）</option>
+      </select>
+      <div id="defaultCoordinateSystemStatus">最初にGPSを取得した場所の座標系を保存します。</div>
     </div>
     <div class="settingsSection">
       <label class="settingsLabel" for="lineDisplayScaleRange">線の表示太さ</label>
@@ -2104,7 +2110,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">アイコン</div>上部アイコンには機能名を常時表示し、現場でも押し間違えにくい配置にしています。</div>
               <div class="helpBlock"><div class="helpHead">コマンドの切替</div>計測・断面・手書き・検索などの作業中に別のコマンドを押すと、現在の作業を中止してから新しいコマンドへ切り替わります。</div>
-              <div class="helpBlock"><div class="helpHead">設定</div>上部の <b>設定</b> では、図面の座標系を自動判定または平面直角座標系の第1～19系から手動選択できます。手動選択は図面ごとに記憶します。線の表示太さは1～10倍のスライダーで変更でき、SFCに保存されている元の線幅は変更しません。</div>
+              <div class="helpBlock"><div class="helpHead">設定</div>上部の <b>設定</b> では、図面の座標系を自動判定または平面直角座標系の第1～19系から手動選択できます。手動選択は図面ごとに記憶します。新しい図面で座標系が分からない場合は、スマホで最初にGPSを取得した場所の座標系を既定値として使い、設定から後で変更できます。線の表示太さは1～10倍のスライダーで変更でき、SFCに保存されている元の線幅は変更しません。</div>
               <div class="helpBlock"><div class="helpHead">背景</div>上部の <b>ホーム</b> 右側にある <b>背景</b> で黒背景と白背景を切り替えます。黒・白の図形色は、背景で見えなくならないよう表示時に自動調整します。</div>
               <div class="helpBlock"><div class="helpHead">縦画面</div>このビューアーはスマートフォンの縦画面専用です。横向きにした場合は縦向きへ戻してください。</div>
             </div>
@@ -2325,8 +2331,13 @@ const settingsBtn = document.getElementById("settingsBtn");
 const settingsCloseBtn = document.getElementById("settingsCloseBtn");
 const coordinateSystemSelect = document.getElementById("coordinateSystemSelect");
 const coordinateSystemStatus = document.getElementById("coordinateSystemStatus");
+const defaultCoordinateSystemSelect = document.getElementById("defaultCoordinateSystemSelect");
+const defaultCoordinateSystemStatus = document.getElementById("defaultCoordinateSystemStatus");
 const lineDisplayScaleRange = document.getElementById("lineDisplayScaleRange");
 const lineDisplayScaleValue = document.getElementById("lineDisplayScaleValue");
+if(defaultCoordinateSystemSelect&&coordinateSystemSelect){
+  [...coordinateSystemSelect.options].filter(option=>option.value!=="auto").forEach(option=>defaultCoordinateSystemSelect.appendChild(option.cloneNode(true)));
+}
 const textSearchModal = document.getElementById("textSearchModal");
 const textSearchModalBox = document.getElementById("textSearchModalBox");
 const textSearchInput = document.getElementById("textSearchInput");
@@ -2521,6 +2532,7 @@ let uiPreferencesLoaded = false;
 const UI_PREFERENCES_KEY = "sfcviewer-ui-preferences-v1";
 const UI_PREFERENCES_VERSION = 2;
 const DRAWING_COORDINATE_SETTINGS_KEY = "sfcviewer-drawing-coordinate-settings-v1";
+const DEFAULT_DRAWING_COORDINATE_ZONE_KEY = "sfcviewer-default-drawing-coordinate-zone-v1";
 let displayLineWidthScale = 4;
 const FIRST_USE_HINT_LIMIT = 2;
 const FIRST_USE_HINT_KEYS = Object.freeze({
@@ -3209,6 +3221,27 @@ function getManualCoordinateZone(){
   const zone=Number.parseInt(getDrawingCoordinateSetting(),10);
   return zone>=1&&zone<=19?zone:null;
 }
+function getDefaultDrawingCoordinateZone(){
+  try{
+    const zone=Number.parseInt(localStorage.getItem(DEFAULT_DRAWING_COORDINATE_ZONE_KEY),10);
+    return zone>=1&&zone<=19?zone:null;
+  }catch(_e){
+    return null;
+  }
+}
+function saveDefaultDrawingCoordinateZone(value){
+  const zone=Number.parseInt(value,10);
+  try{
+    if(zone>=1&&zone<=19)localStorage.setItem(DEFAULT_DRAWING_COORDINATE_ZONE_KEY,String(zone));
+    else localStorage.removeItem(DEFAULT_DRAWING_COORDINATE_ZONE_KEY);
+  }catch(_e){}
+  return zone>=1&&zone<=19?zone:null;
+}
+function ensureDefaultDrawingCoordinateZone(zone){
+  const existing=getDefaultDrawingCoordinateZone();
+  if(existing)return existing;
+  return saveDefaultDrawingCoordinateZone(zone);
+}
 function updateCoordinateSystemStatus(resolvedZone=null){
   if(!coordinateSystemStatus)return;
   if(gpsTemporaryCoordinateZone){
@@ -3221,12 +3254,21 @@ function updateCoordinateSystemStatus(resolvedZone=null){
     return;
   }
   const zone=resolvedZone||profileZone||getRememberedProfileZone();
-  coordinateSystemStatus.textContent=zone?`自動判定：第${zone}系`:"自動判定（GPS・図面位置から判断）";
+  const defaultZone=getDefaultDrawingCoordinateZone();
+  coordinateSystemStatus.textContent=zone?`自動判定：第${zone}系`:defaultZone?`既定を使用：第${defaultZone}系`:"自動判定（GPS・図面位置から判断）";
 }
 function updateSettingsPanelUi(){
   if(coordinateSystemSelect){
     coordinateSystemSelect.value=gpsTemporaryCoordinateZone?String(gpsTemporaryCoordinateZone):getDrawingCoordinateSetting();
     coordinateSystemSelect.disabled=!!gpsTemporaryCoordinateZone;
+  }
+  if(defaultCoordinateSystemSelect){
+    const defaultZone=getDefaultDrawingCoordinateZone();
+    defaultCoordinateSystemSelect.value=defaultZone?String(defaultZone):"";
+    defaultCoordinateSystemSelect.disabled=!!gpsTemporaryCoordinateZone;
+    if(defaultCoordinateSystemStatus)defaultCoordinateSystemStatus.textContent=defaultZone
+      ? `新しい未判定図面では第${defaultZone}系を使用します。`
+      : "最初にGPSを取得した場所の座標系を保存します。";
   }
   if(lineDisplayScaleRange){
     lineDisplayScaleRange.value=String(displayLineWidthScale);
@@ -3310,6 +3352,7 @@ async function resolveProfileZone(){
       const remembered=getRememberedProfileZone();
       if(remembered)resolved=remembered;
     }
+    if(!resolved)resolved=getDefaultDrawingCoordinateZone();
     if(profileZoneResolveKey!==requestKey||getProfileDrawingKey()!==requestKey)return null;
     const currentManualZone=getManualCoordinateZone();
     if(currentManualZone){
@@ -6565,7 +6608,7 @@ function resumeGpsFollow(){
 }
 function captureGpsSessionState(){
   if(gpsSessionState)return gpsSessionState;
-  const drawingZone=getManualCoordinateZone()||profileZone||getRememberedProfileZone()||null;
+  const drawingZone=getManualCoordinateZone()||profileZone||getRememberedProfileZone()||getDefaultDrawingCoordinateZone()||null;
   gpsSessionState={
     hadDrawing:hasLoadedDrawing(),
     drawingZone,
@@ -6726,6 +6769,8 @@ function startGps(options={}){
       const zone = chooseJapanPlaneZone(lat, lon);
       const xy = latLonToJgd2024XY(lat, lon, zone);
       const state=gpsSessionState;
+      const initialDefaultZone=!isDesktopPhotoTool()?ensureDefaultDrawingCoordinateZone(zone):getDefaultDrawingCoordinateZone();
+      if(state&&state.hadDrawing&&!state.drawingZone&&initialDefaultZone)state.drawingZone=initialDefaultZone;
       const drawingZone=state&&state.drawingZone;
       let placement=chooseSfcPlacementFromDeviceXY(xy.x,xy.y);
       let distance=null;
@@ -18978,6 +19023,15 @@ if(coordinateSystemSelect)coordinateSystemSelect.addEventListener("change",async
     showToast(zone?`座標系を自動判定（第${zone}系）に戻しました`:"座標系を自動判定に戻しました",1400);
   }
   updateSettingsPanelUi();
+});
+if(defaultCoordinateSystemSelect)defaultCoordinateSystemSelect.addEventListener("change",()=>{
+  if(gpsTemporaryCoordinateZone){
+    updateSettingsPanelUi();
+    return;
+  }
+  const zone=saveDefaultDrawingCoordinateZone(defaultCoordinateSystemSelect.value);
+  updateSettingsPanelUi();
+  showToast(zone?`新しい図面の既定を第${zone}系に変更しました`:"既定を解除しました。次のGPS取得時に設定します",1500);
 });
 if(lineDisplayScaleRange)lineDisplayScaleRange.addEventListener("input",()=>{
   displayLineWidthScale=Math.max(1,Math.min(10,Number(lineDisplayScaleRange.value)||1));
