@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-22 / `e2dfb67`
+最終実行: 2026-08-22 / `90a3a81`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -34,7 +34,7 @@
 - `validate-photo-album.js` — 70 checks
 - `validate-photo-album-runtime.js`
 - `validate-gps-startup-mode.js`
-- `validate-compass-follow.js` — GPS非依存、自動開始、最短方向の滑らかな補間、ホーム停止を確認。3回連続成功。
+- `validate-compass-follow.js` — GPS非依存の初期開始、方位ボタンの直接ON/OFF、Android/WebViewの非absolute方位、最短方向の滑らかな補間、ホーム停止と初期角度復帰を確認。3回連続成功。
 - `validate-terrain-advanced.js` — 11 modes
 - `validate-terrain-ui.js` — 16 buttons
 - `validate-text-layer-ui.js`
