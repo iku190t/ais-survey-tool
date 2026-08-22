@@ -82,6 +82,23 @@ let browser;
   })`));
   if(!manualStartState.enabled||!manualStartState.active||manualStartState.pressed!=="true"||manualStartState.buttonBorderColor!=="rgb(22, 119, 255)"||!manualStartState.buttonBackground.includes("rgb(35, 136, 255)")||manualStartState.faceBorderColor!=="rgb(255, 255, 255)"||manualStartState.gpsEnabled)throw new Error(`Compass button did not start GPS-independent rotation with a clear blue active state: ${JSON.stringify(manualStartState)}`);
 
+  const lightThemeState=await page.evaluate(()=>window.eval(`(()=>{
+    darkTheme=false;
+    updateThemeUI();
+    const buttonStyle=getComputedStyle(compassFab);
+    const faceStyle=getComputedStyle(compassFab.querySelector(".compassFace"));
+    return {
+      bodyLight:document.body.classList.contains("light"),
+      enabled:compassFollowEnabled,
+      active:compassFab.classList.contains("following"),
+      buttonBackground:buttonStyle.backgroundImage,
+      faceBackground:faceStyle.backgroundImage,
+      faceBorderColor:faceStyle.borderTopColor
+    };
+  })()`));
+  if(!lightThemeState.bodyLight||!lightThemeState.enabled||!lightThemeState.active||!lightThemeState.buttonBackground.includes("rgb(75, 160, 255)")||!lightThemeState.faceBackground.includes("rgb(66, 160, 255)")||lightThemeState.faceBorderColor!=="rgb(255, 255, 255)")throw new Error(`Compass button was not visibly blue on the white drawing background: ${JSON.stringify(lightThemeState)}`);
+  await page.evaluate(()=>window.eval("darkTheme=true;updateThemeUI();"));
+
   const relativeHeading=await page.evaluate(()=>window.eval(`headingFromOrientationEvent({alpha:315,absolute:false,type:"deviceorientation"})`));
   if(Math.abs(relativeHeading-45)>0.001)throw new Error(`Android/WebView relative alpha was ignored: ${relativeHeading}`);
 

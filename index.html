@@ -984,7 +984,12 @@ body.light #compassFab.following{
   background:linear-gradient(180deg,#4ba0ff,#1677ff);
   box-shadow:0 0 0 3px rgba(22,119,255,.34),0 5px 14px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.42);
 }
-#compassFab.following .compassFace{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.28),inset 0 0 0 1px rgba(255,255,255,.28);}
+#compassFab.following .compassFace,
+body.light #compassFab.following .compassFace{
+  border-color:#fff;
+  background:radial-gradient(circle at 30% 30%,#42a0ff,#0c60c9 74%);
+  box-shadow:0 0 0 2px rgba(255,255,255,.28),inset 0 0 0 1px rgba(255,255,255,.28);
+}
 #googleMapsLinkBtn{
   position:absolute;right:12px;top:calc(58px + var(--cad-toolbar-offset,40px));z-index:70;
   width:40px;height:40px;padding:0!important;border-radius:9px;
