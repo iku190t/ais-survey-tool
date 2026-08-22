@@ -969,7 +969,17 @@ body.light #compassFab .compassN{
   color:#ff3030;
   text-shadow:0 1px 1px rgba(255,255,255,.95), 0 0 1px rgba(255,255,255,.85);
 }
-#compassFab.following .compassFace{border-color:#1677ff;box-shadow:0 0 0 3px rgba(22,119,255,.38),inset 0 0 0 1px rgba(255,255,255,.28);}
+#compassFab.following{
+  border-color:#1677ff;
+  background:linear-gradient(180deg,#2388ff,#0f65d8);
+  box-shadow:0 0 0 3px rgba(22,119,255,.42),0 6px 18px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.32);
+}
+body.light #compassFab.following{
+  border-color:#0f65d8;
+  background:linear-gradient(180deg,#4ba0ff,#1677ff);
+  box-shadow:0 0 0 3px rgba(22,119,255,.34),0 5px 14px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.42);
+}
+#compassFab.following .compassFace{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.28),inset 0 0 0 1px rgba(255,255,255,.28);}
 #googleMapsLinkBtn{
   position:absolute;right:12px;top:calc(58px + var(--cad-toolbar-offset,40px));z-index:70;
   width:40px;height:40px;padding:0!important;border-radius:9px;
@@ -2840,6 +2850,7 @@ let gpsDemElevationCache = {lat:null,lon:null,elevation:null,source:"",updatedAt
 let gpsDemRequestGeneration = 0;
 let gpsLastDistanceMeters = null;
 let gpsIsFarFromDrawing = false;
+let gpsDistanceUnavailableNotified = false;
 let gpsPanelOpen = false;
 let gpsDetailOpen = false;
 let gpsOnlyBlankMode = false;
@@ -3563,6 +3574,9 @@ async function enableAerialPhoto(){
 }
 function scheduleAerialPhotoSourceRefresh(centerLl){
   if(!aerialPhotoEnabled||aerialPhotoResolveBusy||!centerLl) return;
+  // GPS中は現在位置がわずかに揺れる。年代検索をそのたびにやり直すと
+  // 利用中の写真一覧が一度空になり、地理院タイルが点滅するため固定する。
+  if(gpsEnabled&&gpsTemporaryCoordinateZone&&aerialPhotoZone===gpsTemporaryCoordinateZone)return;
   const ref=profileTileRef(centerLl.lat,centerLl.lon,14);
   const nextKey=`${aerialPhotoZone}|${ref.x}|${ref.y}`;
   if(nextKey===aerialPhotoAvailabilityKey||nextKey===aerialPhotoRescanKey) return;
@@ -6608,7 +6622,10 @@ function resumeGpsFollow(){
 }
 function captureGpsSessionState(){
   if(gpsSessionState)return gpsSessionState;
-  const drawingZone=getManualCoordinateZone()||profileZone||getRememberedProfileZone()||getDefaultDrawingCoordinateZone()||null;
+  // 平面直角座標のXYだけから座標系は一意に決められない。端末既定や
+  // GPS近接判定を図面の座標系として使うと、別地域の図面を近距離と
+  // 誤判定できてしまうため、距離計算には図面別の手動確認値だけを使う。
+  const drawingZone=getManualCoordinateZone()||null;
   gpsSessionState={
     hadDrawing:hasLoadedDrawing(),
     drawingZone,
@@ -6631,7 +6648,9 @@ function captureGpsSessionState(){
 }
 function enableGpsContextTiles(zone){
   if(!zone)return;
-  if(aerialPhotoEnabled&&aerialPhotoZone===zone&&aerialAvailableSources.length){
+  const latestSource=AERIAL_PHOTO_SOURCES[0];
+  const selectedSource=aerialAvailableSources[aerialPhotoSourceIndex];
+  if(aerialPhotoEnabled&&aerialPhotoZone===zone&&selectedSource&&selectedSource.id===latestSource.id){
     updateAerialPhotoUi();
     updateToolbarActivationUI();
     return;
@@ -6641,7 +6660,7 @@ function enableGpsContextTiles(zone){
   aerialPhotoEnabled=true;
   aerialPhotoResolveBusy=false;
   aerialPhotoZone=zone;
-  aerialAvailableSources=[AERIAL_PHOTO_SOURCES[0]];
+  aerialAvailableSources=[latestSource];
   aerialPhotoSourceIndex=0;
   aerialPhotoAvailabilityKey="";
   setAerialPhotoStatus("現在写真を表示中です。利用できる過去年代を確認します…");
@@ -6697,6 +6716,7 @@ function stopGps(fitIfFar = false){
   gpsPosition = null;
   gpsLastDistanceMeters = null;
   gpsIsFarFromDrawing = false;
+  gpsDistanceUnavailableNotified = false;
   gpsPanelOpen = false;
   gpsDetailOpen = false;
   if (gpsOnlyBlankMode && !hasLoadedDrawing()){
@@ -6724,8 +6744,13 @@ function maybeShowGpsFarMessage(distMeters){
   gpsLastDistanceMeters = distMeters;
   if (distMeters == null){
     gpsIsFarFromDrawing = false;
+    if(!gpsDistanceUnavailableNotified){
+      gpsDistanceUnavailableNotified=true;
+      showToast("図面の座標系が未設定のため距離を計算できません。現在地周辺の地理院タイルを表示します",4200);
+    }
     return;
   }
+  gpsDistanceUnavailableNotified=false;
   const isFar = distMeters >= 500;
   if (isFar && !gpsIsFarFromDrawing){
     const distanceText=distMeters<1000
@@ -6738,6 +6763,7 @@ function maybeShowGpsFarMessage(distMeters){
 
 function startGps(options={}){
   gpsIsFarFromDrawing = false;
+  gpsDistanceUnavailableNotified = false;
   const allowWithoutDrawing=!!(options&&options.allowWithoutDrawing);
   if (!hasLoadedDrawing()&&!allowWithoutDrawing){
     updateGpsUi();
@@ -6769,8 +6795,7 @@ function startGps(options={}){
       const zone = chooseJapanPlaneZone(lat, lon);
       const xy = latLonToJgd2024XY(lat, lon, zone);
       const state=gpsSessionState;
-      const initialDefaultZone=!isDesktopPhotoTool()?ensureDefaultDrawingCoordinateZone(zone):getDefaultDrawingCoordinateZone();
-      if(state&&state.hadDrawing&&!state.drawingZone&&initialDefaultZone)state.drawingZone=initialDefaultZone;
+      if(!isDesktopPhotoTool())ensureDefaultDrawingCoordinateZone(zone);
       const drawingZone=state&&state.drawingZone;
       let placement=chooseSfcPlacementFromDeviceXY(xy.x,xy.y);
       let distance=null;

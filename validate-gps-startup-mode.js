@@ -12,6 +12,8 @@ const required=[
   'enableGpsContextTiles(zone);',
   'ensureDefaultDrawingCoordinateZone(zone)',
   'getDefaultDrawingCoordinateZone()',
+  'const drawingZone=getManualCoordinateZone()||null;',
+  'if(gpsEnabled&&gpsTemporaryCoordinateZone&&aerialPhotoZone===gpsTemporaryCoordinateZone)return;',
   'const distanceUnavailable=!!(state&&state.hadDrawing&&distance==null);',
   'if(!available&&gpsContextSource)',
   'restoreGpsSessionState()',
@@ -87,16 +89,19 @@ let browser;
     throw new Error(`GPS-only mode did not initialize correctly: ${JSON.stringify(active)}`);
   }
   await page.evaluate(()=>window.eval("scheduleAerialPhotoSourceRefresh({lat:gpsPosition.lat,lon:gpsPosition.lon})"));
-  try{
-    await page.waitForFunction(()=>window.eval("aerialAvailableSources.length>1&&!aerialPhotoResolveBusy"),null,{timeout:8000});
-  }catch(error){
-    const diagnostic=await page.evaluate(()=>window.eval(`({enabled:aerialPhotoEnabled,busy:aerialPhotoResolveBusy,count:aerialAvailableSources.length,key:aerialPhotoAvailabilityKey,rescanKey:aerialPhotoRescanKey,status:photoStatus?.textContent})`));
-    throw new Error(`aerial-photo periods were not restored: ${JSON.stringify(diagnostic)} / ${error.message}`);
+  await page.waitForTimeout(900);
+  const gpsAerialStable=await page.evaluate(()=>window.eval(`({
+    count:aerialAvailableSources.length,
+    source:aerialAvailableSources[aerialPhotoSourceIndex]?.id,
+    busy:aerialPhotoResolveBusy,
+    rescanKey:aerialPhotoRescanKey
+  })`));
+  if(gpsAerialStable.count!==1||gpsAerialStable.source!=="latest"||gpsAerialStable.busy||gpsAerialStable.rescanKey){
+    throw new Error(`GPS aerial photo was rescanned instead of staying stable: ${JSON.stringify(gpsAerialStable)}`);
   }
-  const aerialSourceCount=await page.evaluate(()=>window.eval("aerialAvailableSources.length"));
   await page.evaluate(()=>window.eval("enableGpsContextTiles(4)"));
-  const preservedSourceCount=await page.evaluate(()=>window.eval("aerialAvailableSources.length"));
-  if(preservedSourceCount!==aerialSourceCount)throw new Error(`GPS update reset aerial-photo periods: ${aerialSourceCount} -> ${preservedSourceCount}`);
+  const preservedGpsSource=await page.evaluate(()=>window.eval("aerialAvailableSources[aerialPhotoSourceIndex]?.id"));
+  if(preservedGpsSource!=="latest")throw new Error(`GPS update changed the current aerial photo: ${preservedGpsSource}`);
   const enabledTools=await page.evaluate(()=>window.eval(`(()=>{
     const ids=["fitBtn","bgBtn","measureBtn","drawBtn","profileBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab","googleMapsLinkBtn"];
     return {
@@ -207,9 +212,11 @@ let browser;
     distance:gpsLastDistanceMeters,
     gpsZone:gpsTemporaryCoordinateZone,
     aerial:aerialPhotoEnabled,
-    aerialZone:aerialPhotoZone
+    aerialZone:aerialPhotoZone,
+    distanceNotice:gpsDistanceUnavailableNotified,
+    toast:toastEl?.textContent||""
   })`));
-  if(unknownDrawingZone.drawingZone!==null||unknownDrawingZone.distance!==null||unknownDrawingZone.gpsZone!==4||!unknownDrawingZone.aerial||unknownDrawingZone.aerialZone!==4){
+  if(unknownDrawingZone.drawingZone!==null||unknownDrawingZone.distance!==null||unknownDrawingZone.gpsZone!==4||!unknownDrawingZone.aerial||unknownDrawingZone.aerialZone!==4||!unknownDrawingZone.distanceNotice||!unknownDrawingZone.toast.includes("座標系が未設定")){
     throw new Error(`unknown drawing zone was treated as the current GPS zone: ${JSON.stringify(unknownDrawingZone)}`);
   }
   await page.evaluate(()=>window.eval(`(()=>{
@@ -233,8 +240,8 @@ let browser;
     saved:getDefaultDrawingCoordinateZone(),
     selectOptions:defaultCoordinateSystemSelect.options.length
   })`));
-  if(defaultDrawingZone.drawingZone!==4||defaultDrawingZone.saved!==4||defaultDrawingZone.selectOptions!==20){
-    throw new Error(`saved device default was not used for an unrecognized drawing: ${JSON.stringify(defaultDrawingZone)}`);
+  if(defaultDrawingZone.drawingZone!==null||defaultDrawingZone.saved!==4||defaultDrawingZone.selectOptions!==20){
+    throw new Error(`saved device default was incorrectly trusted for distance calculation: ${JSON.stringify(defaultDrawingZone)}`);
   }
   await page.evaluate(()=>window.eval("stopGps(true)"));
   const coordinatePriority=await page.evaluate(()=>window.eval(`(()=>{

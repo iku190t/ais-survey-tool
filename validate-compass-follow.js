@@ -75,10 +75,12 @@ let browser;
     enabled:compassFollowEnabled,
     active:compassFab.classList.contains("following"),
     pressed:compassFab.getAttribute("aria-pressed"),
-    borderColor:getComputedStyle(compassFab.querySelector(".compassFace")).borderTopColor,
+    buttonBorderColor:getComputedStyle(compassFab).borderTopColor,
+    buttonBackground:getComputedStyle(compassFab).backgroundImage,
+    faceBorderColor:getComputedStyle(compassFab.querySelector(".compassFace")).borderTopColor,
     gpsEnabled
   })`));
-  if(!manualStartState.enabled||!manualStartState.active||manualStartState.pressed!=="true"||manualStartState.borderColor!=="rgb(22, 119, 255)"||manualStartState.gpsEnabled)throw new Error(`Compass button did not start GPS-independent rotation with a blue active state: ${JSON.stringify(manualStartState)}`);
+  if(!manualStartState.enabled||!manualStartState.active||manualStartState.pressed!=="true"||manualStartState.buttonBorderColor!=="rgb(22, 119, 255)"||!manualStartState.buttonBackground.includes("rgb(35, 136, 255)")||manualStartState.faceBorderColor!=="rgb(255, 255, 255)"||manualStartState.gpsEnabled)throw new Error(`Compass button did not start GPS-independent rotation with a clear blue active state: ${JSON.stringify(manualStartState)}`);
 
   const relativeHeading=await page.evaluate(()=>window.eval(`headingFromOrientationEvent({alpha:315,absolute:false,type:"deviceorientation"})`));
   if(Math.abs(relativeHeading-45)>0.001)throw new Error(`Android/WebView relative alpha was ignored: ${relativeHeading}`);
