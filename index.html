@@ -1577,7 +1577,7 @@ gtag('config', 'G-88B9YPJXWP');
     <div id="measureResultRow"><div id="measureText">測定OFFです。</div><button id="measureBackBtn" type="button" disabled title="直前に選択した点へ戻します">後退</button></div>
   </div>
 
-  <div id="gpsBox" class="panel" style="display:none;left:12px;top:100px;bottom:auto;width:260px;max-height:calc(100% - 112px);overflow:auto;padding:10px;z-index:60;background:rgba(20,20,20,.8);backdrop-filter:blur(4px);">
+  <div id="gpsBox" class="panel" style="display:none;left:12px;top:100px;bottom:auto;width:260px;max-height:calc(100% - 112px);overflow:auto;padding:10px;z-index:60;background:rgba(20,20,20,.7);backdrop-filter:blur(4px);">
     <div class="panelTitle">現在地</div>
     <div id="gpsText" style="font-size:13px; line-height:1.6;">GPSはOFFです。</div>
   </div>
@@ -2815,7 +2815,9 @@ const gpsReturnBtn = document.getElementById("gpsReturnBtn");
 let gpsWatchId = null;
 let gpsEnabled = false;
 let gpsFollow = true;
-let gpsPosition = null; // {lat, lon, accuracy, altitude, zone, x, y, sfcX, sfcY}
+let gpsPosition = null; // {lat, lon, accuracy, demAltitude, demSource, demChecked, zone, x, y, sfcX, sfcY}
+let gpsDemElevationCache = {lat:null,lon:null,elevation:null,source:"",updatedAt:0,pending:false,checked:false};
+let gpsDemRequestGeneration = 0;
 let gpsLastDistanceMeters = null;
 let gpsIsFarFromDrawing = false;
 let gpsPanelOpen = false;
@@ -6365,6 +6367,60 @@ function refreshEnvironmentNotice(){
     el.style.display = "none";
   }
 }
+function formatGpsAccuracyMeters(value){
+  const accuracy=Number(value);
+  if(!Number.isFinite(accuracy)||accuracy<0)return "0";
+  return accuracy<1?accuracy.toFixed(2):String(Math.round(accuracy));
+}
+function gpsCoordinateDistanceMeters(lat1,lon1,lat2,lon2){
+  if(![lat1,lon1,lat2,lon2].every(Number.isFinite))return Infinity;
+  const meanLat=(lat1+lat2)*Math.PI/360;
+  const north=(lat2-lat1)*111320;
+  const east=(lon2-lon1)*111320*Math.cos(meanLat);
+  return Math.hypot(north,east);
+}
+function applyCachedGpsDemElevation(position){
+  if(!position)return;
+  const cache=gpsDemElevationCache;
+  const close=gpsCoordinateDistanceMeters(position.lat,position.lon,+cache.lat,+cache.lon)<=5;
+  position.demAltitude=close&&Number.isFinite(cache.elevation)?cache.elevation:null;
+  position.demSource=close?cache.source:"";
+  position.demChecked=close&&cache.checked===true;
+}
+async function refreshGpsDemElevation(lat,lon){
+  if(!gpsEnabled||!Number.isFinite(lat)||!Number.isFinite(lon))return;
+  const cache=gpsDemElevationCache;
+  const distance=gpsCoordinateDistanceMeters(lat,lon,+cache.lat,+cache.lon);
+  const fresh=cache.checked===true&&distance<=3&&Date.now()-cache.updatedAt<15000;
+  if(fresh){
+    if(gpsPosition){gpsPosition.demAltitude=cache.elevation;gpsPosition.demSource=cache.source;gpsPosition.demChecked=true;updateGpsUi();}
+    return;
+  }
+  if(cache.pending)return;
+  cache.pending=true;
+  const generation=++gpsDemRequestGeneration;
+  let elevation=null,sourceId="";
+  try{
+    for(const source of PROFILE_DEM_SOURCES){
+      if(source.id!=="DEM1A"&&source.id!=="DEM5A")continue;
+      let sampled=null;
+      try{sampled=await sampleDemElevationBilinear(lat,lon,source);}catch(error){console.error(error);}
+      if(Number.isFinite(sampled)){elevation=sampled;sourceId=source.id;break;}
+    }
+    if(generation!==gpsDemRequestGeneration||!gpsEnabled)return;
+    gpsDemElevationCache={lat,lon,elevation,source:sourceId,updatedAt:Date.now(),pending:false,checked:true};
+    if(gpsPosition&&gpsCoordinateDistanceMeters(lat,lon,gpsPosition.lat,gpsPosition.lon)<=15){
+      gpsPosition.demAltitude=elevation;
+      gpsPosition.demSource=sourceId;
+      gpsPosition.demChecked=true;
+      updateGpsUi();
+    }
+  }catch(error){
+    console.error(error);
+  }finally{
+    if(generation===gpsDemRequestGeneration)gpsDemElevationCache.pending=false;
+  }
+}
 function updateGpsUi(){
   const btn = document.getElementById("gpsBtn");
   if (btn){
@@ -6423,10 +6479,11 @@ function updateGpsUi(){
     : (gpsPosition.zone === 4 && gpsPosition.lat >= 32.4 && gpsPosition.lat <= 34.9 && gpsPosition.lon >= 132.0 && gpsPosition.lon <= 134.95
       ? "4系（四国エリア自動判定）"
       : `${gpsPosition.zone}系（自動）`);
-  const altitudeText = gpsPosition.altitude != null
-    ? `${gpsPosition.altitude.toFixed(2)}m（デジタル標高モデル）`
-    : '取得中';
-  el.innerHTML = `測地系: ${JGD2024_NAME}<br>系番号: ${zoneMemo}<br>緯度: ${gpsPosition.lat.toFixed(7)}<br>経度: ${gpsPosition.lon.toFixed(7)}<br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>標高TP: ${altitudeText}<br>誤差: 約${Math.round(gpsPosition.accuracy || 0)}m`;
+  const altitudeText = Number.isFinite(gpsPosition.demAltitude)
+    ? `${gpsPosition.demAltitude.toFixed(2)}m`
+    : gpsPosition.demChecked?'取得できません':'取得中';
+  const elevationLabel=gpsPosition.demSource?`${gpsPosition.demSource}標高`:'DEM標高';
+  el.innerHTML = `測地系: ${JGD2024_NAME}<br>系番号: ${zoneMemo}<br>緯度: ${gpsPosition.lat.toFixed(7)}<br>経度: ${gpsPosition.lon.toFixed(7)}<br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>${elevationLabel}: ${altitudeText}<br>誤差: 約${formatGpsAccuracyMeters(gpsPosition.accuracy)}m`;
 }
 function hasLoadedDrawing(){
   return !!(data && ((data.lines && data.lines.length) || (data.polys && data.polys.length) || (data.texts && data.texts.length) || (data.circles && data.circles.length)));
@@ -6564,6 +6621,8 @@ function stopGps(fitIfFar = false){
   }
   gpsWatchId = null;
   gpsEnabled = false;
+  gpsDemRequestGeneration++;
+  gpsDemElevationCache = {lat:null,lon:null,elevation:null,source:"",updatedAt:0,pending:false,checked:false};
   gpsFollow = true;
   gpsPosition = null;
   gpsLastDistanceMeters = null;
@@ -6663,7 +6722,9 @@ function startGps(options={}){
         profileZone=zone;
       }
       const sfc = placement.sfc;
-      gpsPosition = { lat, lon, accuracy, altitude: pos.coords.altitude, zone, x: xy.x, y: xy.y, sfcX: sfc.x, sfcY: sfc.y, usedMeshTransform:placement.usedMesh };
+      gpsPosition = { lat, lon, accuracy, demAltitude:null, demSource:"", demChecked:false, zone, x: xy.x, y: xy.y, sfcX: sfc.x, sfcY: sfc.y, usedMeshTransform:placement.usedMesh };
+      applyCachedGpsDemElevation(gpsPosition);
+      void refreshGpsDemElevation(lat,lon);
       if(state&&state.hadDrawing)maybeShowGpsFarMessage(distance);
       updateGpsUi();
       updateSettingsPanelUi();
@@ -15321,7 +15382,7 @@ function setPhotoExcelChoiceModalOpen(open){
   modal.style.display=open?"flex":"none";
 }
 function photoAlbumCommentText(item,field,customText=""){
-  if(field==="fileName")return `ファイル名：${item.fileName||""}`;
+  if(field==="fileName")return `ファイル名：${String(item.fileName||"").replace(/\.[^.]+$/u,"")}`;
   if(field==="number")return `写真番号：${item.number||""}`;
   if(field==="direction8")return `撮影方向：${formatPhotoDirection8(item.direction)}`;
   if(field==="capturedAt")return `撮影時間：${formatPhotoCapturedAt(item.capturedAt)||""}`;
