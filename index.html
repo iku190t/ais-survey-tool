@@ -15234,8 +15234,28 @@ async function exportPhotoListExcel(){
 function photoAlbumSourceKey(value){
   return String(value||"").normalize("NFC").toLocaleLowerCase("ja");
 }
+function attachPhotoSourceFile(item,file){
+  if(!item||!file)return null;
+  photoSourceFiles.set(photoAlbumSourceKey(item.fileName||file.name),file);
+  try{
+    Object.defineProperty(item,"_sourceFile",{value:file,writable:true,configurable:true});
+  }catch(_error){
+    item._sourceFile=file;
+  }
+  return file;
+}
+function getPhotoSourceFile(item){
+  const direct=item&&item._sourceFile;
+  if(direct&&typeof direct.arrayBuffer==="function"){
+    photoSourceFiles.set(photoAlbumSourceKey(item.fileName||direct.name),direct);
+    return direct;
+  }
+  const file=photoSourceFiles.get(photoAlbumSourceKey(item&&item.fileName))||null;
+  if(file&&item)attachPhotoSourceFile(item,file);
+  return file;
+}
 function getMissingPhotoSourceItems(){
-  return (photoAnnotations||[]).filter(item=>!photoSourceFiles.has(photoAlbumSourceKey(item&&item.fileName)));
+  return (photoAnnotations||[]).filter(item=>!getPhotoSourceFile(item));
 }
 function reconnectPhotoSourceFiles(files){
   const expected=new Set(getMissingPhotoSourceItems().map(item=>photoAlbumSourceKey(item.fileName)));
@@ -15243,7 +15263,9 @@ function reconnectPhotoSourceFiles(files){
   for(const file of Array.from(files||[])){
     const key=photoAlbumSourceKey(file&&file.name);
     if(!expected.has(key))continue;
-    photoSourceFiles.set(key,file);
+    for(const item of photoAnnotations||[]){
+      if(photoAlbumSourceKey(item&&item.fileName)===key)attachPhotoSourceFile(item,file);
+    }
     expected.delete(key);
     connected+=1;
   }
@@ -15382,7 +15404,7 @@ function setPhotoExcelChoiceModalOpen(open){
   modal.style.display=open?"flex":"none";
 }
 function photoAlbumCommentText(item,field,customText=""){
-  if(field==="fileName")return `ファイル名：${String(item.fileName||"").replace(/\.[^.]+$/u,"")}`;
+  if(field==="fileName")return String(item.fileName||"").replace(/\.[^.]+$/u,"");
   if(field==="number")return `写真番号：${item.number||""}`;
   if(field==="direction8")return `撮影方向：${formatPhotoDirection8(item.direction)}`;
   if(field==="capturedAt")return `撮影時間：${formatPhotoCapturedAt(item.capturedAt)||""}`;
@@ -15509,7 +15531,7 @@ function fitPhotoAlbumImage(image,rect){
 }
 async function buildPhotoAlbumXlsx(settings,onProgress=null,onStage=null){
   await ensurePhotoDemElevations();
-  const sources=photoAnnotations.map(item=>photoSourceFiles.get(photoAlbumSourceKey(item.fileName))||null);
+  const sources=photoAnnotations.map(item=>getPhotoSourceFile(item));
   const missing=sources.reduce((count,source)=>count+(source?0:1),0);
   if(missing)throw new Error(`写真帳に使う元写真をもう一度開いてください（${missing}枚）`);
   const photosPerPage=Number(settings.layout)||3,isSpread=isPhotoAlbumSpreadAllowed(photosPerPage)&&!!settings.spread;
@@ -15764,14 +15786,15 @@ async function importGeotaggedPhotos(files){
       const zone=chooseJapanPlaneZone(exif.lat,exif.lon);
       const xy=latLonToJgd2024XY(exif.lat,exif.lon,zone);
       const world=planeToSfcWorld(xy.x,xy.y);
-      imported.push({
+      const importedItem={
         number:0,fileName:file.name,lat:exif.lat,lon:exif.lon,direction:exif.direction,capturedAt:exif.capturedAt,
         xNorth:xy.x,yEast:xy.y,demElevation:null,demSource:null,demElevationChecked:false,
         worldX:world.x*1000,worldY:world.y*1000,markerX:world.x*1000,markerY:world.y*1000,
         coordinateZone:zone,originalLat:exif.lat,originalLon:exif.lon,originalDirection:exif.direction,
         originalXNorth:xy.x,originalYEast:xy.y,manualPositionAdjusted:false,manualDirectionAdjusted:false
-      });
-      photoSourceFiles.set(photoAlbumSourceKey(file.name),file);
+      };
+      imported.push(importedItem);
+      attachPhotoSourceFile(importedItem,file);
     }catch(err){failed.push({name:file.name,reason:err&&err.message||"位置情報なし"});}
     finally{
       completed++;

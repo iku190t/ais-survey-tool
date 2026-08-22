@@ -64,7 +64,7 @@ let browser;
   });
   await page.route(/^https:\/\//,route=>route.abort());
   await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:"commit",timeout:10000});
-  await page.waitForFunction(()=>typeof window.eval("buildPhotoAlbumXlsx")==="function",null,{timeout:10000});
+  await page.waitForFunction(()=>window.eval("typeof buildPhotoAlbumXlsx")==="function",null,{timeout:10000});
   const output=await page.evaluate(()=>window.eval(`(async()=>{
     window.GoogleMapsLinkFeature={...(window.GoogleMapsLinkFeature||{}),createPhotoQrImage:async item=>{
       const canvas=document.createElement('canvas');canvas.width=120;canvas.height=120;
@@ -179,6 +179,10 @@ let browser;
     const missingAfterOne=getMissingPhotoSourceItems().length;
     reconnectPhotoSourceFiles([new File(["b"],"B.jpg",{type:"image/jpeg"})]);
     const missingAfterAll=getMissingPhotoSourceItems().length;
+    const fileNameComment=photoAlbumCommentText(photoAnnotations[0],"fileName");
+    photoSourceFiles.clear();
+    const missingAfterDirectFallback=getMissingPhotoSourceItems().length;
+    const sourcesAfterDirectFallback=photoSourceFiles.size;
 
     data={lines:[[0,0,10,10,1]],polys:[],splines:[],texts:[],circles:[],arcs:[],ellipses:[],ellipseArcs:[],markers:[],layerNames:{1:PHOTO_POSITION_LAYER_NAME},source_name:"photo.sfc"};
     deletedLayerNames=new Set();removedSourceLayerNames=new Set();editUndoActions=[];
@@ -190,9 +194,11 @@ let browser;
     data.lines.push([0,0,20,20,1]);
     removeStalePhotoSourceGeometry();
     const afterReimportCleanup={lines:data.lines.length,removed:[...removedSourceLayerNames]};
-    return {missingBefore,missingAfterOne,missingAfterAll,afterDelete,afterUndo,afterReimportCleanup};
+    return {missingBefore,missingAfterOne,missingAfterAll,fileNameComment,missingAfterDirectFallback,sourcesAfterDirectFallback,afterDelete,afterUndo,afterReimportCleanup};
   });
   if(reconnectAndDelete.missingBefore!==2||reconnectAndDelete.missingAfterOne!==1||reconnectAndDelete.missingAfterAll!==0)throw new Error(`元写真の再接続が正しくありません: ${JSON.stringify(reconnectAndDelete)}`);
+  if(reconnectAndDelete.fileNameComment!=="A")throw new Error(`写真帳のファイル名表示が正しくありません: ${JSON.stringify(reconnectAndDelete.fileNameComment)}`);
+  if(reconnectAndDelete.missingAfterDirectFallback!==0||reconnectAndDelete.sourcesAfterDirectFallback!==2)throw new Error(`写真情報の直接参照から元写真を復元できません: ${JSON.stringify(reconnectAndDelete)}`);
   if(reconnectAndDelete.afterDelete.photos!==0||reconnectAndDelete.afterDelete.sources!==0||reconnectAndDelete.afterDelete.lines!==0||reconnectAndDelete.afterDelete.removed.length!==2)throw new Error(`写真レイヤー削除が関連データを消去していません: ${JSON.stringify(reconnectAndDelete.afterDelete)}`);
   if(reconnectAndDelete.afterUndo.photos!==2||reconnectAndDelete.afterUndo.sources!==2||reconnectAndDelete.afterUndo.lines!==1)throw new Error(`写真レイヤー削除のUndoが正しくありません: ${JSON.stringify(reconnectAndDelete.afterUndo)}`);
   if(reconnectAndDelete.afterReimportCleanup.lines!==0||reconnectAndDelete.afterReimportCleanup.removed.length!==2)throw new Error(`新規写真読込み前に旧矢印を除去できません: ${JSON.stringify(reconnectAndDelete.afterReimportCleanup)}`);
