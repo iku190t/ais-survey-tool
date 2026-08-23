@@ -99,6 +99,26 @@ let browser;
   if(!active.gpsEnabled||!active.gpsOnlyBlankMode||active.gpsTemporaryCoordinateZone!==4||!active.aerialPhotoEnabled||active.aerialPhotoZone!==4||active.startupDisplay!=="none"){
     throw new Error(`GPS-only mode did not initialize correctly: ${JSON.stringify(active)}`);
   }
+  const gpsDetailTheme=await page.evaluate(()=>window.eval(`(()=>{
+    gpsDetailOpen=true;updateGpsUi();
+    const box=document.getElementById("gpsBox");
+    darkTheme=true;updateThemeUI();
+    const darkStyle=getComputedStyle(box);
+    const dark={background:darkStyle.backgroundColor,color:darkStyle.color};
+    darkTheme=false;updateThemeUI();
+    const lightStyle=getComputedStyle(box);
+    const light={background:lightStyle.backgroundColor,color:lightStyle.color};
+    gpsDetailOpen=false;updateGpsUi();
+    return {dark,light};
+  })()`));
+  const rgbValues=value=>(String(value).match(/[\d.]+/g)||[]).slice(0,3).map(Number);
+  const [darkR,darkG,darkB]=rgbValues(gpsDetailTheme.dark.background);
+  const [darkTextR,darkTextG,darkTextB]=rgbValues(gpsDetailTheme.dark.color);
+  const [lightR,lightG,lightB]=rgbValues(gpsDetailTheme.light.background);
+  const [lightTextR,lightTextG,lightTextB]=rgbValues(gpsDetailTheme.light.color);
+  if(Math.max(darkR,darkG,darkB)>80||Math.min(darkTextR,darkTextG,darkTextB)<200||Math.min(lightR,lightG,lightB)<220||Math.max(lightTextR,lightTextG,lightTextB)>80){
+    throw new Error(`GPS detail popup did not follow the drawing theme: ${JSON.stringify(gpsDetailTheme)}`);
+  }
   if(await page.locator("#defaultCoordinateSystemSelect").count())throw new Error("obsolete default drawing coordinate control is still visible");
   await page.evaluate(()=>window.eval("scheduleAerialPhotoSourceRefresh({lat:gpsPosition.lat,lon:gpsPosition.lon})"));
   await page.waitForTimeout(900);
