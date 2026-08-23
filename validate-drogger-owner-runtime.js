@@ -98,8 +98,14 @@ let browser;
   })()`));
   if(await page.locator("#droggerRegisterBtn").isDisabled())throw new Error("GPS-only mode incorrectly disabled coordinate registration");
   await page.locator("#droggerRegisterBtn").click();
-  const blankWorkspace=await page.evaluate(()=>window.eval(`({count:inkStrokes.length,records:getDroggerCoordinateRecords().length,beeps:window.__droggerBeeps})`));
-  if(blankWorkspace.count!==15||blankWorkspace.records!==3||blankWorkspace.beeps!==3)throw new Error(`GPS-only registration failed: ${JSON.stringify(blankWorkspace)}`);
+  const blankWorkspace=await page.evaluate(()=>window.eval(`(()=>{
+    const group=inkStrokes.filter(stroke=>stroke.droggerPointId===getDroggerCoordinateRecords().at(-1)?.id);
+    const circle=group.find(stroke=>stroke.isCircleMemo)?.points||[];
+    const diameter=circle.length>24?Math.hypot(circle[0].x-circle[24].x,circle[0].y-circle[24].y):null;
+    const diameters=inkStrokes.filter(stroke=>stroke.droggerLayerId==="drogger:point"&&stroke.isCircleMemo).map(stroke=>Math.hypot(stroke.points[0].x-stroke.points[24].x,stroke.points[0].y-stroke.points[24].y));
+    return {count:inkStrokes.length,records:getDroggerCoordinateRecords().length,beeps:window.__droggerBeeps,diameter,diameters,units:getDroggerWorldUnitsPerPaperMm()};
+  })()`));
+  if(blankWorkspace.count!==15||blankWorkspace.records!==3||blankWorkspace.beeps!==3||Math.abs(blankWorkspace.diameter-400)>1e-6||blankWorkspace.diameters.some(value=>Math.abs(value-400)>1e-6)||blankWorkspace.units!==500)throw new Error(`GPS-only 1/500 registration or migration failed: ${JSON.stringify(blankWorkspace)}`);
   await page.locator("#gpsTitle").dispatchEvent("pointerdown",{pointerId:8,pointerType:"touch",clientX:80,clientY:80,button:0});
   await page.waitForTimeout(3100);
   await page.locator("#gpsTitle").dispatchEvent("pointerup",{pointerId:8,pointerType:"touch",clientX:80,clientY:80,button:0});

@@ -2284,7 +2284,7 @@ gtag('config', 'G-88B9YPJXWP');
 <script src="https://unpkg.com/shpjs@6.2.0/dist/shp.min.js"></script>
 <script src="foundation-map-gml.js?v=1"></script>
 <script src="drogger-geoid-model.js?v=1"></script>
-<script src="drogger-owner-mode.js?v=3"></script>
+<script src="drogger-owner-mode.js?v=4"></script>
 <script>
 const GA_MEASUREMENT_ID = "G-88B9YPJXWP";
 const GA_PLACEHOLDER_ID = "G-88B9YPJXWP";
@@ -2928,6 +2928,7 @@ let gpsSessionState = null;
 let gpsTemporaryCoordinateZone = null;
 const DROGGER_SETTINGS_KEY="ezviewer_drogger_owner_settings_v1";
 const DROGGER_OWNER_LONG_PRESS_MS=3000;
+const DROGGER_GPS_ONLY_SCALE_DENOMINATOR=500;
 const DROGGER_NATIVE_STATUS_URL="http://127.0.0.1:38472/status";
 const DROGGER_NATIVE_SHARE_URL="http://127.0.0.1:38472/share";
 let droggerOwnerModeActive=false;
@@ -6801,7 +6802,7 @@ function registerCurrentDroggerCoordinate(){
   const pointName=document.getElementById("droggerPointName");
   const record=window.DroggerOwnerMode.createRecord({...gpsPosition,geoidHeight:getCurrentDroggerGeoidHeight(),geoidModelName:droggerGeoidModel?.name||gpsPosition.geoidModelName||"",fixMode:droggerNativeStatus.bridge?droggerNativeStatus.fixMode:"",fixQuality:droggerNativeStatus.bridge?droggerNativeStatus.fixQuality:null,fixAgeMs:droggerNativeStatus.bridge?droggerNativeStatus.ageMs:null},droggerOwnerSettings,pointName?.value);
   if(!record){showToast("現在の座標を登録できませんでした",2200);return;}
-  const strokes=window.DroggerOwnerMode.createRegistrationStrokes(record,getMemoWorldUnitsPerPaperMm(),droggerOwnerSettings);
+  const strokes=window.DroggerOwnerMode.createRegistrationStrokes(record,getDroggerWorldUnitsPerPaperMm(),droggerOwnerSettings);
   addInkStrokeOperation(strokes,"Drogger座標登録");
   cachedMeasurePointsDirty=true;
   ensureLayerVisibility();
@@ -6860,6 +6861,7 @@ async function shareDroggerCoordinatesCsv(){
   showToast("CSVを保存しました。Gmailへ添付してください",2600);
 }
 function updateGpsUi(){
+  ensureDroggerGpsOnlyRegistrationScale();
   const btn = document.getElementById("gpsBtn");
   if (btn){
     const available = hasLoadedDrawing() || gpsOnlyBlankMode;
@@ -15260,6 +15262,26 @@ function getDrawingCoordinateStorage(){
 function getMemoWorldUnitsPerPaperMm(){
   return Math.max(1e-9,getDrawingCoordinateStorage().unitsPerPaperMm||1);
 }
+function getDroggerWorldUnitsPerPaperMm(){
+  return gpsOnlyBlankMode&&!hasLoadedDrawing()
+    ?DROGGER_GPS_ONLY_SCALE_DENOMINATOR
+    :getMemoWorldUnitsPerPaperMm();
+}
+function ensureDroggerGpsOnlyRegistrationScale(){
+  if(!gpsOnlyBlankMode||hasLoadedDrawing()||!window.DroggerOwnerMode?.prepareRegistrationStrokesForPaper)return false;
+  const targetDiameter=.8*DROGGER_GPS_ONLY_SCALE_DENOMINATOR;
+  const needsMigration=(inkStrokes||[]).some(stroke=>{
+    if(stroke?.droggerLayerId!=="drogger:point"||!stroke.isCircleMemo||!Array.isArray(stroke.points)||stroke.points.length<25)return false;
+    const diameter=Math.hypot(stroke.points[0].x-stroke.points[24].x,stroke.points[0].y-stroke.points[24].y);
+    return !Number.isFinite(diameter)||Math.abs(diameter-targetDiameter)>.001;
+  });
+  if(!needsMigration)return false;
+  inkStrokes=window.DroggerOwnerMode.prepareRegistrationStrokesForPaper(inkStrokes,DROGGER_GPS_ONLY_SCALE_DENOMINATOR);
+  cachedMeasurePointsDirty=true;
+  scheduleRecoverySnapshot(180);
+  scheduleDraw();
+  return true;
+}
 function serializePhotoAnnotations(){
   return (photoAnnotations||[]).map(item=>({
     number:+item.number||0,
@@ -17067,7 +17089,7 @@ function getNextSxfAttributeSerial(srcText){
 }
 function buildInkPolylineFeatureText(baseText){
   const paperReadyStrokes=window.DroggerOwnerMode?.prepareRegistrationStrokesForPaper
-    ?window.DroggerOwnerMode.prepareRegistrationStrokesForPaper(inkStrokes||[],getMemoWorldUnitsPerPaperMm())
+    ?window.DroggerOwnerMode.prepareRegistrationStrokesForPaper(inkStrokes||[],getDroggerWorldUnitsPerPaperMm())
     :[...(inkStrokes||[])];
   const sourceStrokes=[...paperReadyStrokes,...buildPhotoAnnotationExportStrokes()];
   const normalized = sourceStrokes.map(strokeToWorldPolyline).filter(s => s && Array.isArray(s.points) && s.points.length >= 2 && !deletedLayerNames.has(getMemoLayerSpecForStroke(s).name));
