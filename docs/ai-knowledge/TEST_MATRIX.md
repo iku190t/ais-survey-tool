@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-23 / `8628b90`
+最終実行: 2026-08-23 / `749651c`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -29,7 +29,7 @@
 ### 成功
 
 - `validate-drogger-owner-mode.js` — アンテナ高補正、紙面1mm丸、3レイヤー、文字寸法更新、CSVを確認。
-- `validate-drogger-owner-runtime.js` — 5回タップON/OFF、登録、SFCメタデータ、関連3レイヤー削除とUndoをブラウザ上で確認。
+- `validate-drogger-owner-runtime.js` — 短押し・移動時キャンセル、5秒長押しON/OFF、登録、SFCメタデータ、関連3レイヤー削除とUndoをブラウザ上で確認。
 
 - `validate-registry-progress-cancel.js` — 「国土地調査境界」から取得開始し、取得中は「キャンセル」、完了後は「表示」「非表示」へ切り替わることを確認。
 - `validate-registry-append-and-intersection.js` — 未取得時の「国土地調査境界」表示と取得開始を確認。
