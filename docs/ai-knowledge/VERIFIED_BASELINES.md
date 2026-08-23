@@ -7,9 +7,9 @@
 ### BASE-20260823-HEAD
 
 - 状態: `検証済み`
-- コミット: `55707a7`
+- コミット: `92273dd`
 - ブランチ: `main`
-- 内容: 2026-08-23時点の検証版。従来の検証済み機能に加え、現在地題名の3秒長押しで開くDrogger座標登録、図面なし登録、公式ISGによるジオイド補正、最小化、利用者判断による登録、最大ゲインの確認音、P番号の自動増番、0.8mm丸・中心十字を含む。
+- 内容: 2026-08-23時点の検証版。従来の検証済み機能に加え、Android専用のSFC ZIP共有、現在地題名の3秒長押しで開くDrogger座標登録、図面なしの固定画面寸法、SFC出力時の0.8mm丸・1.8mm既定文字への再構成、公式ISGによるジオイド補正、最小化、利用者判断による登録、確認音、P番号の自動増番を含む。
 - 成功した主要検証: 方位追従、法務局4本、写真帳2本、写真ネットワーク読込、写真位置調整、復元保存、性能、現在地起動、地形2本、等高線文字2本、基盤地図2本、Google連携、PC操作2本、実SFC読込。
 - 注意: `PROJECT_STATE.md` の「未解決の検証課題」5本はこのHEADでも失敗する。全テスト成功とは記録しない。
 
@@ -35,6 +35,19 @@
   - Drogger関連レイヤーのどれかをレイヤー画面から削除すると、3レイヤーと登録情報をまとめて削除する。
 - 検証: `validate-drogger-geoid-model.js`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-performance-indexes.js`、`validate-pc-map-toolbar.js`、`validate-text-layer-ui.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc`。
 - 制限: 通常のWeb Geolocation APIはRTK FIX/FLOAT状態を返さないため、EZ ViewerはFIX状態を独自判定しない。
+
+### BASE-ANDROID-SHARE-DROGGER-SIZE-20260823
+
+- 状態: `検証済み`
+- コミット: `92273dd`
+- 対象: AndroidのSFC共有と、図面なしDrogger登録の表示・SFC出力寸法。
+- 確認内容:
+  - Androidだけファイルメニューへ「共有・メール送信」を表示し、SFCをZIP化して準備完了後のボタンからAndroid共有画面を直接開く。
+  - ZIPのMIME候補を順に試し、通常保存・PC・iPhoneの経路は維持する。
+  - 図面なしの点記号は画面上で直径16pxの一定表示とし、点名・標高も一定の画面文字寸法で表示する。
+  - SFC書出では保存座標から点記号を再作成し、紙面0.8mm丸と中心十字、既定1.8mmの点名・標高文字へ図面縮尺に合わせる。利用者が文字寸法を変更した場合は保存済み設定を使う。
+- 検証: `validate-android-sfc-share.js`、`validate-drogger-owner-mode.js`、`validate-drogger-geoid-model.js`、`validate-gps-startup-mode.js`、`validate-last-work-recovery.js`、`validate-drogger-owner-runtime.js`、`validate-real-sfc-rendering.js sample.sfc`。
+- 制限: Android実機の共有候補にGmailが表示されるかは、端末・Chrome・インストール済みアプリに依存するため実機確認が必要。
 
 ### BASE-RECENT-DRAWINGS-20260823
 
