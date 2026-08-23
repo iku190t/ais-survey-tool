@@ -115,6 +115,19 @@
 - 確認内容: 初期表示、キャンセル後の復帰、未取得時の案内、ヘルプを「国土地調査境界」へ統一する。取得後の「表示」「非表示」と取得中の「キャンセル」は従来どおり。
 - 検証: `validate-registry-progress-cancel.js`、`validate-registry-append-and-intersection.js`、`validate-registry-cad.js`、`validate-pc-map-toolbar.js`。
 
+### BASE-REGISTRY-WIDE-20260823
+
+- 状態: `検証済み`
+- コミット: `dcb28de`
+- 対象: 広い範囲・高密度地域の法務局地図自動取得。
+- 確認内容:
+  - 従来の広域事前上限へ達する前に、スマホ約900m、PC約1,600m単位の安全区画へ自動分割する。
+  - 区画は図面中央に近い順で優先し、極端に広い図面はスマホ36区画、PC64区画までに制限する。
+  - SHP/GeoJSONはダウンロード済みデータを分割範囲で選別し、筆12,000/30,000件、形状点36万/90万点の端末別上限へ達した場合も全消去せず、中央側の取得済みデータを保持する。
+  - 一部取得時は取得区画数を状態欄と完了メッセージに表示し、解析進捗には分割区画数を表示する。
+  - 取得後の表示・非表示、キャンセル、レイヤー色、範囲CAD化、SFC表示は変更しない。
+- 検証: `validate-map-attribution-registry.js`（6区画分割、36区画上限、中央優先12,000件保持、分割GeoJSON、SHP範囲判定）、`validate-registry-progress-cancel.js`、`validate-registry-append-and-intersection.js`、`validate-registry-cad.js`、`validate-registry-layer-colors.js`、`validate-pc-map-toolbar.js`、`validate-real-sfc-rendering.js sample.sfc`、`validate-last-work-recovery.js`。
+
 ### BASE-PHOTO-DROP-20260822
 
 - 状態: `検証済み`

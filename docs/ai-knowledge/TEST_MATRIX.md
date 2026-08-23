@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-23 / `cef92f8`
+最終実行: 2026-08-23 / `dcb28de`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -22,7 +22,7 @@
 |ライセンス・著作権表示|`validate-open-source-license.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |広いUI変更|上記関連テストに加え `validate-ui.js`、`validate-real-sfc-rendering.js sample.sfc`|
 
-## 2026-08-22 実行結果
+## 2026-08-23 実行結果
 
 ### 成功
 
@@ -30,6 +30,7 @@
 - `validate-registry-append-and-intersection.js` — 未取得時の「国土地調査境界」表示と取得開始を確認。
 - `validate-registry-cad.js`
 - `validate-registry-layer-colors.js`
+- `validate-map-attribution-registry.js` — 広域の安全区画分割、スマホ36区画上限、中央優先の筆・形状点制限、分割GeoJSON、SHP区画判定を確認。
 - `validate-recovery-autosave.js`
 - `validate-last-work-recovery.js` — 元SFCと編集差分をIndexedDBへ保存し、localStorageスナップショットなし・ブラウザ再読込後でも初回画面のボタンから復元できることを確認。
 - `validate-performance-indexes.js`
@@ -50,7 +51,6 @@
 - `validate-foundation-map-gml.js`
 - `validate-foundation-map-import.js`
 - `validate-google-maps-links.js`
-- `validate-map-attribution-registry.js`
 - `validate-pc-map-toolbar.js` — PCツールバーとポップアップ配置に加え、SXF図面枠をホームでPC・スマホの有効表示領域へ収め、内側図形だけを誤って全体表示しないことを確認。
 - `validate-pc-object-interaction.js`
 - `validate-photo-network-import.js`
