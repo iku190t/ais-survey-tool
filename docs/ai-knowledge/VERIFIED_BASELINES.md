@@ -15,6 +15,17 @@
 
 ## 機能別の正常基準
 
+### BASE-EDIT-BUTTON-HEIGHT-20260823
+
+- 状態: `検証済み`
+- コミット: `ec18727`
+- 対象: 図面左上の「レイヤー」、Undo、Redoボタン。
+- 確認内容:
+  - 内容量任せだった「レイヤー」の高さをUndo・Redoと同じ34pxへ固定する。
+  - レイヤーの横幅、文字、位置、機能とUndo・Redoの寸法・機能は変更しない。
+  - PCと390×844スマホ表示の両方で3ボタンの実寸高さが一致する。
+- 検証: `validate-pc-map-toolbar.js`、`validate-gps-startup-mode.js`、`validate-default-settings.js`、`validate-compass-follow.js`、`validate-real-sfc-rendering.js sample.sfc`。
+
 ### BASE-HOME-SHEET-FIT-20260823
 
 - 状態: `検証済み`

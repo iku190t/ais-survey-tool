@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-23 / `dcb28de`
+最終実行: 2026-08-23 / `ec18727`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -51,7 +51,7 @@
 - `validate-foundation-map-gml.js`
 - `validate-foundation-map-import.js`
 - `validate-google-maps-links.js`
-- `validate-pc-map-toolbar.js` — PCツールバーとポップアップ配置に加え、SXF図面枠をホームでPC・スマホの有効表示領域へ収め、内側図形だけを誤って全体表示しないことを確認。
+- `validate-pc-map-toolbar.js` — PCツールバーとポップアップ配置、PC・スマホでレイヤー／Undo／Redoが同じ34px高であることに加え、SXF図面枠をホームでPC・スマホの有効表示領域へ収め、内側図形だけを誤って全体表示しないことを確認。
 - `validate-pc-object-interaction.js`
 - `validate-photo-network-import.js`
 - `validate-photo-position-adjustment.js`
