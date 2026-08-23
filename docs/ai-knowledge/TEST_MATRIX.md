@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-23 / `ec18727`
+最終実行: 2026-08-23 / `b0e2284`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -17,6 +17,7 @@
 |現在地・GPS|`validate-gps-startup-mode.js`、`validate-gps-detail-dem.js`|
 |スマホ方位追従・ホーム|`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-gps-startup-mode.js`|
 |PCツールバー・ポップアップ|`validate-pc-map-toolbar.js`、`validate-pc-object-interaction.js`、`validate-text-layer-ui.js`|
+|PCの最近開いた図面|`validate-recent-drawings.js`、`validate-pc-map-toolbar.js`|
 |スマホタッチ|`validate-mobile-touch.js`、`validate-gps-startup-mode.js`|
 |SFC/SFZ・ラスター|`validate-real-sfc-rendering.js <実ファイル>`、`validate-raster-placement.js`、`validate-ui.js`|
 |ライセンス・著作権表示|`validate-open-source-license.js`、`validate-real-sfc-rendering.js sample.sfc`|
@@ -52,6 +53,7 @@
 - `validate-foundation-map-import.js`
 - `validate-google-maps-links.js`
 - `validate-pc-map-toolbar.js` — PCツールバーとポップアップ配置、PC・スマホでレイヤー／Undo／Redoが同じ34px高であることに加え、SXF図面枠をホームでPC・スマホの有効表示領域へ収め、内側図形だけを誤って全体表示しないことを確認。
+- `validate-recent-drawings.js` — 旧5件履歴を上位3件へ制限し、初回画面とファイルメニューの一致、新規図面を先頭へ移した後も3件を維持することを確認。
 - `validate-pc-object-interaction.js`
 - `validate-photo-network-import.js`
 - `validate-photo-position-adjustment.js`

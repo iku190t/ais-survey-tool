@@ -15,6 +15,18 @@
 
 ## 機能別の正常基準
 
+### BASE-RECENT-DRAWINGS-20260823
+
+- 状態: `検証済み`
+- コミット: `b0e2284`
+- 対象: PC版の「最近開いた図面」。
+- 確認内容:
+  - 初回画面とファイルメニューは、同じ履歴から最新3件だけを表示する。
+  - 端末に旧上限の5件が残っていても、読込時に上位3件へ制限する。
+  - 新しく開いた図面または再度開いた図面を先頭へ移し、合計3件を維持する。
+  - スマホでは従来どおり履歴を表示しない。
+- 検証: `validate-recent-drawings.js`、`validate-pc-map-toolbar.js`、`validate-gps-startup-mode.js`、`validate-last-work-recovery.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc`。
+
 ### BASE-EDIT-BUTTON-HEIGHT-20260823
 
 - 状態: `検証済み`
