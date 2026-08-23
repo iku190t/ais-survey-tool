@@ -7,13 +7,28 @@
 ### BASE-20260823-HEAD
 
 - 状態: `検証済み`
-- コミット: `92273dd`
+- コミット: `ac93f4d`
 - ブランチ: `main`
-- 内容: 2026-08-23時点の検証版。従来の検証済み機能に加え、Android専用のSFC ZIP共有、現在地題名の3秒長押しで開くDrogger座標登録、図面なしの固定画面寸法、SFC出力時の0.8mm丸・1.8mm既定文字への再構成、公式ISGによるジオイド補正、最小化、利用者判断による登録、確認音、P番号の自動増番を含む。
+- 内容: 2026-08-23時点の検証版。従来の検証済み機能に加え、Android専用のSFC ZIP共有、現在地題名の3秒長押しで開くDrogger座標登録、図面なしの固定画面寸法、SFC出力時の0.8mm丸・1.8mm既定文字への再構成、公式ISGによるジオイド補正、最小化、利用者判断による登録、確認音、P番号の自動増番、専用AndroidアプリからのRTK FIX/FLOAT表示と記録を含む。
 - 成功した主要検証: 方位追従、法務局4本、写真帳2本、写真ネットワーク読込、写真位置調整、復元保存、性能、現在地起動、地形2本、等高線文字2本、基盤地図2本、Google連携、PC操作2本、実SFC読込。
 - 注意: `PROJECT_STATE.md` の「未解決の検証課題」5本はこのHEADでも失敗する。全テスト成功とは記録しない。
 
 ## 機能別の正常基準
+
+### BASE-ANDROID-DROGGER-FIX-20260823
+
+- 状態: `検証済み`
+- Webコミット: `ac93f4d`。
+- Androidコミット: `5e78e20`、バージョン `1.0.1-private`。
+- 対象: 所有者専用Android版のDrogger RTK状態連携。
+- 確認内容:
+  - Androidアプリ内のループバック `127.0.0.1:38471` だけでNMEAを受け、GGA品質4をFIXED、5をFLOATとして判定する。
+  - 状態取得は端末内HTTP `127.0.0.1:38472` に限定し、外部サーバーへ座標を送らない。
+  - `?source=android_app` のAndroid版だけ1秒ごとに状態を読み、一般Web版では接続しない。
+  - 専用画面へFIXED/FLOAT/受信停止を表示し、登録時の状態を座標記録・CSVの「RTK状態」へ保存する。FIX状態では登録を制限しない。
+- 実機検証: USB接続のAndroid 12端末へ上書きインストールし、品質4→FIXED、品質5→FLOAT、5秒超の無受信→STALEを確認。
+- Web検証: `validate-android-drogger-bridge.js`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、Drogger/GPS/復元/実SFCの関連回帰。
+- 必要設定: Drogger GPSのTCP Clientをホスト `127.0.0.1`、ポート `38471`、GGA出力ありにする。
 
 ### BASE-DROGGER-OWNER-20260823
 

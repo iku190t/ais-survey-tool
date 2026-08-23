@@ -15,7 +15,7 @@
 |自動保存・前回作業復元・レイヤー色・SFC保存|`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |DEM・等高線・地形解析|`validate-terrain-advanced.js`、`validate-terrain-ui.js`、`validate-contour-text-horizontal.js`、`validate-contour-label-raster-quality.js`|
 |現在地・GPS|`validate-gps-startup-mode.js`、`validate-gps-detail-dem.js`|
-|Drogger座標登録|`validate-drogger-geoid-model.js`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
+|Drogger座標登録・専用Android FIX|`validate-android-drogger-bridge.js`、`validate-drogger-geoid-model.js`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |Android SFC共有|`validate-android-sfc-share.js`、`validate-drogger-owner-mode.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |スマホ方位追従・ホーム|`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-gps-startup-mode.js`|
 |PCツールバー・ポップアップ|`validate-pc-map-toolbar.js`、`validate-pc-object-interaction.js`、`validate-text-layer-ui.js`|
@@ -28,6 +28,8 @@
 ## 2026-08-23 実行結果
 
 ### 成功
+
+- `validate-android-drogger-bridge.js` — 専用Android起動判定、端末内状態URL、1秒ポーリング、FIX情報の表示・登録連携を確認。
 
 - `validate-android-sfc-share.js` — Android専用ボタン、SFCのZIP化、ZIP準備後の直接Web Share呼出し、Android以外での非表示を確認。
 - `validate-drogger-geoid-model.js` — ISG 2.0の厳密なヘッダー解析、北から南の行方向、双一次補間、範囲外のnullを確認。

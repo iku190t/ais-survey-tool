@@ -1,5 +1,16 @@
 # 設計判断と確定仕様
 
+## D-015 Drogger FIXは専用Android版だけ端末内NMEAから取得する
+
+- 状態: `検証済み`
+- 判断:
+  - 一般Web版はAndroid固有の受信口へ接続しない。
+  - 所有者専用Android版はDrogger GPSのTCP ClientからGGAを端末内ループバックで受け、品質4/5をFIXED/FLOATとして表示・記録する。
+  - FIX状態は登録可否を自動制限せず、利用者判断を維持する。
+  - 座標やNMEAを外部サーバーへ送らない。
+- 根拠: Android `5e78e20` の実機FIXED/FLOAT/STALE試験とWeb `ac93f4d` の回帰試験。
+- 確認回数: 1。実Drogger受信機からの連続受信確認後に再評価する。
+
 ## D-001 Gitをコード状態の正本にする
 
 - 状態: `検証済み`
