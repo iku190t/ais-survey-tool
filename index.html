@@ -380,7 +380,7 @@ label.fileBtn{
 #gpsDetailFab{top:calc(58px + var(--cad-toolbar-offset,40px))!important;}
 #gpsBox{top:calc(104px + var(--cad-toolbar-offset,40px))!important;max-height:calc(100% - 116px - var(--cad-toolbar-offset,40px))!important;}
 body.light #gpsBox{background:rgba(255,255,255,.88)!important;color:#111!important;border-color:rgba(0,0,0,.24);box-shadow:0 8px 24px rgba(0,0,0,.2);}
-#gpsTitle{cursor:default;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+#gpsTitle{cursor:default;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #droggerOwnerControls{display:none;margin-top:9px;padding-top:9px;border-top:1px solid var(--border);font-size:12px;}
 #droggerOwnerControls.show{display:grid;gap:7px;}
 .droggerOwnerRow{display:grid;grid-template-columns:minmax(0,1fr) 92px;align-items:center;gap:8px;}
@@ -2901,9 +2901,10 @@ let gpsOnlyBlankPrevDarkTheme = true;
 let gpsSessionState = null;
 let gpsTemporaryCoordinateZone = null;
 const DROGGER_SETTINGS_KEY="ezviewer_drogger_owner_settings_v1";
+const DROGGER_OWNER_LONG_PRESS_MS=5000;
 let droggerOwnerModeActive=false;
-let droggerOwnerTitleTapCount=0;
-let droggerOwnerTitleTapTimer=0;
+let droggerOwnerLongPressTimer=0;
+let droggerOwnerLongPressState=null;
 let droggerOwnerSettings=window.DroggerOwnerMode?.normalizeSettings?.((()=>{try{return JSON.parse(localStorage.getItem(DROGGER_SETTINGS_KEY)||"null");}catch(_error){return null;}})())||{antennaHeight:0,nameTextSizeMm:2.5,elevationTextSizeMm:2.5};
 const JGD2024_NAME = "JGD2024";
 const JAPAN_PLANE_ZONES = [
@@ -6619,17 +6620,31 @@ function setDroggerOwnerMode(active){
   updateGpsUi();
   showToast(droggerOwnerModeActive?"Drogger座標登録モード ON":"Drogger座標登録モード OFF",1800);
 }
-function handleDroggerTitleTap(event){
+function cancelDroggerOwnerLongPress(){
+  clearTimeout(droggerOwnerLongPressTimer);
+  droggerOwnerLongPressTimer=0;
+  droggerOwnerLongPressState=null;
+}
+function handleDroggerTitlePointerDown(event){
+  if(event.pointerType==="mouse"&&event.button!==0)return;
   event.preventDefault();
   event.stopPropagation();
-  clearTimeout(droggerOwnerTitleTapTimer);
-  droggerOwnerTitleTapCount++;
-  if(droggerOwnerTitleTapCount>=5){
-    droggerOwnerTitleTapCount=0;
+  cancelDroggerOwnerLongPress();
+  droggerOwnerLongPressState={pointerId:event.pointerId,startX:event.clientX,startY:event.clientY};
+  try{event.currentTarget.setPointerCapture(event.pointerId);}catch(_error){}
+  droggerOwnerLongPressTimer=setTimeout(()=>{
+    if(!droggerOwnerLongPressState||droggerOwnerLongPressState.pointerId!==event.pointerId)return;
+    droggerOwnerLongPressTimer=0;
     setDroggerOwnerMode(!droggerOwnerModeActive);
-    return;
-  }
-  droggerOwnerTitleTapTimer=setTimeout(()=>{droggerOwnerTitleTapCount=0;},1500);
+  },DROGGER_OWNER_LONG_PRESS_MS);
+}
+function handleDroggerTitlePointerMove(event){
+  const state=droggerOwnerLongPressState;
+  if(!state||state.pointerId!==event.pointerId)return;
+  if(Math.hypot(event.clientX-state.startX,event.clientY-state.startY)>12)cancelDroggerOwnerLongPress();
+}
+function handleDroggerTitlePointerEnd(event){
+  if(droggerOwnerLongPressState?.pointerId===event.pointerId)cancelDroggerOwnerLongPress();
 }
 function updateDroggerSettingsFromInputs(options={}){
   const previous=droggerOwnerSettings;
@@ -14318,7 +14333,7 @@ function resetSessionFromLoad(){
 function clearLoadedState(){
   if(gpsEnabled||gpsSessionState)stopGps(false);
   droggerOwnerModeActive=false;
-  droggerOwnerTitleTapCount=0;
+  cancelDroggerOwnerLongPress();
   closeDroggerCoordinateManager();
   setPhotoListPanelOpen(false);
   exitGpsOnlyBlankMode(false);
@@ -19379,7 +19394,12 @@ document.getElementById("gpsDetailFab").addEventListener("click", ()=>{
   gpsDetailOpen = !gpsDetailOpen;
   updateGpsUi();
 });
-document.getElementById("gpsTitle")?.addEventListener("click",handleDroggerTitleTap);
+const droggerOwnerTitle=document.getElementById("gpsTitle");
+droggerOwnerTitle?.addEventListener("pointerdown",handleDroggerTitlePointerDown);
+droggerOwnerTitle?.addEventListener("pointermove",handleDroggerTitlePointerMove);
+droggerOwnerTitle?.addEventListener("pointerup",handleDroggerTitlePointerEnd);
+droggerOwnerTitle?.addEventListener("pointercancel",handleDroggerTitlePointerEnd);
+droggerOwnerTitle?.addEventListener("contextmenu",event=>event.preventDefault());
 document.getElementById("droggerRegisterBtn")?.addEventListener("click",registerCurrentDroggerCoordinate);
 document.getElementById("droggerManageBtn")?.addEventListener("click",openDroggerCoordinateManager);
 document.getElementById("droggerCoordinateCloseBtn")?.addEventListener("click",closeDroggerCoordinateManager);
