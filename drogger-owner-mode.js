@@ -8,8 +8,8 @@
   });
   const DEFAULT_SETTINGS=Object.freeze({
     antennaHeight:0,
-    nameTextSizeMm:2.5,
-    elevationTextSizeMm:2.5
+    nameTextSizeMm:1.8,
+    elevationTextSizeMm:1.8
   });
 
   const finite=(value,fallback=null)=>(value===null||value===undefined||value==="")?fallback:Number.isFinite(+value)?+value:fallback;
@@ -71,6 +71,8 @@
       geoidHeight:finite(gps.geoidHeight),
       geoidModelName:String(gps.geoidModelName||""),
       antennaHeight:normalized.antennaHeight,
+      nameTextSizeMm:normalized.nameTextSizeMm,
+      elevationTextSizeMm:normalized.elevationTextSizeMm,
       elevation:roundedElevation(correctedElevation(gps.altitude,gps.geoidHeight,normalized.antennaHeight)),
       accuracy:finite(gps.accuracy),
       altitudeAccuracy:finite(gps.altitudeAccuracy),
@@ -80,7 +82,7 @@
   }
   function labelPayload(text,x,y,heightMm){
     const value=String(text||"");
-    const height=clamp(finite(heightMm,2.5),1,10);
+    const height=clamp(finite(heightMm,DEFAULT_SETTINGS.nameTextSizeMm),1,10);
     return {text:value,x,y,heightMm:height,widthMm:Math.max(height,value.length*height*.95),align1:4,align2:0};
   }
   function createRegistrationStrokes(record,worldUnitsPerPaperMm,settings){
@@ -112,14 +114,60 @@
   }
   function updateTextStyles(strokes,settings){
     const normalized=normalizeSettings(settings);
+    const updatedPointIds=new Set();
     for(const stroke of strokes||[]){
+      if(stroke?.droggerRecord&&stroke?.droggerPointId){
+        stroke.droggerRecord.nameTextSizeMm=normalized.nameTextSizeMm;
+        stroke.droggerRecord.elevationTextSizeMm=normalized.elevationTextSizeMm;
+        updatedPointIds.add(stroke.droggerPointId);
+      }
       if(!stroke||!stroke.photoTextLabel)continue;
       const size=stroke.droggerLayerId===LAYERS.name?normalized.nameTextSizeMm:stroke.droggerLayerId===LAYERS.elevation?normalized.elevationTextSizeMm:null;
       if(size==null)continue;
       stroke.photoTextLabel.heightMm=size;
       stroke.photoTextLabel.widthMm=Math.max(size,String(stroke.photoTextLabel.text||"").length*size*.95);
     }
+    if(updatedPointIds.size){
+      for(const stroke of strokes||[]){
+        if(!updatedPointIds.has(stroke?.droggerPointId)||!stroke?.droggerRecord)continue;
+        stroke.droggerRecord.nameTextSizeMm=normalized.nameTextSizeMm;
+        stroke.droggerRecord.elevationTextSizeMm=normalized.elevationTextSizeMm;
+      }
+    }
     return normalized;
+  }
+  function prepareRegistrationStrokesForPaper(strokes,worldUnitsPerPaperMm){
+    const source=Array.isArray(strokes)?strokes:[];
+    const groups=new Map();
+    for(const stroke of source){
+      const id=stroke&&stroke.droggerPointId;
+      if(!id)continue;
+      if(!groups.has(id))groups.set(id,[]);
+      groups.get(id).push(stroke);
+    }
+    const rebuilt=new Map();
+    for(const [id,group] of groups){
+      const recordStroke=group.find(stroke=>stroke&&stroke.droggerRecord);
+      if(!recordStroke)continue;
+      const record={...recordStroke.droggerRecord};
+      const nameLabel=group.find(stroke=>stroke?.droggerLayerId===LAYERS.name&&stroke.photoTextLabel)?.photoTextLabel;
+      const elevationLabel=group.find(stroke=>stroke?.droggerLayerId===LAYERS.elevation&&stroke.photoTextLabel)?.photoTextLabel;
+      const settings=normalizeSettings({
+        antennaHeight:record.antennaHeight,
+        nameTextSizeMm:finite(nameLabel?.heightMm,finite(record.nameTextSizeMm,DEFAULT_SETTINGS.nameTextSizeMm)),
+        elevationTextSizeMm:finite(elevationLabel?.heightMm,finite(record.elevationTextSizeMm,DEFAULT_SETTINGS.elevationTextSizeMm))
+      });
+      rebuilt.set(id,createRegistrationStrokes(record,worldUnitsPerPaperMm,settings));
+    }
+    const emitted=new Set(),result=[];
+    for(const stroke of source){
+      const id=stroke&&stroke.droggerPointId;
+      if(!id||!rebuilt.has(id)){result.push(stroke);continue;}
+      if(emitted.has(id))continue;
+      emitted.add(id);
+      result.push(...rebuilt.get(id));
+    }
+    return result;
   }
   function csvValue(value){
     let text=value==null?"":String(value);
@@ -134,5 +182,5 @@
     return [headers,...rows].map(row=>row.map(csvValue).join(",")).join("\r\n");
   }
 
-  global.DroggerOwnerMode=Object.freeze({LAYERS,DEFAULT_SETTINGS,normalizeSettings,correctedElevation,drawingElevationText,nextPointName,incrementPointName,createRecord,createRegistrationStrokes,recordsFromStrokes,updateTextStyles,buildCsv});
+  global.DroggerOwnerMode=Object.freeze({LAYERS,DEFAULT_SETTINGS,normalizeSettings,correctedElevation,drawingElevationText,nextPointName,incrementPointName,createRecord,createRegistrationStrokes,prepareRegistrationStrokesForPaper,recordsFromStrokes,updateTextStyles,buildCsv});
 })(window);

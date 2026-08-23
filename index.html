@@ -765,7 +765,13 @@ body.light #layerHeader .layerActions button,body.light #layerHeader .layerActio
 #startupRecentSection{margin:11px 0 2px;border-top-color:#d5d5d5;}
 #startupRecentSection .recentDrawingTitle{color:#555;}
 #startupRecentSection .recentDrawingButton{border-color:#bbb;background:#f7f7f7;color:#222;}
-#saveMenuOverwriteBtn,#saveMenuSaveAsBtn,#saveMenuSfzBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;}
+#saveMenuOverwriteBtn,#saveMenuSaveAsBtn,#saveMenuAndroidShareBtn,#saveMenuSfzBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;}
+#androidShareReadyModal{display:none;position:fixed;inset:0;z-index:235;background:rgba(0,0,0,.58);align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
+#androidShareReadyBox{width:min(330px,92vw);background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 14px 34px rgba(0,0,0,.44);}
+#androidShareReadyTitle{font-size:15px;font-weight:800;margin-bottom:7px;}
+#androidShareReadyHint{font-size:12px;line-height:1.55;color:var(--muted);margin-bottom:12px;}
+#androidShareReadyActions{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+#androidShareOpenBtn{background:#1677ff;color:#fff;border-color:#0f5ec8;font-weight:800;}
 #photoToolBtn{display:none;}
 #photoListPanel{display:none;left:auto;right:12px;top:calc(58px + var(--cad-toolbar-offset,40px));width:min(420px,calc(100vw - 24px));height:min(720px,calc(100% - 76px - var(--cad-toolbar-offset,40px)));max-height:calc(100% - 76px - var(--cad-toolbar-offset,40px));overflow:hidden;padding:0;z-index:82;flex-direction:column;}
 #photoListHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);}
@@ -2208,12 +2214,24 @@ gtag('config', 'G-88B9YPJXWP');
         <button id="saveMenuOpenBtn" class="saveMenuNativeOpen" type="button">開く</button>
         <button id="saveMenuOverwriteBtn" type="button">上書き保存</button>
         <button id="saveMenuSaveAsBtn" type="button">名前を付けて保存</button>
+        <button id="saveMenuAndroidShareBtn" type="button" hidden>共有・メール送信</button>
         <div id="saveMenuRecentSection" class="recentDrawingSection">
           <div class="recentDrawingTitle">最近開いた図面</div>
           <div id="saveMenuRecentList" class="recentDrawingList"></div>
         </div>
         <button id="saveMenuSfzBtn" type="button" hidden>航空写真を含めてSFZ保存・送信</button>
         <button id="saveMenuCancelBtn" type="button">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="androidShareReadyModal" role="dialog" aria-modal="true" aria-labelledby="androidShareReadyTitle">
+    <div id="androidShareReadyBox">
+      <div id="androidShareReadyTitle">共有・メール送信</div>
+      <div id="androidShareReadyHint">SFCをZIPにまとめました。共有先でGmailなどを選んでください。</div>
+      <div id="androidShareReadyActions">
+        <button id="androidShareOpenBtn" type="button">共有画面を開く</button>
+        <button id="androidShareCancelBtn" type="button">閉じる</button>
       </div>
     </div>
   </div>
@@ -2914,7 +2932,7 @@ let droggerOwnerModeActive=false;
 let droggerOwnerMinimized=false;
 let droggerOwnerLongPressTimer=0;
 let droggerOwnerLongPressState=null;
-let droggerOwnerSettings=window.DroggerOwnerMode?.normalizeSettings?.((()=>{try{return JSON.parse(localStorage.getItem(DROGGER_SETTINGS_KEY)||"null");}catch(_error){return null;}})())||{antennaHeight:0,nameTextSizeMm:2.5,elevationTextSizeMm:2.5};
+let droggerOwnerSettings=window.DroggerOwnerMode?.normalizeSettings?.((()=>{try{return JSON.parse(localStorage.getItem(DROGGER_SETTINGS_KEY)||"null");}catch(_error){return null;}})())||{antennaHeight:0,nameTextSizeMm:1.8,elevationTextSizeMm:1.8};
 let droggerGeoidModel=null;
 let droggerGeoidModelLoading=false;
 let droggerGeoidModelLoadStarted=false;
@@ -7932,6 +7950,9 @@ function isIOSLike(){
   const touchMac = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
   return /iPhone|iPad|iPod/i.test(ua) || touchMac;
 }
+function isAndroidLike(){
+  return /Android/i.test(navigator.userAgent||"");
+}
 async function shareBlobFile(blob, fileName){
   if (!(window.File && navigator.share)) return false;
   // Some Android browsers incorrectly return false from canShare() for ZIP
@@ -7956,19 +7977,52 @@ async function shareBlobFile(blob, fileName){
   // Prefer a MIME type explicitly accepted by the browser. If every
   // canShare() check says false, still make one real share attempt because
   // that check is unreliable on several Android WebView/Chrome combinations.
-  const selected=candidates.find(v=>v.supported===true)||candidates[0];
-  if(!selected)return false;
+  const ordered=[...candidates.filter(v=>v.supported===true),...candidates.filter(v=>v.supported!==true)];
+  for(const selected of ordered){
+    try{
+      await navigator.share({
+        title:name,
+        text:"SFC図面を送信します。",
+        files:[selected.file]
+      });
+      return true;
+    }catch(e){
+      if(e&&e.name==='AbortError')return "cancelled";
+      console.error("File share failed",{name,type:selected.type,canShare:selected.supported,error:e});
+      if(e&&e.name==='NotAllowedError')return false;
+    }
+  }
+  return false;
+}
+
+let pendingAndroidZipShare=null;
+function closeAndroidShareReady(){
+  const modal=document.getElementById("androidShareReadyModal");
+  if(modal)modal.style.display="none";
+  pendingAndroidZipShare=null;
+}
+async function prepareAndroidSfcZipShare(){
+  setSaveMenuOpen(false);
+  if(!isAndroidLike()){showToast("Android端末で使用してください");return;}
+  if(currentLoadedKind!=="sfc"){showToast("SFC図面を開いてください");return;}
+  if(!await confirmStandardSfcWithoutAerial())return;
+  showBusy("共有用ZIPを準備中…");
+  await waitForUiPaint();
   try{
-    await navigator.share({
-      title:name,
-      text:"SFC図面を送信します。",
-      files:[selected.file]
-    });
-    return true;
-  }catch(e){
-    if(e&&e.name==='AbortError')return "cancelled";
-    console.error("File share failed",{name,type:selected.type,canShare:selected.supported,error:e});
-    return false;
+    const exportData=await buildSfcExportBlobAndNameAsync();
+    if(!exportData.ok){showToast(exportData.reason||"共有データを作成できませんでした");return;}
+    updateBusy("SFCをZIPにまとめています…");
+    const zipBlob=await createSingleFileZip(exportData.blob,exportData.saveAsName);
+    const zipName=exportData.saveAsName.replace(/\.[^.]+$/g,"")+".zip";
+    pendingAndroidZipShare={blob:zipBlob,name:zipName};
+    saveRecoverySnapshot();
+    const modal=document.getElementById("androidShareReadyModal");
+    if(modal)modal.style.display="flex";
+  }catch(error){
+    console.error(error);
+    showToast("共有用ZIPを作成できませんでした",3200);
+  }finally{
+    hideBusy();
   }
 }
 
@@ -11677,6 +11731,7 @@ function updateMeasureBox(){
   }
 }
 function drawInkStroke(stroke,drawCtx=ctx){
+  if(gpsOnlyBlankMode&&!hasLoadedDrawing()&&stroke?.droggerLayerId)return;
   const inkLayer=getInkStrokeLayerId(stroke);
   if(inkLayer!=null && !isLayerVisible(inkLayer))return;
   const defaultColor=stroke?.isTerrainContour&&stroke.terrainContourKind==="regular"
@@ -11707,21 +11762,57 @@ function drawInkStroke(stroke,drawCtx=ctx){
   drawCtx.stroke();
   drawCtx.restore();
 }
+function drawDroggerGpsOnlyMarkers(drawCtx=ctx){
+  if(!gpsOnlyBlankMode||hasLoadedDrawing())return;
+  const drawn=new Set();
+  for(const stroke of inkStrokes||[]){
+    const record=stroke?.droggerRecord;
+    const pointId=stroke?.droggerPointId;
+    if(!record||!pointId||drawn.has(pointId))continue;
+    drawn.add(pointId);
+    const layer=getInkStrokeLayerId(stroke);
+    if(layer!=null&&!isLayerVisible(layer))continue;
+    const [sx,sy]=worldToScreen(record.sfcX*1000,record.sfcY*1000);
+    const radius=8;
+    const color=adaptContrastColor(getCurrentLayerColor(layer,getMemoLayerSpecForStroke(stroke).color));
+    drawCtx.save();
+    drawCtx.strokeStyle=color;
+    drawCtx.lineWidth=1.2;
+    drawCtx.beginPath();
+    drawCtx.arc(sx,sy,radius,0,Math.PI*2);
+    drawCtx.moveTo(sx-radius,sy);drawCtx.lineTo(sx+radius,sy);
+    drawCtx.moveTo(sx,sy-radius);drawCtx.lineTo(sx,sy+radius);
+    drawCtx.stroke();
+    drawCtx.restore();
+  }
+}
 function drawDroggerCadLabels(drawCtx=ctx){
+  const fixedPreview=gpsOnlyBlankMode&&!hasLoadedDrawing();
+  const recordCenters=new Map();
+  if(fixedPreview){
+    for(const stroke of inkStrokes||[]){
+      if(stroke?.droggerRecord&&stroke?.droggerPointId)recordCenters.set(stroke.droggerPointId,stroke.droggerRecord);
+    }
+  }
   for(const stroke of inkStrokes||[]){
     if(stroke?.droggerLayerId!=="drogger:name"&&stroke?.droggerLayerId!=="drogger:elevation")continue;
     const layer=getInkStrokeLayerId(stroke);
     if(layer!=null&&!isLayerVisible(layer))continue;
     const label=stroke.photoTextLabel;
     if(!label||!String(label.text||""))continue;
-    const x=Number.isFinite(+label.x)?+label.x:+stroke.points?.[0]?.x;
-    const y=Number.isFinite(+label.y)?+label.y:+stroke.points?.[0]?.y;
+    const record=fixedPreview?recordCenters.get(stroke.droggerPointId):null;
+    const x=record?record.sfcX*1000:(Number.isFinite(+label.x)?+label.x:+stroke.points?.[0]?.x);
+    const y=record?record.sfcY*1000:(Number.isFinite(+label.y)?+label.y:+stroke.points?.[0]?.y);
     if(!Number.isFinite(x)||!Number.isFinite(y))continue;
     const [sx,sy]=worldToScreen(x,y);
-    const fontPx=Math.max(7,Math.min(72,(Number(label.heightMm)||2.5)*getMemoWorldUnitsPerPaperMm()*Math.abs(view.scale)));
+    const fontPx=fixedPreview
+      ?Math.max(10,Math.min(30,(Number(label.heightMm)||1.8)*8))
+      :Math.max(7,Math.min(72,(Number(label.heightMm)||2.5)*getMemoWorldUnitsPerPaperMm()*Math.abs(view.scale)));
     const color=adaptContrastColor(getCurrentLayerColor(layer,getMemoLayerSpecForStroke(stroke).color));
     drawCtx.save();
-    drawCtx.translate(sx,sy);
+    const fixedOffsetX=fixedPreview?13:0;
+    const fixedOffsetY=fixedPreview?(stroke.droggerLayerId==="drogger:name"?-fontPx*.48:fontPx*.62):0;
+    drawCtx.translate(sx+fixedOffsetX,sy+fixedOffsetY);
     drawCtx.rotate(-rotationDeg*Math.PI/180);
     drawCtx.globalAlpha=stroke.opacity==null?1:stroke.opacity;
     drawCtx.fillStyle=color;
@@ -14209,6 +14300,7 @@ function draw(){
   drawTerrainOverlay();
 
   for(const stroke of inkStrokes) drawInkStroke(stroke);
+  drawDroggerGpsOnlyMarkers();
   drawDroggerCadLabels();
   drawTerrainCadLabels();
   drawRegistryCadLabels();
@@ -16906,7 +16998,10 @@ function getNextSxfAttributeSerial(srcText){
   return serial;
 }
 function buildInkPolylineFeatureText(baseText){
-  const sourceStrokes=[...(inkStrokes||[]),...buildPhotoAnnotationExportStrokes()];
+  const paperReadyStrokes=window.DroggerOwnerMode?.prepareRegistrationStrokesForPaper
+    ?window.DroggerOwnerMode.prepareRegistrationStrokesForPaper(inkStrokes||[],getMemoWorldUnitsPerPaperMm())
+    :[...(inkStrokes||[])];
+  const sourceStrokes=[...paperReadyStrokes,...buildPhotoAnnotationExportStrokes()];
   const normalized = sourceStrokes.map(strokeToWorldPolyline).filter(s => s && Array.isArray(s.points) && s.points.length >= 2 && !deletedLayerNames.has(getMemoLayerSpecForStroke(s).name));
   if (!normalized.length) return { colorText: "", layerText: "", widthText:"", fontText:"", preludeText:"", rootPlacementText:"", lineText: "", expectedFeatureCount:0, exportPoints:[] };
 
@@ -19897,6 +19992,7 @@ function setSaveMenuOpen(open){
   const hasDrawing=hasLoadedDrawing();
   const overwriteBtn=document.getElementById("saveMenuOverwriteBtn");
   const saveAsBtn=document.getElementById("saveMenuSaveAsBtn");
+  const androidShareBtn=document.getElementById("saveMenuAndroidShareBtn");
   const sfzBtn=document.getElementById("saveMenuSfzBtn");
   const desktop=isDesktopPhotoTool();
   if(overwriteBtn){
@@ -19907,6 +20003,12 @@ function setSaveMenuOpen(open){
   if(saveAsBtn){
     saveAsBtn.disabled=!hasDrawing;
     saveAsBtn.textContent=desktop?"名前を付けて保存":"別名保存・送信";
+  }
+  if(androidShareBtn){
+    const showAndroidShare=!desktop&&isAndroidLike();
+    androidShareBtn.hidden=!showAndroidShare;
+    androidShareBtn.style.display=showAndroidShare?"":"none";
+    androidShareBtn.disabled=!hasDrawing;
   }
   if(sfzBtn){
     sfzBtn.hidden=true;
@@ -19973,6 +20075,21 @@ document.getElementById("saveMenuSaveAsBtn").addEventListener("click", ()=>{
     return;
   }
   runStandardSfcSave(saveSfcWithAnnotations,"別名保存を開始できませんでした");
+});
+document.getElementById("saveMenuAndroidShareBtn")?.addEventListener("click",()=>{
+  prepareAndroidSfcZipShare();
+});
+document.getElementById("androidShareOpenBtn")?.addEventListener("click",async()=>{
+  const pending=pendingAndroidZipShare;
+  if(!pending){closeAndroidShareReady();return;}
+  const result=await shareBlobFile(pending.blob,pending.name);
+  if(result===true){closeAndroidShareReady();showToast("共有画面へ渡しました");return;}
+  if(result==="cancelled"){closeAndroidShareReady();showToast("共有をキャンセルしました");return;}
+  showToast("Androidの共有画面を開けませんでした",3200);
+});
+document.getElementById("androidShareCancelBtn")?.addEventListener("click",closeAndroidShareReady);
+document.getElementById("androidShareReadyModal")?.addEventListener("click",event=>{
+  if(event.target.id==="androidShareReadyModal")closeAndroidShareReady();
 });
 document.getElementById("saveMenuCancelBtn").addEventListener("click",()=>setSaveMenuOpen(false));
 document.getElementById("saveMenuModal").addEventListener("click",e=>{if(e.target.id==="saveMenuModal")setSaveMenuOpen(false);});

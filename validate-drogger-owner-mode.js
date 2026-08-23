@@ -36,6 +36,11 @@ const noAltitudeRecord=feature.createRecord({...gps,altitude:null},settings,"P3"
 if(!noAltitudeRecord||noAltitudeRecord.elevation!==null||noAltitudeRecord.antennaAltitude!==null)throw new Error("coordinates without altitude must remain registerable");
 const noAltitudeStrokes=feature.createRegistrationStrokes(noAltitudeRecord,250,settings);
 if(noAltitudeStrokes[4].photoTextLabel.text!=="－")throw new Error("missing elevation label is not blank-safe");
+const blankPreviewStrokes=feature.createRegistrationStrokes(record,1,{antennaHeight:1.5,nameTextSizeMm:1.8,elevationTextSizeMm:1.8});
+const paperReadyStrokes=feature.prepareRegistrationStrokesForPaper(blankPreviewStrokes,250);
+const paperDiameter=Math.hypot(paperReadyStrokes[0].points[0].x-paperReadyStrokes[0].points[24].x,paperReadyStrokes[0].points[0].y-paperReadyStrokes[0].points[24].y);
+if(Math.abs(paperDiameter-200)>1e-6)throw new Error("GPS-only preview marker was not converted to 0.8 mm at SFC export scale");
+if(paperReadyStrokes[3].photoTextLabel.heightMm!==1.8||paperReadyStrokes[4].photoTextLabel.heightMm!==1.8)throw new Error("GPS-only labels were not preserved as 1.8 mm SFC text");
 
 const required=[
   'id="gpsTitle"',
@@ -54,6 +59,8 @@ const required=[
   'altitudeAccuracy = Number.isFinite(pos.coords.altitudeAccuracy)',
   'DROGGER_RELATED_LAYER_NAMES',
   'drawDroggerCadLabels()',
+  'drawDroggerGpsOnlyMarkers()',
+  'prepareRegistrationStrokesForPaper(inkStrokes||[],getMemoWorldUnitsPerPaperMm())',
   'droggerRecord: s.droggerRecord ? {...s.droggerRecord} : null'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`index integration missing: ${token}`);
