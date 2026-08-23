@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-23 / `55707a7`
+最終実行: 2026-08-23 / `3942061`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -31,10 +31,10 @@
 
 - `validate-android-drogger-bridge.js` — 専用Android起動判定、端末内状態URL、1秒ポーリング、FIX情報の表示・登録連携を確認。
 
-- `validate-android-sfc-share.js` — Android専用ボタン、SFCのZIP化、専用版の端末内ネイティブ共有、座標CSVの共通共有経路、「別名保存・送信」の非表示を確認。Android `1.0.2-private` は実機で共有POSTと標準共有画面の起動を確認。
+- `validate-android-sfc-share.js` — Android専用ボタン、SFCのZIP化、専用版の端末内ネイティブ共有、座標CSVの共通共有経路、「別名保存・送信」の非表示を確認。Android `1.0.3-private` は実機で共有POSTと標準共有画面の起動を確認。
 - `validate-drogger-geoid-model.js` — ISG 2.0の厳密なヘッダー解析、北から南の行方向、双一次補間、範囲外のnullを確認。
-- `validate-drogger-owner-mode.js` — ジオイド・アンテナ高補正、標高なし登録、紙面0.8mm丸、中心十字、3分の1線幅、3レイヤー、図面標高2桁切捨て、登録・CSV標高3桁、文字寸法更新、P番号増番に加え、図面なし生成物をSFC縮尺250へ再構成した時の0.8mm丸・1.8mm文字を確認。
-- `validate-drogger-owner-runtime.js` — Web Worker解析とIndexedDB再読込、短押し・移動時キャンセル、3秒長押しON/OFF、最小化中のRTK状態・水平誤差、ポップアップ外の登録・座標管理が最小化中も「現在地に戻る」の上へ残ること、図面なし登録、利用者判断の登録、確認音、P1→P2→P3、標高なし登録、SFCメタデータ、関連3レイヤー削除とUndoをブラウザ上で確認。
+- `validate-drogger-owner-mode.js` — ジオイド・アンテナ高補正、標高なし登録、紙面0.8mm丸、中心十字、3分の1線幅、3レイヤー、図面標高2桁切捨て、登録・CSV標高3桁、文字寸法更新、P番号増番、図面なし1/500相当の0.4m丸・0.9m文字を確認。
+- `validate-drogger-owner-runtime.js` — Web Worker解析とIndexedDB再読込、短押し・移動時キャンセル、3秒長押しON/OFF、最小化中のRTK状態・水平誤差、ポップアップ外の登録・座標管理、図面なし1/500登録と旧登録点の自動再構成、利用者判断の登録、確認音、P1→P2→P3、標高なし登録、SFCメタデータ、関連3レイヤー削除とUndoをブラウザ上で確認。
 
 - `validate-registry-progress-cancel.js` — 「国土地調査境界」から取得開始し、取得中は「キャンセル」、完了後は「表示」「非表示」へ切り替わることを確認。
 - `validate-registry-append-and-intersection.js` — 未取得時の「国土地調査境界」表示と取得開始を確認。
