@@ -16,7 +16,7 @@
 |DEM・等高線・地形解析|`validate-terrain-advanced.js`、`validate-terrain-ui.js`、`validate-contour-text-horizontal.js`、`validate-contour-label-raster-quality.js`|
 |現在地・GPS|`validate-gps-startup-mode.js`、`validate-gps-detail-dem.js`|
 |Drogger座標登録・専用Android FIX|`validate-android-drogger-bridge.js`、`validate-drogger-geoid-model.js`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
-|Android SFC共有|`validate-android-sfc-share.js`、`validate-drogger-owner-mode.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
+|Android SFC・座標CSV共有|`validate-android-sfc-share.js`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`。APK変更時は `gradlew.bat assembleDebug` 後、実機でループバックPOSTとAndroid `ChooserActivity` を確認する。|
 |スマホ方位追従・ホーム|`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-gps-startup-mode.js`|
 |PCツールバー・ポップアップ|`validate-pc-map-toolbar.js`、`validate-pc-object-interaction.js`、`validate-text-layer-ui.js`|
 |PCの最近開いた図面|`validate-recent-drawings.js`、`validate-pc-map-toolbar.js`|
@@ -31,10 +31,10 @@
 
 - `validate-android-drogger-bridge.js` — 専用Android起動判定、端末内状態URL、1秒ポーリング、FIX情報の表示・登録連携を確認。
 
-- `validate-android-sfc-share.js` — Android専用ボタン、SFCのZIP化、ZIP準備後の直接Web Share呼出し、Android以外での非表示を確認。
+- `validate-android-sfc-share.js` — Android専用ボタン、SFCのZIP化、専用版の端末内ネイティブ共有、座標CSVの共通共有経路、「別名保存・送信」の非表示を確認。Android `1.0.2-private` は実機で共有POSTと標準共有画面の起動を確認。
 - `validate-drogger-geoid-model.js` — ISG 2.0の厳密なヘッダー解析、北から南の行方向、双一次補間、範囲外のnullを確認。
 - `validate-drogger-owner-mode.js` — ジオイド・アンテナ高補正、標高なし登録、紙面0.8mm丸、中心十字、3分の1線幅、3レイヤー、図面標高2桁切捨て、登録・CSV標高3桁、文字寸法更新、P番号増番に加え、図面なし生成物をSFC縮尺250へ再構成した時の0.8mm丸・1.8mm文字を確認。
-- `validate-drogger-owner-runtime.js` — Web Worker解析とIndexedDB再読込、短押し・移動時キャンセル、3秒長押しON/OFF、最小化中の水平誤差だけの表示、ポップアップ外の登録・座標管理が最小化中も「現在地に戻る」の上へ残ること、図面なし登録、利用者判断の登録、確認音、P1→P2→P3、標高なし登録、SFCメタデータ、関連3レイヤー削除とUndoをブラウザ上で確認。
+- `validate-drogger-owner-runtime.js` — Web Worker解析とIndexedDB再読込、短押し・移動時キャンセル、3秒長押しON/OFF、最小化中のRTK状態・水平誤差、ポップアップ外の登録・座標管理が最小化中も「現在地に戻る」の上へ残ること、図面なし登録、利用者判断の登録、確認音、P1→P2→P3、標高なし登録、SFCメタデータ、関連3レイヤー削除とUndoをブラウザ上で確認。
 
 - `validate-registry-progress-cancel.js` — 「国土地調査境界」から取得開始し、取得中は「キャンセル」、完了後は「表示」「非表示」へ切り替わることを確認。
 - `validate-registry-append-and-intersection.js` — 未取得時の「国土地調査境界」表示と取得開始を確認。

@@ -137,6 +137,17 @@
 - 再発防止: 登録の実行ボタンを最小化対象の入力欄コンテナへ戻さない。
 - 正常基準: `BASE-DROGGER-OWNER-20260823`。
 
+## INC-20260823-07 Android専用版で共有画面を開けない
+
+- 状態: `検証済み`
+- 観察: Android専用版でSFCの「共有画面を開く」を押してもAndroid標準共有画面へ進まず、Drogger座標CSVも同じブラウザ共有経路を使用していた。
+- 根本原因: 専用APKはWeb画面をTWA/Custom Tabで表示するだけで、ファイルをAndroidへ渡すネイティブ経路を持たず、`navigator.share({files})` の対応可否へ依存していた。
+- 修正: Web `4961c34` とAndroid `112fcb9` で、専用版だけSFC ZIP・座標CSVを端末内ループバックへ渡し、アプリ一時領域のファイルを `FileProvider` URIとしてAndroid共有画面へ渡す経路を追加した。Androidの「別名保存・送信」は隠した。
+- 併せて修正: Drogger専用画面を最小化した時はRTK状態と水平誤差を同時表示する。
+- 検証: Web共有・Drogger・GPS・復元・実SFCテスト、Androidビルド、Android 12実機の共有POSTと `ChooserActivity` 起動に成功。実Drogger接続は設定後に受信できることをユーザー環境で確認。
+- 再発防止: 専用Android版のファイル共有をブラウザのWeb Share対応だけへ戻さない。PC・iPhone・一般Web版へネイティブ端末内URLを公開しない。
+- 正常基準: `BASE-ANDROID-NATIVE-SHARE-20260823`。
+
 ## INC-20260822-07 ブラウザを閉じると現場での変更を直接復元できない
 
 - 状態: `検証済み`

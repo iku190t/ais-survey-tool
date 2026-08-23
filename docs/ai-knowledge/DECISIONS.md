@@ -181,7 +181,7 @@
   - 登録成果は既存の編集図形形式を利用して、0.8mm丸と中心十字、点名、標高の3レイヤーとしてSFCメタデータと自動復元へ保存する。
   - Web Geolocation APIに存在しないRTK FIX状態を推測表示せず、鮮度・高度有無でも登録を止めない。表示誤差を見て利用者が登録可否を判断し、高度未取得は「－」として扱う。
   - SFC図面を開いていないGPS専用状態でも登録を許可し、登録点・点名・標高の既存3レイヤー形式を使う。
-  - 標高誤差は専用画面とCSVから除外し、最小化中は水平誤差だけを表示する。
+  - 標高誤差は専用画面とCSVから除外し、専用Android版の最小化中はRTK状態と水平誤差を表示する。
   - 登録成功を音で知らせ、末尾が数字の点名は登録ごとに増番する。
 - 理由: 専用機器利用を通常利用から隠しつつ、現場登録成果を既存の保存・復元・レイヤー色・Undoから外さないため。
 - 根拠: `8628b90`、`749651c`、`b08e05e`、`711ee5a`、`ea0e6f7` とDrogger専用3テスト、杭打ちアプリの実装比較、GPS・復元・実SFC回帰検証。
@@ -198,17 +198,18 @@
 - 根拠: `92273dd`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-real-sfc-rendering.js sample.sfc`。
 - 確認回数: 1。実SFC書出を外部CADで確認後に確認回数を更新する。
 
-## D-020 Androidのメール送信はZIPをWeb Shareへ直接渡す
+## D-020 Android専用版のファイル共有は端末内ネイティブ経路を使う
 
 - 状態: `検証済み`
 - 判断:
   - Androidだけ、ファイルメニューへ「共有・メール送信」を追加する。
-  - 現行SFCを書き出して単一ファイルZIPへまとめ、準備完了後の専用ボタン操作から `navigator.share()` を直接呼ぶ。
-  - ZIP MIMEは複数候補を試し、Gmail等の共有先選択はAndroid共有画面へ任せる。
+  - Androidでは「別名保存・送信」を表示しない。現行SFCを単一ファイルZIPへまとめて共有する。
+  - 専用Android版のSFC ZIPと座標CSVは、端末内ループバックへPOSTし、アプリの一時領域と `FileProvider` を介してAndroid標準共有画面へ渡す。
+  - ファイル本体と座標を外部サーバーへ送らない。一般Web版は対応ブラウザのWeb Shareを維持する。
   - PC・iPhoneと通常の保存経路は置き換えない。
-- 理由: ZIPを通常ダウンロードするとAndroidでは「アプリで開く」になり、Gmailを含む共有先選択画面へ進まないため。また、ZIP生成の非同期処理後に共有を自動開始するとブラウザのユーザー操作要件を失う場合があるため。
-- 根拠: `92273dd`、`validate-android-sfc-share.js`。
-- 確認回数: 1。Android実機でGmail共有先が表示されることは追加確認が必要。
+- 理由: TWA/Chromeの `navigator.share({files})` は専用アプリ実機で共有画面を開けない場合があり、ZIP生成後のユーザー操作維持やMIME候補だけでは解消しなかったため。
+- 根拠: Web `4961c34`、Android `112fcb9`、`validate-android-sfc-share.js`、Android 12実機の `ChooserActivity` 起動確認。
+- 確認回数: 2。Web Share失敗の実機観察と、ネイティブ共有成功の実機検証。
 
 ## 廃止判断
 
