@@ -389,8 +389,8 @@ body.light #gpsBox{background:rgba(255,255,255,.88)!important;color:#111!importa
 .droggerOwnerRow{display:grid;grid-template-columns:minmax(0,1fr) 92px;align-items:center;gap:8px;}
 .droggerOwnerRow input{width:100%;min-width:0;height:32px;box-sizing:border-box;border:1px solid var(--border);border-radius:7px;background:var(--button);color:var(--buttonText);padding:4px 7px;font-size:13px;}
 .droggerOwnerRow button{width:100%;min-width:0;height:32px;min-height:32px;padding:3px 7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
-#droggerOwnerActions{position:sticky;bottom:-10px;z-index:2;display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:2px -10px -10px;padding:8px 10px 10px;background:rgba(20,20,20,.96);border-top:1px solid var(--border);}
-body.light #droggerOwnerActions{background:rgba(255,255,255,.97);}
+#droggerOwnerActions{display:none;position:absolute;left:12px;bottom:calc(54px + env(safe-area-inset-bottom));z-index:74;width:min(248px,calc(100vw - 24px));grid-template-columns:1fr 1fr;gap:7px;}
+#droggerOwnerActions.show{display:grid;}
 #droggerOwnerActions button{min-height:36px;font-weight:800;}
 #droggerRegisterBtn{background:#c62828;color:#fff;border-color:#8e0000;}
 #gpsBox.drogger-minimized{width:auto!important;min-width:210px;max-height:none!important;overflow:hidden!important;}
@@ -411,7 +411,7 @@ body.light #droggerOwnerActions{background:rgba(255,255,255,.97);}
 #gpsReturnBtn{display:none;position:absolute;left:12px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:72;width:auto;min-width:104px;height:38px;padding:0 14px;border-radius:999px;background:var(--button);color:#1479ff;border:1px solid var(--border);box-shadow:0 6px 16px rgba(0,0,0,.3);align-items:center;justify-content:center;font-size:13px;font-weight:800;white-space:nowrap;}
 #gpsReturnBtn.show{display:inline-flex;}
 #gpsReturnBtn:active{transform:scale(.94);background:rgba(47,125,255,.18);}
-@media (display-mode:standalone){#gpsReturnBtn{bottom:calc(6px + env(safe-area-inset-bottom));}}
+@media (display-mode:standalone){#gpsReturnBtn{bottom:calc(6px + env(safe-area-inset-bottom));}#droggerOwnerActions{bottom:calc(52px + env(safe-area-inset-bottom));}}
 #layerPanel{inset:0;width:auto;max-height:none;overflow:hidden;display:none;padding:0;border-radius:0;z-index:85;flex-direction:column;}
 #layerHeader{flex:0 0 auto;background:var(--panel2);z-index:2;border-bottom:1px solid var(--border);padding:12px;}
 #layerHeaderTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
@@ -1618,9 +1618,9 @@ gtag('config', 'G-88B9YPJXWP');
       <div class="droggerOwnerRow"><span>ジオイドモデル</span><button id="droggerGeoidModelBtn" type="button" title="公式ISGファイルを読み込みます">読込</button><input id="droggerGeoidModelInput" type="file" accept=".isg,text/plain" hidden></div>
       <label class="droggerOwnerRow"><span>点名文字 (mm)</span><input id="droggerNameTextSize" type="number" min="1" max="10" step="0.1"></label>
       <label class="droggerOwnerRow"><span>標高文字 (mm)</span><input id="droggerElevationTextSize" type="number" min="1" max="10" step="0.1"></label>
-      <div id="droggerOwnerActions"><button id="droggerRegisterBtn" type="button">登録</button><button id="droggerManageBtn" type="button">座標管理</button></div>
     </div>
   </div>
+  <div id="droggerOwnerActions" aria-hidden="true"><button id="droggerRegisterBtn" type="button">登録</button><button id="droggerManageBtn" type="button">座標管理</button></div>
 
   <div id="droggerCoordinateModal" role="dialog" aria-modal="true" aria-labelledby="droggerCoordinateTitle">
     <div id="droggerCoordinateBox">
@@ -6640,6 +6640,7 @@ function saveDroggerOwnerSettings(){
 }
 function updateDroggerOwnerControlsUi(){
   const controls=document.getElementById("droggerOwnerControls");
+  const actions=document.getElementById("droggerOwnerActions");
   const gpsBox=document.getElementById("gpsBox");
   const minimize=document.getElementById("droggerOwnerMinimizeBtn");
   if(!controls)return;
@@ -6648,6 +6649,8 @@ function updateDroggerOwnerControlsUi(){
   if(minimize){minimize.textContent=droggerOwnerMinimized?"□":"－";minimize.setAttribute("aria-label",droggerOwnerMinimized?"元の大きさに戻す":"最小化");minimize.setAttribute("aria-expanded",droggerOwnerMinimized?"false":"true");}
   controls.classList.toggle("show",droggerOwnerModeActive);
   controls.setAttribute("aria-hidden",droggerOwnerModeActive?"false":"true");
+  actions?.classList.toggle("show",droggerOwnerModeActive);
+  actions?.setAttribute("aria-hidden",droggerOwnerModeActive?"false":"true");
   if(!droggerOwnerModeActive)return;
   const pointName=document.getElementById("droggerPointName");
   const antenna=document.getElementById("droggerAntennaHeight");
