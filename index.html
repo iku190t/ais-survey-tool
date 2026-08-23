@@ -380,6 +380,26 @@ label.fileBtn{
 #gpsDetailFab{top:calc(58px + var(--cad-toolbar-offset,40px))!important;}
 #gpsBox{top:calc(104px + var(--cad-toolbar-offset,40px))!important;max-height:calc(100% - 116px - var(--cad-toolbar-offset,40px))!important;}
 body.light #gpsBox{background:rgba(255,255,255,.88)!important;color:#111!important;border-color:rgba(0,0,0,.24);box-shadow:0 8px 24px rgba(0,0,0,.2);}
+#gpsTitle{cursor:default;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+#droggerOwnerControls{display:none;margin-top:9px;padding-top:9px;border-top:1px solid var(--border);font-size:12px;}
+#droggerOwnerControls.show{display:grid;gap:7px;}
+.droggerOwnerRow{display:grid;grid-template-columns:minmax(0,1fr) 92px;align-items:center;gap:8px;}
+.droggerOwnerRow input{width:100%;min-width:0;height:32px;box-sizing:border-box;border:1px solid var(--border);border-radius:7px;background:var(--button);color:var(--buttonText);padding:4px 7px;font-size:13px;}
+#droggerOwnerActions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:2px;}
+#droggerOwnerActions button{min-height:36px;font-weight:800;}
+#droggerRegisterBtn{background:#c62828;color:#fff;border-color:#8e0000;}
+#droggerOwnerHint{font-size:10px;line-height:1.45;color:var(--muted);}
+#droggerCoordinateModal{display:none;position:fixed;inset:0;z-index:245;background:rgba(0,0,0,.35);align-items:center;justify-content:center;padding:14px;box-sizing:border-box;}
+#droggerCoordinateModal.open{display:flex;}
+#droggerCoordinateBox{width:min(620px,96vw);max-height:min(720px,88vh);display:flex;flex-direction:column;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 36px rgba(0,0,0,.45);overflow:hidden;}
+#droggerCoordinateHeader,#droggerCoordinateFooter{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px;border-bottom:1px solid var(--border);}
+#droggerCoordinateHeader strong{font-size:15px;}
+#droggerCoordinateFooter{border-top:1px solid var(--border);border-bottom:0;justify-content:flex-end;}
+#droggerCoordinateList{overflow:auto;padding:6px 10px 14px;}
+.droggerCoordinateItem{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:9px 2px;border-bottom:1px solid var(--border);}
+.droggerCoordinateValues{font-size:12px;line-height:1.55;overflow-wrap:anywhere;}
+.droggerCoordinateValues b{font-size:14px;}
+.droggerCoordinateDelete{align-self:center;background:#b3261e;color:#fff;border-color:#8c1d18;}
 #gpsBtn.mapGpsFab svg{width:22px;height:22px;}
 #gpsReturnBtn{display:none;position:absolute;left:12px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:72;width:auto;min-width:104px;height:38px;padding:0 14px;border-radius:999px;background:var(--button);color:#1479ff;border:1px solid var(--border);box-shadow:0 6px 16px rgba(0,0,0,.3);align-items:center;justify-content:center;font-size:13px;font-weight:800;white-space:nowrap;}
 #gpsReturnBtn.show{display:inline-flex;}
@@ -1583,8 +1603,24 @@ gtag('config', 'G-88B9YPJXWP');
   </div>
 
   <div id="gpsBox" class="panel" style="display:none;left:12px;top:100px;bottom:auto;width:260px;max-height:calc(100% - 112px);overflow:auto;padding:10px;z-index:60;background:rgba(20,20,20,.7);backdrop-filter:blur(4px);">
-    <div class="panelTitle">現在地</div>
+    <div id="gpsTitle" class="panelTitle">現在地</div>
     <div id="gpsText" style="font-size:13px; line-height:1.6;">GPSはOFFです。</div>
+    <div id="droggerOwnerControls" aria-hidden="true">
+      <label class="droggerOwnerRow"><span>点名</span><input id="droggerPointName" type="text" maxlength="40" autocomplete="off"></label>
+      <label class="droggerOwnerRow"><span>アンテナ高 (m)</span><input id="droggerAntennaHeight" type="number" min="-20" max="100" step="0.001"></label>
+      <label class="droggerOwnerRow"><span>点名文字 (mm)</span><input id="droggerNameTextSize" type="number" min="1" max="10" step="0.1"></label>
+      <label class="droggerOwnerRow"><span>標高文字 (mm)</span><input id="droggerElevationTextSize" type="number" min="1" max="10" step="0.1"></label>
+      <div id="droggerOwnerActions"><button id="droggerRegisterBtn" type="button">登録</button><button id="droggerManageBtn" type="button">座標管理</button></div>
+      <div id="droggerOwnerHint">AndroidのDrogger GPSアプリでMock Locationを有効にした高精度測位を使用します。登録前にDrogger側のFIX状態を確認してください。</div>
+    </div>
+  </div>
+
+  <div id="droggerCoordinateModal" role="dialog" aria-modal="true" aria-labelledby="droggerCoordinateTitle">
+    <div id="droggerCoordinateBox">
+      <div id="droggerCoordinateHeader"><strong id="droggerCoordinateTitle">Drogger座標管理</strong><button id="droggerCoordinateCloseBtn" type="button">閉じる</button></div>
+      <div id="droggerCoordinateList"></div>
+      <div id="droggerCoordinateFooter"><button id="droggerCoordinateShareBtn" type="button">CSVを共有（Gmail）</button></div>
+    </div>
   </div>
 
   <div id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
@@ -2222,6 +2258,7 @@ gtag('config', 'G-88B9YPJXWP');
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.js"></script>
 <script src="https://unpkg.com/shpjs@6.2.0/dist/shp.min.js"></script>
 <script src="foundation-map-gml.js?v=1"></script>
+<script src="drogger-owner-mode.js?v=1"></script>
 <script>
 const GA_MEASUREMENT_ID = "G-88B9YPJXWP";
 const GA_PLACEHOLDER_ID = "G-88B9YPJXWP";
@@ -2863,6 +2900,11 @@ let gpsOnlyBlankMode = false;
 let gpsOnlyBlankPrevDarkTheme = true;
 let gpsSessionState = null;
 let gpsTemporaryCoordinateZone = null;
+const DROGGER_SETTINGS_KEY="ezviewer_drogger_owner_settings_v1";
+let droggerOwnerModeActive=false;
+let droggerOwnerTitleTapCount=0;
+let droggerOwnerTitleTapTimer=0;
+let droggerOwnerSettings=window.DroggerOwnerMode?.normalizeSettings?.((()=>{try{return JSON.parse(localStorage.getItem(DROGGER_SETTINGS_KEY)||"null");}catch(_error){return null;}})())||{antennaHeight:0,nameTextSizeMm:2.5,elevationTextSizeMm:2.5};
 const JGD2024_NAME = "JGD2024";
 const JAPAN_PLANE_ZONES = [
   {zone:1, lat0:33, lon0:129.5},
@@ -6538,6 +6580,137 @@ async function refreshGpsDemElevation(lat,lon){
     if(generation===gpsDemRequestGeneration)gpsDemElevationCache.pending=false;
   }
 }
+function getDroggerCoordinateRecords(){
+  return window.DroggerOwnerMode?.recordsFromStrokes?.(inkStrokes)||[];
+}
+function saveDroggerOwnerSettings(){
+  try{localStorage.setItem(DROGGER_SETTINGS_KEY,JSON.stringify(droggerOwnerSettings));}catch(_error){}
+}
+function updateDroggerOwnerControlsUi(){
+  const controls=document.getElementById("droggerOwnerControls");
+  if(!controls)return;
+  controls.classList.toggle("show",droggerOwnerModeActive);
+  controls.setAttribute("aria-hidden",droggerOwnerModeActive?"false":"true");
+  if(!droggerOwnerModeActive)return;
+  const pointName=document.getElementById("droggerPointName");
+  const antenna=document.getElementById("droggerAntennaHeight");
+  const nameSize=document.getElementById("droggerNameTextSize");
+  const elevationSize=document.getElementById("droggerElevationTextSize");
+  if(pointName&&!pointName.value)pointName.value=window.DroggerOwnerMode.nextPointName(getDroggerCoordinateRecords());
+  if(antenna&&document.activeElement!==antenna)antenna.value=String(droggerOwnerSettings.antennaHeight);
+  if(nameSize&&document.activeElement!==nameSize)nameSize.value=String(droggerOwnerSettings.nameTextSizeMm);
+  if(elevationSize&&document.activeElement!==elevationSize)elevationSize.value=String(droggerOwnerSettings.elevationTextSizeMm);
+  const fresh=!!(gpsPosition&&Number.isFinite(gpsPosition.altitude)&&Date.now()-(+gpsPosition.timestamp||0)<=10000);
+  const register=document.getElementById("droggerRegisterBtn");
+  if(register){register.disabled=!fresh||!hasLoadedDrawing();register.title=!hasLoadedDrawing()?"先にSFC図面を開いてください":fresh?"現在のDrogger座標を登録します":"Droggerの新しい高度を受信待ちです";}
+}
+function renderDroggerOwnerGpsText(element){
+  if(!element)return;
+  if(!gpsEnabled){element.textContent="GPSはOFFです。";return;}
+  if(!gpsPosition){element.textContent="Drogger測位を待っています…";return;}
+  const raw=Number.isFinite(gpsPosition.altitude)?gpsPosition.altitude:null;
+  const corrected=window.DroggerOwnerMode.correctedElevation(raw,droggerOwnerSettings.antennaHeight);
+  const altitudeAccuracy=Number.isFinite(gpsPosition.altitudeAccuracy)?`${gpsPosition.altitudeAccuracy.toFixed(3)}m`:"取得不可";
+  element.innerHTML=`<b>Drogger高精度登録</b><br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>Droggerアンテナ標高: ${raw==null?'取得中':raw.toFixed(3)}<br>アンテナ高: ${droggerOwnerSettings.antennaHeight.toFixed(3)}<br>補正標高: ${corrected==null?'取得中':corrected.toFixed(3)}<br>水平誤差: ${Number.isFinite(gpsPosition.accuracy)?gpsPosition.accuracy.toFixed(3):'－'}m<br>標高誤差: ${altitudeAccuracy}`;
+}
+function setDroggerOwnerMode(active){
+  droggerOwnerModeActive=!!active;
+  if(!droggerOwnerModeActive)closeDroggerCoordinateManager();
+  updateGpsUi();
+  showToast(droggerOwnerModeActive?"Drogger座標登録モード ON":"Drogger座標登録モード OFF",1800);
+}
+function handleDroggerTitleTap(event){
+  event.preventDefault();
+  event.stopPropagation();
+  clearTimeout(droggerOwnerTitleTapTimer);
+  droggerOwnerTitleTapCount++;
+  if(droggerOwnerTitleTapCount>=5){
+    droggerOwnerTitleTapCount=0;
+    setDroggerOwnerMode(!droggerOwnerModeActive);
+    return;
+  }
+  droggerOwnerTitleTapTimer=setTimeout(()=>{droggerOwnerTitleTapCount=0;},1500);
+}
+function updateDroggerSettingsFromInputs(options={}){
+  const previous=droggerOwnerSettings;
+  droggerOwnerSettings=window.DroggerOwnerMode.normalizeSettings({
+    antennaHeight:document.getElementById("droggerAntennaHeight")?.value,
+    nameTextSizeMm:document.getElementById("droggerNameTextSize")?.value,
+    elevationTextSizeMm:document.getElementById("droggerElevationTextSize")?.value
+  });
+  saveDroggerOwnerSettings();
+  if(options.updateLabels&&(previous.nameTextSizeMm!==droggerOwnerSettings.nameTextSizeMm||previous.elevationTextSizeMm!==droggerOwnerSettings.elevationTextSizeMm)){
+    window.DroggerOwnerMode.updateTextStyles(inkStrokes,droggerOwnerSettings);
+    scheduleDraw();
+    markMemoChanged();
+  }
+  updateGpsUi();
+}
+function registerCurrentDroggerCoordinate(){
+  if(!droggerOwnerModeActive)return;
+  if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
+  if(!gpsPosition||!Number.isFinite(gpsPosition.altitude)){showToast("Droggerから高度を受信できていません",2400);return;}
+  if(Date.now()-(+gpsPosition.timestamp||0)>10000){showToast("測位データが古いため、Droggerの接続を確認してください",2600);return;}
+  updateDroggerSettingsFromInputs();
+  const pointName=document.getElementById("droggerPointName");
+  const record=window.DroggerOwnerMode.createRecord(gpsPosition,droggerOwnerSettings,pointName?.value);
+  if(!record){showToast("現在の座標を登録できませんでした",2200);return;}
+  const strokes=window.DroggerOwnerMode.createRegistrationStrokes(record,getMemoWorldUnitsPerPaperMm(),droggerOwnerSettings);
+  addInkStrokeOperation(strokes,"Drogger座標登録");
+  cachedMeasurePointsDirty=true;
+  ensureLayerVisibility();
+  renderLayerList();
+  scheduleDraw();
+  markMemoChanged();
+  if(pointName)pointName.value=window.DroggerOwnerMode.nextPointName(getDroggerCoordinateRecords());
+  showToast(`${record.name} を登録しました`,1800);
+}
+function deleteDroggerCoordinate(pointId){
+  const entries=[];
+  for(let index=0;index<inkStrokes.length;index++)if(inkStrokes[index]?.droggerPointId===pointId)entries.push({stroke:inkStrokes[index],index});
+  if(!entries.length)return;
+  const remove=new Set(entries.map(entry=>entry.stroke));
+  inkStrokes=inkStrokes.filter(stroke=>!remove.has(stroke));
+  recordEditAction({type:"ink-remove",entries,label:"Drogger座標削除"});
+  cachedMeasurePointsDirty=true;
+  ensureLayerVisibility();renderLayerList();scheduleDraw();markMemoChanged();
+  renderDroggerCoordinateManager();
+}
+function renderDroggerCoordinateManager(){
+  const list=document.getElementById("droggerCoordinateList");
+  if(!list)return;
+  list.innerHTML="";
+  const records=getDroggerCoordinateRecords();
+  if(!records.length){const empty=document.createElement("div");empty.style.padding="18px 4px";empty.textContent="登録座標はありません。";list.appendChild(empty);return;}
+  for(const record of records){
+    const item=document.createElement("div");item.className="droggerCoordinateItem";
+    const values=document.createElement("div");values.className="droggerCoordinateValues";
+    const title=document.createElement("b");title.textContent=record.name||"名称なし";values.appendChild(title);
+    values.appendChild(document.createElement("br"));
+    values.appendChild(document.createTextNode(`X ${Number(record.x).toFixed(3)}　Y ${Number(record.y).toFixed(3)}　標高 ${Number(record.elevation).toFixed(3)}`));
+    values.appendChild(document.createElement("br"));
+    values.appendChild(document.createTextNode(`誤差 ${Number.isFinite(+record.accuracy)?Number(record.accuracy).toFixed(3):'－'}m　${record.registeredAt?new Date(record.registeredAt).toLocaleString("ja-JP"):''}`));
+    const remove=document.createElement("button");remove.type="button";remove.className="droggerCoordinateDelete";remove.textContent="削除";remove.addEventListener("click",()=>deleteDroggerCoordinate(record.id));
+    item.append(values,remove);list.appendChild(item);
+  }
+}
+function openDroggerCoordinateManager(){
+  renderDroggerCoordinateManager();
+  document.getElementById("droggerCoordinateModal")?.classList.add("open");
+}
+function closeDroggerCoordinateManager(){document.getElementById("droggerCoordinateModal")?.classList.remove("open");}
+async function shareDroggerCoordinatesCsv(){
+  const records=getDroggerCoordinateRecords();
+  if(!records.length){showToast("登録座標がありません",1800);return;}
+  const csv="\ufeff"+window.DroggerOwnerMode.buildCsv(records);
+  const date=new Date().toISOString().slice(0,10).replace(/-/g,"");
+  const file=new File([csv],`Drogger座標_${date}.csv`,{type:"text/csv;charset=utf-8"});
+  try{
+    if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){await navigator.share({title:"Drogger座標一覧",files:[file]});return;}
+  }catch(error){if(error?.name==="AbortError")return;console.warn(error);}
+  const url=URL.createObjectURL(file);const anchor=document.createElement("a");anchor.href=url;anchor.download=file.name;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showToast("CSVを保存しました。Gmailへ添付してください",2600);
+}
 function updateGpsUi(){
   const btn = document.getElementById("gpsBtn");
   if (btn){
@@ -6578,6 +6751,8 @@ function updateGpsUi(){
   gpsBox.style.display = gpsDetailOpen ? "block" : "none";
   const el = document.getElementById("gpsText");
   if (!el) return;
+  updateDroggerOwnerControlsUi();
+  if(droggerOwnerModeActive){renderDroggerOwnerGpsText(el);return;}
   if (!gpsEnabled){
     const msg = getGpsEnvironmentMessage();
     el.innerHTML = msg ? msg : "GPSはOFFです。";
@@ -6824,6 +6999,9 @@ function startGps(options={}){
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
       const accuracy = pos.coords.accuracy || 0;
+      const altitude = Number.isFinite(pos.coords.altitude) ? +pos.coords.altitude : null;
+      const altitudeAccuracy = Number.isFinite(pos.coords.altitudeAccuracy) ? +pos.coords.altitudeAccuracy : null;
+      const timestamp = Number.isFinite(+pos.timestamp) ? +pos.timestamp : Date.now();
       const zone = chooseJapanPlaneZone(lat, lon);
       const xy = latLonToJgd2024XY(lat, lon, zone);
       const state=gpsSessionState;
@@ -6854,7 +7032,7 @@ function startGps(options={}){
         profileZone=zone;
       }
       const sfc = placement.sfc;
-      gpsPosition = { lat, lon, accuracy, demAltitude:null, demSource:"", demChecked:false, zone, x: xy.x, y: xy.y, sfcX: sfc.x, sfcY: sfc.y, usedMeshTransform:placement.usedMesh };
+      gpsPosition = { lat, lon, accuracy, altitude, altitudeAccuracy, timestamp, demAltitude:null, demSource:"", demChecked:false, zone, x: xy.x, y: xy.y, sfcX: sfc.x, sfcY: sfc.y, usedMeshTransform:placement.usedMesh };
       applyCachedGpsDemElevation(gpsPosition);
       void refreshGpsDemElevation(lat,lon);
       if(state&&state.hadDrawing)maybeShowGpsFarMessage(distance);
@@ -10642,14 +10820,15 @@ function deleteLayerByName(name){
   const layerBody=document.getElementById("layerBody");
   const keepLayerPanelOpen=getComputedStyle(layerPanel).display!=="none";
   const previousScrollTop=layerBody?layerBody.scrollTop:0;
+  const isPhotoContentLayer=name===PHOTO_POSITION_LAYER_NAME||name===PHOTO_LIST_LAYER_NAME;
+  const isDroggerContentLayer=DROGGER_RELATED_LAYER_NAMES.includes(name);
+  const relatedLayerNames=isPhotoContentLayer?PHOTO_RELATED_LAYER_NAMES.slice():isDroggerContentLayer?DROGGER_RELATED_LAYER_NAMES.slice():[name];
   const entries=[];
-  for(let index=0;index<inkStrokes.length;index++)if(getMemoLayerSpecForStroke(inkStrokes[index])?.name===name)entries.push({stroke:inkStrokes[index],index});
+  for(let index=0;index<inkStrokes.length;index++)if(relatedLayerNames.includes(getMemoLayerSpecForStroke(inkStrokes[index])?.name))entries.push({stroke:inkStrokes[index],index});
   if(entries.length){const remove=new Set(entries.map(entry=>entry.stroke));inkStrokes=inkStrokes.filter(stroke=>!remove.has(stroke));}
   const aerialEntries=[];
   for(let index=0;index<aerialCadImages.length;index++)if(aerialCadImages[index].layerName===name)aerialEntries.push({entry:aerialCadImages[index],index});
   if(aerialEntries.length){const remove=new Set(aerialEntries.map(item=>item.entry));aerialCadImages=aerialCadImages.filter(entry=>!remove.has(entry));}
-  const isPhotoContentLayer=name===PHOTO_POSITION_LAYER_NAME||name===PHOTO_LIST_LAYER_NAME;
-  const relatedLayerNames=isPhotoContentLayer?PHOTO_RELATED_LAYER_NAMES.slice():[name];
   const photoEntries=isPhotoContentLayer?serializePhotoAnnotations():null;
   const photoSourceEntries=isPhotoContentLayer?[...photoSourceFiles.entries()]:null;
   if(isPhotoContentLayer){
@@ -11426,6 +11605,31 @@ function drawInkStroke(stroke,drawCtx=ctx){
   }
   drawCtx.stroke();
   drawCtx.restore();
+}
+function drawDroggerCadLabels(drawCtx=ctx){
+  for(const stroke of inkStrokes||[]){
+    if(stroke?.droggerLayerId!=="drogger:name"&&stroke?.droggerLayerId!=="drogger:elevation")continue;
+    const layer=getInkStrokeLayerId(stroke);
+    if(layer!=null&&!isLayerVisible(layer))continue;
+    const label=stroke.photoTextLabel;
+    if(!label||!String(label.text||""))continue;
+    const x=Number.isFinite(+label.x)?+label.x:+stroke.points?.[0]?.x;
+    const y=Number.isFinite(+label.y)?+label.y:+stroke.points?.[0]?.y;
+    if(!Number.isFinite(x)||!Number.isFinite(y))continue;
+    const [sx,sy]=worldToScreen(x,y);
+    const fontPx=Math.max(7,Math.min(72,(Number(label.heightMm)||2.5)*getMemoWorldUnitsPerPaperMm()*Math.abs(view.scale)));
+    const color=adaptContrastColor(getCurrentLayerColor(layer,getMemoLayerSpecForStroke(stroke).color));
+    drawCtx.save();
+    drawCtx.translate(sx,sy);
+    drawCtx.rotate(-rotationDeg*Math.PI/180);
+    drawCtx.globalAlpha=stroke.opacity==null?1:stroke.opacity;
+    drawCtx.fillStyle=color;
+    drawCtx.font=`${fontPx}px "MS Gothic", "Noto Sans JP", sans-serif`;
+    drawCtx.textAlign="left";
+    drawCtx.textBaseline="middle";
+    drawCtx.fillText(String(label.text),0,0);
+    drawCtx.restore();
+  }
 }
 
 function hitTestInkObject(worldPt){
@@ -13904,6 +14108,7 @@ function draw(){
   drawTerrainOverlay();
 
   for(const stroke of inkStrokes) drawInkStroke(stroke);
+  drawDroggerCadLabels();
   drawTerrainCadLabels();
   drawRegistryCadLabels();
   drawPhotoAnnotationsOverlay();
@@ -14112,6 +14317,9 @@ function resetSessionFromLoad(){
 }
 function clearLoadedState(){
   if(gpsEnabled||gpsSessionState)stopGps(false);
+  droggerOwnerModeActive=false;
+  droggerOwnerTitleTapCount=0;
+  closeDroggerCoordinateManager();
   setPhotoListPanelOpen(false);
   exitGpsOnlyBlankMode(false);
   activeCoordinateMeshTransform=null;
@@ -14229,6 +14437,9 @@ function normalizeInkStrokeForSave(s){
     isRegistryText: !!s.isRegistryText,
     photoLayerId: s.photoLayerId || null,
     photoTextLabel: s.photoTextLabel || null,
+    droggerLayerId: s.droggerLayerId || null,
+    droggerPointId: s.droggerPointId || null,
+    droggerRecord: s.droggerRecord ? {...s.droggerRecord} : null,
     points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})) : []
   };
 }
@@ -14244,7 +14455,7 @@ function strokeToWorldPolyline(stroke){
       const t = (Math.PI * 2 * i) / segs;
       pts.push({x: cx + Math.cos(t) * r, y: cy + Math.sin(t) * r});
     }
-    return { type:"freehand", color: stroke.color || "#ff3030", opacity: stroke.opacity == null ? 1 : stroke.opacity, eraser:false, screenWidthPx: null, worldWidthMm:getStrokeWidthMm(stroke), width:+(stroke.width || 1), isCircleMemo:true, paperDiameterMm:Number.isFinite(+stroke.paperDiameterMm)?+stroke.paperDiameterMm:null, circleSizeLevel:Number.isFinite(+stroke.circleSizeLevel)?+stroke.circleSizeLevel:null, circleGeometryVersion:Number.isFinite(+stroke.circleGeometryVersion)?+stroke.circleGeometryVersion:null, photoLayerId:stroke.photoLayerId||null,photoTextLabel:stroke.photoTextLabel||null,points:pts };
+    return { type:"freehand", color: stroke.color || "#ff3030", opacity: stroke.opacity == null ? 1 : stroke.opacity, eraser:false, screenWidthPx: null, worldWidthMm:getStrokeWidthMm(stroke), width:+(stroke.width || 1), isCircleMemo:true, paperDiameterMm:Number.isFinite(+stroke.paperDiameterMm)?+stroke.paperDiameterMm:null, circleSizeLevel:Number.isFinite(+stroke.circleSizeLevel)?+stroke.circleSizeLevel:null, circleGeometryVersion:Number.isFinite(+stroke.circleGeometryVersion)?+stroke.circleGeometryVersion:null, photoLayerId:stroke.photoLayerId||null,photoTextLabel:stroke.photoTextLabel||null,droggerLayerId:stroke.droggerLayerId||null,droggerPointId:stroke.droggerPointId||null,droggerRecord:stroke.droggerRecord?{...stroke.droggerRecord}:null,points:pts };
   }
   if (!Array.isArray(stroke.points) || stroke.points.length < 2) return null;
   return {
@@ -14273,6 +14484,9 @@ function strokeToWorldPolyline(stroke){
     isRegistryText: !!stroke.isRegistryText,
     photoLayerId: stroke.photoLayerId || null,
     photoTextLabel: stroke.photoTextLabel || null,
+    droggerLayerId: stroke.droggerLayerId || null,
+    droggerPointId: stroke.droggerPointId || null,
+    droggerRecord: stroke.droggerRecord ? {...stroke.droggerRecord} : null,
     points: stroke.points.map(p => ({x:+p.x||0, y:+p.y||0}))
   };
 }
@@ -14323,6 +14537,9 @@ const MEMO_LINE_LAYER_NAME_SJIS_LATIN1 = "\x90\xfc";
 const MEMO_CIRCLE_LAYER_NAME = "丸";
 const MEMO_CIRCLE_LAYER_NAME_SJIS_LATIN1 = "\x8a\xdb";
 const MEMO_LAYER_SPECS = [
+  {id:"drogger:point",shape:"drogger-point",colorKey:"red",colorName:"赤",color:"#ff3030",name:"Drogger_登録点"},
+  {id:"drogger:name",shape:"drogger-name",colorKey:"red",colorName:"赤",color:"#ff3030",name:"Drogger_点名"},
+  {id:"drogger:elevation",shape:"drogger-elevation",colorKey:"red",colorName:"赤",color:"#ff3030",name:"Drogger_標高"},
   {id:PHOTO_POSITION_LAYER_ID,shape:"photo-position",colorKey:"red",colorName:"赤",color:"#ff3030",name:PHOTO_POSITION_LAYER_NAME,rawName:"\x8e\xca\x90\x5e\x88\xca\x92\x75"},
   {id:PHOTO_LIST_LAYER_ID,shape:"photo-list",colorKey:"blue",colorName:"青",color:"#007aff",name:PHOTO_LIST_LAYER_NAME,rawName:"\x8e\xca\x90\x5e\x88\xea\x97\x97"},
   {id:"terrain:DEM1A:regular",shape:"terrain-regular",colorKey:"yellow",colorName:"黄",color:"#ffd400",name:"等高線_DEM1A_主曲線",rawName:"\x93\x99\x8d\x82\x90\xfc\x5f\x44\x45\x4d\x31\x41\x5f\x8e\xe5\x8b\xc8\x90\xfc"},
@@ -14353,6 +14570,7 @@ const MEMO_LAYER_SPECS = [
   {id:"memo:circle:yellow",shape:"circle",colorKey:"yellow",colorName:"黄",color:"#ffd400",name:"丸（黄）",rawName:"\x8a\xdb\x81\x69\x89\xa9\x81\x6a"},
   {id:"memo:circle:black",shape:"circle",colorKey:"black",colorName:"黒",color:"#000000",name:"丸（黒）",rawName:"\x8a\xdb\x81\x69\x8d\x95\x81\x6a"}
 ];
+const DROGGER_RELATED_LAYER_NAMES=["Drogger_登録点","Drogger_点名","Drogger_標高"];
 function getMemoColorKey(color){
   const c=String(color||"").trim().toLowerCase();
   if(c==="#000000"||c==="#ffffff")return "black";
@@ -14362,6 +14580,9 @@ function getMemoColorKey(color){
   return "red";
 }
 function getMemoLayerSpecForStroke(stroke){
+  if(stroke&&stroke.droggerLayerId){
+    return MEMO_LAYER_SPECS.find(s=>s.id===stroke.droggerLayerId)||MEMO_LAYER_SPECS.find(s=>s.id==="drogger:point");
+  }
   if(stroke&&stroke.photoLayerId){
     return MEMO_LAYER_SPECS.find(s=>s.id===stroke.photoLayerId)||MEMO_LAYER_SPECS.find(s=>s.id===PHOTO_POSITION_LAYER_ID);
   }
@@ -16812,6 +17033,9 @@ function buildMemoMetaComment(){
       isRegistryText: !!s.isRegistryText,
       photoLayerId: s.photoLayerId || null,
       photoTextLabel: s.photoTextLabel || null,
+      droggerLayerId: s.droggerLayerId || null,
+      droggerPointId: s.droggerPointId || null,
+      droggerRecord: s.droggerRecord ? {...s.droggerRecord} : null,
       points: s.points.map(p => ({x:+p.x||0, y:+p.y||0}))
     }));
     const payload = { version:4, strokes, photoAnnotations:serializePhotoAnnotations(), deletedLayerNames:[...deletedLayerNames] };
@@ -18683,6 +18907,9 @@ function restoreInkStrokesFromSourceText(srcText){
       isRegistryText: !!s.isRegistryText,
       photoLayerId: s.photoLayerId || null,
       photoTextLabel: s.photoTextLabel || null,
+      droggerLayerId: s.droggerLayerId || null,
+      droggerPointId: s.droggerPointId || null,
+      droggerRecord: s.droggerRecord ? {...s.droggerRecord} : null,
       points: Array.isArray(s.points) ? s.points.map(p => ({x:+p.x||0, y:+p.y||0})).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y)) : []
     })).map(migrateLegacyCircleMemoStroke).filter(s => s.points.length >= 2);
   }
@@ -19152,6 +19379,15 @@ document.getElementById("gpsDetailFab").addEventListener("click", ()=>{
   gpsDetailOpen = !gpsDetailOpen;
   updateGpsUi();
 });
+document.getElementById("gpsTitle")?.addEventListener("click",handleDroggerTitleTap);
+document.getElementById("droggerRegisterBtn")?.addEventListener("click",registerCurrentDroggerCoordinate);
+document.getElementById("droggerManageBtn")?.addEventListener("click",openDroggerCoordinateManager);
+document.getElementById("droggerCoordinateCloseBtn")?.addEventListener("click",closeDroggerCoordinateManager);
+document.getElementById("droggerCoordinateShareBtn")?.addEventListener("click",shareDroggerCoordinatesCsv);
+document.getElementById("droggerCoordinateModal")?.addEventListener("click",event=>{if(event.target===event.currentTarget)closeDroggerCoordinateManager();});
+document.getElementById("droggerAntennaHeight")?.addEventListener("change",()=>updateDroggerSettingsFromInputs());
+document.getElementById("droggerNameTextSize")?.addEventListener("change",()=>updateDroggerSettingsFromInputs({updateLabels:true}));
+document.getElementById("droggerElevationTextSize")?.addEventListener("change",()=>updateDroggerSettingsFromInputs({updateLabels:true}));
 if(gpsReturnBtn)gpsReturnBtn.addEventListener("click",event=>{
   event.preventDefault();
   event.stopPropagation();
