@@ -9431,10 +9431,13 @@ function getFullViewSafeTop(h){
 function fitToScreen(){
   rotationDeg = Number.isFinite(+initialLoadRotationDeg) ? +initialLoadRotationDeg : rotationDeg;
 
-  // 非表示レイヤーや円弧の存在しない部分を外し、実際に見えている図形を
-  // CAD表示領域の中央へ収める。固定px余白なのでスマホでも横幅を無駄にしない。
-  let b = getMainViewBounds(true);
-  if(b._empty||!(b.maxx>b.minx)||!(b.maxy>b.miny)) b=getMainViewBounds(false);
+  // SXFに図面用紙と主部分図の配置がある場合、ホームは内容の密集範囲
+  // ではなく図面枠全体へ戻す。これが無い旧形式だけ図形範囲へ退避する。
+  let b = getMainDrawingSheetRotatedBounds();
+  if(!b||!(b.maxx>b.minx)||!(b.maxy>b.miny)){
+    b=getMainViewBounds(true);
+    if(b._empty||!(b.maxx>b.minx)||!(b.maxy>b.miny)) b=getMainViewBounds(false);
+  }
   const w = Math.max(1,canvas.clientWidth);
   const h = Math.max(1,canvas.clientHeight);
 

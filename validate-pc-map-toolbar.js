@@ -126,11 +126,25 @@ let browser;
   const fitState=await desktop.evaluate(()=>{
     data.lines=[[0,0,1000,0,1,1,1],[1000,0,1000,500,1,1,1],[1000,500,0,500,1,1,1],[0,500,0,0,1,1,1]];
     data.polylines=[];data.texts=[];data.circles=[];data.arcs=[];data.ellipses=[];data.ellipseArcs=[];data.markers=[];
+    data._mainDrawingPlacement=null;data._drawingSheet=null;
     initialLoadRotationDeg=45;rotationDeg=45;fitToScreen();
     const points=[[0,0],[1000,0],[1000,500],[0,500]].map(([x,y])=>worldToScreen(x,y));
     return {minY:Math.min(...points.map(point=>point[1])),maxY:Math.max(...points.map(point=>point[1])),height:canvas.clientHeight,safeTop:getFullViewSafeTop(canvas.clientHeight)};
   });
   if(fitState.minY<fitState.safeTop-2||fitState.maxY>fitState.height+2)throw new Error(`rotated full view clipped by toolbar area: ${JSON.stringify(fitState)}`);
+  const sheetFitState=await desktop.evaluate(()=>{
+    data.lines=[[400,200,600,200,1,1,1],[600,200,600,300,1,1,1],[600,300,400,300,1,1,1],[400,300,400,200,1,1,1]];
+    data._mainDrawingPlacement={name:"MAIN",originX:0,originY:0,angle:0,sx:1,sy:1};
+    data._drawingSheet={width:1000,height:500};
+    initialLoadRotationDeg=0;rotationDeg=0;fitToScreen();
+    const sheet=[[0,0],[1000,0],[1000,500],[0,500]].map(([x,y])=>worldToScreen(x,y));
+    const content=[[400,200],[600,200],[600,300],[400,300]].map(([x,y])=>worldToScreen(x,y));
+    const range=points=>({minX:Math.min(...points.map(point=>point[0])),maxX:Math.max(...points.map(point=>point[0])),minY:Math.min(...points.map(point=>point[1])),maxY:Math.max(...points.map(point=>point[1]))});
+    return {sheet:range(sheet),content:range(content),width:canvas.clientWidth,height:canvas.clientHeight,safeTop:getFullViewSafeTop(canvas.clientHeight)};
+  });
+  if(sheetFitState.sheet.minX<-2||sheetFitState.sheet.maxX>sheetFitState.width+2||sheetFitState.sheet.minY<sheetFitState.safeTop-2||sheetFitState.sheet.maxY>sheetFitState.height+2||sheetFitState.content.maxX-sheetFitState.content.minX>sheetFitState.width*.35){
+    throw new Error(`Home fitted inner content instead of the SXF drawing sheet: ${JSON.stringify(sheetFitState)}`);
+  }
   if(!(await desktop.locator("#aerialPhotoPanel").isVisible()))throw new Error("PC background panel did not open");
   if(await desktop.locator("#terrainPanelOpenBtn").isVisible())throw new Error("PC background panel still contains terrain button");
   await desktop.locator("#bgBtn").click();
@@ -143,6 +157,19 @@ let browser;
     data.lines=[[0,0,10,10,1,1,1]];
     updateDrawingDependentUi();
   });
+  const mobileSheetFit=await mobile.evaluate(()=>{
+    data.lines=[[400,200,600,200,1,1,1],[600,200,600,300,1,1,1],[600,300,400,300,1,1,1],[400,300,400,200,1,1,1]];
+    data.polys=[];data.splines=[];data.texts=[];data.circles=[];data.arcs=[];data.ellipses=[];data.ellipseArcs=[];data.markers=[];
+    data._mainDrawingPlacement={name:"MAIN",originX:0,originY:0,angle:0,sx:1,sy:1};
+    data._drawingSheet={width:1000,height:500};
+    initialLoadRotationDeg=0;rotationDeg=0;fitToScreen();
+    const sheet=[[0,0],[1000,0],[1000,500],[0,500]].map(([x,y])=>worldToScreen(x,y));
+    const range={minX:Math.min(...sheet.map(point=>point[0])),maxX:Math.max(...sheet.map(point=>point[0])),minY:Math.min(...sheet.map(point=>point[1])),maxY:Math.max(...sheet.map(point=>point[1]))};
+    return {...range,width:canvas.clientWidth,height:canvas.clientHeight,safeTop:getFullViewSafeTop(canvas.clientHeight)};
+  });
+  if(mobileSheetFit.minX<-2||mobileSheetFit.maxX>mobileSheetFit.width+2||mobileSheetFit.minY<mobileSheetFit.safeTop-2||mobileSheetFit.maxY>mobileSheetFit.height+2){
+    throw new Error(`mobile Home clipped the SXF drawing sheet: ${JSON.stringify(mobileSheetFit)}`);
+  }
   if(await mobile.locator("#terrainToolbarBtn").isVisible())throw new Error("PC terrain toolbar button is visible on mobile");
   await mobile.locator("#bgBtn").click();
   if(!(await mobile.locator("#terrainPanelOpenBtn").isVisible()))throw new Error("mobile background panel lost terrain button");
