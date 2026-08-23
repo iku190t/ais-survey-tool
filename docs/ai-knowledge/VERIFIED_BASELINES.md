@@ -15,6 +15,21 @@
 
 ## 機能別の正常基準
 
+### BASE-DROGGER-OWNER-20260823
+
+- 状態: `検証済み`
+- コミット: `8628b90`
+- 対象: 現在地詳細から入る隠しDrogger座標登録。
+- 確認内容:
+  - 「現在地」の題名を1.5秒以内に5回タップすると専用画面をON/OFFする。通常起動時は表示しない。
+  - ブラウザGeolocationへDrogger GPSが供給した緯度経度、平面直角X・Y、アンテナ標高、水平誤差、標高誤差を使用する。
+  - 入力アンテナ高をアンテナ標高から差し引き、補正標高として登録する。
+  - 登録点は紙面直径1mmの丸、点名、補正標高を3つの赤色レイヤーへ分離し、通常のレイヤー色変更、SFC保存、前回作業復元へ載せる。
+  - 点名・標高文字寸法を変更でき、座標管理から個別削除、Undo、UTF-8 CSV共有ができる。
+  - Drogger関連レイヤーのどれかをレイヤー画面から削除すると、3レイヤーと登録情報をまとめて削除する。
+- 検証: `validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-pc-map-toolbar.js`、`validate-text-layer-ui.js`、`validate-real-sfc-rendering.js sample.sfc`。
+- 制限: 通常のWeb Geolocation APIはRTK FIX/FLOAT状態を返さないため、FIX確認はDrogger GPSアプリ側で行う。
+
 ### BASE-RECENT-DRAWINGS-20260823
 
 - 状態: `検証済み`

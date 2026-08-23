@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-23 / `b0e2284`
+最終実行: 2026-08-23 / `8628b90`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -15,6 +15,7 @@
 |自動保存・前回作業復元・レイヤー色・SFC保存|`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |DEM・等高線・地形解析|`validate-terrain-advanced.js`、`validate-terrain-ui.js`、`validate-contour-text-horizontal.js`、`validate-contour-label-raster-quality.js`|
 |現在地・GPS|`validate-gps-startup-mode.js`、`validate-gps-detail-dem.js`|
+|Drogger座標登録|`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |スマホ方位追従・ホーム|`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-gps-startup-mode.js`|
 |PCツールバー・ポップアップ|`validate-pc-map-toolbar.js`、`validate-pc-object-interaction.js`、`validate-text-layer-ui.js`|
 |PCの最近開いた図面|`validate-recent-drawings.js`、`validate-pc-map-toolbar.js`|
@@ -26,6 +27,9 @@
 ## 2026-08-23 実行結果
 
 ### 成功
+
+- `validate-drogger-owner-mode.js` — アンテナ高補正、紙面1mm丸、3レイヤー、文字寸法更新、CSVを確認。
+- `validate-drogger-owner-runtime.js` — 5回タップON/OFF、登録、SFCメタデータ、関連3レイヤー削除とUndoをブラウザ上で確認。
 
 - `validate-registry-progress-cancel.js` — 「国土地調査境界」から取得開始し、取得中は「キャンセル」、完了後は「表示」「非表示」へ切り替わることを確認。
 - `validate-registry-append-and-intersection.js` — 未取得時の「国土地調査境界」表示と取得開始を確認。
