@@ -78,6 +78,12 @@ let browser;
     data.lines=[[0,0,10,10,1,1,1]];
     updateDrawingDependentUi();
   });
+  const desktopEditButtonHeights=await desktop.evaluate(()=>
+    ["layerFab","undoFab","redoFab"].map(id=>document.getElementById(id).getBoundingClientRect().height)
+  );
+  if(desktopEditButtonHeights.some(height=>Math.abs(height-desktopEditButtonHeights[0])>.5)){
+    throw new Error(`desktop layer/undo/redo heights differ: ${JSON.stringify(desktopEditButtonHeights)}`);
+  }
   for(const id of ["backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn"]){
     if(!(await desktop.locator(`#${id}`).isVisible()))throw new Error(`desktop map toolbar button is hidden: ${id}`);
   }
@@ -157,6 +163,12 @@ let browser;
     data.lines=[[0,0,10,10,1,1,1]];
     updateDrawingDependentUi();
   });
+  const mobileEditButtonHeights=await mobile.evaluate(()=>
+    ["layerFab","undoFab","redoFab"].map(id=>document.getElementById(id).getBoundingClientRect().height)
+  );
+  if(mobileEditButtonHeights.some(height=>Math.abs(height-mobileEditButtonHeights[0])>.5)){
+    throw new Error(`mobile layer/undo/redo heights differ: ${JSON.stringify(mobileEditButtonHeights)}`);
+  }
   const mobileSheetFit=await mobile.evaluate(()=>{
     data.lines=[[400,200,600,200,1,1,1],[600,200,600,300,1,1,1],[600,300,400,300,1,1,1],[400,300,400,200,1,1,1]];
     data.polys=[];data.splines=[];data.texts=[];data.circles=[];data.arcs=[];data.ellipses=[];data.ellipseArcs=[];data.markers=[];
