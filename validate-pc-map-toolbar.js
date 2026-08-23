@@ -21,7 +21,7 @@ for(const token of [
   "function positionPcToolbarPanel(panel,anchorButton)",
   "function scheduleMapFeatureWarmup()",
   "function getFullViewSafeTop(h)",
-  'registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?(registryMapDisplayEnabled?"非表示":"表示"):"境界"',
+  'registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?(registryMapDisplayEnabled?"非表示":"表示"):"国土地調査境界"',
   "#aerialPhotoPanel #terrainPanelOpenBtn",
   'document.querySelectorAll("[data-tooltip]")',
   'data-tooltip="制作：株式会社アイズ測量"'

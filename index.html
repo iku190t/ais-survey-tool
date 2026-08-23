@@ -1710,10 +1710,10 @@ gtag('config', 'G-88B9YPJXWP');
   <div id="registryMapPanel" class="panel">
     <div class="registryHeader"><div class="registryTitle">法務局地図・境界</div><button id="registryMapCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <div class="registryActions">
-      <button id="registryMapAutoBtn" type="button" aria-pressed="false">境界</button>
+      <button id="registryMapAutoBtn" type="button" aria-pressed="false">国土地調査境界</button>
       <button id="registryMapCadBtn" type="button" disabled>範囲を選んでCAD化</button>
     </div>
-    <div id="registryMapStatus">「境界」を押すと、その範囲だけ取得します。</div>
+    <div id="registryMapStatus">「国土地調査境界」を押すと、その範囲だけ取得します。</div>
     <div id="registryLayerList" aria-label="法務局地図レイヤー">
       <div class="registryLayerRow"><input id="registryParcelLayerToggle" type="checkbox" checked><label class="registryLayerToggleLabel" for="registryParcelLayerToggle">筆ポリゴンレイヤー</label><button id="registryParcelColorBtn" class="registryColorButton" type="button" data-registry-layer="parcel" aria-label="筆ポリゴンの色を変更" title="筆ポリゴンの色を変更"></button></div>
       <div class="registryLayerRow"><input id="registryBoundaryLayerToggle" type="checkbox" checked><label class="registryLayerToggleLabel" for="registryBoundaryLayerToggle">筆界線レイヤー</label><button id="registryBoundaryColorBtn" class="registryColorButton" type="button" data-registry-layer="boundary" aria-label="筆界線の色を変更" title="筆界線の色を変更"></button></div>
@@ -2099,7 +2099,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">背景色</div>上部の <b>背景</b> を押し、黒・白のうち表示したい背景色を選びます。青色になっている方が現在の設定です。</div>
               <div class="helpBlock"><div class="helpHead">航空写真</div><b>航空写真</b> のスイッチをONにすると、現在の場所で実際に利用できる写真年代を自動確認します。OFFの状態でもスライダーを操作すると自動的にONになります。</div>
               <div class="helpBlock"><div class="helpHead">基盤地図</div>図面と同じ位置の地理院地図Vectorを、必要なときだけ表示します。表示中の範囲だけ通信で取得し、等高線など地形解析の要素は混ぜません。PCは上部の<b>基盤地図</b>、スマホは背景内のスイッチを押すと表示し、もう一度押すと解除します。図面を開いた直後はOFFです。</div>
-      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開き、<b>境界</b>を押すと、その範囲の公開データを取得して表示します。取得中は共通の進捗バーを表示し、同じボタンまたはPC上部の青い法務地図ボタンを押すとキャンセルできます。PCは容量確認なしで開始し、スマホだけ通信容量の確認を表示します。取得後のボタンは表示・非表示の切替になり、同じ図面を開いている間は取得データを保持するため再ダウンロードしません。<b>範囲を選んでCAD化</b>では、多角形で囲んだ筆ポリゴン・筆界線・筆界点・地番文字を専用レイヤーへ追加し、SFCと一緒に保存できます。筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
+      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開き、<b>国土地調査境界</b>を押すと、その範囲の公開データを取得して表示します。取得中は共通の進捗バーを表示し、同じボタンまたはPC上部の青い法務地図ボタンを押すとキャンセルできます。PCは容量確認なしで開始し、スマホだけ通信容量の確認を表示します。取得後のボタンは表示・非表示の切替になり、同じ図面を開いている間は取得データを保持するため再ダウンロードしません。<b>範囲を選んでCAD化</b>では、多角形で囲んだ筆ポリゴン・筆界線・筆界点・地番文字を専用レイヤーへ追加し、SFCと一緒に保存できます。筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
               <div class="helpBlock"><div class="helpHead">ハザードマップ</div><b>ハザードマップ</b>から洪水・土砂災害・高潮・津波を1種類ずつ表示できます。選択中の青いボタンをもう一度押すと解除します。国土地理院ハザードマップポータルサイトの公開タイルを表示範囲だけ取得します。表示は参考情報のため、避難判断は自治体のハザードマップと最新の防災情報で確認してください。</div>
       <div class="helpBlock"><div class="helpHead">基準点・水準点</div><b>基準点・水準点</b>をONにすると、国土地理院の公開位置情報を図面へ重ね、図面上に種類の凡例を表示します。三角点・その他の基準点、水準点、電子基準点を個別に表示できます。記号をタップすると、点名・種類・基準点コード・成果状態を確認できます。表示位置は検索・現地確認の参考です。正式な成果値は国土地理院の基準点成果等閲覧サービスで確認してください。</div>
               <div class="helpBlock"><div class="helpHead">年代の変更</div>つまみは指に合わせて滑らかに動き、移動中は最も近い利用可能な年代の写真へ切り替わります。指を離すと、その年代の位置へ吸着します。左端が最新で、右へ動かすほど古くなります。</div>
@@ -13324,7 +13324,7 @@ function parseRegistryXml(xmlText,sourceName){
   return result;
 }
 function registryMapSummary(state=registryMapState){
-  if(!state.loaded)return "「境界」を押すと、その範囲だけ取得します。";
+  if(!state.loaded)return "「国土地調査境界」を押すと、その範囲だけ取得します。";
   const coordinate=state.coordinateMode+(state.zone?`・第${state.zone}系`:"");
   const areas=(state.acquiredBounds||[]).length;
   return `${state.sourceName}　筆 ${state.parcels.length}件／筆界線 ${state.looseLines.length}件／筆界点 ${state.points.length}点　${coordinate}${areas?`　取得範囲 ${areas}件`:""}`;
@@ -13357,7 +13357,7 @@ function updateRegistryMapUi(){
     registryMapAutoBtn.disabled=false;
     registryMapAutoBtn.classList.toggle("active",!!(registryMapAutoBusy||(registryMapState.loaded&&registryMapDisplayEnabled)));
     registryMapAutoBtn.setAttribute("aria-pressed",registryMapAutoBusy||(registryMapState.loaded&&registryMapDisplayEnabled)?"true":"false");
-    registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?(registryMapDisplayEnabled?"非表示":"表示"):"境界";
+    registryMapAutoBtn.textContent=registryMapAutoBusy?"キャンセル":registryMapState.loaded?(registryMapDisplayEnabled?"非表示":"表示"):"国土地調査境界";
   }
   if(registryMapCadBtn)registryMapCadBtn.disabled=registryMapAutoBusy||!registryMapState.loaded;
   if(registryMapAppendBtn){
