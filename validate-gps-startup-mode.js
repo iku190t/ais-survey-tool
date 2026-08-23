@@ -81,6 +81,14 @@ let browser;
   }));
   if(before.display==="none"||before.startup==="none")throw new Error(`mobile startup GPS button is hidden: ${JSON.stringify(before)}`);
   if(before.gpsTop<=before.fileBottom)throw new Error(`startup GPS button is not below file button: ${JSON.stringify(before)}`);
+  const mobileStartupButtons=await page.evaluate(()=>{
+    const ids=["startupOpenBtn","startupGpsBtn","startupRecoveryBtn","startupSampleBtn","startupVideoBtn"];
+    return ids.map(id=>{const element=document.getElementById(id),style=getComputedStyle(element);return {id,width:element.getBoundingClientRect().width,height:element.getBoundingClientRect().height,background:style.backgroundColor,color:style.color};});
+  });
+  const mobileButtonWidths=mobileStartupButtons.map(item=>item.width);
+  if(Math.max(...mobileButtonWidths)-Math.min(...mobileButtonWidths)>.5||mobileStartupButtons.some(item=>item.height<38||item.background!==mobileStartupButtons[0].background||item.color!==mobileStartupButtons[0].color)){
+    throw new Error(`startup buttons are not uniform on mobile: ${JSON.stringify(mobileStartupButtons)}`);
+  }
   await page.locator("#startupGpsBtn").click();
   await page.waitForFunction(()=>window.eval("gpsEnabled&&gpsOnlyBlankMode&&gpsPosition&&aerialPhotoEnabled"),null,{timeout:5000});
   const active=await page.evaluate(()=>window.eval(`({
@@ -274,6 +282,14 @@ let browser;
   await desktop.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:"load",timeout:15000});
   const desktopDisplay=await desktop.locator("#startupGpsBtn").evaluate(element=>getComputedStyle(element).display);
   if(desktopDisplay!=="none")throw new Error(`startup GPS button must be smartphone-only, got ${desktopDisplay}`);
+  const desktopStartupButtons=await desktop.evaluate(()=>{
+    const ids=["startupOpenBtn","startupRecoveryBtn","startupSampleBtn","startupVideoBtn"];
+    return ids.map(id=>{const element=document.getElementById(id),style=getComputedStyle(element);return {id,width:element.getBoundingClientRect().width,height:element.getBoundingClientRect().height,background:style.backgroundColor,color:style.color};});
+  });
+  const desktopButtonWidths=desktopStartupButtons.map(item=>item.width);
+  if(Math.max(...desktopButtonWidths)-Math.min(...desktopButtonWidths)>.5||desktopStartupButtons.some(item=>item.height<38||item.background!==desktopStartupButtons[0].background||item.color!==desktopStartupButtons[0].color)){
+    throw new Error(`startup buttons are not uniform on desktop: ${JSON.stringify(desktopStartupButtons)}`);
+  }
   await desktop.close();
   console.log("mobile GPS startup mode and state restoration checks passed");
   await browser.close();server.close();
