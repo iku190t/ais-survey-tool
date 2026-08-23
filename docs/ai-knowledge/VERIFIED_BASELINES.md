@@ -169,6 +169,17 @@
 - 確認内容: ツールポップアップをStreet View等の地図ボタンより前面に表示する。
 - 検証: `validate-gps-startup-mode.js`。
 
+### BASE-GPS-DETAIL-THEME-20260823
+
+- 状態: `検証済み`
+- コミット: `fc24db3`
+- 対象: 現在地の詳細情報ポップアップ。
+- 確認内容:
+  - 黒背景では従来の黒い半透明パネルと白文字を維持する。
+  - 白背景では白い半透明パネルと黒文字へ切り替え、航空写真上でも情報を読めるようにする。
+  - GPS、航空写真、座標・DEM表示内容には変更を加えない。
+- 検証: `validate-gps-startup-mode.js` で黒背景・白背景それぞれの計算済み背景色と文字色を確認。`validate-default-settings.js`、`validate-compass-follow.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc` も成功。
+
 ## 復元時の原則
 
 1. いきなり古いコミット全体へ戻さない。
