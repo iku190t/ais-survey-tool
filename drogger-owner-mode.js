@@ -22,9 +22,18 @@
       elevationTextSizeMm:clamp(finite(input.elevationTextSizeMm,DEFAULT_SETTINGS.elevationTextSizeMm),1,10)
     };
   }
-  function correctedElevation(altitude,antennaHeight){
-    const a=finite(altitude),h=finite(antennaHeight);
-    return a==null||h==null?null:a-h;
+  function correctedElevation(ellipsoidHeight,geoidHeight,antennaHeight){
+    const ellipsoid=finite(ellipsoidHeight),geoid=finite(geoidHeight),antenna=finite(antennaHeight);
+    return ellipsoid==null||geoid==null||antenna==null?null:ellipsoid-geoid-antenna;
+  }
+  function roundedElevation(value){
+    const numeric=finite(value);
+    return numeric==null?null:Math.round(numeric*1000)/1000;
+  }
+  function drawingElevationText(value){
+    const numeric=finite(value);
+    if(numeric==null)return "－";
+    return (Math.trunc((numeric+Math.sign(numeric)*Number.EPSILON)*100)/100).toFixed(2);
   }
   function nextPointName(records){
     const used=new Set((records||[]).map(item=>String(item&&item.name||"").trim()));
@@ -59,8 +68,10 @@
       sfcX:+gps.sfcX,
       sfcY:+gps.sfcY,
       antennaAltitude:finite(gps.altitude),
+      geoidHeight:finite(gps.geoidHeight),
+      geoidModelName:String(gps.geoidModelName||""),
       antennaHeight:normalized.antennaHeight,
-      elevation:correctedElevation(gps.altitude,normalized.antennaHeight),
+      elevation:roundedElevation(correctedElevation(gps.altitude,gps.geoidHeight,normalized.antennaHeight)),
       accuracy:finite(gps.accuracy),
       altitudeAccuracy:finite(gps.altitudeAccuracy),
       sourceTimestamp:finite(gps.timestamp,now),
@@ -77,20 +88,23 @@
     const units=Math.max(1e-9,finite(worldUnitsPerPaperMm,1));
     const normalized=normalizeSettings(settings);
     const cx=record.sfcX*1000,cy=record.sfcY*1000;
-    const radius=.5*units;
+    const radius=.4*units;
     const points=[];
     for(let i=0;i<=48;i++){
       const angle=Math.PI*2*i/48;
       points.push({x:cx+Math.cos(angle)*radius,y:cy+Math.sin(angle)*radius});
     }
-    const base={type:"freehand",color:"#ff3030",opacity:1,eraser:false,screenWidthPx:null,worldWidthMm:.13,width:10,droggerPointId:record.id};
+    const markerWidthMm=.13/3;
+    const base={type:"freehand",color:"#ff3030",opacity:1,eraser:false,screenWidthPx:null,worldWidthMm:markerWidthMm,width:10,droggerPointId:record.id};
     const textX=cx+1.05*units;
     const nameY=cy+.78*units;
     const elevationY=cy-.78*units;
     return [
-      {...base,droggerLayerId:LAYERS.point,droggerRecord:{...record},isCircleMemo:true,paperDiameterMm:1,circleGeometryVersion:2,points},
+      {...base,droggerLayerId:LAYERS.point,droggerRecord:{...record},isCircleMemo:true,paperDiameterMm:.8,circleGeometryVersion:2,points},
+      {...base,droggerLayerId:LAYERS.point,points:[{x:cx-radius,y:cy},{x:cx+radius,y:cy}]},
+      {...base,droggerLayerId:LAYERS.point,points:[{x:cx,y:cy-radius},{x:cx,y:cy+radius}]},
       {...base,droggerLayerId:LAYERS.name,worldWidthMm:.006,width:1,photoTextLabel:labelPayload(record.name,textX,nameY,normalized.nameTextSizeMm),points:[{x:textX,y:nameY},{x:textX,y:nameY}]},
-      {...base,droggerLayerId:LAYERS.elevation,worldWidthMm:.006,width:1,photoTextLabel:labelPayload(record.elevation==null?"－":Number(record.elevation).toFixed(3),textX,elevationY,normalized.elevationTextSizeMm),points:[{x:textX,y:elevationY},{x:textX,y:elevationY}]}
+      {...base,droggerLayerId:LAYERS.elevation,worldWidthMm:.006,width:1,photoTextLabel:labelPayload(drawingElevationText(record.elevation),textX,elevationY,normalized.elevationTextSizeMm),points:[{x:textX,y:elevationY},{x:textX,y:elevationY}]}
     ];
   }
   function recordsFromStrokes(strokes){
@@ -115,10 +129,10 @@
   function buildCsv(records){
     const headers=["点名","平面直角X","平面直角Y","標高","アンテナ標高","アンテナ高","水平誤差","系番号","緯度","経度","登録日時"];
     const rows=(records||[]).map(record=>[
-      record.name,finite(record.x),finite(record.y),finite(record.elevation),finite(record.antennaAltitude),finite(record.antennaHeight),finite(record.accuracy),finite(record.zone),finite(record.lat),finite(record.lon),record.registeredAt?new Date(record.registeredAt).toLocaleString("ja-JP"):""
+      record.name,finite(record.x),finite(record.y),finite(record.elevation)==null?null:Number(record.elevation).toFixed(3),finite(record.antennaAltitude),finite(record.antennaHeight),finite(record.accuracy),finite(record.zone),finite(record.lat),finite(record.lon),record.registeredAt?new Date(record.registeredAt).toLocaleString("ja-JP"):""
     ]);
     return [headers,...rows].map(row=>row.map(csvValue).join(",")).join("\r\n");
   }
 
-  global.DroggerOwnerMode=Object.freeze({LAYERS,DEFAULT_SETTINGS,normalizeSettings,correctedElevation,nextPointName,incrementPointName,createRecord,createRegistrationStrokes,recordsFromStrokes,updateTextStyles,buildCsv});
+  global.DroggerOwnerMode=Object.freeze({LAYERS,DEFAULT_SETTINGS,normalizeSettings,correctedElevation,drawingElevationText,nextPointName,incrementPointName,createRecord,createRegistrationStrokes,recordsFromStrokes,updateTextStyles,buildCsv});
 })(window);

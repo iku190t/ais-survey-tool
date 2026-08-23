@@ -388,7 +388,9 @@ body.light #gpsBox{background:rgba(255,255,255,.88)!important;color:#111!importa
 #droggerOwnerControls.show{display:grid;gap:7px;}
 .droggerOwnerRow{display:grid;grid-template-columns:minmax(0,1fr) 92px;align-items:center;gap:8px;}
 .droggerOwnerRow input{width:100%;min-width:0;height:32px;box-sizing:border-box;border:1px solid var(--border);border-radius:7px;background:var(--button);color:var(--buttonText);padding:4px 7px;font-size:13px;}
-#droggerOwnerActions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:2px;}
+.droggerOwnerRow button{width:100%;min-width:0;height:32px;min-height:32px;padding:3px 7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
+#droggerOwnerActions{position:sticky;bottom:-10px;z-index:2;display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:2px -10px -10px;padding:8px 10px 10px;background:rgba(20,20,20,.96);border-top:1px solid var(--border);}
+body.light #droggerOwnerActions{background:rgba(255,255,255,.97);}
 #droggerOwnerActions button{min-height:36px;font-weight:800;}
 #droggerRegisterBtn{background:#c62828;color:#fff;border-color:#8e0000;}
 #gpsBox.drogger-minimized{width:auto!important;min-width:210px;max-height:none!important;overflow:hidden!important;}
@@ -1613,6 +1615,7 @@ gtag('config', 'G-88B9YPJXWP');
     <div id="droggerOwnerControls" aria-hidden="true">
       <label class="droggerOwnerRow"><span>点名</span><input id="droggerPointName" type="text" maxlength="40" autocomplete="off"></label>
       <label class="droggerOwnerRow"><span>アンテナ高 (m)</span><input id="droggerAntennaHeight" type="number" min="-20" max="100" step="0.001"></label>
+      <div class="droggerOwnerRow"><span>ジオイドモデル</span><button id="droggerGeoidModelBtn" type="button" title="公式ISGファイルを読み込みます">読込</button><input id="droggerGeoidModelInput" type="file" accept=".isg,text/plain" hidden></div>
       <label class="droggerOwnerRow"><span>点名文字 (mm)</span><input id="droggerNameTextSize" type="number" min="1" max="10" step="0.1"></label>
       <label class="droggerOwnerRow"><span>標高文字 (mm)</span><input id="droggerElevationTextSize" type="number" min="1" max="10" step="0.1"></label>
       <div id="droggerOwnerActions"><button id="droggerRegisterBtn" type="button">登録</button><button id="droggerManageBtn" type="button">座標管理</button></div>
@@ -2262,7 +2265,8 @@ gtag('config', 'G-88B9YPJXWP');
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.js"></script>
 <script src="https://unpkg.com/shpjs@6.2.0/dist/shp.min.js"></script>
 <script src="foundation-map-gml.js?v=1"></script>
-<script src="drogger-owner-mode.js?v=1"></script>
+<script src="drogger-geoid-model.js?v=1"></script>
+<script src="drogger-owner-mode.js?v=2"></script>
 <script>
 const GA_MEASUREMENT_ID = "G-88B9YPJXWP";
 const GA_PLACEHOLDER_ID = "G-88B9YPJXWP";
@@ -2911,6 +2915,9 @@ let droggerOwnerMinimized=false;
 let droggerOwnerLongPressTimer=0;
 let droggerOwnerLongPressState=null;
 let droggerOwnerSettings=window.DroggerOwnerMode?.normalizeSettings?.((()=>{try{return JSON.parse(localStorage.getItem(DROGGER_SETTINGS_KEY)||"null");}catch(_error){return null;}})())||{antennaHeight:0,nameTextSizeMm:2.5,elevationTextSizeMm:2.5};
+let droggerGeoidModel=null;
+let droggerGeoidModelLoading=false;
+let droggerGeoidModelLoadStarted=false;
 const JGD2024_NAME = "JGD2024";
 const JAPAN_PLANE_ZONES = [
   {zone:1, lat0:33, lon0:129.5},
@@ -6589,6 +6596,45 @@ async function refreshGpsDemElevation(lat,lon){
 function getDroggerCoordinateRecords(){
   return window.DroggerOwnerMode?.recordsFromStrokes?.(inkStrokes)||[];
 }
+function getCurrentDroggerGeoidHeight(){
+  if(!gpsPosition)return null;
+  if(Number.isFinite(gpsPosition.geoidHeight))return gpsPosition.geoidHeight;
+  return window.DroggerGeoidModel?.interpolate?.(droggerGeoidModel,gpsPosition.lat,gpsPosition.lon)??null;
+}
+function updateDroggerGeoidModelUi(){
+  const button=document.getElementById("droggerGeoidModelBtn");
+  if(!button)return;
+  button.disabled=droggerGeoidModelLoading;
+  button.textContent=droggerGeoidModelLoading?"読込中…":droggerGeoidModel?"設定済":"読込";
+  button.title=droggerGeoidModel?`${droggerGeoidModel.name}（押すと差し替え）`:"公式JPGEO2024等のISGファイルを読み込みます";
+}
+async function ensureDroggerGeoidModelLoaded(){
+  if(droggerGeoidModelLoadStarted)return droggerGeoidModel;
+  droggerGeoidModelLoadStarted=true;
+  try{droggerGeoidModel=await window.DroggerGeoidModel?.loadActiveModel?.()||null;}
+  catch(error){console.warn("保存済みジオイドモデルを読み込めませんでした",error);}
+  updateDroggerGeoidModelUi();
+  if(droggerOwnerModeActive)updateGpsUi();
+  return droggerGeoidModel;
+}
+async function importDroggerGeoidModel(file){
+  if(!file||droggerGeoidModelLoading)return;
+  droggerGeoidModelLoading=true;
+  updateDroggerGeoidModelUi();
+  try{
+    const model=await window.DroggerGeoidModel.parseFile(file);
+    await window.DroggerGeoidModel.saveActiveModel(model);
+    droggerGeoidModel=model;
+    showToast(`${model.name} を設定しました`,2200);
+  }catch(error){
+    console.error(error);
+    showToast(error?.message||"ジオイドモデルを読み込めませんでした",3200);
+  }finally{
+    droggerGeoidModelLoading=false;
+    updateDroggerGeoidModelUi();
+    updateGpsUi();
+  }
+}
 function saveDroggerOwnerSettings(){
   try{localStorage.setItem(DROGGER_SETTINGS_KEY,JSON.stringify(droggerOwnerSettings));}catch(_error){}
 }
@@ -6611,6 +6657,7 @@ function updateDroggerOwnerControlsUi(){
   if(antenna&&document.activeElement!==antenna)antenna.value=String(droggerOwnerSettings.antennaHeight);
   if(nameSize&&document.activeElement!==nameSize)nameSize.value=String(droggerOwnerSettings.nameTextSizeMm);
   if(elevationSize&&document.activeElement!==elevationSize)elevationSize.value=String(droggerOwnerSettings.elevationTextSizeMm);
+  updateDroggerGeoidModelUi();
   const ready=!!gpsPosition;
   const register=document.getElementById("droggerRegisterBtn");
   if(register){register.disabled=!ready;register.title=ready?"現在のDrogger座標を登録します":"現在地を取得中です";}
@@ -6620,15 +6667,17 @@ function renderDroggerOwnerGpsText(element){
   if(!gpsEnabled){element.textContent="GPSはOFFです。";return;}
   if(!gpsPosition){element.textContent="Drogger測位を待っています…";return;}
   const horizontalAccuracy=Number.isFinite(gpsPosition.accuracy)?gpsPosition.accuracy.toFixed(3):"－";
-  if(droggerOwnerMinimized){element.textContent=`水平誤差: ${horizontalAccuracy}m`;return;}
+  if(droggerOwnerMinimized){element.textContent=`水平誤差 ±${horizontalAccuracy}m`;return;}
   const raw=Number.isFinite(gpsPosition.altitude)?gpsPosition.altitude:null;
-  const corrected=window.DroggerOwnerMode.correctedElevation(raw,droggerOwnerSettings.antennaHeight);
-  element.innerHTML=`<b>Drogger高精度登録</b><br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>Droggerアンテナ標高: ${raw==null?'取得中':raw.toFixed(3)}<br>アンテナ高: ${droggerOwnerSettings.antennaHeight.toFixed(3)}<br>補正標高: ${corrected==null?'取得中':corrected.toFixed(3)}<br>水平誤差: ${horizontalAccuracy}m`;
+  const geoidHeight=getCurrentDroggerGeoidHeight();
+  const corrected=window.DroggerOwnerMode.correctedElevation(raw,geoidHeight,droggerOwnerSettings.antennaHeight);
+  element.innerHTML=`<b>Drogger高精度登録</b><br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>楕円体高: ${raw==null?'取得中':raw.toFixed(3)}<br>ジオイド高: ${geoidHeight==null?'未設定':geoidHeight.toFixed(3)}<br>アンテナ高: ${droggerOwnerSettings.antennaHeight.toFixed(3)}<br>補正標高: ${corrected==null?'－':corrected.toFixed(3)}<br>水平誤差: ±${horizontalAccuracy}m`;
 }
 function setDroggerOwnerMode(active){
   droggerOwnerModeActive=!!active;
   droggerOwnerMinimized=false;
   if(!droggerOwnerModeActive)closeDroggerCoordinateManager();
+  else ensureDroggerGeoidModelLoaded();
   updateGpsUi();
   showToast(droggerOwnerModeActive?"Drogger座標登録モード ON":"Drogger座標登録モード OFF",1800);
 }
@@ -6682,13 +6731,14 @@ function playDroggerRegisterBeep(){
       const start=audioContext.currentTime;
       const oscillator=audioContext.createOscillator();
       const gain=audioContext.createGain();
-      oscillator.type="sine";
-      oscillator.frequency.setValueAtTime(880,start);
+      oscillator.type="square";
+      oscillator.frequency.setValueAtTime(1320,start);
       gain.gain.setValueAtTime(.0001,start);
-      gain.gain.exponentialRampToValueAtTime(.16,start+.015);
-      gain.gain.exponentialRampToValueAtTime(.0001,start+.18);
+      gain.gain.exponentialRampToValueAtTime(1,start+.006);
+      gain.gain.setValueAtTime(1,start+.075);
+      gain.gain.exponentialRampToValueAtTime(.0001,start+.115);
       oscillator.connect(gain);gain.connect(audioContext.destination);
-      oscillator.start(start);oscillator.stop(start+.19);
+      oscillator.start(start);oscillator.stop(start+.12);
     };
     if(audioContext.state==="suspended")audioContext.resume().then(play).catch(error=>console.warn("Drogger登録音を再生できませんでした",error));
     else play();
@@ -6699,7 +6749,7 @@ function registerCurrentDroggerCoordinate(){
   if(!gpsPosition){showToast("現在地を取得中です",2200);return;}
   updateDroggerSettingsFromInputs();
   const pointName=document.getElementById("droggerPointName");
-  const record=window.DroggerOwnerMode.createRecord(gpsPosition,droggerOwnerSettings,pointName?.value);
+  const record=window.DroggerOwnerMode.createRecord({...gpsPosition,geoidHeight:getCurrentDroggerGeoidHeight(),geoidModelName:droggerGeoidModel?.name||gpsPosition.geoidModelName||""},droggerOwnerSettings,pointName?.value);
   if(!record){showToast("現在の座標を登録できませんでした",2200);return;}
   const strokes=window.DroggerOwnerMode.createRegistrationStrokes(record,getMemoWorldUnitsPerPaperMm(),droggerOwnerSettings);
   addInkStrokeOperation(strokes,"Drogger座標登録");
@@ -19442,6 +19492,13 @@ document.getElementById("droggerCoordinateModal")?.addEventListener("click",even
 document.getElementById("droggerAntennaHeight")?.addEventListener("change",()=>updateDroggerSettingsFromInputs());
 document.getElementById("droggerNameTextSize")?.addEventListener("change",()=>updateDroggerSettingsFromInputs({updateLabels:true}));
 document.getElementById("droggerElevationTextSize")?.addEventListener("change",()=>updateDroggerSettingsFromInputs({updateLabels:true}));
+document.getElementById("droggerGeoidModelBtn")?.addEventListener("click",()=>document.getElementById("droggerGeoidModelInput")?.click());
+document.getElementById("droggerGeoidModelInput")?.addEventListener("change",event=>{
+  const input=event.currentTarget;
+  const file=input.files?.[0];
+  input.value="";
+  if(file)importDroggerGeoidModel(file);
+});
 if(gpsReturnBtn)gpsReturnBtn.addEventListener("click",event=>{
   event.preventDefault();
   event.stopPropagation();
