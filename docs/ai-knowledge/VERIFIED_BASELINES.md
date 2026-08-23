@@ -107,6 +107,14 @@
   - PCは容量確認を出さない。
 - 検証: `validate-registry-progress-cancel.js`。
 
+### BASE-REGISTRY-LABEL-20260823
+
+- 状態: `検証済み`
+- コミット: `cef92f8`
+- 対象: 法務局地図・境界の取得開始ボタン。
+- 確認内容: 初期表示、キャンセル後の復帰、未取得時の案内、ヘルプを「国土地調査境界」へ統一する。取得後の「表示」「非表示」と取得中の「キャンセル」は従来どおり。
+- 検証: `validate-registry-progress-cancel.js`、`validate-registry-append-and-intersection.js`、`validate-registry-cad.js`、`validate-pc-map-toolbar.js`。
+
 ### BASE-PHOTO-DROP-20260822
 
 - 状態: `検証済み`

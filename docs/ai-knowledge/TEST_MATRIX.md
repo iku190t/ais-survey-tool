@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-23 / `fc24db3`
+最終実行: 2026-08-23 / `cef92f8`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -26,8 +26,8 @@
 
 ### 成功
 
-- `validate-registry-progress-cancel.js`
-- `validate-registry-append-and-intersection.js`
+- `validate-registry-progress-cancel.js` — 「国土地調査境界」から取得開始し、取得中は「キャンセル」、完了後は「表示」「非表示」へ切り替わることを確認。
+- `validate-registry-append-and-intersection.js` — 未取得時の「国土地調査境界」表示と取得開始を確認。
 - `validate-registry-cad.js`
 - `validate-registry-layer-colors.js`
 - `validate-recovery-autosave.js`
