@@ -53,7 +53,7 @@ let browser;
   if(opened.text.includes("標高誤差"))throw new Error("unused altitude accuracy is still displayed");
   await page.locator("#droggerOwnerMinimizeBtn").click();
   const minimized=await page.evaluate(()=>window.eval(`({collapsed:document.getElementById("gpsBox").classList.contains("drogger-minimized"),text:document.getElementById("gpsText").textContent,controls:getComputedStyle(document.getElementById("droggerOwnerControls")).display,actions:getComputedStyle(document.getElementById("droggerOwnerActions")).display})`));
-  if(!minimized.collapsed||minimized.text!=="水平誤差 ±0.015m"||minimized.controls!=="none"||minimized.actions==="none")throw new Error(`Drogger minimization hid floating actions: ${JSON.stringify(minimized)}`);
+  if(!minimized.collapsed||!minimized.text.includes("RTK状態: FIXED")||!minimized.text.includes("水平誤差 ±0.015m")||minimized.controls!=="none"||minimized.actions==="none")throw new Error(`Drogger minimization lost RTK/accuracy or hid floating actions: ${JSON.stringify(minimized)}`);
   const actionPosition=await page.evaluate(()=>{
     const actions=document.getElementById("droggerOwnerActions");
     const back=document.getElementById("gpsReturnBtn");

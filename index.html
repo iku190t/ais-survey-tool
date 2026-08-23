@@ -2929,11 +2929,12 @@ let gpsTemporaryCoordinateZone = null;
 const DROGGER_SETTINGS_KEY="ezviewer_drogger_owner_settings_v1";
 const DROGGER_OWNER_LONG_PRESS_MS=3000;
 const DROGGER_NATIVE_STATUS_URL="http://127.0.0.1:38472/status";
+const DROGGER_NATIVE_SHARE_URL="http://127.0.0.1:38472/share";
 let droggerOwnerModeActive=false;
 let droggerOwnerMinimized=false;
 let droggerOwnerLongPressTimer=0;
 let droggerOwnerLongPressState=null;
-let droggerNativeStatus={bridge:false,fixMode:"UNAVAILABLE",fixQuality:0,ageMs:-1,nmeaConnected:false,updatedAt:0};
+let droggerNativeStatus={bridge:false,fixMode:"UNAVAILABLE",fixQuality:0,ageMs:-1,nmeaConnected:false,shareToken:"",updatedAt:0};
 let droggerOwnerSettings=window.DroggerOwnerMode?.normalizeSettings?.((()=>{try{return JSON.parse(localStorage.getItem(DROGGER_SETTINGS_KEY)||"null");}catch(_error){return null;}})())||{antennaHeight:0,nameTextSizeMm:1.8,elevationTextSizeMm:1.8};
 let droggerGeoidModel=null;
 let droggerGeoidModelLoading=false;
@@ -6690,7 +6691,11 @@ function renderDroggerOwnerGpsText(element){
   if(!gpsEnabled){element.textContent="GPSはOFFです。";return;}
   if(!gpsPosition){element.textContent="Drogger測位を待っています…";return;}
   const horizontalAccuracy=Number.isFinite(gpsPosition.accuracy)?gpsPosition.accuracy.toFixed(3):"－";
-  if(droggerOwnerMinimized){element.textContent=`水平誤差 ±${horizontalAccuracy}m`;return;}
+  if(droggerOwnerMinimized){
+    const fixLine=buildDroggerNativeFixLine();
+    element.innerHTML=(fixLine?fixLine.replace(/^<br>/,"")+"<br>":"")+`水平誤差 ±${horizontalAccuracy}m`;
+    return;
+  }
   const raw=Number.isFinite(gpsPosition.altitude)?gpsPosition.altitude:null;
   const geoidHeight=getCurrentDroggerGeoidHeight();
   const corrected=window.DroggerOwnerMode.correctedElevation(raw,geoidHeight,droggerOwnerSettings.antennaHeight);
@@ -6712,9 +6717,9 @@ async function pollDroggerNativeStatus(){
     const response=await fetch(DROGGER_NATIVE_STATUS_URL,{cache:"no-store",mode:"cors"});
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
     const status=await response.json();
-    droggerNativeStatus={bridge:status.bridge===true,fixMode:String(status.fixMode||"NO_DATA"),fixQuality:Number(status.fixQuality)||0,ageMs:Number.isFinite(+status.ageMs)?+status.ageMs:-1,nmeaConnected:status.nmeaConnected===true,updatedAt:Date.now()};
+    droggerNativeStatus={bridge:status.bridge===true,fixMode:String(status.fixMode||"NO_DATA"),fixQuality:Number(status.fixQuality)||0,ageMs:Number.isFinite(+status.ageMs)?+status.ageMs:-1,nmeaConnected:status.nmeaConnected===true,shareToken:String(status.shareToken||""),updatedAt:Date.now()};
   }catch(_error){
-    droggerNativeStatus={bridge:false,fixMode:"UNAVAILABLE",fixQuality:0,ageMs:-1,nmeaConnected:false,updatedAt:Date.now()};
+    droggerNativeStatus={bridge:false,fixMode:"UNAVAILABLE",fixQuality:0,ageMs:-1,nmeaConnected:false,shareToken:"",updatedAt:Date.now()};
   }
   if(droggerOwnerModeActive)updateGpsUi();
 }
@@ -6849,9 +6854,8 @@ async function shareDroggerCoordinatesCsv(){
   const csv="\ufeff"+window.DroggerOwnerMode.buildCsv(records);
   const date=new Date().toISOString().slice(0,10).replace(/-/g,"");
   const file=new File([csv],`Drogger座標_${date}.csv`,{type:"text/csv;charset=utf-8"});
-  try{
-    if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){await navigator.share({title:"Drogger座標一覧",files:[file]});return;}
-  }catch(error){if(error?.name==="AbortError")return;console.warn(error);}
+  const shared=await shareBlobFile(file,file.name);
+  if(shared===true||shared==="cancelled")return;
   const url=URL.createObjectURL(file);const anchor=document.createElement("a");anchor.href=url;anchor.download=file.name;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
   showToast("CSVを保存しました。Gmailへ添付してください",2600);
 }
@@ -7978,7 +7982,46 @@ function isIOSLike(){
 function isAndroidLike(){
   return /Android/i.test(navigator.userAgent||"");
 }
+async function shareBlobFileWithNativeAndroid(blob,fileName){
+  if(!isEzViewerPrivateAndroidApp())return false;
+  let token=String(droggerNativeStatus.shareToken||"");
+  if(!token){
+    try{
+      const statusResponse=await fetch(DROGGER_NATIVE_STATUS_URL,{cache:"no-store",mode:"cors"});
+      if(!statusResponse.ok)return false;
+      const status=await statusResponse.json();
+      token=String(status.shareToken||"");
+      if(token)droggerNativeStatus.shareToken=token;
+    }catch(error){console.error("Native share status failed",error);return false;}
+  }
+  if(!token)return false;
+  const name=normalizeExportFileName(fileName,"EzViewer_share.zip");
+  try{
+    const response=await fetch(DROGGER_NATIVE_SHARE_URL,{
+      method:"POST",
+      mode:"cors",
+      cache:"no-store",
+      headers:{
+        "Content-Type":"application/octet-stream",
+        "X-EzViewer-Token":token,
+        "X-EzViewer-Filename":encodeURIComponent(name),
+        "X-EzViewer-Mime":String(blob.type||"application/octet-stream")
+      },
+      body:blob
+    });
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    const result=await response.json();
+    const shareId=String(result.shareId||"");
+    if(!shareId)throw new Error("shareId missing");
+    location.href=`intent://share?id=${encodeURIComponent(shareId)}#Intent;scheme=ezviewer;package=jp.co.eyesurvey.ezviewer;end`;
+    return true;
+  }catch(error){
+    console.error("Native Android file share failed",error);
+    return false;
+  }
+}
 async function shareBlobFile(blob, fileName){
+  if(isEzViewerPrivateAndroidApp())return shareBlobFileWithNativeAndroid(blob,fileName);
   if (!(window.File && navigator.share)) return false;
   // Some Android browsers incorrectly return false from canShare() for ZIP
   // even though the native share sheet can accept the file.  Test the common
@@ -20032,6 +20075,9 @@ function setSaveMenuOpen(open){
   if(saveAsBtn){
     saveAsBtn.disabled=!hasDrawing;
     saveAsBtn.textContent=desktop?"名前を付けて保存":"別名保存・送信";
+    const hideAndroidSaveAs=!desktop&&isAndroidLike();
+    saveAsBtn.hidden=hideAndroidSaveAs;
+    saveAsBtn.style.display=hideAndroidSaveAs?"none":"";
   }
   if(androidShareBtn){
     const showAndroidShare=!desktop&&isAndroidLike();
