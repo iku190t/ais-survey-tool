@@ -2901,7 +2901,7 @@ let gpsOnlyBlankPrevDarkTheme = true;
 let gpsSessionState = null;
 let gpsTemporaryCoordinateZone = null;
 const DROGGER_SETTINGS_KEY="ezviewer_drogger_owner_settings_v1";
-const DROGGER_OWNER_LONG_PRESS_MS=5000;
+const DROGGER_OWNER_LONG_PRESS_MS=3000;
 let droggerOwnerModeActive=false;
 let droggerOwnerLongPressTimer=0;
 let droggerOwnerLongPressState=null;
@@ -6601,9 +6601,9 @@ function updateDroggerOwnerControlsUi(){
   if(antenna&&document.activeElement!==antenna)antenna.value=String(droggerOwnerSettings.antennaHeight);
   if(nameSize&&document.activeElement!==nameSize)nameSize.value=String(droggerOwnerSettings.nameTextSizeMm);
   if(elevationSize&&document.activeElement!==elevationSize)elevationSize.value=String(droggerOwnerSettings.elevationTextSizeMm);
-  const fresh=!!(gpsPosition&&Number.isFinite(gpsPosition.altitude)&&Date.now()-(+gpsPosition.timestamp||0)<=10000);
+  const ready=!!gpsPosition;
   const register=document.getElementById("droggerRegisterBtn");
-  if(register){register.disabled=!fresh||!hasLoadedDrawing();register.title=!hasLoadedDrawing()?"先にSFC図面を開いてください":fresh?"現在のDrogger座標を登録します":"Droggerの新しい高度を受信待ちです";}
+  if(register){register.disabled=!ready||!hasLoadedDrawing();register.title=!hasLoadedDrawing()?"先にSFC図面を開いてください":ready?"現在のDrogger座標を登録します":"現在地を取得中です";}
 }
 function renderDroggerOwnerGpsText(element){
   if(!element)return;
@@ -6661,11 +6661,31 @@ function updateDroggerSettingsFromInputs(options={}){
   }
   updateGpsUi();
 }
+function playDroggerRegisterBeep(){
+  try{
+    const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+    if(!AudioContextClass)return;
+    const audioContext=playDroggerRegisterBeep.audioContext||(playDroggerRegisterBeep.audioContext=new AudioContextClass());
+    const play=()=>{
+      const start=audioContext.currentTime;
+      const oscillator=audioContext.createOscillator();
+      const gain=audioContext.createGain();
+      oscillator.type="sine";
+      oscillator.frequency.setValueAtTime(880,start);
+      gain.gain.setValueAtTime(.0001,start);
+      gain.gain.exponentialRampToValueAtTime(.16,start+.015);
+      gain.gain.exponentialRampToValueAtTime(.0001,start+.18);
+      oscillator.connect(gain);gain.connect(audioContext.destination);
+      oscillator.start(start);oscillator.stop(start+.19);
+    };
+    if(audioContext.state==="suspended")audioContext.resume().then(play).catch(error=>console.warn("Drogger登録音を再生できませんでした",error));
+    else play();
+  }catch(error){console.warn("Drogger登録音を再生できませんでした",error);}
+}
 function registerCurrentDroggerCoordinate(){
   if(!droggerOwnerModeActive)return;
   if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
-  if(!gpsPosition||!Number.isFinite(gpsPosition.altitude)){showToast("Droggerから高度を受信できていません",2400);return;}
-  if(Date.now()-(+gpsPosition.timestamp||0)>10000){showToast("測位データが古いため、Droggerの接続を確認してください",2600);return;}
+  if(!gpsPosition){showToast("現在地を取得中です",2200);return;}
   updateDroggerSettingsFromInputs();
   const pointName=document.getElementById("droggerPointName");
   const record=window.DroggerOwnerMode.createRecord(gpsPosition,droggerOwnerSettings,pointName?.value);
@@ -6677,7 +6697,8 @@ function registerCurrentDroggerCoordinate(){
   renderLayerList();
   scheduleDraw();
   markMemoChanged();
-  if(pointName)pointName.value=window.DroggerOwnerMode.nextPointName(getDroggerCoordinateRecords());
+  playDroggerRegisterBeep();
+  if(pointName)pointName.value=window.DroggerOwnerMode.incrementPointName(record.name,getDroggerCoordinateRecords());
   showToast(`${record.name} を登録しました`,1800);
 }
 function deleteDroggerCoordinate(pointId){
@@ -6702,7 +6723,8 @@ function renderDroggerCoordinateManager(){
     const values=document.createElement("div");values.className="droggerCoordinateValues";
     const title=document.createElement("b");title.textContent=record.name||"名称なし";values.appendChild(title);
     values.appendChild(document.createElement("br"));
-    values.appendChild(document.createTextNode(`X ${Number(record.x).toFixed(3)}　Y ${Number(record.y).toFixed(3)}　標高 ${Number(record.elevation).toFixed(3)}`));
+    const elevationText=record.elevation!=null&&Number.isFinite(+record.elevation)?Number(record.elevation).toFixed(3):"－";
+    values.appendChild(document.createTextNode(`X ${Number(record.x).toFixed(3)}　Y ${Number(record.y).toFixed(3)}　標高 ${elevationText}`));
     values.appendChild(document.createElement("br"));
     values.appendChild(document.createTextNode(`誤差 ${Number.isFinite(+record.accuracy)?Number(record.accuracy).toFixed(3):'－'}m　${record.registeredAt?new Date(record.registeredAt).toLocaleString("ja-JP"):''}`));
     const remove=document.createElement("button");remove.type="button";remove.className="droggerCoordinateDelete";remove.textContent="削除";remove.addEventListener("click",()=>deleteDroggerCoordinate(record.id));

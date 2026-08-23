@@ -12,7 +12,7 @@
     elevationTextSizeMm:2.5
   });
 
-  const finite=(value,fallback=null)=>Number.isFinite(+value)?+value:fallback;
+  const finite=(value,fallback=null)=>(value===null||value===undefined||value==="")?fallback:Number.isFinite(+value)?+value:fallback;
   const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
   function normalizeSettings(value){
     const input=value&&typeof value==="object"?value:{};
@@ -32,8 +32,20 @@
     while(used.has(`P${number}`))number++;
     return `P${number}`;
   }
+  function incrementPointName(currentName,records){
+    const current=String(currentName||"").trim();
+    const match=current.match(/^(.*?)(\d+)$/u);
+    if(!match)return nextPointName(records);
+    const used=new Set((records||[]).map(item=>String(item&&item.name||"").trim()));
+    const prefix=match[1];
+    const width=match[2].length;
+    let number=Number(match[2])+1;
+    let candidate;
+    do{candidate=`${prefix}${String(number++).padStart(width,"0")}`;}while(used.has(candidate));
+    return candidate;
+  }
   function createRecord(gps,settings,name){
-    if(!gps||![gps.lat,gps.lon,gps.x,gps.y,gps.sfcX,gps.sfcY,gps.altitude].every(Number.isFinite))return null;
+    if(!gps||![gps.lat,gps.lon,gps.x,gps.y,gps.sfcX,gps.sfcY].every(Number.isFinite))return null;
     const normalized=normalizeSettings(settings);
     const now=Date.now();
     return {
@@ -46,7 +58,7 @@
       y:+gps.y,
       sfcX:+gps.sfcX,
       sfcY:+gps.sfcY,
-      antennaAltitude:+gps.altitude,
+      antennaAltitude:finite(gps.altitude),
       antennaHeight:normalized.antennaHeight,
       elevation:correctedElevation(gps.altitude,normalized.antennaHeight),
       accuracy:finite(gps.accuracy),
@@ -78,7 +90,7 @@
     return [
       {...base,droggerLayerId:LAYERS.point,droggerRecord:{...record},isCircleMemo:true,paperDiameterMm:1,circleGeometryVersion:2,points},
       {...base,droggerLayerId:LAYERS.name,worldWidthMm:.006,width:1,photoTextLabel:labelPayload(record.name,textX,nameY,normalized.nameTextSizeMm),points:[{x:textX,y:nameY},{x:textX,y:nameY}]},
-      {...base,droggerLayerId:LAYERS.elevation,worldWidthMm:.006,width:1,photoTextLabel:labelPayload(Number(record.elevation).toFixed(3),textX,elevationY,normalized.elevationTextSizeMm),points:[{x:textX,y:elevationY},{x:textX,y:elevationY}]}
+      {...base,droggerLayerId:LAYERS.elevation,worldWidthMm:.006,width:1,photoTextLabel:labelPayload(record.elevation==null?"－":Number(record.elevation).toFixed(3),textX,elevationY,normalized.elevationTextSizeMm),points:[{x:textX,y:elevationY},{x:textX,y:elevationY}]}
     ];
   }
   function recordsFromStrokes(strokes){
@@ -108,5 +120,5 @@
     return [headers,...rows].map(row=>row.map(csvValue).join(",")).join("\r\n");
   }
 
-  global.DroggerOwnerMode=Object.freeze({LAYERS,DEFAULT_SETTINGS,normalizeSettings,correctedElevation,nextPointName,createRecord,createRegistrationStrokes,recordsFromStrokes,updateTextStyles,buildCsv});
+  global.DroggerOwnerMode=Object.freeze({LAYERS,DEFAULT_SETTINGS,normalizeSettings,correctedElevation,nextPointName,incrementPointName,createRecord,createRegistrationStrokes,recordsFromStrokes,updateTextStyles,buildCsv});
 })(window);
