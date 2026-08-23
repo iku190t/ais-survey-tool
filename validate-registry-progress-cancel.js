@@ -49,7 +49,10 @@ let browser;
       count:busyProgressCount.textContent,
       percent:busyProgressPercent.textContent,
       width:busyProgressFill.style.width
-    };hideBusy();
+    };
+    updateRegistryBusyProgress({parsing:true,phase:"shape",matched:250,chunkTotal:6});
+    progress.chunkCount=busyProgressCount.textContent;
+    hideBusy();
 
     registryMapAutoBusy=true;registryMapAbortController=new AbortController();
     const firstSignal=registryMapAbortController.signal;updateRegistryMapUi();
@@ -70,7 +73,7 @@ let browser;
     return {confirmation,progress,busyButton,panelCancel,toolbarCancel,loadedText,hidden,shown};
   });
   if(desktopResult.confirmation)throw new Error("PCで容量確認が有効です");
-  if(desktopResult.progress.hidden||desktopResult.progress.count!=="5.0MB／10.0MB"||desktopResult.progress.percent!=="50％"||desktopResult.progress.width!=="50%")throw new Error(`共通進捗バーが不正です: ${JSON.stringify(desktopResult.progress)}`);
+  if(desktopResult.progress.hidden||desktopResult.progress.count!=="5.0MB／10.0MB"||desktopResult.progress.percent!=="50％"||desktopResult.progress.width!=="50%"||!desktopResult.progress.chunkCount.includes("6分割区画"))throw new Error(`共通進捗バーが不正です: ${JSON.stringify(desktopResult.progress)}`);
   if(desktopResult.busyButton.text!=="キャンセル"||!desktopResult.busyButton.active||desktopResult.busyButton.disabled)throw new Error(`取得中ボタンが不正です: ${JSON.stringify(desktopResult.busyButton)}`);
   if(!desktopResult.panelCancel.aborted||desktopResult.panelCancel.busy||desktopResult.panelCancel.text!=="国土地調査境界")throw new Error(`国土地調査境界ボタンでキャンセルできません: ${JSON.stringify(desktopResult.panelCancel)}`);
   if(!desktopResult.toolbarCancel.aborted||desktopResult.toolbarCancel.busy||desktopResult.toolbarCancel.panel!=="none"||desktopResult.toolbarCancel.active)throw new Error(`上部ボタンでキャンセルできません: ${JSON.stringify(desktopResult.toolbarCancel)}`);

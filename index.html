@@ -2099,7 +2099,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">背景色</div>上部の <b>背景</b> を押し、黒・白のうち表示したい背景色を選びます。青色になっている方が現在の設定です。</div>
               <div class="helpBlock"><div class="helpHead">航空写真</div><b>航空写真</b> のスイッチをONにすると、現在の場所で実際に利用できる写真年代を自動確認します。OFFの状態でもスライダーを操作すると自動的にONになります。</div>
               <div class="helpBlock"><div class="helpHead">基盤地図</div>図面と同じ位置の地理院地図Vectorを、必要なときだけ表示します。表示中の範囲だけ通信で取得し、等高線など地形解析の要素は混ぜません。PCは上部の<b>基盤地図</b>、スマホは背景内のスイッチを押すと表示し、もう一度押すと解除します。図面を開いた直後はOFFです。</div>
-      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開き、<b>国土地調査境界</b>を押すと、その範囲の公開データを取得して表示します。取得中は共通の進捗バーを表示し、同じボタンまたはPC上部の青い法務地図ボタンを押すとキャンセルできます。PCは容量確認なしで開始し、スマホだけ通信容量の確認を表示します。取得後のボタンは表示・非表示の切替になり、同じ図面を開いている間は取得データを保持するため再ダウンロードしません。<b>範囲を選んでCAD化</b>では、多角形で囲んだ筆ポリゴン・筆界線・筆界点・地番文字を専用レイヤーへ追加し、SFCと一緒に保存できます。筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
+      <div class="helpBlock"><div class="helpHead">法務局地図・境界</div><b>法務局地図・境界</b>を開き、<b>国土地調査境界</b>を押すと、その範囲の公開データを取得して表示します。広い範囲は端末に合わせた安全な区画へ自動分割し、図面中央に近い区画から処理します。端末上限に達した場合も取得済み範囲は残し、一部取得であることと区画数を表示します。取得中は共通の進捗バーを表示し、同じボタンまたはPC上部の青い法務地図ボタンを押すとキャンセルできます。PCは容量確認なしで開始し、スマホだけ通信容量の確認を表示します。取得後のボタンは表示・非表示の切替になり、同じ図面を開いている間は取得データを保持するため再ダウンロードしません。<b>範囲を選んでCAD化</b>では、多角形で囲んだ筆ポリゴン・筆界線・筆界点・地番文字を専用レイヤーへ追加し、SFCと一緒に保存できます。筆をタップすると地番、地図の種類、座標系、縮尺、精度区分、地図番号、作成年月日と筆界点のXY座標を確認できます。これは参考情報であり、境界確定・測量・登記・権利判断には使用できません。正式な内容は管轄法務局の資料と現地確認で判断してください。</div>
               <div class="helpBlock"><div class="helpHead">ハザードマップ</div><b>ハザードマップ</b>から洪水・土砂災害・高潮・津波を1種類ずつ表示できます。選択中の青いボタンをもう一度押すと解除します。国土地理院ハザードマップポータルサイトの公開タイルを表示範囲だけ取得します。表示は参考情報のため、避難判断は自治体のハザードマップと最新の防災情報で確認してください。</div>
       <div class="helpBlock"><div class="helpHead">基準点・水準点</div><b>基準点・水準点</b>をONにすると、国土地理院の公開位置情報を図面へ重ね、図面上に種類の凡例を表示します。三角点・その他の基準点、水準点、電子基準点を個別に表示できます。記号をタップすると、点名・種類・基準点コード・成果状態を確認できます。表示位置は検索・現地確認の参考です。正式な成果値は国土地理院の基準点成果等閲覧サービスで確認してください。</div>
               <div class="helpBlock"><div class="helpHead">年代の変更</div>つまみは指に合わせて滑らかに動き、移動中は最も近い利用可能な年代の写真へ切り替わります。指を離すと、その年代の位置へ吸着します。左端が最新で、右へ動かすほど古くなります。</div>
@@ -2659,7 +2659,10 @@ let registryMapState = {
   points:[],
   selectedParcel:null,
   acquiredBounds:[],
-  resourceUrls:[]
+  resourceUrls:[],
+  partial:false,
+  requestedChunkCount:0,
+  acquiredChunkCount:0
 };
 let registryMapAutoBusy=false;
 let registryMapOperationSerial=0;
@@ -2671,6 +2674,8 @@ const REGISTRY_MOBILE_FEATURE_LIMIT=12000;
 const REGISTRY_DESKTOP_FEATURE_LIMIT=30000;
 const REGISTRY_MOBILE_POINT_LIMIT=360000;
 const REGISTRY_DESKTOP_POINT_LIMIT=900000;
+const REGISTRY_MOBILE_CHUNK_LIMIT=36;
+const REGISTRY_DESKTOP_CHUNK_LIMIT=64;
 
 const HAZARD_MAP_SOURCES = Object.freeze({
   flood:{
@@ -12174,7 +12179,10 @@ function registryEmptyState(){
     points:[],
     selectedParcel:null,
     acquiredBounds:[],
-    resourceUrls:[]
+    resourceUrls:[],
+    partial:false,
+    requestedChunkCount:0,
+    acquiredChunkCount:0
   };
 }
 function registryEscapeHtml(value){
@@ -12490,6 +12498,9 @@ function registryMergeMapStates(base,incoming,targetBounds,resourceUrl=""){
     base.metadata=registryMergeMetadata(base.metadata,incoming.metadata);
     base.zone=base.zone||incoming.zone;
     base.coordinateMode=base.coordinateMode||incoming.coordinateMode;
+    base.partial=!!(base.partial||incoming.partial);
+    base.requestedChunkCount=(Number(base.requestedChunkCount)||0)+(Number(incoming.requestedChunkCount)||0);
+    base.acquiredChunkCount=(Number(base.acquiredChunkCount)||0)+(Number(incoming.acquiredChunkCount)||0);
     base.selectedParcel=null;
   }
   const coverage=base.acquiredBounds||(base.acquiredBounds=[]);
@@ -12535,17 +12546,124 @@ function registryAssertAutoTargetSize(target,zone){
   }
   return {plane,width,height};
 }
+function registryGeoBoundsFromPlaneLight(plane,zone){
+  const corners=[
+    [plane.minY,plane.minX],[plane.minY,plane.maxX],
+    [plane.maxY,plane.minX],[plane.maxY,plane.maxX]
+  ].map(([xNorth,yEast])=>jgd2024XYToLatLon(xNorth,yEast,zone));
+  return registryNormalizeGeoBounds({
+    minLon:Math.min(...corners.map(point=>point.lon)),minLat:Math.min(...corners.map(point=>point.lat)),
+    maxLon:Math.max(...corners.map(point=>point.lon)),maxLat:Math.max(...corners.map(point=>point.lat))
+  });
+}
+function registryPlanAutoTargetChunks(target,zone){
+  const plane=registryPlaneTargetBoundsLight(target,zone);
+  const width=Math.max(0,plane.maxX-plane.minX),height=Math.max(0,plane.maxY-plane.minY);
+  const mobile=isTouchMobileLike();
+  const chunkSide=mobile?900:1600;
+  const columns=Math.max(1,Math.ceil(width/chunkSide));
+  const rows=Math.max(1,Math.ceil(height/chunkSide));
+  const cellWidth=width/columns,cellHeight=height/rows;
+  const centerX=(plane.minX+plane.maxX)/2,centerY=(plane.minY+plane.maxY)/2;
+  const totalCount=columns*rows;
+  const limit=mobile?REGISTRY_MOBILE_CHUNK_LIMIT:REGISTRY_DESKTOP_CHUNK_LIMIT;
+  let rowStart=0,rowEnd=rows-1,columnStart=0,columnEnd=columns-1;
+  if(totalCount>limit*4){
+    const centerRow=Math.floor((rows-1)/2),centerColumn=Math.floor((columns-1)/2);
+    let radius=1;
+    while(true){
+      rowStart=Math.max(0,centerRow-radius);rowEnd=Math.min(rows-1,centerRow+radius);
+      columnStart=Math.max(0,centerColumn-radius);columnEnd=Math.min(columns-1,centerColumn+radius);
+      const candidateCount=(rowEnd-rowStart+1)*(columnEnd-columnStart+1);
+      if(candidateCount>=limit||(rowStart===0&&rowEnd===rows-1&&columnStart===0&&columnEnd===columns-1))break;
+      radius*=2;
+    }
+  }
+  const planned=[];
+  for(let row=rowStart;row<=rowEnd;row++)for(let column=columnStart;column<=columnEnd;column++){
+    const cell={
+      minX:plane.minX+cellWidth*column,maxX:column===columns-1?plane.maxX:plane.minX+cellWidth*(column+1),
+      minY:plane.minY+cellHeight*row,maxY:row===rows-1?plane.maxY:plane.minY+cellHeight*(row+1)
+    };
+    const bounds=registryGeoBoundsFromPlaneLight(cell,zone);
+    if(!bounds)continue;
+    const dx=(cell.minX+cell.maxX)/2-centerX,dy=(cell.minY+cell.maxY)/2-centerY;
+    planned.push({bounds,plane:cell,distance2:dx*dx+dy*dy});
+  }
+  planned.sort((a,b)=>a.distance2-b.distance2);
+  const selected=planned.slice(0,limit);
+  return {
+    targets:selected.map(item=>item.bounds),
+    planeTargets:selected.map(item=>item.plane),
+    totalCount,
+    limited:selected.length<totalCount,
+    split:totalCount>1
+  };
+}
+function registryGeometryPointCountLight(geometry){
+  let count=0;
+  const visit=value=>{
+    if(!Array.isArray(value))return;
+    if(value.length>=2&&Number.isFinite(Number(value[0]))&&Number.isFinite(Number(value[1]))){count++;return;}
+    for(const child of value)visit(child);
+  };
+  visit(geometry?.coordinates);
+  return count;
+}
+function registryPrioritizedFeatureCollectorLight(targetCount){
+  const featureLimit=isTouchMobileLike()?REGISTRY_MOBILE_FEATURE_LIMIT:REGISTRY_DESKTOP_FEATURE_LIMIT;
+  const pointLimit=isTouchMobileLike()?REGISTRY_MOBILE_POINT_LIMIT:REGISTRY_DESKTOP_POINT_LIMIT;
+  const buckets=Array.from({length:Math.max(1,targetCount)},()=>[]);
+  const state={featureCount:0,pointCount:0,truncated:false,droppedTargetIndexes:new Set()};
+  const add=(targetIndex,feature)=>{
+    const index=Math.max(0,Math.min(buckets.length-1,Number(targetIndex)||0));
+    const points=Math.max(1,registryGeometryPointCountLight(feature.geometry));
+    while((state.featureCount+1>featureLimit||state.pointCount+points>pointLimit)){
+      let worst=-1;
+      for(let candidate=buckets.length-1;candidate>index;candidate--){if(buckets[candidate].length){worst=candidate;break;}}
+      if(worst<0){state.truncated=true;state.droppedTargetIndexes.add(index);return false;}
+      const removed=buckets[worst].pop();
+      state.featureCount--;
+      state.pointCount-=Math.max(1,registryGeometryPointCountLight(removed.geometry));
+      state.truncated=true;state.droppedTargetIndexes.add(worst);
+    }
+    buckets[index].push(feature);state.featureCount++;state.pointCount+=points;
+    return true;
+  };
+  const result=()=>{
+    const features=buckets.flat();
+    features._registryTruncated=state.truncated;
+    features._registryCompletedTargetIndexes=buckets.map((_bucket,index)=>index).filter(index=>!state.droppedTargetIndexes.has(index));
+    features._registryPointCount=state.pointCount;
+    return features;
+  };
+  return {add,result,state};
+}
+function registryFeatureTargetIndexLight(feature,targetBoundsList){
+  const bounds=registryGeometryBounds(feature?.geometry);
+  return targetBoundsList.findIndex(target=>registryGeoBoundsOverlap(bounds,target));
+}
+function registrySelectGeoJsonFeaturesLight(features,targetBoundsList){
+  const collector=registryPrioritizedFeatureCollectorLight(targetBoundsList.length);
+  for(const feature of features||[]){
+    const targetIndex=registryFeatureTargetIndexLight(feature,targetBoundsList);
+    if(targetIndex>=0)collector.add(targetIndex,feature);
+  }
+  return collector.result();
+}
 async function registryReadGeoJsonArea(response,targetBounds,onProgress){
+  const targetBoundsList=(Array.isArray(targetBounds)?targetBounds:[targetBounds]).filter(Boolean);
   if(!response.body||typeof response.body.getReader!=="function"){
     const parsed=await response.json();
-    const features=(parsed.features||[]).filter(feature=>registryGeoBoundsOverlap(registryGeometryBounds(feature.geometry),targetBounds));
-    return {type:"FeatureCollection",properties:parsed.properties||{},features};
+    const features=registrySelectGeoJsonFeaturesLight(parsed.features||[],targetBoundsList);
+    return {type:"FeatureCollection",properties:parsed.properties||{},features,
+      _registryTruncated:!!features._registryTruncated,_registryCompletedTargetIndexes:features._registryCompletedTargetIndexes||[]};
   }
   const reader=response.body.getReader(),decoder=new TextDecoder("utf-8");
   const total=Math.max(0,Number(response.headers.get("content-length"))||0);
   let received=0,searchBuffer="",featuresStarted=false,featureText="",collecting=false;
   let depth=0,inString=false,escaped=false,finished=false,scanned=0,lastProgress=0;
-  const features=[];
+  const collector=registryPrioritizedFeatureCollectorLight(targetBoundsList.length);
   const consume=text=>{
     if(!featuresStarted){
       searchBuffer+=text;
@@ -12578,7 +12696,8 @@ async function registryReadGeoJsonArea(response,targetBounds,onProgress){
       collecting=false;scanned++;
       try{
         const feature=JSON.parse(featureText);
-        if(registryGeoBoundsOverlap(registryGeometryBounds(feature.geometry),targetBounds))features.push(feature);
+        const targetIndex=registryFeatureTargetIndexLight(feature,targetBoundsList);
+        if(targetIndex>=0)collector.add(targetIndex,feature);
       }catch(error){
         console.warn("法務局GeoJSONの地物を読み飛ばしました",error);
       }
@@ -12594,15 +12713,17 @@ async function registryReadGeoJsonArea(response,targetBounds,onProgress){
       const now=Date.now();
       if(now-lastProgress>250){
         lastProgress=now;
-        if(onProgress)onProgress({received,total,scanned,matched:features.length});
+        if(onProgress)onProgress({received,total,scanned,matched:collector.state.featureCount});
         await new Promise(resolve=>requestAnimationFrame(resolve));
       }
     }
   }finally{
     try{await reader.cancel();}catch(_error){}
   }
+  const features=collector.result();
   if(onProgress)onProgress({received,total,scanned,matched:features.length,done:true});
-  return {type:"FeatureCollection",features};
+  return {type:"FeatureCollection",features,
+    _registryTruncated:!!features._registryTruncated,_registryCompletedTargetIndexes:features._registryCompletedTargetIndexes||[]};
 }
 function registryResourceYear(resource){
   const years=String(resource&&resource.name||"").match(/(?:19|20)\d{2}/g)||[];
@@ -12731,8 +12852,9 @@ function updateRegistryBusyProgress(progress={}){
   const percent=total?Math.min(100,Math.round(received/total*100)):(progress.done?100:0);
   const phase=progress.phase==="attribute"?"属性解析":progress.parsing?"形状解析":"ダウンロード";
   const matched=Number.isFinite(Number(progress.matched))?` ${Math.max(0,Math.floor(Number(progress.matched)))}件`:"";
+  const chunks=Number(progress.chunkTotal)>1?`・${Math.floor(Number(progress.chunkTotal))}分割区画`:"";
   const count=progress.parsing
-    ?`${phase}${matched}`
+    ?`${phase}${matched}${chunks}`
     :(total?`${registryProgressByteText(received)}／${registryProgressByteText(total)}`:registryProgressByteText(received));
   updateBusy(progress.parsing?`法務局地図を解析中…`:`法務局地図をダウンロード中…`);
   updateBusyProgressValue(percent,count);
@@ -12918,13 +13040,22 @@ function registryParseShpPolygonLight(content,recordIndex,targetBounds){
   }
   return parts.length?{recordIndex,geometry:{type:"Polygon",coordinates:parts},properties:{}}:null;
 }
+function registryShpTargetIndexLight(content,targetBoundsList){
+  if(content.byteLength<36)return -1;
+  const view=new DataView(content.buffer,content.byteOffset,content.byteLength);
+  const shapeType=view.getInt32(0,true);
+  if(shapeType!==5&&shapeType!==15&&shapeType!==25)return -1;
+  const bounds={
+    minX:view.getFloat64(4,true),minY:view.getFloat64(12,true),
+    maxX:view.getFloat64(20,true),maxY:view.getFloat64(28,true)
+  };
+  return targetBoundsList.findIndex(target=>registryPlaneBoundsOverlapLight(bounds,target));
+}
 async function registryReadShpSelectedLight(zipBuffer,entry,targetBounds,onProgress){
+  const targetBoundsList=(Array.isArray(targetBounds)?targetBounds:[targetBounds]).filter(Boolean);
   const reader=registryZipEntryStreamLight(zipBuffer,entry).getReader();
   let pending=new Uint8Array(0),used=0,headerRead=false,recordIndex=0,readBytes=0,lastYield=0;
-  const selected=[];
-  const featureLimit=isTouchMobileLike()?REGISTRY_MOBILE_FEATURE_LIMIT:REGISTRY_DESKTOP_FEATURE_LIMIT;
-  const pointLimit=isTouchMobileLike()?REGISTRY_MOBILE_POINT_LIMIT:REGISTRY_DESKTOP_POINT_LIMIT;
-  let selectedPointCount=0;
+  const collector=registryPrioritizedFeatureCollectorLight(targetBoundsList.length);
   try{
     while(true){
       const {value,done}=await reader.read();
@@ -12941,27 +13072,23 @@ async function registryReadShpSelectedLight(zipBuffer,entry,targetBounds,onProgr
         if(contentLength<4||contentLength>128*1024*1024)throw new Error("境界形状のレコード長が不正です");
         if(pending.byteLength-used<8+contentLength)break;
         const content=pending.subarray(used+8,used+8+contentLength);
-        const feature=registryParseShpPolygonLight(content,recordIndex,targetBounds);
+        const targetIndex=registryShpTargetIndexLight(content,targetBoundsList);
+        const feature=targetIndex>=0?registryParseShpPolygonLight(content,recordIndex,targetBoundsList[targetIndex]):null;
         if(feature){
-          selected.push(feature);
-          selectedPointCount+=feature.geometry.coordinates.reduce((sum,ring)=>sum+ring.length,0);
-          if(selected.length>featureLimit||selectedPointCount>pointLimit){
-            selected.length=0;
-            throw new Error("表示範囲が広すぎます。図面を拡大してから、もう一度読み込んでください");
-          }
+          collector.add(targetIndex,feature);
         }
         recordIndex++;used+=8+contentLength;
         const parseNow=Date.now();
         if(recordIndex%250===0&&parseNow-lastYield>16){
           lastYield=parseNow;
-          if(onProgress)onProgress({parsing:true,phase:"shape",scanned:recordIndex,matched:selected.length,received:readBytes,total:entry.uncompressedSize});
+          if(onProgress)onProgress({parsing:true,phase:"shape",scanned:recordIndex,matched:collector.state.featureCount,received:readBytes,total:entry.uncompressedSize});
           await new Promise(resolve=>requestAnimationFrame(resolve));
         }
       }
       const now=Date.now();
       if(now-lastYield>180){
         lastYield=now;
-        if(onProgress)onProgress({parsing:true,phase:"shape",scanned:recordIndex,matched:selected.length,received:readBytes,total:entry.uncompressedSize});
+        if(onProgress)onProgress({parsing:true,phase:"shape",scanned:recordIndex,matched:collector.state.featureCount,received:readBytes,total:entry.uncompressedSize});
         await new Promise(resolve=>requestAnimationFrame(resolve));
       }
     }
@@ -12970,7 +13097,7 @@ async function registryReadShpSelectedLight(zipBuffer,entry,targetBounds,onProgr
     try{reader.releaseLock();}catch(_error){}
   }
   if(!headerRead)throw new Error("境界形状ファイルを読み取れません");
-  return selected;
+  return collector.result();
 }
 function registryDbfDecoderLight(cpgBytes){
   const cpg=String(cpgBytes?new TextDecoder("utf-8").decode(cpgBytes):"").trim().toLowerCase();
@@ -13061,7 +13188,9 @@ async function registryParseShpZipBufferLight(buffer,targetPlaneBounds,onProgres
     if(dbfEntry&&selected.length)await registryReadDbfSelectedLight(buffer,dbfEntry,selected,cpgBytes,onProgress);
     return {
       type:"FeatureCollection",
-      features:selected.map(({geometry,properties})=>({type:"Feature",geometry,properties}))
+      features:selected.map(({geometry,properties})=>({type:"Feature",geometry,properties})),
+      _registryTruncated:!!selected._registryTruncated,
+      _registryCompletedTargetIndexes:selected._registryCompletedTargetIndexes||[]
     };
   }catch(error){
     selected.length=0;
@@ -13073,7 +13202,8 @@ async function registryReadShpZipAreaLight(response,targetBounds,onProgress,expe
   let buffer=await registryReadResponseBuffer(response,onProgress,expectedSize);
   try{
     if(onProgress)onProgress({received:buffer.byteLength,total:buffer.byteLength,parsing:true,phase:"shape"});
-    return await registryParseShpZipBufferLight(buffer,registryPlaneTargetBoundsLight(targetBounds,zone),onProgress);
+    const targets=(Array.isArray(targetBounds)?targetBounds:[targetBounds]).filter(Boolean);
+    return await registryParseShpZipBufferLight(buffer,targets.map(target=>registryPlaneTargetBoundsLight(target,zone)),onProgress);
   }finally{
     buffer=null;
   }
@@ -13097,7 +13227,10 @@ async function loadRegistryMapAutomatically(options={}){
     const target=append
       ?(requestedWorld?registryTargetBoundsAroundWorldPoint(requestedWorld,zone):registryAdditionalTargetBounds(zone,previousState))
       :registryInitialTargetBounds(zone);
-    registryAssertAutoTargetSize(target,zone);
+    const chunkPlan=registryPlanAutoTargetChunks(target,zone);
+    if(!chunkPlan.targets.length)throw new Error("取得範囲を分割できません");
+    for(const chunk of chunkPlan.targets)registryAssertAutoTargetSize(chunk,zone);
+    if(chunkPlan.split&&registryMapStatus)registryMapStatus.textContent=`広い範囲を${chunkPlan.targets.length}区画に分割して取得します…`;
     if(append&&registryTargetAlreadyAcquired(target,previousState)){
       showToast("この表示範囲は取得済みです",1800);
       if(registryMapStatus)registryMapStatus.textContent=registryMapSummary(previousState);
@@ -13155,29 +13288,42 @@ async function loadRegistryMapAutomatically(options={}){
     const onProgress=progress=>{
       throwIfRegistryOperationCancelled(operationId,signal);
       const percent=progress.total?Math.min(100,Math.round(progress.received/progress.total*100)):null;
-      if(registryMapStatus)registryMapStatus.textContent=progress.parsing?"圧縮した境界データを解析しています…":`境界データをダウンロード中${percent!=null?` ${percent}%`:"…"}`;
-      updateRegistryBusyProgress(progress);
+      const chunkLabel=chunkPlan.split?`（${chunkPlan.targets.length}分割区画）`:"";
+      if(registryMapStatus)registryMapStatus.textContent=progress.parsing?`圧縮した境界データを解析しています…${chunkLabel}`:`境界データをダウンロード中${percent!=null?` ${percent}%`:"…"}`;
+      updateRegistryBusyProgress({...progress,chunkTotal:chunkPlan.targets.length});
     };
     const featureCollection=selected.kind==="shpzip"
-      ?await registryReadShpZipAreaLight(dataResponse,target,onProgress,resourceSize,zone)
-      :await registryReadGeoJsonArea(dataResponse,target,progress=>{
+      ?await registryReadShpZipAreaLight(dataResponse,chunkPlan.targets,onProgress,resourceSize,zone)
+      :await registryReadGeoJsonArea(dataResponse,chunkPlan.targets,progress=>{
         onProgress(progress);
         if(registryMapStatus&&progress.matched!=null)registryMapStatus.textContent+=`（図面周辺 ${progress.matched}件）`;
       });
     throwIfRegistryOperationCancelled(operationId,signal);
     if(!featureCollection.features.length)throw new Error("図面周辺に公開された筆データがありません");
     const incoming=parseRegistryGeoJson(featureCollection,String(resource.name||`${municipalityCode}.geojson`));
+    const completedIndexes=Array.isArray(featureCollection._registryCompletedTargetIndexes)
+      ?featureCollection._registryCompletedTargetIndexes.filter(index=>Number.isInteger(index)&&index>=0&&index<chunkPlan.targets.length)
+      :chunkPlan.targets.map((_chunk,index)=>index);
+    const acquiredTargets=completedIndexes.map(index=>chunkPlan.targets[index]);
+    incoming.partial=!!(chunkPlan.limited||featureCollection._registryTruncated||acquiredTargets.length<chunkPlan.targets.length);
+    incoming.requestedChunkCount=chunkPlan.totalCount;
+    incoming.acquiredChunkCount=acquiredTargets.length;
     incoming.metadata=registryMergeMetadata(incoming.metadata,{
       municipalityCode,
       municipalityName:String(packageJson.result?.title||locality||municipalityCode),
       resourceUrl:String(resource.url||"")
     });
-    registryMapState=registryMergeMapStates(append?previousState:registryEmptyState(),incoming,target,String(resource.url||""));
+    registryMapState=registryMergeMapStates(append?previousState:registryEmptyState(),incoming,acquiredTargets[0]||null,String(resource.url||""));
+    for(const acquiredTarget of acquiredTargets.slice(1)){
+      const coverage=registryMapState.acquiredBounds||(registryMapState.acquiredBounds=[]);
+      if(!coverage.some(bounds=>registryGeoBoundsContains(bounds,acquiredTarget)))coverage.push({...acquiredTarget,center:{...acquiredTarget.center}});
+    }
     registryMapDisplayEnabled=true;
     updateRegistryMapUi();scheduleDraw();
+    const partialText=incoming.partial?`・端末負荷を抑えて中央から${incoming.acquiredChunkCount}/${incoming.requestedChunkCount}区画`:"";
     showToast(append
-      ?`${requestedWorld?"指定地点周辺":"表示範囲"}を追加しました（合計 ${registryMapState.parcels.length}筆）`
-      :`境界を取得しました（筆 ${registryMapState.parcels.length}件）`,2400);
+      ?`${requestedWorld?"指定地点周辺":"表示範囲"}を追加しました（合計 ${registryMapState.parcels.length}筆${partialText}）`
+      :`境界を取得しました（筆 ${registryMapState.parcels.length}件${partialText}）`,incoming.partial?4200:2400);
     updateToolbarActivationUI();
   }catch(error){
     const cancelled=registryOperationIsCancelled(operationId,signal)||error?.name==="AbortError";
@@ -13327,7 +13473,8 @@ function registryMapSummary(state=registryMapState){
   if(!state.loaded)return "「国土地調査境界」を押すと、その範囲だけ取得します。";
   const coordinate=state.coordinateMode+(state.zone?`・第${state.zone}系`:"");
   const areas=(state.acquiredBounds||[]).length;
-  return `${state.sourceName}　筆 ${state.parcels.length}件／筆界線 ${state.looseLines.length}件／筆界点 ${state.points.length}点　${coordinate}${areas?`　取得範囲 ${areas}件`:""}`;
+  const partial=state.partial?`　一部取得 ${Number(state.acquiredChunkCount)||areas}/${Number(state.requestedChunkCount)||areas}区画`:"";
+  return `${state.sourceName}　筆 ${state.parcels.length}件／筆界線 ${state.looseLines.length}件／筆界点 ${state.points.length}点　${coordinate}${areas?`　取得範囲 ${areas}件`:""}${partial}`;
 }
 function setRegistryMapPointPickMode(active){
   const next=!!active&&!!registryMapState.loaded&&!registryMapAutoBusy;
