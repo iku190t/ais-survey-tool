@@ -381,6 +381,9 @@ label.fileBtn{
 #gpsBox{top:calc(104px + var(--cad-toolbar-offset,40px))!important;max-height:calc(100% - 116px - var(--cad-toolbar-offset,40px))!important;}
 body.light #gpsBox{background:rgba(255,255,255,.88)!important;color:#111!important;border-color:rgba(0,0,0,.24);box-shadow:0 8px 24px rgba(0,0,0,.2);}
 #gpsTitle{cursor:default;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+#gpsOwnerHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+#droggerOwnerMinimizeBtn{display:none;width:30px;height:26px;min-height:26px;padding:0;font-size:18px;line-height:1;}
+#gpsBox.drogger-owner-active #droggerOwnerMinimizeBtn{display:inline-flex;align-items:center;justify-content:center;}
 #droggerOwnerControls{display:none;margin-top:9px;padding-top:9px;border-top:1px solid var(--border);font-size:12px;}
 #droggerOwnerControls.show{display:grid;gap:7px;}
 .droggerOwnerRow{display:grid;grid-template-columns:minmax(0,1fr) 92px;align-items:center;gap:8px;}
@@ -388,7 +391,9 @@ body.light #gpsBox{background:rgba(255,255,255,.88)!important;color:#111!importa
 #droggerOwnerActions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:2px;}
 #droggerOwnerActions button{min-height:36px;font-weight:800;}
 #droggerRegisterBtn{background:#c62828;color:#fff;border-color:#8e0000;}
-#droggerOwnerHint{font-size:10px;line-height:1.45;color:var(--muted);}
+#gpsBox.drogger-minimized{width:auto!important;min-width:210px;max-height:none!important;overflow:hidden!important;}
+#gpsBox.drogger-minimized #droggerOwnerControls{display:none!important;}
+#gpsBox.drogger-minimized #gpsText{white-space:nowrap;}
 #droggerCoordinateModal{display:none;position:fixed;inset:0;z-index:245;background:rgba(0,0,0,.35);align-items:center;justify-content:center;padding:14px;box-sizing:border-box;}
 #droggerCoordinateModal.open{display:flex;}
 #droggerCoordinateBox{width:min(620px,96vw);max-height:min(720px,88vh);display:flex;flex-direction:column;background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 36px rgba(0,0,0,.45);overflow:hidden;}
@@ -1603,7 +1608,7 @@ gtag('config', 'G-88B9YPJXWP');
   </div>
 
   <div id="gpsBox" class="panel" style="display:none;left:12px;top:100px;bottom:auto;width:260px;max-height:calc(100% - 112px);overflow:auto;padding:10px;z-index:60;background:rgba(20,20,20,.7);backdrop-filter:blur(4px);">
-    <div id="gpsTitle" class="panelTitle">現在地</div>
+    <div id="gpsOwnerHeader"><div id="gpsTitle" class="panelTitle">現在地</div><button id="droggerOwnerMinimizeBtn" type="button" aria-label="最小化" aria-expanded="true">－</button></div>
     <div id="gpsText" style="font-size:13px; line-height:1.6;">GPSはOFFです。</div>
     <div id="droggerOwnerControls" aria-hidden="true">
       <label class="droggerOwnerRow"><span>点名</span><input id="droggerPointName" type="text" maxlength="40" autocomplete="off"></label>
@@ -1611,7 +1616,6 @@ gtag('config', 'G-88B9YPJXWP');
       <label class="droggerOwnerRow"><span>点名文字 (mm)</span><input id="droggerNameTextSize" type="number" min="1" max="10" step="0.1"></label>
       <label class="droggerOwnerRow"><span>標高文字 (mm)</span><input id="droggerElevationTextSize" type="number" min="1" max="10" step="0.1"></label>
       <div id="droggerOwnerActions"><button id="droggerRegisterBtn" type="button">登録</button><button id="droggerManageBtn" type="button">座標管理</button></div>
-      <div id="droggerOwnerHint">AndroidのDrogger GPSアプリでMock Locationを有効にした高精度測位を使用します。登録前にDrogger側のFIX状態を確認してください。</div>
     </div>
   </div>
 
@@ -2903,6 +2907,7 @@ let gpsTemporaryCoordinateZone = null;
 const DROGGER_SETTINGS_KEY="ezviewer_drogger_owner_settings_v1";
 const DROGGER_OWNER_LONG_PRESS_MS=3000;
 let droggerOwnerModeActive=false;
+let droggerOwnerMinimized=false;
 let droggerOwnerLongPressTimer=0;
 let droggerOwnerLongPressState=null;
 let droggerOwnerSettings=window.DroggerOwnerMode?.normalizeSettings?.((()=>{try{return JSON.parse(localStorage.getItem(DROGGER_SETTINGS_KEY)||"null");}catch(_error){return null;}})())||{antennaHeight:0,nameTextSizeMm:2.5,elevationTextSizeMm:2.5};
@@ -6589,7 +6594,12 @@ function saveDroggerOwnerSettings(){
 }
 function updateDroggerOwnerControlsUi(){
   const controls=document.getElementById("droggerOwnerControls");
+  const gpsBox=document.getElementById("gpsBox");
+  const minimize=document.getElementById("droggerOwnerMinimizeBtn");
   if(!controls)return;
+  gpsBox?.classList.toggle("drogger-owner-active",droggerOwnerModeActive);
+  gpsBox?.classList.toggle("drogger-minimized",droggerOwnerModeActive&&droggerOwnerMinimized);
+  if(minimize){minimize.textContent=droggerOwnerMinimized?"□":"－";minimize.setAttribute("aria-label",droggerOwnerMinimized?"元の大きさに戻す":"最小化");minimize.setAttribute("aria-expanded",droggerOwnerMinimized?"false":"true");}
   controls.classList.toggle("show",droggerOwnerModeActive);
   controls.setAttribute("aria-hidden",droggerOwnerModeActive?"false":"true");
   if(!droggerOwnerModeActive)return;
@@ -6603,19 +6613,21 @@ function updateDroggerOwnerControlsUi(){
   if(elevationSize&&document.activeElement!==elevationSize)elevationSize.value=String(droggerOwnerSettings.elevationTextSizeMm);
   const ready=!!gpsPosition;
   const register=document.getElementById("droggerRegisterBtn");
-  if(register){register.disabled=!ready||!hasLoadedDrawing();register.title=!hasLoadedDrawing()?"先にSFC図面を開いてください":ready?"現在のDrogger座標を登録します":"現在地を取得中です";}
+  if(register){register.disabled=!ready;register.title=ready?"現在のDrogger座標を登録します":"現在地を取得中です";}
 }
 function renderDroggerOwnerGpsText(element){
   if(!element)return;
   if(!gpsEnabled){element.textContent="GPSはOFFです。";return;}
   if(!gpsPosition){element.textContent="Drogger測位を待っています…";return;}
+  const horizontalAccuracy=Number.isFinite(gpsPosition.accuracy)?gpsPosition.accuracy.toFixed(3):"－";
+  if(droggerOwnerMinimized){element.textContent=`水平誤差: ${horizontalAccuracy}m`;return;}
   const raw=Number.isFinite(gpsPosition.altitude)?gpsPosition.altitude:null;
   const corrected=window.DroggerOwnerMode.correctedElevation(raw,droggerOwnerSettings.antennaHeight);
-  const altitudeAccuracy=Number.isFinite(gpsPosition.altitudeAccuracy)?`${gpsPosition.altitudeAccuracy.toFixed(3)}m`:"取得不可";
-  element.innerHTML=`<b>Drogger高精度登録</b><br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>Droggerアンテナ標高: ${raw==null?'取得中':raw.toFixed(3)}<br>アンテナ高: ${droggerOwnerSettings.antennaHeight.toFixed(3)}<br>補正標高: ${corrected==null?'取得中':corrected.toFixed(3)}<br>水平誤差: ${Number.isFinite(gpsPosition.accuracy)?gpsPosition.accuracy.toFixed(3):'－'}m<br>標高誤差: ${altitudeAccuracy}`;
+  element.innerHTML=`<b>Drogger高精度登録</b><br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>Droggerアンテナ標高: ${raw==null?'取得中':raw.toFixed(3)}<br>アンテナ高: ${droggerOwnerSettings.antennaHeight.toFixed(3)}<br>補正標高: ${corrected==null?'取得中':corrected.toFixed(3)}<br>水平誤差: ${horizontalAccuracy}m`;
 }
 function setDroggerOwnerMode(active){
   droggerOwnerModeActive=!!active;
+  droggerOwnerMinimized=false;
   if(!droggerOwnerModeActive)closeDroggerCoordinateManager();
   updateGpsUi();
   showToast(droggerOwnerModeActive?"Drogger座標登録モード ON":"Drogger座標登録モード OFF",1800);
@@ -6684,7 +6696,6 @@ function playDroggerRegisterBeep(){
 }
 function registerCurrentDroggerCoordinate(){
   if(!droggerOwnerModeActive)return;
-  if(!hasLoadedDrawing()){showToast("先にSFC図面を開いてください",2200);return;}
   if(!gpsPosition){showToast("現在地を取得中です",2200);return;}
   updateDroggerSettingsFromInputs();
   const pointName=document.getElementById("droggerPointName");
@@ -19424,6 +19435,7 @@ droggerOwnerTitle?.addEventListener("pointercancel",handleDroggerTitlePointerEnd
 droggerOwnerTitle?.addEventListener("contextmenu",event=>event.preventDefault());
 document.getElementById("droggerRegisterBtn")?.addEventListener("click",registerCurrentDroggerCoordinate);
 document.getElementById("droggerManageBtn")?.addEventListener("click",openDroggerCoordinateManager);
+document.getElementById("droggerOwnerMinimizeBtn")?.addEventListener("click",()=>{droggerOwnerMinimized=!droggerOwnerMinimized;updateGpsUi();});
 document.getElementById("droggerCoordinateCloseBtn")?.addEventListener("click",closeDroggerCoordinateManager);
 document.getElementById("droggerCoordinateShareBtn")?.addEventListener("click",shareDroggerCoordinatesCsv);
 document.getElementById("droggerCoordinateModal")?.addEventListener("click",event=>{if(event.target===event.currentTarget)closeDroggerCoordinateManager();});

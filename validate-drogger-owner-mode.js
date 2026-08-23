@@ -26,6 +26,7 @@ feature.updateTextStyles(strokes,{nameTextSizeMm:4,elevationTextSizeMm:5,antenna
 if(strokes[1].photoTextLabel.heightMm!==4||strokes[2].photoTextLabel.heightMm!==5)throw new Error("label size update failed");
 const csv=feature.buildCsv([record]);
 for(const token of ["点名","平面直角X","アンテナ高","K-1","50.845"])if(!csv.includes(token))throw new Error(`CSV missing ${token}`);
+if(csv.includes("標高誤差"))throw new Error("unused altitude-accuracy column remains in CSV");
 if(feature.incrementPointName("P1",[{name:"P1"}])!=="P2"||feature.incrementPointName("P2",[{name:"P1"},{name:"P2"}])!=="P3")throw new Error("point-name increment failed");
 const noAltitudeRecord=feature.createRecord({...gps,altitude:null},settings,"P3");
 if(!noAltitudeRecord||noAltitudeRecord.elevation!==null||noAltitudeRecord.antennaAltitude!==null)throw new Error("coordinates without altitude must remain registerable");
@@ -36,6 +37,7 @@ const required=[
   'id="gpsTitle"',
   'id="droggerOwnerControls"',
   'id="droggerCoordinateModal"',
+  'id="droggerOwnerMinimizeBtn"',
   'drogger-owner-mode.js?v=1',
   'const DROGGER_OWNER_LONG_PRESS_MS=3000',
   'handleDroggerTitlePointerDown',
@@ -48,5 +50,7 @@ const required=[
   'droggerRecord: s.droggerRecord ? {...s.droggerRecord} : null'
 ];
 for(const token of required)if(!html.includes(token))throw new Error(`index integration missing: ${token}`);
-for(const forbidden of ['Droggerから高度を受信できていません','測位データが古いため、Droggerの接続を確認してください'])if(html.includes(forbidden))throw new Error(`registration is still gated: ${forbidden}`);
+for(const forbidden of ['Droggerから高度を受信できていません','測位データが古いため、Droggerの接続を確認してください','標高誤差:','id="droggerOwnerHint"'])if(html.includes(forbidden))throw new Error(`obsolete Drogger UI or registration gate remains: ${forbidden}`);
+const registerBody=html.match(/function registerCurrentDroggerCoordinate\(\)\{([\s\S]*?)\n\}/)?.[1]||"";
+if(!registerBody||registerBody.includes("hasLoadedDrawing"))throw new Error("Drogger registration still requires an SFC drawing");
 console.log("OK: hidden Drogger coordinate registration, layers, correction and CSV");

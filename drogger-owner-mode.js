@@ -113,9 +113,9 @@
     return /[",\r\n]/.test(text)?`"${text.replace(/"/g,'""')}"`:text;
   }
   function buildCsv(records){
-    const headers=["点名","平面直角X","平面直角Y","標高","アンテナ標高","アンテナ高","水平誤差","標高誤差","系番号","緯度","経度","登録日時"];
+    const headers=["点名","平面直角X","平面直角Y","標高","アンテナ標高","アンテナ高","水平誤差","系番号","緯度","経度","登録日時"];
     const rows=(records||[]).map(record=>[
-      record.name,finite(record.x),finite(record.y),finite(record.elevation),finite(record.antennaAltitude),finite(record.antennaHeight),finite(record.accuracy),finite(record.altitudeAccuracy),finite(record.zone),finite(record.lat),finite(record.lon),record.registeredAt?new Date(record.registeredAt).toLocaleString("ja-JP"):""
+      record.name,finite(record.x),finite(record.y),finite(record.elevation),finite(record.antennaAltitude),finite(record.antennaHeight),finite(record.accuracy),finite(record.zone),finite(record.lat),finite(record.lon),record.registeredAt?new Date(record.registeredAt).toLocaleString("ja-JP"):""
     ]);
     return [headers,...rows].map(row=>row.map(csvValue).join(",")).join("\r\n");
   }
