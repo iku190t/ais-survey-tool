@@ -17,9 +17,10 @@ let browser;
 (async()=>{
   await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
   browser=await chromium.launch({headless:true,executablePath:"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"});
-  const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,userAgent:"Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/138 Mobile Safari/537.36"});
   await page.route(/^https:\/\//,route=>route.abort());
-  await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:"load",timeout:15000});
+  await page.route("http://127.0.0.1:38472/status",route=>route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({bridge:true,fixMode:"FIXED",fixQuality:4,ageMs:80,nmeaConnected:true})}));
+  await page.goto(`http://127.0.0.1:${server.address().port}/?source=android_app`,{waitUntil:"load",timeout:15000});
   await page.waitForFunction(()=>typeof window.DroggerOwnerMode==="object");
   const geoidWorker=await page.evaluate(async()=>{
     const source=`begin_of_head\nmodel name = TEST-GEOID\nlat min = 34\nlat max = 35\nlon min = 134\nlon max = 135\ndelta lat = 0.5\ndelta lon = 0.5\nnrows = 3\nncols = 3\nend_of_head\n30 31 32\n20 21 22\n10 11 12`;
@@ -48,7 +49,7 @@ let browser;
   await page.waitForTimeout(3100);
   await page.locator("#gpsTitle").dispatchEvent("pointerup",{pointerId:7,pointerType:"touch",clientX:80,clientY:80,button:0});
   const opened=await page.evaluate(()=>window.eval(`({active:droggerOwnerModeActive,display:getComputedStyle(document.getElementById("droggerOwnerControls")).display,actions:getComputedStyle(document.getElementById("droggerOwnerActions")).display,actionsOutside:!document.getElementById("droggerOwnerControls").contains(document.getElementById("droggerOwnerActions")),text:document.getElementById("gpsText").textContent})`));
-  if(!opened.active||opened.display==="none"||opened.actions==="none"||!opened.actionsOutside||!opened.text.includes("Drogger高精度登録"))throw new Error(`hidden mode did not open with floating actions: ${JSON.stringify(opened)}`);
+  if(!opened.active||opened.display==="none"||opened.actions==="none"||!opened.actionsOutside||!opened.text.includes("Drogger高精度登録")||!opened.text.includes("RTK状態: FIXED"))throw new Error(`hidden mode did not open with native FIX and floating actions: ${JSON.stringify(opened)}`);
   if(opened.text.includes("標高誤差"))throw new Error("unused altitude accuracy is still displayed");
   await page.locator("#droggerOwnerMinimizeBtn").click();
   const minimized=await page.evaluate(()=>window.eval(`({collapsed:document.getElementById("gpsBox").classList.contains("drogger-minimized"),text:document.getElementById("gpsText").textContent,controls:getComputedStyle(document.getElementById("droggerOwnerControls")).display,actions:getComputedStyle(document.getElementById("droggerOwnerActions")).display})`));
@@ -75,12 +76,12 @@ let browser;
     const meta=parseMemoMetaPayload(buildMemoMetaComment());
     return {count:inkStrokes.length,layers:inkStrokes.map(s=>s.droggerLayerId),records,meta:meta.strokes.map(s=>({layer:s.droggerLayerId,id:s.droggerPointId,record:s.droggerRecord?.name,text:s.photoTextLabel?.text}))};
   })()`));
-  if(registered.count!==5||registered.records.length!==1||registered.records[0].name!=="P1"||Math.abs(registered.records[0].elevation-13.725)>1e-9)throw new Error(`registration failed: ${JSON.stringify(registered)}`);
+  if(registered.count!==5||registered.records.length!==1||registered.records[0].name!=="P1"||registered.records[0].fixMode!=="FIXED"||registered.records[0].fixQuality!==4||Math.abs(registered.records[0].elevation-13.725)>1e-9)throw new Error(`registration or native FIX storage failed: ${JSON.stringify(registered)}`);
   if(new Set(registered.layers).size!==3||registered.meta.length!==5||registered.meta.some(item=>!item.id))throw new Error(`SFC metadata lost Drogger fields: ${JSON.stringify(registered.meta)}`);
   if(await page.locator("#droggerPointName").inputValue()!=="P2")throw new Error("point name did not advance from P1 to P2");
   if(await page.evaluate(()=>window.__droggerBeeps)!==1)throw new Error("registration beep was not requested");
   const csv=await page.evaluate(()=>window.eval("DroggerOwnerMode.buildCsv(getDroggerCoordinateRecords())"));
-  if(!csv.includes("P1")||!csv.includes("13.725"))throw new Error("runtime CSV is incomplete");
+  if(!csv.includes("P1")||!csv.includes("13.725")||!csv.includes("RTK状態")||!csv.includes("FIXED"))throw new Error("runtime CSV is incomplete");
   await page.evaluate(()=>window.eval(`(()=>{
     gpsPosition.altitude=null;gpsPosition.altitudeAccuracy=null;gpsPosition.timestamp=Date.now()-60000;updateGpsUi();
   })()`));

@@ -2284,7 +2284,7 @@ gtag('config', 'G-88B9YPJXWP');
 <script src="https://unpkg.com/shpjs@6.2.0/dist/shp.min.js"></script>
 <script src="foundation-map-gml.js?v=1"></script>
 <script src="drogger-geoid-model.js?v=1"></script>
-<script src="drogger-owner-mode.js?v=2"></script>
+<script src="drogger-owner-mode.js?v=3"></script>
 <script>
 const GA_MEASUREMENT_ID = "G-88B9YPJXWP";
 const GA_PLACEHOLDER_ID = "G-88B9YPJXWP";
@@ -2928,10 +2928,12 @@ let gpsSessionState = null;
 let gpsTemporaryCoordinateZone = null;
 const DROGGER_SETTINGS_KEY="ezviewer_drogger_owner_settings_v1";
 const DROGGER_OWNER_LONG_PRESS_MS=3000;
+const DROGGER_NATIVE_STATUS_URL="http://127.0.0.1:38472/status";
 let droggerOwnerModeActive=false;
 let droggerOwnerMinimized=false;
 let droggerOwnerLongPressTimer=0;
 let droggerOwnerLongPressState=null;
+let droggerNativeStatus={bridge:false,fixMode:"UNAVAILABLE",fixQuality:0,ageMs:-1,nmeaConnected:false,updatedAt:0};
 let droggerOwnerSettings=window.DroggerOwnerMode?.normalizeSettings?.((()=>{try{return JSON.parse(localStorage.getItem(DROGGER_SETTINGS_KEY)||"null");}catch(_error){return null;}})())||{antennaHeight:0,nameTextSizeMm:1.8,elevationTextSizeMm:1.8};
 let droggerGeoidModel=null;
 let droggerGeoidModelLoading=false;
@@ -6692,7 +6694,29 @@ function renderDroggerOwnerGpsText(element){
   const raw=Number.isFinite(gpsPosition.altitude)?gpsPosition.altitude:null;
   const geoidHeight=getCurrentDroggerGeoidHeight();
   const corrected=window.DroggerOwnerMode.correctedElevation(raw,geoidHeight,droggerOwnerSettings.antennaHeight);
-  element.innerHTML=`<b>Drogger高精度登録</b><br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>楕円体高: ${raw==null?'取得中':raw.toFixed(3)}<br>ジオイド高: ${geoidHeight==null?'未設定':geoidHeight.toFixed(3)}<br>アンテナ高: ${droggerOwnerSettings.antennaHeight.toFixed(3)}<br>補正標高: ${corrected==null?'－':corrected.toFixed(3)}<br>水平誤差: ±${horizontalAccuracy}m`;
+  const fixLine=buildDroggerNativeFixLine();
+  element.innerHTML=`<b>Drogger高精度登録</b>${fixLine}<br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>楕円体高: ${raw==null?'取得中':raw.toFixed(3)}<br>ジオイド高: ${geoidHeight==null?'未設定':geoidHeight.toFixed(3)}<br>アンテナ高: ${droggerOwnerSettings.antennaHeight.toFixed(3)}<br>補正標高: ${corrected==null?'－':corrected.toFixed(3)}<br>水平誤差: ±${horizontalAccuracy}m`;
+}
+function isEzViewerPrivateAndroidApp(){
+  try{return /Android/i.test(navigator.userAgent)&&new URLSearchParams(location.search).get("source")==="android_app";}catch(_error){return false;}
+}
+function buildDroggerNativeFixLine(){
+  if(!isEzViewerPrivateAndroidApp())return "";
+  const mode=String(droggerNativeStatus.fixMode||"UNAVAILABLE");
+  const presentation=mode==="FIXED"?{text:"FIXED",color:"#00a63d"}:mode==="FLOAT"?{text:"FLOAT",color:"#f28c00"}:mode==="STALE"?{text:"受信停止",color:"#d93025"}:mode==="NO_DATA"?{text:"NMEA待機",color:"#666"}:droggerNativeStatus.bridge?{text:mode,color:"#666"}:{text:"Android連携待機",color:"#666"};
+  return `<br>RTK状態: <b style="color:${presentation.color}">${presentation.text}</b>`;
+}
+async function pollDroggerNativeStatus(){
+  if(!isEzViewerPrivateAndroidApp())return;
+  try{
+    const response=await fetch(DROGGER_NATIVE_STATUS_URL,{cache:"no-store",mode:"cors"});
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    const status=await response.json();
+    droggerNativeStatus={bridge:status.bridge===true,fixMode:String(status.fixMode||"NO_DATA"),fixQuality:Number(status.fixQuality)||0,ageMs:Number.isFinite(+status.ageMs)?+status.ageMs:-1,nmeaConnected:status.nmeaConnected===true,updatedAt:Date.now()};
+  }catch(_error){
+    droggerNativeStatus={bridge:false,fixMode:"UNAVAILABLE",fixQuality:0,ageMs:-1,nmeaConnected:false,updatedAt:Date.now()};
+  }
+  if(droggerOwnerModeActive)updateGpsUi();
 }
 function setDroggerOwnerMode(active){
   droggerOwnerModeActive=!!active;
@@ -6770,7 +6794,7 @@ function registerCurrentDroggerCoordinate(){
   if(!gpsPosition){showToast("現在地を取得中です",2200);return;}
   updateDroggerSettingsFromInputs();
   const pointName=document.getElementById("droggerPointName");
-  const record=window.DroggerOwnerMode.createRecord({...gpsPosition,geoidHeight:getCurrentDroggerGeoidHeight(),geoidModelName:droggerGeoidModel?.name||gpsPosition.geoidModelName||""},droggerOwnerSettings,pointName?.value);
+  const record=window.DroggerOwnerMode.createRecord({...gpsPosition,geoidHeight:getCurrentDroggerGeoidHeight(),geoidModelName:droggerGeoidModel?.name||gpsPosition.geoidModelName||"",fixMode:droggerNativeStatus.bridge?droggerNativeStatus.fixMode:"",fixQuality:droggerNativeStatus.bridge?droggerNativeStatus.fixQuality:null,fixAgeMs:droggerNativeStatus.bridge?droggerNativeStatus.ageMs:null},droggerOwnerSettings,pointName?.value);
   if(!record){showToast("現在の座標を登録できませんでした",2200);return;}
   const strokes=window.DroggerOwnerMode.createRegistrationStrokes(record,getMemoWorldUnitsPerPaperMm(),droggerOwnerSettings);
   addInkStrokeOperation(strokes,"Drogger座標登録");
@@ -6808,7 +6832,8 @@ function renderDroggerCoordinateManager(){
     const elevationText=record.elevation!=null&&Number.isFinite(+record.elevation)?Number(record.elevation).toFixed(3):"－";
     values.appendChild(document.createTextNode(`X ${Number(record.x).toFixed(3)}　Y ${Number(record.y).toFixed(3)}　標高 ${elevationText}`));
     values.appendChild(document.createElement("br"));
-    values.appendChild(document.createTextNode(`誤差 ${Number.isFinite(+record.accuracy)?Number(record.accuracy).toFixed(3):'－'}m　${record.registeredAt?new Date(record.registeredAt).toLocaleString("ja-JP"):''}`));
+    const fixText=record.fixMode?`　RTK ${record.fixMode}`:"";
+    values.appendChild(document.createTextNode(`誤差 ${Number.isFinite(+record.accuracy)?Number(record.accuracy).toFixed(3):'－'}m${fixText}　${record.registeredAt?new Date(record.registeredAt).toLocaleString("ja-JP"):''}`));
     const remove=document.createElement("button");remove.type="button";remove.className="droggerCoordinateDelete";remove.textContent="削除";remove.addEventListener("click",()=>deleteDroggerCoordinate(record.id));
     item.append(values,remove);list.appendChild(item);
   }
@@ -19597,6 +19622,10 @@ document.getElementById("droggerGeoidModelInput")?.addEventListener("change",eve
   input.value="";
   if(file)importDroggerGeoidModel(file);
 });
+if(isEzViewerPrivateAndroidApp()){
+  pollDroggerNativeStatus();
+  setInterval(pollDroggerNativeStatus,1000);
+}
 if(gpsReturnBtn)gpsReturnBtn.addEventListener("click",event=>{
   event.preventDefault();
   event.stopPropagation();

@@ -76,6 +76,9 @@
       elevation:roundedElevation(correctedElevation(gps.altitude,gps.geoidHeight,normalized.antennaHeight)),
       accuracy:finite(gps.accuracy),
       altitudeAccuracy:finite(gps.altitudeAccuracy),
+      fixMode:String(gps.fixMode||""),
+      fixQuality:finite(gps.fixQuality),
+      fixAgeMs:finite(gps.fixAgeMs),
       sourceTimestamp:finite(gps.timestamp,now),
       registeredAt:now
     };
@@ -175,9 +178,9 @@
     return /[",\r\n]/.test(text)?`"${text.replace(/"/g,'""')}"`:text;
   }
   function buildCsv(records){
-    const headers=["点名","平面直角X","平面直角Y","標高","アンテナ標高","アンテナ高","水平誤差","系番号","緯度","経度","登録日時"];
+    const headers=["点名","平面直角X","平面直角Y","標高","アンテナ標高","アンテナ高","水平誤差","RTK状態","系番号","緯度","経度","登録日時"];
     const rows=(records||[]).map(record=>[
-      record.name,finite(record.x),finite(record.y),finite(record.elevation)==null?null:Number(record.elevation).toFixed(3),finite(record.antennaAltitude),finite(record.antennaHeight),finite(record.accuracy),finite(record.zone),finite(record.lat),finite(record.lon),record.registeredAt?new Date(record.registeredAt).toLocaleString("ja-JP"):""
+      record.name,finite(record.x),finite(record.y),finite(record.elevation)==null?null:Number(record.elevation).toFixed(3),finite(record.antennaAltitude),finite(record.antennaHeight),finite(record.accuracy),record.fixMode||"",finite(record.zone),finite(record.lat),finite(record.lon),record.registeredAt?new Date(record.registeredAt).toLocaleString("ja-JP"):""
     ]);
     return [headers,...rows].map(row=>row.map(csvValue).join(",")).join("\r\n");
   }

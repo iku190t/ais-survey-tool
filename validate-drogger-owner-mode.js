@@ -12,9 +12,9 @@ const feature=context.window.DroggerOwnerMode;
 if(!feature)throw new Error("Drogger owner module is not loaded");
 
 const settings=feature.normalizeSettings({antennaHeight:1.5,nameTextSizeMm:3,elevationTextSizeMm:2});
-const gps={lat:34.1,lon:134.5,zone:4,x:100.123,y:200.456,sfcX:200.456,sfcY:100.123,altitude:52.345,geoidHeight:37.1197,geoidModelName:"JPGEO2024",accuracy:.015,altitudeAccuracy:.025,timestamp:Date.now()};
+const gps={lat:34.1,lon:134.5,zone:4,x:100.123,y:200.456,sfcX:200.456,sfcY:100.123,altitude:52.345,geoidHeight:37.1197,geoidModelName:"JPGEO2024",accuracy:.015,altitudeAccuracy:.025,fixMode:"FIXED",fixQuality:4,fixAgeMs:120,timestamp:Date.now()};
 const record=feature.createRecord(gps,settings,"K-1");
-if(!record||Math.abs(record.elevation-13.725)>1e-9)throw new Error("geoid and antenna height correction failed");
+if(!record||Math.abs(record.elevation-13.725)>1e-9||record.fixMode!=="FIXED"||record.fixQuality!==4)throw new Error("geoid correction or RTK state storage failed");
 const strokes=feature.createRegistrationStrokes(record,250,settings);
 if(strokes.length!==5)throw new Error("registration must create circle, plus and two labels");
 if(strokes[0].droggerLayerId!==feature.LAYERS.point||strokes[1].droggerLayerId!==feature.LAYERS.point||strokes[2].droggerLayerId!==feature.LAYERS.point||strokes[3].droggerLayerId!==feature.LAYERS.name||strokes[4].droggerLayerId!==feature.LAYERS.elevation)throw new Error("Drogger layers are not separated");
@@ -29,7 +29,7 @@ feature.updateTextStyles(strokes,{nameTextSizeMm:4,elevationTextSizeMm:5,antenna
 if(strokes[3].photoTextLabel.heightMm!==4||strokes[4].photoTextLabel.heightMm!==5)throw new Error("label size update failed");
 if(strokes[4].photoTextLabel.text!=="13.72")throw new Error("drawing elevation was not truncated to two decimals");
 const csv=feature.buildCsv([record]);
-for(const token of ["点名","平面直角X","アンテナ高","K-1","13.725"])if(!csv.includes(token))throw new Error(`CSV missing ${token}`);
+for(const token of ["点名","平面直角X","アンテナ高","RTK状態","FIXED","K-1","13.725"])if(!csv.includes(token))throw new Error(`CSV missing ${token}`);
 if(csv.includes("標高誤差"))throw new Error("unused altitude-accuracy column remains in CSV");
 if(feature.incrementPointName("P1",[{name:"P1"}])!=="P2"||feature.incrementPointName("P2",[{name:"P1"},{name:"P2"}])!=="P3")throw new Error("point-name increment failed");
 const noAltitudeRecord=feature.createRecord({...gps,altitude:null},settings,"P3");
@@ -48,7 +48,7 @@ const required=[
   'id="droggerCoordinateModal"',
   'id="droggerOwnerMinimizeBtn"',
   'drogger-geoid-model.js?v=1',
-  'drogger-owner-mode.js?v=2',
+  'drogger-owner-mode.js?v=3',
   'id="droggerGeoidModelBtn"',
   'const DROGGER_OWNER_LONG_PRESS_MS=3000',
   'handleDroggerTitlePointerDown',
