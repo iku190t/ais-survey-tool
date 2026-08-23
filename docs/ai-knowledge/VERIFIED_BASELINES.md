@@ -7,9 +7,9 @@
 ### BASE-20260823-HEAD
 
 - 状態: `検証済み`
-- コミット: `711ee5a`
+- コミット: `ea0e6f7`
 - ブランチ: `main`
-- 内容: 2026-08-23時点の検証版。従来の検証済み機能に加え、現在地題名の3秒長押しで開くDrogger座標登録、図面なし登録、最小化、利用者判断による登録、確認音、P番号の自動増番を含む。
+- 内容: 2026-08-23時点の検証版。従来の検証済み機能に加え、現在地題名の3秒長押しで開くDrogger座標登録、図面なし登録、公式ISGによるジオイド補正、最小化、利用者判断による登録、最大ゲインの確認音、P番号の自動増番、0.8mm丸・中心十字を含む。
 - 成功した主要検証: 方位追従、法務局4本、写真帳2本、写真ネットワーク読込、写真位置調整、復元保存、性能、現在地起動、地形2本、等高線文字2本、基盤地図2本、Google連携、PC操作2本、実SFC読込。
 - 注意: `PROJECT_STATE.md` の「未解決の検証課題」5本はこのHEADでも失敗する。全テスト成功とは記録しない。
 
@@ -18,20 +18,22 @@
 ### BASE-DROGGER-OWNER-20260823
 
 - 状態: `検証済み`
-- コミット: `711ee5a`
+- コミット: `ea0e6f7`
 - 対象: 現在地詳細から入る隠しDrogger座標登録。
 - 確認内容:
   - 「現在地」の題名を動かさず3秒長押しすると専用画面をON/OFFする。短押し、途中で指を離した場合、12pxを超えて動かした場合は起動しない。通常起動時は表示しない。
-  - ブラウザGeolocationへDrogger GPSが供給した緯度経度、平面直角X・Y、アンテナ標高、水平誤差を使用し、標高誤差は表示・CSV項目にしない。
-  - 右上ボタンで最小化し、最小化中は水平誤差だけを表示する。
-  - 入力アンテナ高をアンテナ標高から差し引き、補正標高として登録する。
+  - ブラウザGeolocationへDrogger GPSが供給した緯度経度、平面直角X・Y、楕円体高、水平誤差を使用し、標高誤差は表示・CSV項目にしない。
+  - 右上ボタンで最小化し、最小化中は「水平誤差 ±○○m」だけを表示する。「登録」「座標管理」は専用ポップアップ最下部へ固定する。
+  - 公式ISG 2.0ジオイドモデルを専用画面から選択し、Web Workerで解析してIndexedDBへ保存・再利用する。
+  - 杭打ちアプリと同じ「楕円体高－ジオイド高－入力アンテナ高」を補正標高として登録する。モデル未設定・範囲外・高度未取得では標高を「－」とし、登録自体は許可する。
   - FIX状態、高度有無、受信経過時間では登録を止めず、表示誤差を見て利用者が判断する。高度未取得は「－」で保持し、0.000へ誤変換しない。
-  - 登録成功時に確認音を鳴らし、P1を登録した後はP2、P3へ自動増番する。
+  - 登録成功時に最大ゲインの短い確認音を鳴らし、P1を登録した後はP2、P3へ自動増番する。
   - SFC図面の有無を登録条件にせず、「現在地で開く」の図面なし状態でも3レイヤーへ登録する。
-  - 登録点は紙面直径1mmの丸、点名、補正標高を3つの赤色レイヤーへ分離し、通常のレイヤー色変更、SFC保存、前回作業復元へ載せる。
+  - 登録点は紙面直径0.8mm、従来の3分の1の線幅の丸と、丸端まで届く中心十字にする。点名、補正標高を3つの赤色レイヤーへ分離し、通常のレイヤー色変更、SFC保存、前回作業復元へ載せる。
+  - 補正標高は登録情報とCSVへ小数第3位まで保存し、図面上の標高文字は小数第2位で切り捨てる。
   - 点名・標高文字寸法を変更でき、座標管理から個別削除、Undo、UTF-8 CSV共有ができる。
   - Drogger関連レイヤーのどれかをレイヤー画面から削除すると、3レイヤーと登録情報をまとめて削除する。
-- 検証: `validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-pc-map-toolbar.js`、`validate-text-layer-ui.js`、`validate-real-sfc-rendering.js sample.sfc`。
+- 検証: `validate-drogger-geoid-model.js`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-performance-indexes.js`、`validate-pc-map-toolbar.js`、`validate-text-layer-ui.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc`。
 - 制限: 通常のWeb Geolocation APIはRTK FIX/FLOAT状態を返さないため、EZ ViewerはFIX状態を独自判定しない。
 
 ### BASE-RECENT-DRAWINGS-20260823

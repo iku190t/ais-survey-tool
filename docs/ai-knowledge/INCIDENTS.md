@@ -106,6 +106,17 @@
 - 再発防止: Drogger登録の可否をSFC図形の存在で判定しない。図面なしGPS専用状態をDrogger回帰テストへ残す。
 - 正常基準: `BASE-DROGGER-OWNER-20260823`。
 
+## INC-20260823-05 Drogger登録標高が楕円体高のままになる
+
+- 状態: `検証済み`
+- 観察: 専用モードの標高が杭打ちアプリと一致せず、楕円体高にアンテナ高だけを差し引いた値になっていた。
+- 根本原因: Ez Viewerにはジオイドモデルの解析・補間経路がなく、`altitude - antennaHeight` を補正標高としていた。杭打ちアプリは `ellipsoidHeight - geoidHeight - antennaHeight` を使用していた。
+- 修正: `ea0e6f7` で杭打ちアプリと同じISG 2.0解析・北から南の格子方向・双一次補間を独立モジュールへ移植した。公式ISGはWeb Workerで読み、IndexedDBへ1回保存して再利用する。モデル未設定、範囲外、高度未取得では標高を「－」にし、座標登録自体は止めない。
+- 併せて修正: 登録点を0.8mm丸・中心十字・3分の1線幅へ変更し、内部とCSVは標高3桁、図面文字は2桁切捨てとした。登録音は最大ゲインの短音へ変更した。
+- 検証: `validate-drogger-geoid-model.js` でISG解析と補間、`validate-drogger-owner-mode.js` で補正式・図形寸法・CSV、`validate-drogger-owner-runtime.js` でWorker・IndexedDB・図面なし登録・最小化・削除Undoを確認。GPS、復元、性能、PC UI、実SFCも回帰成功。
+- 再発防止: Webの `Coordinates.altitude` を標高成果として直接保存しない。ジオイド未設定時にDEMや未検証モデルを暗黙代用しない。SFC図面やFIX状態を登録条件へ戻さない。
+- 正常基準: `BASE-DROGGER-OWNER-20260823`。
+
 ## INC-20260822-07 ブラウザを閉じると現場での変更を直接復元できない
 
 - 状態: `検証済み`

@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-23 / `711ee5a`
+最終実行: 2026-08-23 / `ea0e6f7`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -15,7 +15,7 @@
 |自動保存・前回作業復元・レイヤー色・SFC保存|`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |DEM・等高線・地形解析|`validate-terrain-advanced.js`、`validate-terrain-ui.js`、`validate-contour-text-horizontal.js`、`validate-contour-label-raster-quality.js`|
 |現在地・GPS|`validate-gps-startup-mode.js`、`validate-gps-detail-dem.js`|
-|Drogger座標登録|`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-real-sfc-rendering.js sample.sfc`|
+|Drogger座標登録|`validate-drogger-geoid-model.js`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |スマホ方位追従・ホーム|`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-gps-startup-mode.js`|
 |PCツールバー・ポップアップ|`validate-pc-map-toolbar.js`、`validate-pc-object-interaction.js`、`validate-text-layer-ui.js`|
 |PCの最近開いた図面|`validate-recent-drawings.js`、`validate-pc-map-toolbar.js`|
@@ -28,8 +28,9 @@
 
 ### 成功
 
-- `validate-drogger-owner-mode.js` — アンテナ高補正、標高なし登録、紙面1mm丸、3レイヤー、文字寸法更新、P番号増番、CSVを確認。
-- `validate-drogger-owner-runtime.js` — 短押し・移動時キャンセル、3秒長押しON/OFF、最小化中の水平誤差だけの表示、図面なし登録、利用者判断の登録、確認音、P1→P2→P3、標高なし登録、SFCメタデータ、関連3レイヤー削除とUndoをブラウザ上で確認。
+- `validate-drogger-geoid-model.js` — ISG 2.0の厳密なヘッダー解析、北から南の行方向、双一次補間、範囲外のnullを確認。
+- `validate-drogger-owner-mode.js` — ジオイド・アンテナ高補正、標高なし登録、紙面0.8mm丸、中心十字、3分の1線幅、3レイヤー、図面標高2桁切捨て、登録・CSV標高3桁、文字寸法更新、P番号増番を確認。
+- `validate-drogger-owner-runtime.js` — Web Worker解析とIndexedDB再読込、短押し・移動時キャンセル、3秒長押しON/OFF、最小化中の水平誤差だけの表示、図面なし登録、利用者判断の登録、確認音、P1→P2→P3、標高なし登録、SFCメタデータ、関連3レイヤー削除とUndoをブラウザ上で確認。
 
 - `validate-registry-progress-cancel.js` — 「国土地調査境界」から取得開始し、取得中は「キャンセル」、完了後は「表示」「非表示」へ切り替わることを確認。
 - `validate-registry-append-and-intersection.js` — 未取得時の「国土地調査境界」表示と取得開始を確認。
