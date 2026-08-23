@@ -19,7 +19,7 @@
 
 - 状態: `検証済み`
 - Webコミット: `ac93f4d`。
-- Androidコミット: `5e78e20`、バージョン `1.0.1-private`。
+- Androidコミット: `8bdbc02`（受信サービス本体 `5e78e20`）、バージョン `1.0.1-private`。
 - 対象: 所有者専用Android版のDrogger RTK状態連携。
 - 確認内容:
   - Androidアプリ内のループバック `127.0.0.1:38471` だけでNMEAを受け、GGA品質4をFIXED、5をFLOATとして判定する。

@@ -5,7 +5,7 @@
 - 状態: `検証済み`
 - 観察: Drogger GPSアプリではFIXEDを確認できても、ブラウザGeolocationが返すのは位置・誤差等で、FIX/FLOAT状態をEZ Viewerへ渡す項目がなかった。
 - 根本原因: 一般ブラウザAPIとDrogger GPSアプリのNMEA測位品質が接続されていなかった。
-- 修正: Android `5e78e20` で端末内NMEA受信・状態HTTPサービスを追加し、Web `ac93f4d` で専用Android起動時だけ状態を表示・登録・CSVへ連携した。
+- 修正: Android `5e78e20` で端末内NMEA受信・状態HTTPサービスを追加し、`8bdbc02` で最新版を確実に開く起動URLへ更新。Web `ac93f4d` で専用Android起動時だけ状態を表示・登録・CSVへ連携した。
 - 検証: 実機の端末内テストでGGA品質4/5と受信停止を確認。Webの専用Android模擬実行でFIXED表示、登録情報、CSVを確認。
 - 再発防止: Webの水平誤差からFIXを推測しない。一般版へAndroid固有処理を広げない。登録をFIXで自動拒否しない。
 - 正常基準: `BASE-ANDROID-DROGGER-FIX-20260823`。
