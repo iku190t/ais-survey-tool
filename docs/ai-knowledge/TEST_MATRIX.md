@@ -51,7 +51,7 @@
 - `validate-foundation-map-import.js`
 - `validate-google-maps-links.js`
 - `validate-map-attribution-registry.js`
-- `validate-pc-map-toolbar.js`
+- `validate-pc-map-toolbar.js` — PCツールバーとポップアップ配置に加え、SXF図面枠をホームでPC・スマホの有効表示領域へ収め、内側図形だけを誤って全体表示しないことを確認。
 - `validate-pc-object-interaction.js`
 - `validate-photo-network-import.js`
 - `validate-photo-position-adjustment.js`
