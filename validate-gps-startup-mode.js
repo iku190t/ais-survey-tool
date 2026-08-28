@@ -9,7 +9,9 @@ const required=[
   'startGps({allowWithoutDrawing:true})',
   'const zone = chooseJapanPlaneZone(lat, lon);',
   'gpsTemporaryCoordinateZone=zone;',
-  'enableGpsContextTiles(zone);',
+  'enableGpsContextTiles(zone,{lat,lon});',
+  'gpsAerialPhotoContext={zone,center:fixedCenter};',
+  'refreshAerialPhotoSources(requestId,fixedCenter,true)',
   'adoptCurrentLocationZoneForDrawing(zone)',
   'drawingZone=adoptCurrentLocationZoneForDrawing(zone);',
   'const drawingZone=getManualCoordinateZone()||null;',
@@ -120,20 +122,28 @@ let browser;
     throw new Error(`GPS detail popup did not follow the drawing theme: ${JSON.stringify(gpsDetailTheme)}`);
   }
   if(await page.locator("#defaultCoordinateSystemSelect").count())throw new Error("obsolete default drawing coordinate control is still visible");
-  await page.evaluate(()=>window.eval("scheduleAerialPhotoSourceRefresh({lat:gpsPosition.lat,lon:gpsPosition.lon})"));
+  await page.waitForFunction(()=>window.eval("!aerialPhotoResolveBusy&&aerialAvailableSources.length>1"),null,{timeout:5000});
+  const fixedGpsAerialKey=await page.evaluate(()=>window.eval("gpsAerialPhotoContext?.center?.key||''"));
+  await page.evaluate(()=>window.eval("scheduleAerialPhotoSourceRefresh({lat:gpsPosition.lat+0.01,lon:gpsPosition.lon+0.01})"));
   await page.waitForTimeout(900);
   const gpsAerialStable=await page.evaluate(()=>window.eval(`({
     count:aerialAvailableSources.length,
     source:aerialAvailableSources[aerialPhotoSourceIndex]?.id,
     busy:aerialPhotoResolveBusy,
-    rescanKey:aerialPhotoRescanKey
+    rescanKey:aerialPhotoRescanKey,
+    contextKey:gpsAerialPhotoContext?.center?.key||"",
+    sliderDisabled:photoTimeSlider?.getAttribute("aria-disabled")
   })`));
-  if(gpsAerialStable.count!==1||gpsAerialStable.source!=="latest"||gpsAerialStable.busy||gpsAerialStable.rescanKey){
-    throw new Error(`GPS aerial photo was rescanned instead of staying stable: ${JSON.stringify(gpsAerialStable)}`);
+  if(gpsAerialStable.count<=1||gpsAerialStable.source!=="latest"||gpsAerialStable.busy||gpsAerialStable.rescanKey||gpsAerialStable.contextKey!==fixedGpsAerialKey||gpsAerialStable.sliderDisabled!=="false"){
+    throw new Error(`GPS aerial photo periods were not loaded once at a stable location: ${JSON.stringify(gpsAerialStable)}`);
   }
-  await page.evaluate(()=>window.eval("enableGpsContextTiles(4)"));
+  await page.evaluate(()=>window.eval(`(()=>{
+    aerialPhotoSourceIndex=1;
+    updateAerialPhotoUi();
+    enableGpsContextTiles(4,{lat:gpsPosition.lat+0.02,lon:gpsPosition.lon+0.02});
+  })()`));
   const preservedGpsSource=await page.evaluate(()=>window.eval("aerialAvailableSources[aerialPhotoSourceIndex]?.id"));
-  if(preservedGpsSource!=="latest")throw new Error(`GPS update changed the current aerial photo: ${preservedGpsSource}`);
+  if(!preservedGpsSource||preservedGpsSource==="latest")throw new Error(`GPS update reset the manually selected aerial photo: ${preservedGpsSource}`);
   const enabledTools=await page.evaluate(()=>window.eval(`(()=>{
     const ids=["fitBtn","bgBtn","measureBtn","drawBtn","profileBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab","googleMapsLinkBtn"];
     return {

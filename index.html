@@ -2926,6 +2926,7 @@ let gpsOnlyBlankMode = false;
 let gpsOnlyBlankPrevDarkTheme = true;
 let gpsSessionState = null;
 let gpsTemporaryCoordinateZone = null;
+let gpsAerialPhotoContext = null;
 const DROGGER_SETTINGS_KEY="ezviewer_drogger_owner_settings_v1";
 const DROGGER_OWNER_LONG_PRESS_MS=3000;
 const DROGGER_GPS_ONLY_SCALE_DENOMINATOR=500;
@@ -3566,12 +3567,16 @@ function probeAerialPhotoUrl(url){
   if(aerialPhotoProbeCache.size>240) aerialPhotoProbeCache.delete(aerialPhotoProbeCache.keys().next().value);
   return pending;
 }
-async function refreshAerialPhotoSources(requestId){
-  const center=getAerialPhotoCenter(aerialPhotoZone);
+async function refreshAerialPhotoSources(requestId,fixedCenter=null,preserveCurrent=false){
+  const center=fixedCenter||getAerialPhotoCenter(aerialPhotoZone);
   const previousId=aerialAvailableSources[aerialPhotoSourceIndex]?.id||"latest";
   setAerialPhotoStatus("この場所で利用できる航空写真を確認中…");
   aerialPhotoSliderDragging=false;
-  aerialAvailableSources=[];aerialPhotoSourceIndex=0;updateAerialPhotoUi();
+  if(!preserveCurrent){
+    aerialAvailableSources=[];
+    aerialPhotoSourceIndex=0;
+  }
+  updateAerialPhotoUi();
   const found=[];
   await profileMapLimit(AERIAL_PHOTO_SOURCES,5,async(source,index)=>{
     const z=Math.max(source.minZ,Math.min(source.maxZ,16));
@@ -7003,27 +7008,61 @@ function captureGpsSessionState(){
   };
   return gpsSessionState;
 }
-function enableGpsContextTiles(zone){
+function enableGpsContextTiles(zone,centerLl=null){
   if(!zone)return;
   const latestSource=AERIAL_PHOTO_SOURCES[0];
-  const selectedSource=aerialAvailableSources[aerialPhotoSourceIndex];
-  if(aerialPhotoEnabled&&aerialPhotoZone===zone&&selectedSource&&selectedSource.id===latestSource.id){
+  if(gpsAerialPhotoContext&&gpsAerialPhotoContext.zone===zone&&aerialPhotoEnabled&&aerialPhotoZone===zone){
     updateAerialPhotoUi();
     updateToolbarActivationUI();
     return;
   }
-  aerialPhotoEnableRequestId++;
+  const lat=Number(centerLl&&centerLl.lat);
+  const lon=Number(centerLl&&centerLl.lon);
+  const hasFixedCenter=Number.isFinite(lat)&&Number.isFinite(lon);
+  const keyRef=hasFixedCenter?profileTileRef(lat,lon,14):null;
+  const fixedCenter=hasFixedCenter?{ll:{lat,lon},key:`${zone}|${keyRef.x}|${keyRef.y}`}:null;
+  gpsAerialPhotoContext={zone,center:fixedCenter};
+  const requestId=++aerialPhotoEnableRequestId;
   clearTimeout(aerialPhotoRescanTimer);aerialPhotoRescanTimer=0;aerialPhotoRescanKey="";
   aerialPhotoEnabled=true;
-  aerialPhotoResolveBusy=false;
+  aerialPhotoResolveBusy=!!fixedCenter;
   aerialPhotoZone=zone;
   aerialAvailableSources=[latestSource];
   aerialPhotoSourceIndex=0;
   aerialPhotoAvailabilityKey="";
-  setAerialPhotoStatus("現在写真を表示中です。利用できる過去年代を確認します…");
+  setAerialPhotoStatus(fixedCenter?"現在写真を表示中です。利用できる過去年代を確認します…":"現在写真を表示中です。");
   updateAerialPhotoUi();
   updateToolbarActivationUI();
   scheduleDraw();
+  if(!fixedCenter)return;
+  void (async()=>{
+    try{
+      const available=await refreshAerialPhotoSources(requestId,fixedCenter,true);
+      if(requestId!==aerialPhotoEnableRequestId||gpsAerialPhotoContext?.center!==fixedCenter)return;
+      if(!available){
+        aerialPhotoEnabled=true;
+        aerialAvailableSources=[latestSource];
+        aerialPhotoSourceIndex=0;
+        aerialPhotoAvailabilityKey=fixedCenter.key;
+        setAerialPhotoStatus("現在写真を表示中です。過去年代は確認できませんでした。");
+      }
+    }catch(error){
+      if(requestId!==aerialPhotoEnableRequestId||gpsAerialPhotoContext?.center!==fixedCenter)return;
+      console.error("GPS aerial photo period lookup failed",error);
+      aerialPhotoEnabled=true;
+      aerialAvailableSources=[latestSource];
+      aerialPhotoSourceIndex=0;
+      aerialPhotoAvailabilityKey=fixedCenter.key;
+      setAerialPhotoStatus("現在写真を表示中です。過去年代は確認できませんでした。");
+    }finally{
+      if(requestId===aerialPhotoEnableRequestId&&gpsAerialPhotoContext?.center===fixedCenter){
+        aerialPhotoResolveBusy=false;
+        updateAerialPhotoUi();
+        updateToolbarActivationUI();
+        scheduleDraw();
+      }
+    }
+  })();
 }
 function restoreGpsSessionState(){
   const state=gpsSessionState;
@@ -7049,6 +7088,7 @@ function restoreGpsSessionState(){
   }
   if(Array.isArray(state.activePickModes))activePickModes=[...state.activePickModes];
   gpsSessionState=null;
+  gpsAerialPhotoContext=null;
   updateAerialPhotoUi();
   updateSettingsPanelUi();
   updateToolbarActivationUI();
@@ -7121,6 +7161,7 @@ function maybeShowGpsFarMessage(distMeters){
 function startGps(options={}){
   gpsIsFarFromDrawing = false;
   gpsDistanceUnavailableNotified = false;
+  gpsAerialPhotoContext = null;
   const allowWithoutDrawing=!!(options&&options.allowWithoutDrawing);
   if (!hasLoadedDrawing()&&!allowWithoutDrawing){
     updateGpsUi();
@@ -7176,7 +7217,7 @@ function startGps(options={}){
         placement={sfc:defaultPlaneToSfcWorld(xy.x,xy.y),usedMesh:false};
         gpsTemporaryCoordinateZone=zone;
         profileZone=zone;
-        enableGpsContextTiles(zone);
+        enableGpsContextTiles(zone,{lat,lon});
       }else{
         gpsTemporaryCoordinateZone=null;
         profileZone=zone;
