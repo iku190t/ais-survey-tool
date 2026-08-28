@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-23 / `3942061`
+最終実行: 2026-08-28 / `18cee3a`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -24,6 +24,20 @@
 |SFC/SFZ・ラスター|`validate-real-sfc-rendering.js <実ファイル>`、`validate-raster-placement.js`、`validate-ui.js`|
 |ライセンス・著作権表示|`validate-open-source-license.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |広いUI変更|上記関連テストに加え `validate-ui.js`、`validate-real-sfc-rendering.js sample.sfc`|
+
+## 2026-08-28 実行結果
+
+### 成功
+
+- `validate-gps-startup-mode.js` — 現在地へ切り替えた地点で航空写真年代を1回だけ取得し、年代スライダーを有効化すること、GPS更新後も検索地点と手動選択年代を維持すること、年代確認失敗時は最新写真を残すことを確認。
+- `validate-performance-indexes.js`
+- `validate-default-settings.js`
+- `validate-real-sfc-rendering.js sample.sfc`
+- `validate-compass-follow.js` — 初回はアニメーションフレーム時刻の一時的なずれで失敗し、同一コードの再実行で成功。
+
+### 新規失敗
+
+- なし。
 
 ## 2026-08-23 実行結果
 
