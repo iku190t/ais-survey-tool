@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-31 / `f34228a`
+最終実行: 2026-08-31 / `25211fb`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -31,7 +31,7 @@
 
 ### 成功
 
-- `validate-mobile-landscape.js` — 縦固定メタ・マニフェスト・JavaScriptロックの解除、844×390横画面で遮断画面が出ないこと、初回画面の全操作へスクロールできることを確認。
+- `validate-mobile-landscape.js` — 縦固定メタ・マニフェスト・JavaScriptロックの解除、844×390横画面で遮断画面が出ないこと、初回画面の全操作へスクロールできること、PC専用の写真位置が非表示であることを確認。
 - `validate-sima-import.js` — 大文字 `.SIM` とバイナリMIME、D00種別2の地番除外、閉画地件数、SIMA単独ホーム、現在地解除時の表示復帰、37度・116度回転時の画面水平文字を確認。
 - `validate-gps-startup-mode.js` — SFC従来経路の現在地状態復元が維持されることを確認。
 - `validate-compass-follow.js`
