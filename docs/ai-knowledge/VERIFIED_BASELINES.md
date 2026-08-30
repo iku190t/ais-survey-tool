@@ -301,6 +301,19 @@
   - GPS、航空写真、座標・DEM表示内容には変更を加えない。
 - 検証: `validate-gps-startup-mode.js` で黒背景・白背景それぞれの計算済み背景色と文字色を確認。`validate-default-settings.js`、`validate-compass-follow.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc` も成功。
 
+### BASE-SIMA-OVERLAY-20260830
+
+- 状態: `検証済み`
+- コミット: `d8b3c98`
+- 対象: SIMA背景読込、画地・測点表示、画面水平文字。
+- 確認内容:
+  - 背景パネルのハザードマップ下から `.sim` / `.sima` を読み込む。
+  - A01座標、D00画地、B01構成点、引用符付きCSVとUTF-8/Shift_JIS読込経路を分離実装する。
+  - 現在の図面座標系へ変換し、画地・画地線・測点・地番名・点名を個別表示する。
+  - 地番名は表示範囲内の画地へ追従し、地番名・点名は回転した図面上でも画面水平を維持する。
+  - SFC読込、既存文字、パン、方位追従、法務局地図の既存経路を変更しない。
+- 検証: `validate-sima-import.js`、`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-text-layer-ui.js`、`validate-default-settings.js`、`validate-registry-layer-colors.js`、`validate-gps-startup-mode.js`、`validate-pc-map-toolbar.js`、`validate-map-attribution-registry.js`、`validate-real-sfc-rendering.js sample.sfc`。
+
 ## 復元時の原則
 
 1. いきなり古いコミット全体へ戻さない。

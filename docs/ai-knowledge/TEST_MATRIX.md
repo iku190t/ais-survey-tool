@@ -7,6 +7,7 @@
 
 |変更領域|最低限実行するテスト|
 |---|---|
+|SIMA背景・画地・水平文字|`validate-sima-import.js`、`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |法務局地図・境界|`validate-registry-progress-cancel.js`、`validate-registry-append-and-intersection.js`、`validate-registry-cad.js`、`validate-registry-layer-colors.js`|
 |基盤地図2500|`validate-foundation-map-gml.js`、`validate-foundation-map-import.js`、`validate-base-map-toggle.js`|
 |写真読込・削除・位置|`validate-photo-album.js`、`validate-photo-album-runtime.js`、`validate-photo-network-import.js`、`validate-photo-position-adjustment.js`|
@@ -24,6 +25,30 @@
 |SFC/SFZ・ラスター|`validate-real-sfc-rendering.js <実ファイル>`、`validate-raster-placement.js`、`validate-ui.js`|
 |ライセンス・著作権表示|`validate-open-source-license.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |広いUI変更|上記関連テストに加え `validate-ui.js`、`validate-real-sfc-rendering.js sample.sfc`|
+
+## 2026-08-30 実行結果
+
+### 成功
+
+- `validate-sima-import.js` — 公式例に沿うA01/D00/B01の解析、引用符付き項目、画面内画地への地番名追従、37度回転時の地番名・点名の画面水平、PC・スマホ共通UIを確認。
+- `validate-compass-follow.js`
+- `validate-performance-indexes.js`
+- `validate-pc-object-interaction.js`
+- `validate-text-layer-ui.js`
+- `validate-default-settings.js`
+- `validate-registry-layer-colors.js`
+- `validate-gps-startup-mode.js`
+- `validate-pc-map-toolbar.js`
+- `validate-map-attribution-registry.js`
+- `validate-real-sfc-rendering.js sample.sfc`
+
+### 新規失敗
+
+- なし。
+
+### 未実施
+
+- 顧客・現場の実SIMAファイルは未提供のため、今回の検証では使用していない。実ファイル受領時に文字コード、画地件数、座標位置を追加確認する。
 
 ## 2026-08-28 実行結果
 
