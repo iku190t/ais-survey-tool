@@ -18,6 +18,8 @@ for(const token of [
   'drawSimaOverlay();',
   'layerColorPaletteTarget.type==="sima"'
 ])if(!source.includes(token))throw new Error(`missing SIMA implementation: ${token}`);
+const simaFileInputMarkup=source.match(/<input\s+id="simaFileInput"[^>]*>/)?.[0]||"";
+if(!simaFileInputMarkup||/\saccept=/.test(simaFileInputMarkup))throw new Error("SIMA file picker must not filter unknown .SIM MIME types on iPhone");
 
 const sample=[
   "G00,03,テスト現場,",
@@ -59,7 +61,7 @@ let browser;
     document.getElementById("startupModal").style.display="none";
     document.getElementById("simaMapPanel").style.display="block";
     updateSimaMapUi();
-    await loadSimaFile(new File([sampleText],"field.sim",{type:"text/plain"}));
+    await loadSimaFile(new File([sampleText],"field.SIM",{type:"application/octet-stream"}));
     const loaded={points:simaMapState.points.length,parcels:simaMapState.parcels.length,enabled:simaDisplayEnabled,source:simaMapState.sourceName};
     const w=canvas.clientWidth,h=canvas.clientHeight;
     rotationDeg=37;view.scale=.001;view.tx=w/2;view.ty=h/2;
@@ -81,7 +83,7 @@ let browser;
   if(Math.abs(parcel.b)>1e-8||Math.abs(parcel.c)>1e-8)throw new Error(`SIMA label inherited drawing rotation: ${JSON.stringify(parcel)}`);
   if(parcel.x<0||parcel.x>result.width||parcel.y<0||parcel.y>result.height)throw new Error(`parcel label did not follow visible area: ${JSON.stringify(parcel)}`);
   if(!result.buttonActive||result.parcelSize!==14||result.pointSize!==11)throw new Error(`SIMA UI defaults failed: ${JSON.stringify(result)}`);
-  if(result.loaded.points!==3||result.loaded.parcels!==1||!result.loaded.enabled||result.loaded.source!=="field.sim")throw new Error(`browser file import failed: ${JSON.stringify(result.loaded)}`);
+  if(result.loaded.points!==3||result.loaded.parcels!==1||!result.loaded.enabled||result.loaded.source!=="field.SIM")throw new Error(`browser .SIM file import failed: ${JSON.stringify(result.loaded)}`);
   if(errors.length)throw new Error(`page errors: ${errors.join(" | ")}`);
   console.log("SIMA parser, panel, visible-area label placement, and screen-horizontal rotation validated");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
