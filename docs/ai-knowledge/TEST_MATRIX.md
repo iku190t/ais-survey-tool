@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-31 / `9c99c71`
+最終実行: 2026-08-31 / `d56a435`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -35,7 +35,7 @@
 - `validate-compass-follow.js`
 - `validate-performance-indexes.js`
 - `validate-pc-object-interaction.js`
-- `validate-pc-map-toolbar.js` — PCのSIMAボタン、スマホでの非表示、スマホ背景内のSIMA導線を確認。
+- `validate-pc-map-toolbar.js` — PCのSIMAボタン、画地境界＋測点アイコン、スマホでの非表示、スマホ背景内のSIMA導線を確認。
 - `validate-default-settings.js`
 - `validate-real-sfc-rendering.js sample.sfc`
 
