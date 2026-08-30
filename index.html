@@ -1266,10 +1266,10 @@ body.help-labels button[data-help-label].mobile-hide{
 <link rel="icon" type="image/png" sizes="192x192" href="sfc-viewer-icon-192.png?v=1">
 <link rel="icon" type="image/png" sizes="512x512" href="sfc-viewer-icon-512.png?v=1">
 <link rel="shortcut icon" href="sfc-viewer-icon-192.png?v=1">
-<link rel="manifest" href="manifest.webmanifest?v=1">
+<link rel="manifest" href="manifest.webmanifest?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="screen-orientation" content="portrait">
-<meta name="x5-orientation" content="portrait">
+<meta name="screen-orientation" content="auto">
+<meta name="x5-orientation" content="auto">
 <meta name="apple-mobile-web-app-title" content="Ez Viewer">
 <meta name="theme-color" content="#f2f5f9">
 <meta name="application-name" content="Ez Viewer">
@@ -2181,7 +2181,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">2本指</div>2本指で移動・拡大縮小・回転できます。</div>
               <div class="helpBlock"><div class="helpHead">方位マーク</div>右上の方位マークを押すと、スマホの向きに合わせた自動回転を開始します。もう一度押すと停止し、ONの間は方位マークが青くなります。ホームを押すと自動回転を停止し、図面を読み込み時の水平な向きへ戻します。</div>
               <div class="helpBlock"><div class="helpHead">ホーム／閉じる</div>通常時は<b>ホーム</b>で図面全体を余白内へ収め、読み込み時の図面方向へ戻します。画面や作業を開いている間は薄い赤の<b>閉じる</b>に変わり、図面位置を変えずに現在の画面・作業だけを終了します。ダブルタップや方位長押しでは全体表示になりません。</div>
-              <div class="helpBlock"><div class="helpHead">縦画面専用</div>このアプリは縦画面用です。端末が横向きになった場合は、縦向きへ戻す案内を表示します。</div>
+              <div class="helpBlock"><div class="helpHead">画面の向き</div>スマートフォンは縦画面・横画面のどちらでも使用できます。端末を回転すると表示範囲をその向きへ合わせます。</div>
               <div class="helpBlock"><div class="helpHead">青いボタン</div>ファイル・背景・計測・断面・手書き・検索・ヘルプは起動中に青くなります。同じボタンをもう一度押すと終了します。</div>
             </div>
           </div>
@@ -2219,7 +2219,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock"><div class="helpHead">コマンドの切替</div>計測・断面・手書き・検索などの作業中に別のコマンドを押すと、現在の作業を中止してから新しいコマンドへ切り替わります。</div>
               <div class="helpBlock"><div class="helpHead">設定</div>上部の <b>設定</b> では、図面の座標系を自動判定または平面直角座標系の第1～19系から手動選択できます。手動選択は図面ごとに記憶します。新しい図面で座標系が分からない場合は、スマホで最初にGPSを取得した場所の座標系を既定値として使い、設定から後で変更できます。線の表示太さは1～10倍のスライダーで変更でき、SFCに保存されている元の線幅は変更しません。</div>
               <div class="helpBlock"><div class="helpHead">背景</div>上部の <b>ホーム</b> 右側にある <b>背景</b> で黒背景と白背景を切り替えます。黒・白の図形色は、背景で見えなくならないよう表示時に自動調整します。</div>
-              <div class="helpBlock"><div class="helpHead">縦画面</div>このビューアーはスマートフォンの縦画面専用です。横向きにした場合は縦向きへ戻してください。</div>
+              <div class="helpBlock"><div class="helpHead">画面の向き</div>スマートフォンは縦画面・横画面のどちらでも使用できます。</div>
             </div>
           </div>
 
@@ -14783,17 +14783,10 @@ function isDrawingActionAvailable(){
   return hasActiveWorkspace();
 }
 function applyPortraitPreference(){
-  document.body.classList.add("portrait-preferred");
-  const lock = async ()=>{
-    try{
-      if (screen.orientation && screen.orientation.lock){
-        await screen.orientation.lock("portrait");
-      }
-    }catch(_e){}
-  };
-  document.addEventListener("click", lock, {once:true});
-  document.addEventListener("touchend", lock, {once:true, passive:true});
-  lock();
+  document.body.classList.remove("portrait-preferred");
+  try{
+    if(screen.orientation&&typeof screen.orientation.unlock==="function")screen.orientation.unlock();
+  }catch(_e){}
 }
 function updateDrawingDependentUi(){
   const available = hasActiveWorkspace();
