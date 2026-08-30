@@ -866,6 +866,9 @@ body.light #photoListTableScroll::-webkit-scrollbar-thumb{background:#858585;}
 @media (min-width:821px){
   #photoToolBtn{display:inline-flex;}
 }
+@media (max-width:1024px) and (hover:none), (max-width:1024px) and (pointer:coarse){
+  #photoToolBtn{display:none!important;}
+}
 #saveAsChoiceActions button{min-height:36px;font-size:13px;font-weight:700;}
 #helpModalBox button,#profileBox button,#textSearchModalBox button,#measureModePanel button,#measureBox button,#drawPanel button,#aerialPhotoPanel button,#terrainPanel button,#registryMapPanel button,#hazardMapPanel button,#controlPointPanel button,#supportPanel button,#viewerSupportBox button,#confirmModal button,#aerialSfcWarningModal button,#recoveryDeleteConfirmModal button,#layerDeleteConfirmModal button,#registryDownloadConfirmModal button{min-height:36px;font-size:13px;}
 #confirmModal>div,#recoveryDeleteConfirmBox{background:var(--panel2)!important;color:var(--fg)!important;border:1px solid var(--border);border-radius:12px!important;padding:12px!important;box-sizing:border-box;}

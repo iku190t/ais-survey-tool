@@ -45,13 +45,14 @@ const server=http.createServer((req,res)=>{
         blockerDisplay:getComputedStyle(blocker).display,
         portraitClass:document.body.classList.contains("portrait-preferred"),
         topbarDisplay:getComputedStyle(topbar).display,
+        photoToolDisplay:getComputedStyle(document.getElementById("photoToolBtn")).display,
         canvasWidth:canvas.clientWidth,
         canvasHeight:canvas.clientHeight,
         fileButtonVisible:document.getElementById("openIconBtn").getBoundingClientRect().width>0,
         startupScrollable:startup.scrollHeight>startup.clientHeight
       };
     });
-    if(!state.landscape||state.blockerDisplay!=="none"||state.portraitClass||state.topbarDisplay==="none"||!state.fileButtonVisible||state.canvasWidth<=state.canvasHeight||!state.startupScrollable){
+    if(!state.landscape||state.blockerDisplay!=="none"||state.portraitClass||state.topbarDisplay==="none"||state.photoToolDisplay!=="none"||!state.fileButtonVisible||state.canvasWidth<=state.canvasHeight||!state.startupScrollable){
       throw new Error(`mobile landscape state failed: ${JSON.stringify(state)}`);
     }
     await page.locator("#startupVideoBtn").scrollIntoViewIfNeeded();
