@@ -4,16 +4,6 @@
 
 ## 現在全体
 
-### BASE-20260830-HEAD
-
-- 状態: `検証済み`
-- コミット: `8c0163c`
-- ブランチ: `main`
-- 内容: 既存の正常機能を維持したまま、レイヤーごとの「文字追従」を追加した検証版。文字を含むレイヤーを複数選択でき、選択文字だけを画面水平に表示する。元の文字位置が画面外でも、文字を含む閉じたポリラインの一部が見えている場合は、その表示部分へ文字を移す。OFFにすると従来のSFC文字角度・位置へ即時復帰する。
-- 非変更: パン、ホイール・タッチ拡大縮小、図面回転、線・ポリライン、文字のSFC元座標・角度、SFC保存内容。
-- 検証: `validate-layer-text-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-compass-follow.js`、`validate-text-layer-ui.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-coordinate-inspect.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc`。
-- 既知の失敗: `validate-ui.js` と `validate-mobile-touch.js` は `INC-OPEN-01` と同じ古い文字列完全一致で失敗。今回の差分による新規失敗ではない。
-
 ### BASE-20260823-HEAD
 
 - 状態: `検証済み`

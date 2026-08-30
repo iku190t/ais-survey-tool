@@ -421,16 +421,8 @@ body.light #gpsBox{background:rgba(255,255,255,.88)!important;color:#111!importa
 .layerActions{display:flex;gap:6px;flex-wrap:wrap;}
 .layerActions button,.layerActions .layerActionLabel{font-size:13px;min-height:34px;box-sizing:border-box;}
 .layerActions .layerActionLabel{display:inline-flex;align-items:center;justify-content:center;background:var(--button);color:var(--buttonText);border:1px solid var(--border);border-radius:8px;padding:6px 8px;cursor:pointer;}
-#textFollowBtn{margin-left:auto;}
-#textFollowBtn.active{background:#1677ff;color:#fff;border-color:#0e5fcf;}
-#layerFollowHint{display:none;margin-top:8px;padding:7px 9px;border-radius:8px;background:rgba(22,119,255,.13);color:var(--fg);font-size:12px;line-height:1.45;}
-#layerPanel.textFollowSelectMode #layerFollowHint{display:block;}
 .layerItem{position:relative;overflow:hidden;margin:0;border-bottom:1px solid rgba(128,128,128,.24);font-size:15px;touch-action:pan-y;}
 .layerItemContent{position:relative;z-index:1;display:grid;grid-template-columns:30px minmax(0,1fr) 42px;align-items:center;gap:8px;padding:8px 2px;background:var(--panel2);transition:transform .18s ease;}
-.layerItem.textFollowSelected .layerItemContent{background:rgba(22,119,255,.16);box-shadow:inset 3px 0 0 #1677ff;}
-.layerTextFollowCheck{width:38px;height:30px;min-height:30px;padding:0;border-radius:7px;border:1px solid var(--border);background:var(--button);color:var(--buttonText);font-size:17px;font-weight:900;line-height:1;cursor:pointer;}
-.layerItem.textFollowSelected .layerTextFollowCheck{background:#1677ff;color:#fff;border-color:#0e5fcf;}
-#layerPanel.textFollowSelectMode .layerItemName{cursor:pointer;}
 .layerItem.swiped .layerItemContent{transform:translateX(-76px);}
 .layerItemDelete{position:absolute;right:0;top:0;bottom:0;width:76px;border:0;border-radius:0;background:#d93636;color:#fff;font-size:13px;font-weight:800;z-index:0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease;}
 .layerItem.swiped .layerItemDelete{opacity:1;visibility:visible;pointer-events:auto;}
@@ -1474,10 +1466,9 @@ gtag('config', 'G-88B9YPJXWP');
       <div class="layerActions">
         <button id="layersAllOn">全部ON</button>
         <button id="layersAllOff">全部OFF</button>
+        <button id="textBtn">文字: ON</button>
         <button id="layersColorAllBtn" type="button">色を一括で変更</button>
-        <button id="textFollowBtn" type="button" aria-pressed="false">文字追従</button>
       </div>
-      <div id="layerFollowHint">追従させる文字レイヤーを複数選択し、最後に「完了」を押してください。</div>
     </div>
     <div id="layerBody"><div id="layerList"></div></div>
   </div>
@@ -2055,7 +2046,7 @@ gtag('config', 'G-88B9YPJXWP');
             <div class="helpSectionBody">
               <div class="helpBlock"><div class="helpHead">開き方</div>図面左上の <b>レイヤー</b> を押すと、レイヤー一覧が画面全体に表示されます。</div>
               <div class="helpBlock"><div class="helpHead">表示・非表示</div>各レイヤー名の左にあるチェックで個別に切り替えます。<b>全部ON</b>・<b>全部OFF</b> でまとめて切り替えられます。</div>
-              <div class="helpBlock"><div class="helpHead">文字追従</div><b>文字追従</b> を押し、対象にするレイヤーを複数選択します。選んだレイヤーの文字だけを画面に対して水平に保ち、文字が属する閉じた図形の一部が見えている場合は、拡大・移動した表示範囲へ文字を寄せます。図形やSFCの元座標・文字角度は変更しません。</div>
+              <div class="helpBlock"><div class="helpHead">文字</div><b>文字: ON/OFF</b> は、全レイヤーの文字だけをまとめて表示・非表示にします。</div>
               <div class="helpBlock"><div class="helpHead">個別の色変更</div>各行の右側にある色の四角を押し、そのレイヤーの表示色を選びます。元のSFC色そのものではなく、画面上の表示色を変更します。</div>
               <div class="helpBlock"><div class="helpHead">色を一括で変更</div><b>色を一括で変更</b> を押して色を選ぶと、全レイヤーを同じ表示色に変更します。</div>
               <div class="helpBlock"><div class="helpHead">手書きメモのレイヤー</div>描いた線と丸は、赤・青・緑・黄・黒の色別レイヤーとして一覧へ自動追加されます。レイヤー名を押して、手書きメモも表示・非表示にできます。</div>
@@ -2478,8 +2469,6 @@ let twoFingerGestureState = null;
 
 let layerVisibility = {};
 let layerColorOverrides = {};
-let textFollowLayers = new Set();
-let textFollowSelectMode = false;
 let deletedLayerNames = new Set();
 let removedSourceLayerNames = new Set();
 let editUndoActions = [];
@@ -9135,9 +9124,6 @@ function configureLargeDrawingMode(target,sourceBytes=0){
 }
 function prepareRenderMetadata(target,sourceBytes=0){
   if(!target) return target;
-  target._textFollowPolygonIndexReady=false;
-  target._textFollowPolygonIndex=null;
-  target._textFollowPolygonCache=new WeakMap();
   let vertexCount=(target.lines||[]).length*2+(target.texts||[]).length+
     (target.circles||[]).length+(target.arcs||[]).length+
     (target.ellipses||[]).length+(target.ellipseArcs||[]).length+
@@ -10286,153 +10272,6 @@ function ensureLayerVisibility(){
   for(const layer of getAllLayers()) if(!(layer in layerVisibility)) layerVisibility[layer]=data._layerVisibleByDefault ? data._layerVisibleByDefault[String(layer)]!==false : true;
 }
 function isLayerVisible(layer){ return !deletedLayerNames.has(String(getLayerLabel(layer)||""))&&layerVisibility[layer]===true; }
-function layerHasText(layer){
-  const key=String(layer);
-  return (data.texts||[]).some(text=>String(text&&text.layer)===key&&String(text.text||"").trim());
-}
-function normalizeTextFollowLayers(){
-  const available=new Set(getAllLayers().map(String));
-  textFollowLayers=new Set([...textFollowLayers].map(String).filter(layer=>available.has(layer)&&layerHasText(layer)));
-}
-function isTextFollowLayer(layer){ return textFollowLayers.has(String(layer)); }
-function updateTextFollowSelectionUi(){
-  const button=document.getElementById("textFollowBtn");
-  if(button){
-    button.textContent=textFollowSelectMode?"完了":"文字追従";
-    button.classList.toggle("active",textFollowSelectMode);
-    button.setAttribute("aria-pressed",textFollowSelectMode?"true":"false");
-  }
-  if(layerPanel)layerPanel.classList.toggle("textFollowSelectMode",textFollowSelectMode);
-}
-function setTextFollowSelectMode(active){
-  textFollowSelectMode=!!active;
-  updateTextFollowSelectionUi();
-  renderLayerList();
-}
-function toggleTextFollowLayer(layer){
-  const key=String(layer);
-  if(!layerHasText(layer)){
-    showToast("このレイヤーには文字がありません",1400);
-    return;
-  }
-  if(textFollowLayers.has(key))textFollowLayers.delete(key);else textFollowLayers.add(key);
-  renderLayerList();
-  scheduleDraw();
-  scheduleRecoverySnapshot(180);
-}
-function textFollowPolylineIsClosed(item){
-  const points=item&&item[0];
-  if(!Array.isArray(points)||points.length<4)return false;
-  const first=points[0],last=points[points.length-1];
-  if(!first||!last)return false;
-  const bounds=item._renderBounds||boundsForPoints(points);
-  const span=bounds?Math.max(bounds.maxx-bounds.minx,bounds.maxy-bounds.miny,1):1;
-  return Math.hypot((+first[0]||0)-(+last[0]||0),(+first[1]||0)-(+last[1]||0))<=Math.max(1e-6,span*1e-7);
-}
-function ensureTextFollowPolygonIndex(){
-  if(!data)return null;
-  if(data._textFollowPolygonIndexReady)return data._textFollowPolygonIndex||null;
-  const closed=(data.polys||[]).filter(textFollowPolylineIsClosed);
-  data._textFollowPolygonIndex=buildBoundsSpatialIndex(closed,item=>item._renderBounds||boundsForPoints(item[0]),10,96,false);
-  data._textFollowPolygonCache=new WeakMap();
-  data._textFollowPolygonIndexReady=true;
-  return data._textFollowPolygonIndex||null;
-}
-function textFollowPointInPolygon(x,y,points){
-  let inside=false;
-  for(let i=0,j=points.length-1;i<points.length;j=i++){
-    const xi=+points[i][0],yi=+points[i][1],xj=+points[j][0],yj=+points[j][1];
-    if(![xi,yi,xj,yj].every(Number.isFinite))continue;
-    const crosses=((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/((yj-yi)||1e-30)+xi);
-    if(crosses)inside=!inside;
-  }
-  return inside;
-}
-function getTextFollowPolygon(text){
-  if(!text||!isTextFollowLayer(text.layer))return null;
-  ensureTextFollowPolygonIndex();
-  const cache=data&&data._textFollowPolygonCache;
-  if(cache&&cache.has(text))return cache.get(text);
-  const index=data&&data._textFollowPolygonIndex;
-  const candidates=index?queryBoundsSpatialIndex(index,{minx:+text.x,miny:+text.y,maxx:+text.x,maxy:+text.y}):[];
-  let best=null,bestArea=Infinity;
-  for(const item of candidates){
-    const bounds=item&&item._renderBounds;
-    if(!bounds||text.x<bounds.minx||text.x>bounds.maxx||text.y<bounds.miny||text.y>bounds.maxy)continue;
-    if(!textFollowPointInPolygon(+text.x,+text.y,item[0]||[]))continue;
-    const area=Math.max(0,(bounds.maxx-bounds.minx)*(bounds.maxy-bounds.miny));
-    if(area<bestArea){bestArea=area;best=item;}
-  }
-  if(cache)cache.set(text,best);
-  return best;
-}
-function clipTextFollowPolygon(points,left,top,right,bottom){
-  const clip=(input,inside,intersect)=>{
-    const output=[];
-    if(!input.length)return output;
-    let prior=input[input.length-1],priorInside=inside(prior);
-    for(const current of input){
-      const currentInside=inside(current);
-      if(currentInside){if(!priorInside)output.push(intersect(prior,current));output.push(current);}
-      else if(priorInside)output.push(intersect(prior,current));
-      prior=current;priorInside=currentInside;
-    }
-    return output;
-  };
-  let result=points.filter(point=>point&&Number.isFinite(point[0])&&Number.isFinite(point[1]));
-  result=clip(result,p=>p[0]>=left,(a,b)=>{const t=(left-a[0])/((b[0]-a[0])||1e-30);return [left,a[1]+t*(b[1]-a[1])];});
-  result=clip(result,p=>p[0]<=right,(a,b)=>{const t=(right-a[0])/((b[0]-a[0])||1e-30);return [right,a[1]+t*(b[1]-a[1])];});
-  result=clip(result,p=>p[1]>=top,(a,b)=>{const t=(top-a[1])/((b[1]-a[1])||1e-30);return [a[0]+t*(b[0]-a[0]),top];});
-  result=clip(result,p=>p[1]<=bottom,(a,b)=>{const t=(bottom-a[1])/((b[1]-a[1])||1e-30);return [a[0]+t*(b[0]-a[0]),bottom];});
-  return result;
-}
-function textFollowPointInScreenPolygon(x,y,points){
-  return textFollowPointInPolygon(x,y,points);
-}
-function getTextFollowPolygonLabelPoint(points){
-  if(!points||points.length<3)return null;
-  let crossSum=0,cx=0,cy=0,minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
-  for(let i=0;i<points.length;i++){
-    const a=points[i],b=points[(i+1)%points.length],cross=a[0]*b[1]-b[0]*a[1];
-    crossSum+=cross;cx+=(a[0]+b[0])*cross;cy+=(a[1]+b[1])*cross;
-    minx=Math.min(minx,a[0]);miny=Math.min(miny,a[1]);maxx=Math.max(maxx,a[0]);maxy=Math.max(maxy,a[1]);
-  }
-  const candidates=[];
-  if(Math.abs(crossSum)>1e-9)candidates.push([cx/(3*crossSum),cy/(3*crossSum)]);
-  candidates.push([points.reduce((sum,p)=>sum+p[0],0)/points.length,points.reduce((sum,p)=>sum+p[1],0)/points.length]);
-  candidates.push([(minx+maxx)/2,(miny+maxy)/2]);
-  for(const candidate of candidates)if(textFollowPointInScreenPolygon(candidate[0],candidate[1],points))return candidate;
-  let best=null,bestDistance=Infinity;
-  const center=[(minx+maxx)/2,(miny+maxy)/2];
-  for(let gy=1;gy<=5;gy++)for(let gx=1;gx<=5;gx++){
-    const point=[minx+(maxx-minx)*gx/6,miny+(maxy-miny)*gy/6];
-    if(!textFollowPointInScreenPolygon(point[0],point[1],points))continue;
-    const distance=Math.hypot(point[0]-center[0],point[1]-center[1]);
-    if(distance<bestDistance){bestDistance=distance;best=point;}
-  }
-  return best||points[0];
-}
-function getTextFollowScreenAnchor(text){
-  const original=worldToScreen(text.x,text.y);
-  if(!isTextFollowLayer(text.layer))return original;
-  const w=canvas.clientWidth||1,h=canvas.clientHeight||1,padding=18;
-  if(original[0]>=padding&&original[0]<=w-padding&&original[1]>=padding&&original[1]<=h-padding)return original;
-  const polygon=getTextFollowPolygon(text);
-  if(!polygon)return original;
-  const screenPoints=(polygon[0]||[]).map(point=>worldToScreen(point[0],point[1]));
-  if(screenPoints.length<3)return original;
-  let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
-  for(const point of screenPoints){minx=Math.min(minx,point[0]);miny=Math.min(miny,point[1]);maxx=Math.max(maxx,point[0]);maxy=Math.max(maxy,point[1]);}
-  if((maxx-minx)>w*3&&(maxy-miny)>h*3)return original;
-  const clipped=clipTextFollowPolygon(screenPoints,padding,padding,w-padding,h-padding);
-  return getTextFollowPolygonLabelPoint(clipped)||original;
-}
-function isTextRenderVisible(text,visibleBounds){
-  if(isRenderItemVisible(text,visibleBounds))return true;
-  if(!isTextFollowLayer(text.layer))return false;
-  const polygon=getTextFollowPolygon(text);
-  return !!(polygon&&isRenderItemVisible(polygon,visibleBounds));
-}
 function getLayerBaseColor(layer){
   if(String(layer)===PHOTO_POSITION_LAYER_ID)return "#ff3030";
   if(String(layer)===PHOTO_LIST_LAYER_ID)return "#00bcd4";
@@ -10623,15 +10462,12 @@ function getTargetLayerColorCode(layer){
 function refreshParsedSfcAfterTextLayerEdit(){
   const sourceName=data.source_name||"loaded.sfc";
   const visibilityByName=new Map(getAllLayers().map(layer=>[getLayerLabel(layer),isLayerVisible(layer)]));
-  const followedLayerNames=new Set([...textFollowLayers].map(layer=>getLayerLabel(layer)));
   data=prepareRenderMetadata(parseSfcText(loadedSfcText,sourceName),loadedSfcText.length);
   layerVisibility={};
-  textFollowLayers=new Set();
   ensureLayerVisibility();
   for(const layer of getAllLayers()){
     const name=getLayerLabel(layer);
     if(visibilityByName.has(name))layerVisibility[layer]=visibilityByName.get(name);
-    if(followedLayerNames.has(name)&&layerHasText(layer))textFollowLayers.add(String(layer));
   }
   cachedMeasurePointsDirty=true;
   renderLayerList();
@@ -10798,8 +10634,7 @@ function ensureSelectedTextVisibleAboveTextLayerModal(text){
   if(!text||!modal||!box||getComputedStyle(modal).display==="none")return;
   const canvasRect=canvas.getBoundingClientRect();
   const boxRect=box.getBoundingClientRect();
-  const layout=getTextRenderLayout(text);
-  const screenX=layout.sx,screenY=layout.sy;
+  const [screenX,screenY]=worldToScreen(text.x,text.y);
   const clientX=canvasRect.left+screenX;
   const clientY=canvasRect.top+screenY;
   const overlapMargin=16;
@@ -10843,23 +10678,19 @@ function findEditableTextAtScreen(screenX,screenY){
   const indexed=data&&data._textHitSpatialIndex;
   const candidates=indexed
     ?queryBoundsSpatialIndex(indexed,{minx:world[0]-hitPadWorld,miny:world[1]-hitPadWorld,maxx:world[0]+hitPadWorld,maxy:world[1]+hitPadWorld})
-    :(data.texts||[]).slice();
-  if(indexed&&textFollowLayers.size){
-    const included=new Set(candidates);
-    for(const text of data.texts||[])if(isTextFollowLayer(text.layer)&&!included.has(text)){included.add(text);candidates.push(text);}
-  }
+    :(data.texts||[]);
   for(let i=candidates.length-1;i>=0;i--){
     const t=candidates[i];
     if(!t||!Number.isFinite(+t._sxfFeatureId)||!isLayerVisible(t.layer))continue;
-    const layout=getTextRenderLayout(t);
-    const {sx,sy,screenH,targetW}=layout;
+    const [sx,sy]=worldToScreen(t.x,t.y);
+    const screenH=Math.abs((+t.h||0)*view.scale),targetW=Math.abs((+t.w||0)*view.scale);
     if(screenH<4||targetW<3)continue;
-    const vertical=layout.writingDirection===2;
+    const vertical=getTextWritingDirection(t)===2;
     const boxW=vertical?Math.max(4,targetW):targetW;
     const spacing=Math.max(0,Math.abs(+t.sp||0)*view.scale);
     const glyphH=vertical?Math.max(4,Math.min(screenH,boxW*1.08)):screenH;
     const boxH=vertical?Math.max(glyphH,(glyphH*1.02+spacing)*Array.from(String(t.text||"")).length):screenH;
-    const inverseRad=-layout.rotationRad,c=Math.cos(inverseRad),s=Math.sin(inverseRad);
+    const rad=(+t.angle+rotationDeg)*Math.PI/180,c=Math.cos(rad),s=Math.sin(rad);
     const dx=screenX-sx,dy=screenY-sy;
     const lx=dx*c-dy*s,ly=dx*s+dy*c;
     const [ox,oy]=getAnchorOffset(t.align1,boxW,boxH);
@@ -11297,14 +11128,11 @@ function deleteLayerFromSwipe(layer){
 }
 function renderLayerList(){
   ensureLayerVisibility();
-  normalizeTextFollowLayers();
-  updateTextFollowSelectionUi();
   layerList.innerHTML="";
   for(const layer of getAllLayers()){
     const desktopLayerMode=isDesktopPhotoTool();
     const row=document.createElement("div");
     row.className="layerItem";
-    row.classList.toggle("textFollowSelected",isTextFollowLayer(layer));
     const content=document.createElement("div");content.className="layerItemContent";
     const deleteBtn=document.createElement("button");deleteBtn.type="button";deleteBtn.className="layerItemDelete";deleteBtn.textContent="削除";
     deleteBtn.addEventListener("pointerdown",event=>event.stopPropagation());
@@ -11318,7 +11146,7 @@ function renderLayerList(){
     const sp=document.createElement("span"); sp.className="layerItemName";sp.textContent=getLayerLabel(layer);
     sp.setAttribute("role","button");
     sp.setAttribute("tabindex","0");
-    sp.setAttribute("aria-label",textFollowSelectMode?`${getLayerLabel(layer)}の文字追従を切り替え`:`${getLayerLabel(layer)}を削除`);
+    sp.setAttribute("aria-label",`${getLayerLabel(layer)}を削除`);
     const applyLayerVisibility=()=>{
       layerVisibility[layer]=cb.checked;
       cachedMeasurePointsDirty=true;
@@ -11327,32 +11155,22 @@ function renderLayerList(){
     };
     cb.addEventListener("change",applyLayerVisibility);
     sp.addEventListener("keydown",e=>{
-      if(e.key==="Enter"||e.key===" "){
-        e.preventDefault();
-        if(textFollowSelectMode)toggleTextFollowLayer(layer);else openLayerDeleteConfirm(layer);
-      }
+      if(e.key==="Enter"||e.key===" "){e.preventDefault();openLayerDeleteConfirm(layer);}
     });
     const color=document.createElement("button");color.type="button";color.className="layerColorButton";color.title="表示色を変更";
     const currentColor=getCurrentLayerColor(layer).toLowerCase();
     color.style.setProperty("--layer-color",currentColor);
     color.setAttribute("aria-label",`${getLayerLabel(layer)}の表示色を変更`);
     color.addEventListener("click",()=>openLayerColorPalette({type:"layer",layer},currentColor));
-    const followCheck=document.createElement("button");
-    followCheck.type="button";followCheck.className="layerTextFollowCheck";
-    followCheck.textContent=isTextFollowLayer(layer)?"✓":"";
-    followCheck.disabled=!layerHasText(layer);
-    followCheck.title=layerHasText(layer)?"文字追従を切り替え":"このレイヤーには文字がありません";
-    followCheck.setAttribute("aria-label",followCheck.title);
-    followCheck.addEventListener("click",event=>{event.preventDefault();event.stopPropagation();toggleTextFollowLayer(layer);});
-    content.appendChild(cb);content.appendChild(sp);content.appendChild(textFollowSelectMode?followCheck:color);row.appendChild(deleteBtn);row.appendChild(content);layerList.appendChild(row);
+    content.appendChild(cb);content.appendChild(sp);content.appendChild(color);row.appendChild(deleteBtn);row.appendChild(content);layerList.appendChild(row);
     content.addEventListener("click",event=>{
-      if(event.target===cb||event.target.closest(".layerColorButton")||event.target.closest(".layerTextFollowCheck"))return;
+      if(event.target===cb||event.target.closest(".layerColorButton"))return;
       event.preventDefault();
       event.stopPropagation();
       if(row.classList.contains("swiped")){row.classList.remove("swiped");return;}
-      if(textFollowSelectMode)toggleTextFollowLayer(layer);else openLayerDeleteConfirm(layer);
+      openLayerDeleteConfirm(layer);
     });
-    if(!desktopLayerMode&&!textFollowSelectMode){
+    if(!desktopLayerMode){
       let startX=0,startY=0;
       content.addEventListener("pointerdown",event=>{startX=event.clientX;startY=event.clientY;});
       content.addEventListener("pointermove",event=>{
@@ -11490,19 +11308,6 @@ function getTextWritingDirection(t){
   if (fontNorm.includes('縦') || fontNorm.includes('vertical')) return 2;
   return 1;
 }
-function getTextRenderLayout(t){
-  const follow=isTextFollowLayer(t&&t.layer);
-  const anchor=follow?getTextFollowScreenAnchor(t):worldToScreen(t.x,t.y);
-  return {
-    sx:anchor[0],
-    sy:anchor[1],
-    screenH:Math.abs((+t.h||0)*view.scale),
-    targetW:Math.abs((+t.w||0)*view.scale),
-    writingDirection:follow?1:getTextWritingDirection(t),
-    rotationRad:follow?0:-((+t.angle+rotationDeg)*Math.PI/180),
-    follow
-  };
-}
 function drawVerticalText(t, sx, sy, screenH, targetW, fontFamily){
   const glyphs = Array.from(String(t.text || ''));
   if (!glyphs.length) return;
@@ -11536,16 +11341,17 @@ function drawVerticalText(t, sx, sy, screenH, targetW, fontFamily){
   ctx.restore();
 }
 function drawTextExact(t){
-  const layout=getTextRenderLayout(t);
-  const {sx,sy,screenH,targetW}=layout;
+  const [sx,sy]=worldToScreen(t.x,t.y);
+  const screenH=Math.abs(t.h*view.scale);
+  const targetW=Math.abs(t.w*view.scale);
   if(screenH<4 || targetW<3) return;
   const fontFamily=fontCssFromSfcName(t.font_name, t.font_id);
-  const writingDirection = layout.writingDirection;
+  const writingDirection = getTextWritingDirection(t);
   if(writingDirection === 2){ drawVerticalText(t, sx, sy, screenH, targetW, fontFamily); return; }
 
   ctx.save();
   ctx.translate(sx,sy);
-  ctx.rotate(layout.rotationRad);
+  ctx.rotate(-((t.angle + rotationDeg) * Math.PI/180));
   if(t.slant) ctx.transform(1,0,Math.tan(t.slant*Math.PI/180),1,0,0);
   ctx.fillStyle=textColorFromIndex(t.color,t.layer);
   ctx.textAlign = 'left';
@@ -11562,10 +11368,11 @@ function drawTextExact(t){
 }
 function drawSelectedTextLayerHighlight(t){
   if(!t)return;
-  const layout=getTextRenderLayout(t);
-  const {sx,sy,screenH,targetW}=layout;
+  const [sx,sy]=worldToScreen(t.x,t.y);
+  const screenH=Math.abs((+t.h||0)*view.scale);
+  const targetW=Math.abs((+t.w||0)*view.scale);
   if(screenH<4||targetW<3)return;
-  const vertical=layout.writingDirection===2;
+  const vertical=getTextWritingDirection(t)===2;
   const spacing=Math.max(0,Math.abs(+t.sp||0)*view.scale);
   const boxW=vertical?Math.max(4,targetW):targetW;
   const glyphH=vertical?Math.max(4,Math.min(screenH,boxW*1.08)):screenH;
@@ -11574,7 +11381,7 @@ function drawSelectedTextLayerHighlight(t){
   const pad=5;
   ctx.save();
   ctx.translate(sx,sy);
-  ctx.rotate(layout.rotationRad);
+  ctx.rotate(-((+t.angle+rotationDeg)*Math.PI/180));
   if(t.slant)ctx.transform(1,0,Math.tan(t.slant*Math.PI/180),1,0,0);
   ctx.fillStyle="rgba(0,183,255,.14)";
   ctx.strokeStyle="#00b7ff";
@@ -14591,7 +14398,7 @@ function draw(){
   }
   if(showText){
     for(const t of data.texts){
-      if(!isLayerVisible(t.layer)||!isTextRenderVisible(t,visibleBounds)) continue;
+      if(!isLayerVisible(t.layer)||!isRenderItemVisible(t,visibleBounds)) continue;
       drawTextExact(t);
     }
     if(selectedTextForLayerChange)drawSelectedTextLayerHighlight(selectedTextForLayerChange);
@@ -14739,10 +14546,7 @@ function updateDrawingDependentUi(){
 function closePanelsExcept(except){
   if(except!=="registryMap"&&registryMapPointPickMode)setRegistryMapPointPickMode(false);
   if(except!=="coordinateInspect")closeCoordinateInspectModal();
-  if(except!=='layer'){
-    layerPanel.style.display='none';
-    if(textFollowSelectMode)setTextFollowSelectMode(false);
-  }
+  if(except!=='layer') layerPanel.style.display='none';
   if(except!=='photoList') setPhotoListPanelOpen(false);
   if(except!=='measureMode' && measureModePanel) measureModePanel.style.display='none';
   if(except!=='draw'){
@@ -14777,8 +14581,6 @@ function resetSessionFromLoad(){
   clearRegistryMap();
   layerVisibility={};
   layerColorOverrides={};
-  textFollowLayers=new Set();
-  textFollowSelectMode=false;
   cachedMeasurePointsDirty=true;
   textSearchState = { raw:"", tokens:[], results:[], index:-1, exactMode:false };
   textSearchExactMode = false;
@@ -14865,7 +14667,6 @@ function getSessionPayload(){
     showText,
     layerVisibility,
     layerColorOverrides,
-    textFollowLayers:[...textFollowLayers],
     deletedLayerNames:[...deletedLayerNames],
     removedSourceLayerNames:[...removedSourceLayerNames],
     inkStrokes,
@@ -18629,7 +18430,6 @@ function buildRecoveryPayload(){
     showText: !!showText,
     layerVisibility: layerVisibility || {},
     layerColorOverrides: layerColorOverrides || {},
-    textFollowLayers: [...textFollowLayers],
     deletedLayerNames: [...deletedLayerNames],
     removedSourceLayerNames: [...removedSourceLayerNames],
     inkStrokes: Array.isArray(inkStrokes) ? inkStrokes : [],
@@ -18809,11 +18609,9 @@ function applyRecoveryPayload(payload){
   redoStrokes=[];
   editUndoActions=[];
   darkTheme=!!payload.darkTheme;
-  showText=true;
+  showText=payload.showText!==false;
   layerVisibility=payload.layerVisibility&&typeof payload.layerVisibility==="object"?payload.layerVisibility:{};
   layerColorOverrides=payload.layerColorOverrides&&typeof payload.layerColorOverrides==="object"?payload.layerColorOverrides:{};
-  textFollowLayers=new Set(Array.isArray(payload.textFollowLayers)?payload.textFollowLayers.map(String):[]);
-  textFollowSelectMode=false;
   deletedLayerNames=new Set(Array.isArray(payload.deletedLayerNames)?payload.deletedLayerNames.map(String):[]);
   removedSourceLayerNames=new Set(Array.isArray(payload.removedSourceLayerNames)?payload.removedSourceLayerNames.map(String):[]);
   for(const name of removedSourceLayerNames)removeParsedDataLayersByName(name);
@@ -19939,7 +19737,12 @@ if(gpsReturnBtn)gpsReturnBtn.addEventListener("click",event=>{
   event.stopPropagation();
   resumeGpsFollow();
 });
-document.getElementById("textFollowBtn")?.addEventListener("click",()=>setTextFollowSelectMode(!textFollowSelectMode));
+document.getElementById("textBtn").addEventListener("click", ()=>{
+  showText = !showText;
+  document.getElementById("textBtn").textContent = "文字: " + (showText ? "ON" : "OFF");
+  draw();
+  scheduleRecoverySnapshot(180);
+});
 document.getElementById("bgBtn").addEventListener("click", ()=>{
   const wasOpen=!!((aerialPhotoPanel&&getComputedStyle(aerialPhotoPanel).display!=="none")||(!isDesktopPhotoTool()&&((terrainPanel&&getComputedStyle(terrainPanel).display!=="none")||(registryMapPanel&&getComputedStyle(registryMapPanel).display!=="none")||(hazardMapPanel&&getComputedStyle(hazardMapPanel).display!=="none")||(controlPointPanel&&getComputedStyle(controlPointPanel).display!=="none"))));
   closePanelsExcept('aerialPhoto');
@@ -20548,11 +20351,10 @@ layerFab.addEventListener("click", (e)=>{
   const opening=getComputedStyle(layerPanel).display==="none";
   closePanelsExcept('layer');
   layerPanel.style.display = opening ? 'flex' : 'none';
-  if(opening){renderLayerList();showFirstUseHint("layers","表示切替はチェック欄、削除はレイヤー名を押してください",3600,120);}
-  else if(textFollowSelectMode)setTextFollowSelectMode(false);
+  if(opening)showFirstUseHint("layers","表示切替はチェック欄、削除はレイヤー名を押してください",3600,120);
 });
 document.getElementById("saveMenuSfzBtn")?.addEventListener("click",event=>event.preventDefault());
-document.getElementById("layerCloseBtn").addEventListener("click",()=>{layerPanel.style.display='none';if(textFollowSelectMode)setTextFollowSelectMode(false);});
+document.getElementById("layerCloseBtn").addEventListener("click",()=>{layerPanel.style.display='none';});
 document.getElementById("layersAllOn").addEventListener("click", ()=>{
   for(const layer of getAllLayers()) layerVisibility[layer]=true;
   cachedMeasurePointsDirty=true; renderLayerList(); draw();
@@ -22226,11 +22028,9 @@ if (window.__EMBED_PAYLOAD_B64__) {
       data = prepareRenderMetadata(parseSfcText(loadedSfcText, payload.sourceName || "embedded.sfc"),loadedSfcText.length);
       data.source_name = payload.sourceName || "embedded.sfc";
       darkTheme = !!payload.darkTheme;
-      showText = true;
+      showText = payload.showText !== false;
       layerVisibility = payload.layerVisibility || {};
       layerColorOverrides = payload.layerColorOverrides || {};
-      textFollowLayers = new Set(Array.isArray(payload.textFollowLayers) ? payload.textFollowLayers.map(String) : []);
-      textFollowSelectMode = false;
       inkStrokes = Array.isArray(payload.inkStrokes) ? migrateInkStrokesToSingleFormat(payload.inkStrokes) : [];
       resetInkToolForNewDrawing();
       if (payload.view) view = payload.view;
