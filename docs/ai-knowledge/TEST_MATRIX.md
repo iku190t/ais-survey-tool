@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-28 / `18cee3a`
+最終実行: 2026-08-30 / `8c0163c`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -18,12 +18,36 @@
 |Drogger座標登録・専用Android FIX|`validate-android-drogger-bridge.js`、`validate-drogger-geoid-model.js`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |Android SFC・座標CSV共有|`validate-android-sfc-share.js`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`。APK変更時は `gradlew.bat assembleDebug` 後、実機でループバックPOSTとAndroid `ChooserActivity` を確認する。|
 |スマホ方位追従・ホーム|`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-gps-startup-mode.js`|
-|PCツールバー・ポップアップ|`validate-pc-map-toolbar.js`、`validate-pc-object-interaction.js`、`validate-text-layer-ui.js`|
+|PCツールバー・ポップアップ・レイヤー文字追従|`validate-pc-map-toolbar.js`、`validate-pc-object-interaction.js`、`validate-text-layer-ui.js`、`validate-layer-text-follow.js`|
 |PCの最近開いた図面|`validate-recent-drawings.js`、`validate-pc-map-toolbar.js`|
 |スマホタッチ|`validate-mobile-touch.js`、`validate-gps-startup-mode.js`|
 |SFC/SFZ・ラスター|`validate-real-sfc-rendering.js <実ファイル>`、`validate-raster-placement.js`、`validate-ui.js`|
 |ライセンス・著作権表示|`validate-open-source-license.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |広いUI変更|上記関連テストに加え `validate-ui.js`、`validate-real-sfc-rendering.js sample.sfc`|
+
+## 2026-08-30 実行結果
+
+### 成功
+
+- `validate-layer-text-follow.js` — PC・スマホのレイヤー複数選択、選択文字の画面水平化、閉じた図形の表示部分への文字移動、通常表示への復帰、復元データ保持、パン・回転状態を変更しないことを確認。
+- `validate-performance-indexes.js`
+- `validate-pc-object-interaction.js`
+- `validate-compass-follow.js`
+- `validate-text-layer-ui.js`
+- `validate-recovery-autosave.js`
+- `validate-last-work-recovery.js`
+- `validate-coordinate-inspect.js`
+- `validate-default-settings.js`
+- `validate-real-sfc-rendering.js sample.sfc`
+
+### 既知の失敗
+
+- `validate-ui.js` — `INC-OPEN-01` 記載の旧ラスター名テンプレート完全一致で停止。
+- `validate-mobile-touch.js` — `INC-OPEN-01` 記載のソース改行完全一致で停止。
+
+### 新規失敗
+
+- なし。
 
 ## 2026-08-28 実行結果
 
