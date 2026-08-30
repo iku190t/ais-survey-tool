@@ -315,6 +315,19 @@
   - SFC読込、既存文字、パン、方位追従、法務局地図の既存経路を変更しない。
 - 検証: `validate-sima-import.js`、`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-text-layer-ui.js`、`validate-default-settings.js`、`validate-registry-layer-colors.js`、`validate-gps-startup-mode.js`、`validate-pc-map-toolbar.js`、`validate-map-attribution-registry.js`、`validate-real-sfc-rendering.js sample.sfc`。
 
+### BASE-SIMA-WORKSPACE-20260831
+
+- 状態: `検証済み`
+- コミット: `9c99c71`
+- 対象: 実SIMAの開放線判定、iPhoneファイル選択、PC専用ボタン、SIMA単独表示と現在地復帰。
+- 確認内容:
+  - D00種別2は開放線として境界線だけを描き、画地件数と地番名から除外する。
+  - スマホは背景内、PCはハザードと計測の間にSIMA導線を置く。
+  - iPhoneはSFCと同じ拡張子・`application/octet-stream`・`text/plain` のファイル選択経路を使う。
+  - SFCが無い時はSIMA全体を作業領域にし、ホームで全体表示、現在地解除でSIMA表示へ復帰する。SFCがある時はSFCを基準にする。
+  - 地番名・点名は37度と116度の再描画でもCanvas回転を継承せず、画面水平を維持する。
+- 検証: 提供された実SIMAをShift_JISで解析して開放線と閉画地の種別を確認。`validate-sima-import.js`、`validate-gps-startup-mode.js`、`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-pc-map-toolbar.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc` が成功。
+
 ## 復元時の原則
 
 1. いきなり古いコミット全体へ戻さない。

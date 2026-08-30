@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-31 / `6d0109a`
+最終実行: 2026-08-31 / `9c99c71`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -30,19 +30,26 @@
 
 ### 成功
 
-- `validate-sima-import.js` — SIMA選択欄に拡張子フィルターが無いこと、大文字 `.SIM` と `application/octet-stream` の組合せでも画地を読み込めること、回転時の画面水平文字を確認。
+- `validate-sima-import.js` — 大文字 `.SIM` とバイナリMIME、D00種別2の地番除外、閉画地件数、SIMA単独ホーム、現在地解除時の表示復帰、37度・116度回転時の画面水平文字を確認。
+- `validate-gps-startup-mode.js` — SFC従来経路の現在地状態復元が維持されることを確認。
 - `validate-compass-follow.js`
 - `validate-performance-indexes.js`
 - `validate-pc-object-interaction.js`
+- `validate-pc-map-toolbar.js` — PCのSIMAボタン、スマホでの非表示、スマホ背景内のSIMA導線を確認。
+- `validate-default-settings.js`
 - `validate-real-sfc-rendering.js sample.sfc`
 
 ### 新規失敗
 
 - なし。
 
+### 既知の既存失敗
+
+- `validate-mobile-touch.js` — 既知のソース改行完全一致で失敗。今回変更したSIMA実行経路とは別で、製品不具合を示す新規失敗ではない。
+
 ### 未実施
 
-- iPhone実機のFiles画面は自動テスト対象外。HTML側の選択制限除去とブラウザ内の大文字 `.SIM` 読込まで検証済み。
+- iPhone実機のFiles画面は自動テスト対象外。SFCと同じファイル選択MIME指定とブラウザ内の大文字 `.SIM` 読込まで検証済み。
 
 ## 2026-08-30 実行結果
 
