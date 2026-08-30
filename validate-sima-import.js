@@ -8,6 +8,8 @@ const root=__dirname;
 const source=fs.readFileSync(path.join(root,"index.html"),"utf8");
 for(const token of [
   'id="simaMapOpenBtn"',
+  'id="simaToolbarBtn"',
+  'id="simaFileSelectBtn"',
   'id="simaMapPanel"',
   'data-sima-layer="parcelLabel"',
   'data-sima-layer="pointLabel"',
@@ -19,7 +21,8 @@ for(const token of [
   'layerColorPaletteTarget.type==="sima"'
 ])if(!source.includes(token))throw new Error(`missing SIMA implementation: ${token}`);
 const simaFileInputMarkup=source.match(/<input\s+id="simaFileInput"[^>]*>/)?.[0]||"";
-if(!simaFileInputMarkup||/\saccept=/.test(simaFileInputMarkup))throw new Error("SIMA file picker must not filter unknown .SIM MIME types on iPhone");
+if(!simaFileInputMarkup||!/application\/octet-stream/.test(simaFileInputMarkup)||!/\.sim/.test(simaFileInputMarkup))throw new Error("SIMA picker must mirror the SFC file-picker MIME fallback on iPhone");
+if(source.indexOf('id="simaToolbarBtn"')>source.indexOf('id="measureBtn"'))throw new Error("desktop SIMA button must be between Hazard and Measure");
 
 const sample=[
   "G00,03,テスト現場,",
@@ -32,11 +35,15 @@ const sample=[
   "B01,1,P1,",
   "B01,2,P2,",
   "B01,3,\"P,3\",",
+  "D00,102,102,2,",
+  "B01,1,P1,",
+  "B01,2,P2,",
   "D99,"
 ].join("\r\n");
 const parsed=sima.parse(sample);
-if(parsed.points.length!==3||parsed.parcels.length!==1)throw new Error(`parse count failed: ${JSON.stringify(parsed)}`);
+if(parsed.points.length!==3||parsed.parcels.length!==2)throw new Error(`parse count failed: ${JSON.stringify(parsed)}`);
 if(parsed.points[2].name!=="P,3"||parsed.parcels[0].name!=="135-1"||parsed.parcels[0].points.length!==3)throw new Error("quoted fields or parcel references failed");
+if(parsed.parcels[1].name!=="102"||parsed.parcels[1].type!=="2")throw new Error("SIMA open-line classification failed");
 const label=sima.visibleLabelPoint([{x:-100,y:20},{x:200,y:20},{x:200,y:180},{x:-100,y:180}],300,200,12);
 if(!label||label.x<12||label.x>288||label.y<12||label.y>188)throw new Error(`visible label placement failed: ${JSON.stringify(label)}`);
 
@@ -62,19 +69,27 @@ let browser;
     document.getElementById("simaMapPanel").style.display="block";
     updateSimaMapUi();
     await loadSimaFile(new File([sampleText],"field.SIM",{type:"application/octet-stream"}));
-    const loaded={points:simaMapState.points.length,parcels:simaMapState.parcels.length,enabled:simaDisplayEnabled,source:simaMapState.sourceName};
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    fitToScreen();
+    const simaHome={scale:view.scale,tx:view.tx,ty:view.ty};
+    captureGpsSessionState();
+    view={scale:.123,tx:7,ty:9};gpsEnabled=true;
+    stopGps(false);
+    const restoredSimaView={scale:view.scale,tx:view.tx,ty:view.ty};
+    const loaded={points:simaMapState.points.length,parcels:simaMapState.parcels.length,enabled:simaDisplayEnabled,source:simaMapState.sourceName,status:document.getElementById("simaMapStatus").textContent,workspace:hasActiveWorkspace(),startup:document.getElementById("startupModal").style.display,simaHome,restoredSimaView};
     const w=canvas.clientWidth,h=canvas.clientHeight;
     rotationDeg=37;view.scale=.001;view.tx=w/2;view.ty=h/2;
     const ring=[{x:-500000,y:-500000},{x:500000,y:-500000},{x:500000,y:500000},{x:-500000,y:500000}];
-    simaMapState={loaded:true,sourceName:"test.sim",warnings:[],points:ring.map((p,index)=>({...p,id:String(index+1),name:`P${index+1}`})),parcels:[{id:"1",name:"135-1",type:"1",points:ring,bbox:registryRingBounds(ring)}]};
+    simaMapState={loaded:true,sourceName:"test.sim",warnings:[],points:ring.map((p,index)=>({...p,id:String(index+1),name:`P${index+1}`})),parcels:[{id:"1",name:"135-1",type:"1",points:ring,bbox:registryRingBounds(ring)},{id:"102",name:"102",type:"2",points:ring.slice(0,2),bbox:registryRingBounds(ring.slice(0,2))}]};
     simaDisplayEnabled=true;
     const original=CanvasRenderingContext2D.prototype.fillText;
     const records=[];
     CanvasRenderingContext2D.prototype.fillText=function(text,x,y){
-      if(text==="135-1"||/^P\d$/.test(text)){const matrix=this.getTransform();records.push({text,x,y,a:matrix.a,b:matrix.b,c:matrix.c,d:matrix.d});}
+      if(text==="135-1"||text==="102"||/^P\d$/.test(text)){const matrix=this.getTransform();records.push({text,x,y,a:matrix.a,b:matrix.b,c:matrix.c,d:matrix.d});}
       return original.apply(this,arguments);
     };
     draw();
+    rotationDeg=116;draw();
     CanvasRenderingContext2D.prototype.fillText=original;
     return {loaded,records,width:w,height:h,buttonActive:document.getElementById("simaMapOpenBtn").classList.contains("active"),parcelSize:simaParcelLabelSize,pointSize:simaPointLabelSize};
   },sample);
@@ -82,10 +97,13 @@ let browser;
   if(!parcel)throw new Error(`parcel label was not drawn: ${JSON.stringify(result)}`);
   if(Math.abs(parcel.b)>1e-8||Math.abs(parcel.c)>1e-8)throw new Error(`SIMA label inherited drawing rotation: ${JSON.stringify(parcel)}`);
   if(parcel.x<0||parcel.x>result.width||parcel.y<0||parcel.y>result.height)throw new Error(`parcel label did not follow visible area: ${JSON.stringify(parcel)}`);
+  if(result.records.some(record=>record.text==="102"))throw new Error(`open-line name was incorrectly drawn as a parcel label: ${JSON.stringify(result.records)}`);
+  if(result.records.some(record=>Math.abs(record.b)>1e-8||Math.abs(record.c)>1e-8))throw new Error(`SIMA labels did not stay screen-horizontal across redraws: ${JSON.stringify(result.records)}`);
   if(!result.buttonActive||result.parcelSize!==14||result.pointSize!==11)throw new Error(`SIMA UI defaults failed: ${JSON.stringify(result)}`);
-  if(result.loaded.points!==3||result.loaded.parcels!==1||!result.loaded.enabled||result.loaded.source!=="field.SIM")throw new Error(`browser .SIM file import failed: ${JSON.stringify(result.loaded)}`);
+  if(result.loaded.points!==3||result.loaded.parcels!==2||!result.loaded.enabled||result.loaded.source!=="field.SIM"||!result.loaded.workspace||result.loaded.startup!=="none"||!/画地 1件/.test(result.loaded.status))throw new Error(`browser .SIM file import failed: ${JSON.stringify(result.loaded)}`);
+  for(const key of ["scale","tx","ty"])if(Math.abs(result.loaded.simaHome[key]-result.loaded.restoredSimaView[key])>1e-9)throw new Error(`GPS stop did not return to the SIMA view: ${JSON.stringify(result.loaded)}`);
   if(errors.length)throw new Error(`page errors: ${errors.join(" | ")}`);
-  console.log("SIMA parser, panel, visible-area label placement, and screen-horizontal rotation validated");
+  console.log("SIMA type-2 exclusion, direct file picker, workspace fit, and screen-horizontal rotation validated");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   if(browser)await browser.close();
   server.close();

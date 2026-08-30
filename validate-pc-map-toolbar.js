@@ -7,7 +7,7 @@ const root=__dirname;
 const source=fs.readFileSync(path.join(root,"index.html"),"utf8");
 const toolbarIds=[
   "openIconBtn","fitBtn","bgBtn","backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn",
-  "controlPointToolbarBtn","hazardToolbarBtn","measureBtn","drawBtn","profileBtn",
+  "controlPointToolbarBtn","hazardToolbarBtn","simaToolbarBtn","measureBtn","drawBtn","profileBtn",
   "photoToolBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab","undoFab",
   "redoFab","gpsBtn","gpsReturnBtn","compassFab","gpsDetailFab"
 ];
@@ -50,7 +50,7 @@ let browser;
       const button=svg.closest("button"),style=getComputedStyle(button);
       return Number(style.opacity)>=0.6&&getComputedStyle(svg).display!=="none";
     }),
-    pcMapButtons:["backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn"].map(id=>{
+    pcMapButtons:["backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","simaToolbarBtn"].map(id=>{
       const button=document.getElementById(id),svg=button?.querySelector("svg");
       const buttonRect=button?.getBoundingClientRect(),svgRect=svg?.getBoundingClientRect();
       return {
@@ -84,7 +84,7 @@ let browser;
   if(desktopEditButtonHeights.some(height=>Math.abs(height-desktopEditButtonHeights[0])>.5)){
     throw new Error(`desktop layer/undo/redo heights differ: ${JSON.stringify(desktopEditButtonHeights)}`);
   }
-  for(const id of ["backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn"]){
+  for(const id of ["backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","simaToolbarBtn"]){
     if(!(await desktop.locator(`#${id}`).isVisible()))throw new Error(`desktop map toolbar button is hidden: ${id}`);
   }
   await desktop.locator("#drawBtn").hover();
@@ -111,6 +111,10 @@ let browser;
   if(await desktop.locator("#aerialPhotoPanel").isVisible())throw new Error("background panel opened with PC terrain panel");
   await desktop.locator("#terrainToolbarBtn").click();
   if(await desktop.locator("#terrainPanel").isVisible())throw new Error("terrain panel did not close from PC toolbar");
+  await desktop.locator("#simaToolbarBtn").click();
+  if(!(await desktop.locator("#simaMapPanel").isVisible()))throw new Error("SIMA panel did not open from PC toolbar");
+  await desktop.locator("#simaToolbarBtn").click();
+  if(await desktop.locator("#simaMapPanel").isVisible())throw new Error("SIMA panel did not close from PC toolbar");
   await desktop.evaluate(()=>{
     registryMapState={...registryEmptyState(),loaded:true,sourceName:"test"};
     registryMapDisplayEnabled=true;
@@ -183,8 +187,10 @@ let browser;
     throw new Error(`mobile Home clipped the SXF drawing sheet: ${JSON.stringify(mobileSheetFit)}`);
   }
   if(await mobile.locator("#terrainToolbarBtn").isVisible())throw new Error("PC terrain toolbar button is visible on mobile");
+  if(await mobile.locator("#simaToolbarBtn").isVisible())throw new Error("PC SIMA toolbar button is visible on mobile");
   await mobile.locator("#bgBtn").click();
   if(!(await mobile.locator("#terrainPanelOpenBtn").isVisible()))throw new Error("mobile background panel lost terrain button");
+  if(!(await mobile.locator("#simaMapOpenBtn").isVisible()))throw new Error("mobile background panel lost SIMA button");
   if(errors.length)throw new Error(`page errors: ${errors.join(" | ")}`);
   console.log("PC map toolbar and tooltips validated");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{

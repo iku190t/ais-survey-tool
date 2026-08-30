@@ -102,7 +102,8 @@ body.file-menu-open #topbar{z-index:240;}
   #aerialPhotoPanel #terrainPanelOpenBtn,
   #aerialPhotoPanel #registryMapOpenBtn,
   #aerialPhotoPanel #controlPointOpenBtn,
-  #aerialPhotoPanel #hazardMapOpenBtn{display:none!important;}
+  #aerialPhotoPanel #hazardMapOpenBtn,
+  #aerialPhotoPanel #simaMapOpenBtn{display:none!important;}
 }
 @media (hover:none),(pointer:coarse){#toolbarTooltip{display:none!important;}}
 body.profile-tools-active #pickCenterBtn,
@@ -1381,6 +1382,13 @@ gtag('config', 'G-88B9YPJXWP');
         <circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"></circle>
       </svg>
     </button>
+    <button id="simaToolbarBtn" class="toolIconBtn pcMapToolBtn" data-help-label="SIMA" data-tooltip="SIMAの画地・測点データを読み込む" aria-label="SIMAファイル読込">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 5.5 9 3l5 2 6-2v15.5l-6 2-5-2-5 2z"></path>
+        <path d="M9 3v15.5M14 5v15.5"></path>
+        <circle cx="11.5" cy="10.5" r="1.25" fill="currentColor" stroke="none"></circle>
+      </svg>
+    </button>
     <button id="measureBtn" class="toolIconBtn" data-help-label="計測" data-tooltip="距離や直角距離を計測する" aria-label="計測">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <rect x="2.8" y="7.2" width="18.4" height="9.6" rx="1.8"></rect>
@@ -1813,8 +1821,8 @@ gtag('config', 'G-88B9YPJXWP');
   <div id="simaMapPanel" class="panel">
     <div class="mapOverlayHeader"><div class="mapOverlayTitle">SIMAデータ</div><button id="simaMapCloseBtn" class="panelCloseBtn" type="button">閉じる</button></div>
     <div class="simaActions">
-      <label class="simaFileLabel" for="simaFileInput">SIMAファイルを選択</label>
-      <input id="simaFileInput" type="file" hidden>
+      <button id="simaFileSelectBtn" class="simaFileLabel" type="button">SIMAファイルを選択</button>
+      <input id="simaFileInput" type="file" accept=".sim,.sima,application/octet-stream,text/plain" hidden>
     </div>
     <div id="simaMapStatus">現在の図面座標系に合わせてSIMAを表示します。</div>
     <div id="simaLayerList" aria-label="SIMA表示レイヤー">
@@ -2937,6 +2945,8 @@ const controlPointLegend = document.getElementById("controlPointLegend");
 const simaMapPanel = document.getElementById("simaMapPanel");
 const simaMapOpenBtn = document.getElementById("simaMapOpenBtn");
 const simaMapOpenState = document.getElementById("simaMapOpenState");
+const simaToolbarBtn = document.getElementById("simaToolbarBtn");
+const simaFileSelectBtn = document.getElementById("simaFileSelectBtn");
 const simaFileInput = document.getElementById("simaFileInput");
 const simaMapStatus = document.getElementById("simaMapStatus");
 const mapAttributionPanel = document.getElementById("mapAttributionPanel");
@@ -3398,9 +3408,10 @@ function jgd2024XYToLatLon(xNorth, yEast, zone){
   return {lon:result[0], lat:result[1]};
 }
 function getProfileDrawingKey(){
-  const b = getLoadedSfcBoundsWorld();
+  const b = getLoadedSfcBoundsWorld()||getSimaBoundsWorld();
   if (!b) return "";
-  return `${data.source_name||"sfc"}|${Math.round(b.cx/1000)}|${Math.round(b.cy/1000)}`;
+  const source=hasLoadedDrawing()?(data.source_name||"sfc"):(simaMapState?.sourceName||"sima");
+  return `${source}|${Math.round(b.cx/1000)}|${Math.round(b.cy/1000)}`;
 }
 function readDrawingCoordinateSettings(){
   try{
@@ -3436,7 +3447,7 @@ function adoptCurrentLocationZoneForDrawing(zone){
   const existing=getManualCoordinateZone();
   if(existing)return existing;
   zone=Number.parseInt(zone,10);
-  if(isDesktopPhotoTool()||!hasLoadedDrawing()||!(zone>=1&&zone<=19))return null;
+  if(isDesktopPhotoTool()||(!hasLoadedDrawing()&&!hasLoadedSimaWorkspace())||!(zone>=1&&zone<=19))return null;
   saveDrawingCoordinateSetting(String(zone));
   profileZone=zone;
   rememberProfileZone(zone);
@@ -6945,7 +6956,7 @@ function updateGpsUi(){
   ensureDroggerGpsOnlyRegistrationScale();
   const btn = document.getElementById("gpsBtn");
   if (btn){
-    const available = hasLoadedDrawing() || gpsOnlyBlankMode;
+    const available = hasLoadedDrawing() || hasLoadedSimaWorkspace() || gpsOnlyBlankMode;
     btn.classList.toggle("activeGpsBtn", !!gpsEnabled && available);
     btn.classList.toggle("dimmed", !available);
     btn.disabled = false;
@@ -6962,7 +6973,7 @@ function updateGpsUi(){
   }
   const startupGpsBtn=document.getElementById("startupGpsBtn");
   if(startupGpsBtn){
-    const show=isTouchMobileLike()&&!hasLoadedDrawing()&&!gpsOnlyBlankMode;
+    const show=isTouchMobileLike()&&!hasLoadedDrawing()&&!hasLoadedSimaWorkspace()&&!gpsOnlyBlankMode;
     startupGpsBtn.style.display=show?"inline-flex":"none";
     startupGpsBtn.disabled=!!gpsEnabled;
   }
@@ -6974,7 +6985,7 @@ function updateGpsUi(){
     gpsDetailFab.style.borderColor = gpsDetailOpen ? "#0066cc" : "";
   }
   if(gpsReturnBtn){
-    const showReturn=!!(gpsEnabled&&!gpsFollow&&gpsPosition&&(hasLoadedDrawing()||gpsOnlyBlankMode));
+    const showReturn=!!(gpsEnabled&&!gpsFollow&&gpsPosition&&(hasLoadedDrawing()||hasLoadedSimaWorkspace()||gpsOnlyBlankMode));
     gpsReturnBtn.classList.toggle("show",showReturn);
     gpsReturnBtn.setAttribute("aria-hidden",showReturn?"false":"true");
   }
@@ -7011,8 +7022,11 @@ function updateGpsUi(){
 function hasLoadedDrawing(){
   return !!(data && ((data.lines && data.lines.length) || (data.polys && data.polys.length) || (data.texts && data.texts.length) || (data.circles && data.circles.length)));
 }
+function hasLoadedSimaWorkspace(){
+  return !!(simaMapState&&simaMapState.loaded&&simaMapState.points&&simaMapState.points.length);
+}
 function hasActiveWorkspace(){
-  return hasLoadedDrawing()||gpsOnlyBlankMode;
+  return hasLoadedDrawing()||hasLoadedSimaWorkspace()||gpsOnlyBlankMode;
 }
 function enterGpsOnlyBlankMode(){
   gpsOnlyBlankMode = true;
@@ -7034,7 +7048,7 @@ function exitGpsOnlyBlankMode(showStartup = true){
   gpsOnlyBlankMode = false;
   darkTheme = gpsOnlyBlankPrevDarkTheme;
   updateThemeUI();
-  if (showStartup && !hasLoadedDrawing()){
+  if (showStartup && !hasLoadedDrawing()&&!hasLoadedSimaWorkspace()){
     const startupModal = document.getElementById("startupModal");
     if (startupModal) startupModal.style.display = "flex";
   }
@@ -7065,8 +7079,9 @@ function captureGpsSessionState(){
   const drawingZone=getManualCoordinateZone()||null;
   gpsSessionState={
     hadDrawing:hasLoadedDrawing(),
+    hadSima:!hasLoadedDrawing()&&hasLoadedSimaWorkspace(),
     drawingZone,
-    drawingReferenceBounds:getGpsDrawingReferenceBoundsWorld(),
+    drawingReferenceBounds:hasLoadedDrawing()?getGpsDrawingReferenceBoundsWorld():getSimaBoundsWorld(),
     profileZone:profileZone||null,
     view:{scale:view.scale,tx:view.tx,ty:view.ty},
     baseFitScale,
@@ -7157,7 +7172,7 @@ function restoreGpsSessionState(){
   vectorBaseMapResolveBusy=false;
   vectorBaseMapZone=state.vectorBaseMapZone;
   setVectorMapStatus(state.vectorMapStatus||"");
-  if(state.hadDrawing){
+  if(state.hadDrawing||state.hadSima){
     view={scale:state.view.scale,tx:state.view.tx,ty:state.view.ty};
     baseFitScale=state.baseFitScale;
     rotationDeg=state.rotationDeg;
@@ -7195,7 +7210,12 @@ function stopGps(fitIfFar = false){
   if (gpsOnlyBlankMode && !hasLoadedDrawing()){
     cancelTransientOperations();
     closePanelsExcept("");
-    exitGpsOnlyBlankMode(true);
+    if(hasLoadedSimaWorkspace()){
+      exitGpsOnlyBlankMode(false);
+      fitSimaToScreen();
+    }else{
+      exitGpsOnlyBlankMode(true);
+    }
   }
   gpsTemporaryCoordinateZone=null;
   updateGpsUi();
@@ -7239,7 +7259,7 @@ function startGps(options={}){
   gpsDistanceUnavailableNotified = false;
   gpsAerialPhotoContext = null;
   const allowWithoutDrawing=!!(options&&options.allowWithoutDrawing);
-  if (!hasLoadedDrawing()&&!allowWithoutDrawing){
+  if (!hasLoadedDrawing()&&!hasLoadedSimaWorkspace()&&!allowWithoutDrawing){
     updateGpsUi();
     return false;
   }
@@ -7255,7 +7275,7 @@ function startGps(options={}){
     return false;
   }
   captureGpsSessionState();
-  if(!hasLoadedDrawing())enterGpsOnlyBlankMode();
+  if(!hasLoadedDrawing()&&!hasLoadedSimaWorkspace())enterGpsOnlyBlankMode();
   gpsEnabled = true;
   gpsFollow = true;
   gaTrackUseGps();
@@ -7273,7 +7293,7 @@ function startGps(options={}){
       const xy = latLonToJgd2024XY(lat, lon, zone);
       const state=gpsSessionState;
       let drawingZone=state&&state.drawingZone;
-      if(state&&state.hadDrawing&&!drawingZone&&!isDesktopPhotoTool()){
+      if(state&&(state.hadDrawing||state.hadSima)&&!drawingZone&&!isDesktopPhotoTool()){
         drawingZone=adoptCurrentLocationZoneForDrawing(zone);
         state.drawingZone=drawingZone;
       }
@@ -7282,12 +7302,12 @@ function startGps(options={}){
       // Plane coordinates are ambiguous without the drawing's zone. Do not
       // assume the device zone: leave the distance unavailable so GPS context
       // mode safely shows the current-location tiles instead of a false 0 m.
-      if(state&&state.hadDrawing&&drawingZone){
+      if(state&&(state.hadDrawing||state.hadSima)&&drawingZone){
         const drawingXy=drawingZone===zone?xy:latLonToJgd2024XY(lat,lon,drawingZone);
         distance=calcDistanceFromPlaneToSfcBoundsMeters(drawingXy.x,drawingXy.y,!!activeCoordinateMeshTransform,state.drawingReferenceBounds);
       }
-      const isFar=state&&state.hadDrawing?distance!=null&&distance>=500:false;
-      const distanceUnavailable=!!(state&&state.hadDrawing&&distance==null);
+      const isFar=state&&(state.hadDrawing||state.hadSima)?distance!=null&&distance>=500:false;
+      const distanceUnavailable=!!(state&&(state.hadDrawing||state.hadSima)&&distance==null);
       const useGpsCoordinateSystem=!!(gpsOnlyBlankMode||isFar||distanceUnavailable||(drawingZone&&drawingZone!==zone));
       if(useGpsCoordinateSystem){
         placement={sfc:defaultPlaneToSfcWorld(xy.x,xy.y),usedMesh:false};
@@ -7302,7 +7322,7 @@ function startGps(options={}){
       gpsPosition = { lat, lon, accuracy, altitude, altitudeAccuracy, timestamp, demAltitude:null, demSource:"", demChecked:false, zone, x: xy.x, y: xy.y, sfcX: sfc.x, sfcY: sfc.y, usedMeshTransform:placement.usedMesh };
       applyCachedGpsDemElevation(gpsPosition);
       void refreshGpsDemElevation(lat,lon);
-      if(state&&state.hadDrawing)maybeShowGpsFarMessage(distance);
+      if(state&&(state.hadDrawing||state.hadSima))maybeShowGpsFarMessage(distance);
       updateGpsUi();
       updateSettingsPanelUi();
       if (gpsFollow) fitGpsInView();
@@ -8008,6 +8028,7 @@ const PC_TOOLBAR_PANEL_ANCHORS=[
   ["registryMapPanel","registryToolbarBtn"],
   ["controlPointPanel","controlPointToolbarBtn"],
   ["hazardMapPanel","hazardToolbarBtn"],
+  ["simaMapPanel","simaToolbarBtn"],
   ["measureModePanel","measureBtn"],
   ["measureBox","measureBtn"],
   ["drawPanel","drawBtn"],
@@ -8086,7 +8107,7 @@ function refreshPcToolbarPanelPositions(){
 }
 function updatePcMapToolbarVisibility(){
   const desktop=isDesktopPhotoTool();
-  ["backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn"].forEach(id=>{
+  ["backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","simaToolbarBtn"].forEach(id=>{
     const button=document.getElementById(id);
     if(!button)return;
     if(desktop)button.style.removeProperty("display");
@@ -8401,7 +8422,7 @@ function applyMobileUiTweaks(){
   // File operations are exposed from the single File button on every device.
   const startupGpsBtn=document.getElementById("startupGpsBtn");
   if(startupGpsBtn){
-    const show=isTouchMobileLike()&&!hasLoadedDrawing()&&!gpsOnlyBlankMode;
+    const show=isTouchMobileLike()&&!hasLoadedDrawing()&&!hasLoadedSimaWorkspace()&&!gpsOnlyBlankMode;
     startupGpsBtn.style.display=show?"inline-flex":"none";
   }
 }
@@ -9955,6 +9976,10 @@ function getFullViewSafeTop(h){
   return Math.max(0,Math.min(Math.max(0,h*.22),safeTop));
 }
 function fitToScreen(){
+  if(!hasLoadedDrawing()&&hasLoadedSimaWorkspace()){
+    fitSimaToScreen();
+    return;
+  }
   rotationDeg = Number.isFinite(+initialLoadRotationDeg) ? +initialLoadRotationDeg : rotationDeg;
 
   // SXFに図面用紙と主部分図の配置がある場合、ホームは内容の密集範囲
@@ -14203,6 +14228,35 @@ function registryTraceScreenPath(points,close=false){
 }
 function simaEmptyState(){return {loaded:false,sourceName:"",points:[],parcels:[],warnings:[]};}
 function simaBounds(points){return registryRingBounds(points);}
+function getSimaBoundsWorld(){
+  if(!hasLoadedSimaWorkspace())return null;
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const point of simaMapState.points){
+    const x=Number(point.x),y=Number(point.y);
+    if(!Number.isFinite(x)||!Number.isFinite(y))continue;
+    minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);
+  }
+  return [minX,minY,maxX,maxY].every(Number.isFinite)
+    ?{minX,minY,maxX,maxY,cx:(minX+maxX)/2,cy:(minY+maxY)/2}
+    :null;
+}
+function fitSimaToScreen(){
+  const bounds=getSimaBoundsWorld();
+  if(!bounds)return false;
+  rotationDeg=0;
+  updateCompassUi();
+  const w=Math.max(1,canvas.clientWidth),h=Math.max(1,canvas.clientHeight);
+  const padX=Math.min(14,Math.max(6,w*.025)),padY=Math.min(16,Math.max(7,h*.018));
+  const safeTop=getFullViewSafeTop(h);
+  const availableTop=Math.min(h-padY,safeTop+padY),availableBottom=Math.max(availableTop+1,h-padY);
+  const bw=Math.max(1,bounds.maxX-bounds.minX),bh=Math.max(1,bounds.maxY-bounds.minY);
+  view.scale=Math.min(Math.max(1,w-padX*2)/bw,Math.max(1,availableBottom-availableTop)/bh);
+  baseFitScale=Math.max(view.scale,.0001);
+  view.tx=w/2-bounds.cx*view.scale;
+  view.ty=(availableTop+availableBottom)/2+bounds.cy*view.scale;
+  scheduleDraw();
+  return true;
+}
 function simaDecodeArrayBuffer(buffer){
   const bytes=new Uint8Array(buffer);
   try{return new TextDecoder("utf-8",{fatal:true}).decode(bytes);}
@@ -14225,12 +14279,15 @@ function simaToWorldState(parsed,sourceName){
 }
 function updateSimaMapUi(){
   const panelOpen=!!(simaMapPanel&&getComputedStyle(simaMapPanel).display!=="none");
-  if(simaMapOpenBtn)simaMapOpenBtn.classList.toggle("active",panelOpen||!!(simaMapState.loaded&&simaDisplayEnabled));
+  const active=panelOpen||!!(simaMapState.loaded&&simaDisplayEnabled);
+  if(simaMapOpenBtn)simaMapOpenBtn.classList.toggle("active",active);
+  if(simaToolbarBtn)simaToolbarBtn.classList.toggle("modeActive",active);
   if(simaMapOpenState)simaMapOpenState.textContent=simaMapState.loaded?(simaDisplayEnabled?"表示中":"非表示"):"開く";
   if(simaMapStatus){
     const warning=simaMapState.warnings.length?`／注意 ${simaMapState.warnings.length}件`:"";
+    const closedParcelCount=simaMapState.parcels.filter(parcel=>parcel.type!=="2").length;
     simaMapStatus.textContent=simaMapState.loaded
-      ?`${simaMapState.sourceName}　画地 ${simaMapState.parcels.length}件／測点 ${simaMapState.points.length}点${warning}`
+      ?`${simaMapState.sourceName}　画地 ${closedParcelCount}件／測点 ${simaMapState.points.length}点${warning}`
       :"現在の図面座標系に合わせてSIMAを表示します。";
   }
   const toggles={parcel:"simaParcelLayerToggle",boundary:"simaBoundaryLayerToggle",point:"simaPointLayerToggle",parcelLabel:"simaParcelLabelLayerToggle",pointLabel:"simaPointLabelLayerToggle"};
@@ -14259,8 +14316,17 @@ async function loadSimaFile(file){
     const text=simaDecodeArrayBuffer(await file.arrayBuffer());
     simaMapState=simaToWorldState(window.EzSimaImport.parse(text),file.name||"SIMA");
     simaDisplayEnabled=true;
+    const closedParcelCount=simaMapState.parcels.filter(parcel=>parcel.type!=="2").length;
+    const simaOnly=!hasLoadedDrawing();
+    if(simaOnly){
+      const startupModal=document.getElementById("startupModal");
+      if(startupModal)startupModal.style.display="none";
+      if(gpsEnabled)stopGps(false);else exitGpsOnlyBlankMode(false);
+      updateDrawingDependentUi();
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{updateWrapLayout();resize(false);fitSimaToScreen();}));
+    }
     updateSimaMapUi();scheduleDraw();
-    showToast(`SIMAを読み込みました（画地 ${simaMapState.parcels.length}件／測点 ${simaMapState.points.length}点）`,2600);
+    showToast(`SIMAを読み込みました（画地 ${closedParcelCount}件／測点 ${simaMapState.points.length}点）`,2600);
   }catch(error){
     console.error(error);simaMapState=simaEmptyState();simaDisplayEnabled=false;
     if(simaMapStatus)simaMapStatus.textContent=`読み込めません：${error?.message||"SIMA形式を確認してください"}`;
@@ -14303,10 +14369,10 @@ function drawSimaOverlay(){
   }
   if(simaLayerVisibility.parcelLabel){
     for(const parcel of simaMapState.parcels){
-      if(!parcel.name||!registryBoundsOverlap(parcel.bbox,visible))continue;
+      if(parcel.type==="2"||!parcel.name||!registryBoundsOverlap(parcel.bbox,visible))continue;
       const ring=parcel.points.map(point=>{const screen=worldToScreen(point.x,point.y);return {x:screen[0],y:screen[1]};});
       let screen=null;
-      if(parcel.type!=="2"&&ring.length>=3)screen=window.EzSimaImport?.visibleLabelPoint?.(ring,width,height,Math.max(10,simaParcelLabelSize));
+      if(ring.length>=3)screen=window.EzSimaImport?.visibleLabelPoint?.(ring,width,height,Math.max(10,simaParcelLabelSize));
       if(!screen&&ring.length){const mid=ring[Math.floor(ring.length/2)];screen={x:mid.x,y:mid.y};}
       drawSimaHorizontalLabel(parcel.name,screen,simaParcelLabelSize,simaLayerColors.parcelLabel);
     }
@@ -14727,7 +14793,7 @@ function applyPortraitPreference(){
 }
 function updateDrawingDependentUi(){
   const available = hasActiveWorkspace();
-  const ids = ["fitBtn","bgBtn","backgroundSxfToolbarBtn","backgroundSxfOpenBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","googleMapsLinkBtn","measureBtn","profileBtn","photoToolBtn","drawBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab"];
+  const ids = ["fitBtn","bgBtn","backgroundSxfToolbarBtn","backgroundSxfOpenBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","simaToolbarBtn","googleMapsLinkBtn","measureBtn","profileBtn","photoToolBtn","drawBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab"];
   ids.forEach(id=>{
     const el = document.getElementById(id);
     if (!el) return;
@@ -19893,7 +19959,7 @@ document.getElementById("fitBtn").addEventListener("click", (event)=>{
   if (!isDrawingActionAvailable()) return;
   updateWrapLayout();
   resize(false);
-  if(gpsOnlyBlankMode&&gpsPosition){
+  if(gpsOnlyBlankMode&&gpsPosition&&!hasLoadedSimaWorkspace()){
     gpsFollow=true;
     fitGpsInView();
     updateGpsUi();
@@ -19903,7 +19969,7 @@ document.getElementById("fitBtn").addEventListener("click", (event)=>{
   fitToScreen();
 });
 document.getElementById("gpsBtn").addEventListener("click", ()=>{
-  if (!hasLoadedDrawing()&&!gpsOnlyBlankMode) return;
+  if (!hasLoadedDrawing()&&!hasLoadedSimaWorkspace()&&!gpsOnlyBlankMode) return;
   if (gpsEnabled){
     stopGps(true);
   }else{
@@ -19912,7 +19978,7 @@ document.getElementById("gpsBtn").addEventListener("click", ()=>{
   }
 });
 document.getElementById("gpsDetailFab").addEventListener("click", ()=>{
-  if (!hasLoadedDrawing()&&!gpsOnlyBlankMode) return;
+  if (!hasLoadedDrawing()&&!hasLoadedSimaWorkspace()&&!gpsOnlyBlankMode) return;
   gpsDetailOpen = !gpsDetailOpen;
   updateGpsUi();
 });
@@ -20793,13 +20859,14 @@ function updateToolbarActivationUI(){
   const visible=el=>!!(el&&getComputedStyle(el).display!=="none");
   const states={
     openIconBtn:visible(document.getElementById("saveMenuModal"))||visible(document.getElementById("saveAsChoiceModal")),
-    bgBtn:visible(aerialPhotoPanel)||visible(simaMapPanel)||(!isDesktopPhotoTool()&&(visible(terrainPanel)||visible(registryMapPanel)||visible(hazardMapPanel)||visible(controlPointPanel)))||(terrainCadSelectionMode&&polygonSelectionPurpose==="aerial"),
+    bgBtn:visible(aerialPhotoPanel)||(!isDesktopPhotoTool()&&(visible(simaMapPanel)||visible(terrainPanel)||visible(registryMapPanel)||visible(hazardMapPanel)||visible(controlPointPanel)))||(terrainCadSelectionMode&&polygonSelectionPurpose==="aerial"),
     backgroundSxfToolbarBtn:!!(vectorBaseMapEnabled||vectorBaseMapResolveBusy),
     googleMapsLinkBtn:!!window.GoogleMapsLinkFeature?.isActive?.(),
     terrainToolbarBtn:isDesktopPhotoTool()&&(visible(terrainPanel)||!!terrainLoading||!!terrainMode),
     registryToolbarBtn:isDesktopPhotoTool()&&(visible(registryMapPanel)||!!(registryMapState.loaded&&registryMapDisplayEnabled)||!!registryMapAutoBusy||registryMapPointPickMode),
     controlPointToolbarBtn:isDesktopPhotoTool()&&(visible(controlPointPanel)||!!controlPointEnabled||!!controlPointResolveBusy),
     hazardToolbarBtn:isDesktopPhotoTool()&&(visible(hazardMapPanel)||!!hazardMapMode||!!hazardMapResolveBusy),
+    simaToolbarBtn:isDesktopPhotoTool()&&(visible(simaMapPanel)||!!(simaMapState.loaded&&simaDisplayEnabled)),
     measureBtn:!!(measureMode||visible(measureModePanel)||visible(measureBox)),
     profileBtn:!!(profileZoneResolving||profileMode||profileStartWorld||profileEndWorld||profileData||visible(profileModal)),
     photoToolBtn:visible(document.getElementById("photoListPanel")),
@@ -20827,7 +20894,7 @@ function updateHomeButtonUI(){
 const toolbarCommandIds=new Set([
   "openIconBtn","fitBtn","gpsBtn","measureBtn","profileBtn","drawBtn",
   "photoToolBtn","textSearchOpenBtn","settingsBtn","helpBtn","layerFab","bgBtn",
-  "backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","googleMapsLinkBtn",
+  "backgroundSxfToolbarBtn","terrainToolbarBtn","registryToolbarBtn","controlPointToolbarBtn","hazardToolbarBtn","simaToolbarBtn","googleMapsLinkBtn",
   "gpsDetailFab","supportBtn"
 ]);
 function closeToolbarSurfacesExcept(commandId){
@@ -20849,7 +20916,7 @@ function closeToolbarSurfacesExcept(commandId){
     if(commandId!=="registryToolbarBtn"&&registryMapPanel)registryMapPanel.style.display="none";
     if(commandId!=="hazardToolbarBtn"&&hazardMapPanel)hazardMapPanel.style.display="none";
     if(commandId!=="controlPointToolbarBtn"&&controlPointPanel)controlPointPanel.style.display="none";
-    if(simaMapPanel)simaMapPanel.style.display="none";
+    if(commandId!=="simaToolbarBtn"&&simaMapPanel)simaMapPanel.style.display="none";
     updateRegistryMapUi();
     updateSimaMapUi();
   }
@@ -20955,6 +21022,7 @@ document.getElementById("registryToolbarBtn")?.addEventListener("click",event=>{
 });
 document.getElementById("controlPointToolbarBtn")?.addEventListener("click",event=>togglePcMapToolbarPanel(controlPointPanel,controlPointOpenBtn,event.currentTarget));
 document.getElementById("hazardToolbarBtn")?.addEventListener("click",event=>togglePcMapToolbarPanel(hazardMapPanel,hazardMapOpenBtn,event.currentTarget));
+document.getElementById("simaToolbarBtn")?.addEventListener("click",event=>togglePcMapToolbarPanel(simaMapPanel,simaMapOpenBtn,event.currentTarget));
 document.getElementById("terrainPanelOpenBtn")?.addEventListener("click",()=>{
   closePanelsExcept("terrain");
   if(terrainPanel)terrainPanel.style.display="block";
@@ -21043,6 +21111,23 @@ document.getElementById("simaMapCloseBtn")?.addEventListener("click",()=>{
   if(!isDesktopPhotoTool()&&aerialPhotoPanel){aerialPhotoPanel.style.display="block";updateAerialPhotoUi();}
   updateSimaMapUi();updateToolbarActivationUI();
 });
+async function openSimaViaPickerOrInput(){
+  if(window.showOpenFilePicker){
+    try{
+      const [handle]=await window.showOpenFilePicker({
+        id:"ezviewer-sima",
+        multiple:false,
+        types:[{description:"SIMAデータ",accept:{"application/octet-stream":[".sim",".sima"],"text/plain":[".sim",".sima"]}}]
+      });
+      if(handle){await loadSimaFile(await handle.getFile());return;}
+    }catch(error){
+      if(error?.name==="AbortError")return;
+      console.error(error);
+    }
+  }
+  if(simaFileInput){simaFileInput.value="";simaFileInput.click();}
+}
+simaFileSelectBtn?.addEventListener("click",()=>openSimaViaPickerOrInput().catch(console.error));
 simaFileInput?.addEventListener("change",event=>{
   const file=event.currentTarget.files?.[0];
   if(file)loadSimaFile(file);
@@ -22311,7 +22396,7 @@ if (window.__EMBED_PAYLOAD_B64__) {
 }
 
 renderLayerList();
-if (!loadedSfcText && !(data && ((data.lines&&data.lines.length)||(data.polylines&&data.polylines.length)||(data.texts&&data.texts.length)||(data.circles&&data.circles.length))) && !gpsOnlyBlankMode && !gpsEnabled) {
+if (!loadedSfcText && !(data && ((data.lines&&data.lines.length)||(data.polylines&&data.polylines.length)||(data.texts&&data.texts.length)||(data.circles&&data.circles.length))) && !hasLoadedSimaWorkspace() && !gpsOnlyBlankMode && !gpsEnabled) {
   document.getElementById("startupModal").style.display = "flex";
 }
 updateMeasureBox();
