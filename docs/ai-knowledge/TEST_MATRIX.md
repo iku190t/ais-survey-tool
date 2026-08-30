@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-28 / `18cee3a`
+最終実行: 2026-08-31 / `6d0109a`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -25,6 +25,24 @@
 |SFC/SFZ・ラスター|`validate-real-sfc-rendering.js <実ファイル>`、`validate-raster-placement.js`、`validate-ui.js`|
 |ライセンス・著作権表示|`validate-open-source-license.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |広いUI変更|上記関連テストに加え `validate-ui.js`、`validate-real-sfc-rendering.js sample.sfc`|
+
+## 2026-08-31 実行結果
+
+### 成功
+
+- `validate-sima-import.js` — SIMA選択欄に拡張子フィルターが無いこと、大文字 `.SIM` と `application/octet-stream` の組合せでも画地を読み込めること、回転時の画面水平文字を確認。
+- `validate-compass-follow.js`
+- `validate-performance-indexes.js`
+- `validate-pc-object-interaction.js`
+- `validate-real-sfc-rendering.js sample.sfc`
+
+### 新規失敗
+
+- なし。
+
+### 未実施
+
+- iPhone実機のFiles画面は自動テスト対象外。HTML側の選択制限除去とブラウザ内の大文字 `.SIM` 読込まで検証済み。
 
 ## 2026-08-30 実行結果
 
