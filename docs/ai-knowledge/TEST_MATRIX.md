@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-31 / `d56a435`
+最終実行: 2026-08-31 / `f34228a`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -22,6 +22,7 @@
 |PCツールバー・ポップアップ|`validate-pc-map-toolbar.js`、`validate-pc-object-interaction.js`、`validate-text-layer-ui.js`|
 |PCの最近開いた図面|`validate-recent-drawings.js`、`validate-pc-map-toolbar.js`|
 |スマホタッチ|`validate-mobile-touch.js`、`validate-gps-startup-mode.js`|
+|スマホ縦・横画面|`validate-mobile-landscape.js`、`validate-gps-startup-mode.js`、`validate-compass-follow.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |SFC/SFZ・ラスター|`validate-real-sfc-rendering.js <実ファイル>`、`validate-raster-placement.js`、`validate-ui.js`|
 |ライセンス・著作権表示|`validate-open-source-license.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |広いUI変更|上記関連テストに加え `validate-ui.js`、`validate-real-sfc-rendering.js sample.sfc`|
@@ -30,6 +31,7 @@
 
 ### 成功
 
+- `validate-mobile-landscape.js` — 縦固定メタ・マニフェスト・JavaScriptロックの解除、844×390横画面で遮断画面が出ないこと、初回画面の全操作へスクロールできることを確認。
 - `validate-sima-import.js` — 大文字 `.SIM` とバイナリMIME、D00種別2の地番除外、閉画地件数、SIMA単独ホーム、現在地解除時の表示復帰、37度・116度回転時の画面水平文字を確認。
 - `validate-gps-startup-mode.js` — SFC従来経路の現在地状態復元が維持されることを確認。
 - `validate-compass-follow.js`

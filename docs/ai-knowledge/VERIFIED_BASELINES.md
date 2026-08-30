@@ -42,6 +42,18 @@
 
 ## 機能別の正常基準
 
+### BASE-MOBILE-LANDSCAPE-20260831
+
+- 状態: `検証済み`
+- コミット: `f34228a`
+- 対象: スマホの縦画面固定解除と横画面表示。
+- 確認内容:
+  - HTMLメタ、PWAマニフェスト、JavaScriptの縦向きロックを解除し、横向きでも通常のEz Viewerを表示する。
+  - 既存の縦画面表示、方位追従、GPS、SFC描画は変更しない。
+  - 横向きの初回画面は内部スクロールを維持し、下側のサンプル・動画ボタンまで操作できる。
+- 検証: `validate-mobile-landscape.js`、`validate-gps-startup-mode.js`、`validate-compass-follow.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc`。`validate-mobile-touch.js` は既知のソース改行完全一致で失敗し、今回の差分による新規失敗ではない。
+- 戻し先: 横向きが実用に適さない場合は、このコミットの `index.html`・`manifest.webmanifest` の画面方向差分だけを戻し、他機能を巻き戻さない。
+
 ### BASE-ANDROID-DROGGER-FIX-20260823
 
 - 状態: `検証済み`
