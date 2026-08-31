@@ -45,7 +45,7 @@
 ### BASE-MOBILE-LANDSCAPE-20260831
 
 - 状態: `検証済み`
-- コミット: `f34228a`、横向きスマホの写真位置非表示 `25211fb`、全画面の左側表示安全領域 `112e5c7`（図面だけを移動した `37e6a02` を置換）
+- コミット: `f34228a`、横向きスマホの写真位置非表示 `25211fb`、全画面の左側表示安全領域 `112e5c7`、横画面2列サイドツールバー `1cac1d9`（図面だけを移動した `37e6a02` は置換済み）
 - 対象: スマホの縦画面固定解除と横画面表示。
 - 確認内容:
   - HTMLメタ、PWAマニフェスト、JavaScriptの縦向きロックを解除し、横向きでも通常のEz Viewerを表示する。
@@ -53,9 +53,10 @@
   - 横向きの初回画面は内部スクロールを維持し、下側のサンプル・動画ボタンまで操作できる。
   - 横向きスマホの幅が821px以上になっても、タッチ端末ではPC専用の「写真位置」を表示しない。PCの写真位置は従来どおり表示する。
   - 横画面ではEz Viewer全体の左端を「詳細」の2文字目「細」の実際の左端へ揃え、Dynamic Island側を画面外として扱う。上部ツールバー、図面、操作キャンバス、固定ポップアップは同じ有効幅を使う。
+  - 横画面だけ、上部ツールバーを左側112pxの灰色サイドバーへ変え、48pxボタンの2列にする。左列はファイル・ホーム・背景・計測・手書き、右列は断面・検索・設定・ヘルプ。ロゴは最下部、図面と地図側操作ボタンは残り領域の上端から表示する。
   - 縦画面とPCでは左側表示安全領域を無効にし、従来どおり全幅を使う。
-- 検証: `validate-mobile-landscape.js` で縦画面の左端0、844×390横画面でbody・上部ツールバー・図面・操作キャンバス・起動ポップアップが同じ安全左端と右端を使うことを確認。`validate-gps-startup-mode.js`、`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-pc-map-toolbar.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc` も成功。`validate-mobile-touch.js` は既知のソース改行完全一致で失敗し、今回の差分による新規失敗ではない。
-- 戻し先: 横向きが実用に適さない場合は、対象コミットの画面方向または `112e5c7` の安全領域差分だけを戻し、他機能を巻き戻さない。
+- 検証: `validate-mobile-landscape.js` で縦画面の左端0と横画面から縦画面へ戻した後の従来配置、844×390横画面で2列のボタン順・寸法、最下部ロゴ、全高サイドバー、図面・操作キャンバス・起動ポップアップ、地図側操作ボタンの上端配置を確認。`validate-gps-startup-mode.js`、`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-pc-map-toolbar.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc` も成功。`validate-mobile-touch.js` は既知のソース改行完全一致で失敗し、今回の差分による新規失敗ではない。
+- 戻し先: 横向きの2列配置だけを戻す場合は `1cac1d9`、左側表示安全領域まで戻す場合は `112e5c7` の該当差分だけを戻し、他機能を巻き戻さない。
 
 ### BASE-ANDROID-DROGGER-FIX-20260823
 
