@@ -45,15 +45,17 @@
 ### BASE-MOBILE-LANDSCAPE-20260831
 
 - 状態: `検証済み`
-- コミット: `f34228a`、横向きスマホの写真位置非表示 `25211fb`
+- コミット: `f34228a`、横向きスマホの写真位置非表示 `25211fb`、左側表示安全領域 `37e6a02`
 - 対象: スマホの縦画面固定解除と横画面表示。
 - 確認内容:
   - HTMLメタ、PWAマニフェスト、JavaScriptの縦向きロックを解除し、横向きでも通常のEz Viewerを表示する。
   - 既存の縦画面表示、方位追従、GPS、SFC描画は変更しない。
   - 横向きの初回画面は内部スクロールを維持し、下側のサンプル・動画ボタンまで操作できる。
   - 横向きスマホの幅が821px以上になっても、タッチ端末ではPC専用の「写真位置」を表示しない。PCの写真位置は従来どおり表示する。
-- 検証: `validate-mobile-landscape.js`、`validate-gps-startup-mode.js`、`validate-compass-follow.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc`。`validate-mobile-touch.js` は既知のソース改行完全一致で失敗し、今回の差分による新規失敗ではない。
-- 戻し先: 横向きが実用に適さない場合は、このコミットの `index.html`・`manifest.webmanifest` の画面方向差分だけを戻し、他機能を巻き戻さない。
+  - 横画面の図面・操作キャンバス左端は「詳細」の2文字目「細」の実際の左端へ揃え、Dynamic Island側を描画対象外として扱う。ホーム、現在地、パン、拡大・回転は縮めたキャンバス寸法を共通利用する。
+  - 縦画面とPCでは左側表示安全領域を無効にし、従来どおり全幅を使う。
+- 検証: `validate-mobile-landscape.js` で縦画面の左端0、844×390横画面の図面・操作キャンバスと「細」の左端一致を確認。`validate-gps-startup-mode.js`、`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-pc-map-toolbar.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc` も成功。`validate-mobile-touch.js` は既知のソース改行完全一致で失敗し、今回の差分による新規失敗ではない。
+- 戻し先: 横向きが実用に適さない場合は、対象コミットの画面方向または `37e6a02` の安全領域差分だけを戻し、他機能を巻き戻さない。
 
 ### BASE-ANDROID-DROGGER-FIX-20260823
 
