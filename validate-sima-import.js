@@ -15,6 +15,7 @@ for(const token of [
   'data-sima-layer="pointLabel"',
   'function loadSimaFile(file)',
   'function drawSimaOverlay()',
+  'function chooseSimaPointLabelPosition(',
   'drawSimaHorizontalLabel(parcel.name',
   'window.EzSimaImport?.visibleLabelPoint',
   'drawSimaOverlay();',
@@ -91,7 +92,13 @@ let browser;
     draw();
     rotationDeg=116;draw();
     CanvasRenderingContext2D.prototype.fillText=original;
-    return {loaded,records,width:w,height:h,buttonActive:document.getElementById("simaMapOpenBtn").classList.contains("active"),parcelSize:simaParcelLabelSize,pointSize:simaPointLabelSize};
+    const collisionIndex=createSimaLabelCollisionIndex();
+    const crossingLine={type:"segment",x1:20,y1:100,x2:370,y2:100,bounds:{minX:18,minY:98,maxX:372,maxY:102}};
+    collisionIndex.add(crossingLine);
+    collisionIndex.add({type:"point",x:195,y:100,radius:3,bounds:{minX:190,minY:95,maxX:200,maxY:105}});
+    const pointLabelPlacement=chooseSimaPointLabelPosition({x:195,y:100},"P100",11,collisionIndex,w,h);
+    const pointLabelAvoidsLine=!simaRectTouchesSegment(pointLabelPlacement.rect,crossingLine);
+    return {loaded,records,width:w,height:h,pointLabelPlacement,pointLabelAvoidsLine,buttonActive:document.getElementById("simaMapOpenBtn").classList.contains("active"),parcelSize:simaParcelLabelSize,pointSize:simaPointLabelSize};
   },sample);
   const parcel=result.records.find(record=>record.text==="135-1");
   if(!parcel)throw new Error(`parcel label was not drawn: ${JSON.stringify(result)}`);
@@ -99,11 +106,12 @@ let browser;
   if(parcel.x<0||parcel.x>result.width||parcel.y<0||parcel.y>result.height)throw new Error(`parcel label did not follow visible area: ${JSON.stringify(parcel)}`);
   if(result.records.some(record=>record.text==="102"))throw new Error(`open-line name was incorrectly drawn as a parcel label: ${JSON.stringify(result.records)}`);
   if(result.records.some(record=>Math.abs(record.b)>1e-8||Math.abs(record.c)>1e-8))throw new Error(`SIMA labels did not stay screen-horizontal across redraws: ${JSON.stringify(result.records)}`);
+  if(!result.pointLabelAvoidsLine||Math.abs(result.pointLabelPlacement.screen.y-100)<1)throw new Error(`SIMA point label was not moved away from its boundary line: ${JSON.stringify(result.pointLabelPlacement)}`);
   if(!result.buttonActive||result.parcelSize!==14||result.pointSize!==11)throw new Error(`SIMA UI defaults failed: ${JSON.stringify(result)}`);
   if(result.loaded.points!==3||result.loaded.parcels!==2||!result.loaded.enabled||result.loaded.source!=="field.SIM"||!result.loaded.workspace||result.loaded.startup!=="none"||!/画地 1件/.test(result.loaded.status))throw new Error(`browser .SIM file import failed: ${JSON.stringify(result.loaded)}`);
   for(const key of ["scale","tx","ty"])if(Math.abs(result.loaded.simaHome[key]-result.loaded.restoredSimaView[key])>1e-9)throw new Error(`GPS stop did not return to the SIMA view: ${JSON.stringify(result.loaded)}`);
   if(errors.length)throw new Error(`page errors: ${errors.join(" | ")}`);
-  console.log("SIMA type-2 exclusion, direct file picker, workspace fit, and screen-horizontal rotation validated");
+  console.log("SIMA type-2 exclusion, direct file picker, workspace fit, screen-horizontal rotation, and point-label collision avoidance validated");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   if(browser)await browser.close();
   server.close();

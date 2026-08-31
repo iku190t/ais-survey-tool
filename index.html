@@ -14349,9 +14349,106 @@ function drawSimaHorizontalLabel(text,screen,size,color){
   ctx.strokeText(text,screen.x,screen.y);
   ctx.fillStyle=color;ctx.fillText(text,screen.x,screen.y);
 }
+function simaLabelRect(text,screen,size,padding=2){
+  ctx.font=`700 ${size}px sans-serif`;
+  const width=Math.max(size*.7,ctx.measureText(String(text||"")).width)+padding*2;
+  const height=size*1.18+padding*2;
+  return {minX:screen.x-width/2,minY:screen.y-height/2,maxX:screen.x+width/2,maxY:screen.y+height/2};
+}
+function createSimaLabelCollisionIndex(cellSize=64){
+  const cells=new Map();
+  const cellRange=rect=>({
+    minX:Math.floor(rect.minX/cellSize),maxX:Math.floor(rect.maxX/cellSize),
+    minY:Math.floor(rect.minY/cellSize),maxY:Math.floor(rect.maxY/cellSize)
+  });
+  return {
+    add(item){
+      const range=cellRange(item.bounds);
+      for(let y=range.minY;y<=range.maxY;y++)for(let x=range.minX;x<=range.maxX;x++){
+        const key=`${x}:${y}`;let bucket=cells.get(key);
+        if(!bucket){bucket=[];cells.set(key,bucket);}bucket.push(item);
+      }
+    },
+    query(rect){
+      const range=cellRange(rect),found=new Set();
+      for(let y=range.minY;y<=range.maxY;y++)for(let x=range.minX;x<=range.maxX;x++){
+        const bucket=cells.get(`${x}:${y}`);if(bucket)for(const item of bucket)found.add(item);
+      }
+      return found;
+    }
+  };
+}
+function simaRectsOverlap(a,b){
+  return a.minX<=b.maxX&&a.maxX>=b.minX&&a.minY<=b.maxY&&a.maxY>=b.minY;
+}
+function simaRectTouchesCircle(rect,circle,padding=1.5){
+  const nearestX=Math.max(rect.minX,Math.min(circle.x,rect.maxX));
+  const nearestY=Math.max(rect.minY,Math.min(circle.y,rect.maxY));
+  const dx=circle.x-nearestX,dy=circle.y-nearestY,r=circle.radius+padding;
+  return dx*dx+dy*dy<=r*r;
+}
+function simaRectTouchesSegment(rect,segment,padding=1.5){
+  const box={minX:rect.minX-padding,minY:rect.minY-padding,maxX:rect.maxX+padding,maxY:rect.maxY+padding};
+  let t0=0,t1=1;
+  const dx=segment.x2-segment.x1,dy=segment.y2-segment.y1;
+  for(const [p,q] of [[-dx,segment.x1-box.minX],[dx,box.maxX-segment.x1],[-dy,segment.y1-box.minY],[dy,box.maxY-segment.y1]]){
+    if(Math.abs(p)<1e-9){if(q<0)return false;continue;}
+    const ratio=q/p;
+    if(p<0){if(ratio>t1)return false;if(ratio>t0)t0=ratio;}
+    else{if(ratio<t0)return false;if(ratio<t1)t1=ratio;}
+  }
+  return true;
+}
+function simaPointLabelCollisionScore(rect,index,viewportWidth,viewportHeight){
+  let score=0;
+  if(rect.minX<2||rect.minY<2||rect.maxX>viewportWidth-2||rect.maxY>viewportHeight-2)score+=1000;
+  for(const item of index.query(rect)){
+    if(item.type==="segment"&&simaRectTouchesSegment(rect,item))score+=12;
+    else if(item.type==="point"&&simaRectTouchesCircle(rect,item))score+=8;
+    else if(item.type==="label"&&simaRectsOverlap(rect,item.bounds))score+=10;
+  }
+  return score;
+}
+function chooseSimaPointLabelPosition(anchor,text,size,index,viewportWidth,viewportHeight){
+  const measured=simaLabelRect(text,{x:0,y:0},size),halfW=(measured.maxX-measured.minX)/2,halfH=(measured.maxY-measured.minY)/2;
+  const pointRadius=4.5,gap=2.5;
+  const directions=[
+    {x:0,y:-1},{x:0,y:1},{x:1,y:0},{x:-1,y:0},
+    {x:1,y:-1},{x:-1,y:-1},{x:1,y:1},{x:-1,y:1}
+  ];
+  const candidates=[];
+  for(const extra of [0,size*.65,size*1.3,size*2])for(const direction of directions){
+    const offsetX=direction.x?(halfW+pointRadius+gap+extra):0;
+    const offsetY=direction.y?(halfH+pointRadius+gap+extra):0;
+    const screen={x:anchor.x+direction.x*offsetX,y:anchor.y+direction.y*offsetY};
+    const rect=simaLabelRect(text,screen,size);
+    const distance=Math.hypot(screen.x-anchor.x,screen.y-anchor.y);
+    candidates.push({screen,rect,distance,score:simaPointLabelCollisionScore(rect,index,viewportWidth,viewportHeight)});
+  }
+  candidates.sort((a,b)=>a.score-b.score||a.distance-b.distance||a.screen.y-b.screen.y||a.screen.x-b.screen.x);
+  return candidates[0]||{screen:{x:anchor.x,y:anchor.y-size},rect:simaLabelRect(text,{x:anchor.x,y:anchor.y-size},size)};
+}
 function drawSimaOverlay(){
   if(!simaMapState.loaded||!simaDisplayEnabled)return;
   const visible=getVisibleWorldBounds(30),width=canvas.clientWidth||1,height=canvas.clientHeight||1;
+  const labelCollisionIndex=createSimaLabelCollisionIndex();
+  for(const parcel of simaMapState.parcels){
+    if(!registryBoundsOverlap(parcel.bbox,visible)||parcel.points.length<2)continue;
+    const screens=parcel.points.map(point=>worldToScreen(point.x,point.y));
+    const segmentCount=screens.length-1+(parcel.type!=="2"&&screens.length>2?1:0);
+    for(let index=0;index<segmentCount;index++){
+      const start=screens[index%screens.length],end=screens[(index+1)%screens.length];
+      const rawBounds={minX:Math.min(start[0],end[0])-2,minY:Math.min(start[1],end[1])-2,maxX:Math.max(start[0],end[0])+2,maxY:Math.max(start[1],end[1])+2};
+      if(rawBounds.maxX<-32||rawBounds.minX>width+32||rawBounds.maxY<-32||rawBounds.minY>height+32)continue;
+      const bounds={minX:Math.max(-32,rawBounds.minX),minY:Math.max(-32,rawBounds.minY),maxX:Math.min(width+32,rawBounds.maxX),maxY:Math.min(height+32,rawBounds.maxY)};
+      labelCollisionIndex.add({type:"segment",x1:start[0],y1:start[1],x2:end[0],y2:end[1],bounds});
+    }
+  }
+  for(const point of simaMapState.points){
+    if(point.x<visible.minx||point.x>visible.maxx||point.y<visible.miny||point.y>visible.maxy)continue;
+    const screen=worldToScreen(point.x,point.y);
+    labelCollisionIndex.add({type:"point",x:screen[0],y:screen[1],radius:3,bounds:{minX:screen[0]-5,minY:screen[1]-5,maxX:screen[0]+5,maxY:screen[1]+5}});
+  }
   ctx.save();ctx.lineJoin="round";ctx.lineCap="round";
   if(simaLayerVisibility.parcel){
     ctx.fillStyle=registryColorWithAlpha(simaLayerColors.parcel,.10);
@@ -14382,13 +14479,16 @@ function drawSimaOverlay(){
       if(ring.length>=3)screen=window.EzSimaImport?.visibleLabelPoint?.(ring,width,height,Math.max(10,simaParcelLabelSize));
       if(!screen&&ring.length){const mid=ring[Math.floor(ring.length/2)];screen={x:mid.x,y:mid.y};}
       drawSimaHorizontalLabel(parcel.name,screen,simaParcelLabelSize,simaLayerColors.parcelLabel);
+      if(screen)labelCollisionIndex.add({type:"label",bounds:simaLabelRect(parcel.name,screen,simaParcelLabelSize)});
     }
   }
   if(simaLayerVisibility.pointLabel){
     for(const point of simaMapState.points){
       if(!point.name||point.x<visible.minx||point.x>visible.maxx||point.y<visible.miny||point.y>visible.maxy)continue;
       const screen=worldToScreen(point.x,point.y);
-      drawSimaHorizontalLabel(point.name,{x:screen[0]+simaPointLabelSize*.45,y:screen[1]-simaPointLabelSize*.65},simaPointLabelSize,simaLayerColors.pointLabel);
+      const placement=chooseSimaPointLabelPosition({x:screen[0],y:screen[1]},point.name,simaPointLabelSize,labelCollisionIndex,width,height);
+      drawSimaHorizontalLabel(point.name,placement.screen,simaPointLabelSize,simaLayerColors.pointLabel);
+      labelCollisionIndex.add({type:"label",bounds:placement.rect});
     }
   }
   ctx.restore();
