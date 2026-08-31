@@ -341,6 +341,19 @@
   - 地番名・点名は37度と116度の再描画でもCanvas回転を継承せず、画面水平を維持する。
 - 検証: 提供された実SIMAをShift_JISで解析して開放線と閉画地の種別を確認。`validate-sima-import.js`、`validate-gps-startup-mode.js`、`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-pc-map-toolbar.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc` が成功。
 
+### BASE-SIMA-POINT-LABEL-AUTO-20260831
+
+- 状態: `検証済み`
+- コミット: `19aded8`
+- 対象: SIMA測点名の境界線重なり回避。
+- 確認内容:
+  - A01の測点座標と点記号は動かさず、点名文字だけを上下左右・斜めの近い候補から自動配置する。
+  - SIMA境界線、測点記号、地番名、先に配置した点名と重ならない候補を優先し、空きが無い場合は重なりが最少の候補を使う。
+  - パン・拡大・回転の再描画時に画面座標で再計算し、点名文字は従来どおり画面水平を保つ。
+  - 64px区画の近傍索引を使い、画面外へ長く伸びる線の索引範囲も画面付近へ制限する。
+- 検証: `validate-sima-import.js` で境界線上の測点名が線外へ移ることと37度・116度で水平を保つことを確認。`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-pc-map-toolbar.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc` も成功。
+- 戻し先: 自動配置に問題がある場合は `19aded8` のSIMA点名配置差分だけを戻し、SIMA解析・座標・線描画・SFC描画は戻さない。
+
 ## 復元時の原則
 
 1. いきなり古いコミット全体へ戻さない。
