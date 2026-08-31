@@ -15,6 +15,10 @@ for(const token of [
   'data-sima-layer="pointLabel"',
   'function loadSimaFile(file)',
   'function drawSimaOverlay()',
+  'function createSimaSpatialIndex(',
+  'function querySimaSpatialIndex(',
+  'function simaLabelMetrics(',
+  'function selectSimaPointLabelsForView(',
   'function chooseSimaPointLabelPosition(',
   'drawSimaHorizontalLabel(parcel.name',
   'window.EzSimaImport?.visibleLabelPoint',
@@ -96,9 +100,18 @@ let browser;
     const crossingLine={type:"segment",x1:20,y1:100,x2:370,y2:100,bounds:{minX:18,minY:98,maxX:372,maxY:102}};
     collisionIndex.add(crossingLine);
     collisionIndex.add({type:"point",x:195,y:100,radius:3,bounds:{minX:190,minY:95,maxX:200,maxY:105}});
+    const originalMeasureText=CanvasRenderingContext2D.prototype.measureText;
+    let pointLabelMeasureCount=0;
+    CanvasRenderingContext2D.prototype.measureText=function(){pointLabelMeasureCount++;return originalMeasureText.apply(this,arguments);};
     const pointLabelPlacement=chooseSimaPointLabelPosition({x:195,y:100},"P100",11,collisionIndex,w,h);
+    CanvasRenderingContext2D.prototype.measureText=originalMeasureText;
     const pointLabelAvoidsLine=!simaRectTouchesSegment(pointLabelPlacement.rect,crossingLine);
-    return {loaded,records,width:w,height:h,pointLabelPlacement,pointLabelAvoidsLine,buttonActive:document.getElementById("simaMapOpenBtn").classList.contains("active"),parcelSize:simaParcelLabelSize,pointSize:simaPointLabelSize};
+    const indexedState=simaToWorldState(window.EzSimaImport.parse(sampleText),"indexed.sim");
+    const indexedBounds=indexedState.spatialIndex?.bounds;
+    const fullQuery=querySimaSpatialIndex(indexedState,{minx:indexedBounds.minx-1,miny:indexedBounds.miny-1,maxx:indexedBounds.maxx+1,maxy:indexedBounds.maxy+1});
+    const point=fullQuery.points[0];
+    const localQuery=querySimaSpatialIndex(indexedState,{minx:point.x-1,miny:point.y-1,maxx:point.x+1,maxy:point.y+1});
+    return {loaded,records,width:w,height:h,pointLabelPlacement,pointLabelAvoidsLine,pointLabelMeasureCount,spatial:{fullPoints:fullQuery.points.length,fullParcels:fullQuery.parcels.length,localPoints:localQuery.points.length},buttonActive:document.getElementById("simaMapOpenBtn").classList.contains("active"),parcelSize:simaParcelLabelSize,pointSize:simaPointLabelSize};
   },sample);
   const parcel=result.records.find(record=>record.text==="135-1");
   if(!parcel)throw new Error(`parcel label was not drawn: ${JSON.stringify(result)}`);
@@ -107,6 +120,8 @@ let browser;
   if(result.records.some(record=>record.text==="102"))throw new Error(`open-line name was incorrectly drawn as a parcel label: ${JSON.stringify(result.records)}`);
   if(result.records.some(record=>Math.abs(record.b)>1e-8||Math.abs(record.c)>1e-8))throw new Error(`SIMA labels did not stay screen-horizontal across redraws: ${JSON.stringify(result.records)}`);
   if(!result.pointLabelAvoidsLine||Math.abs(result.pointLabelPlacement.screen.y-100)<1)throw new Error(`SIMA point label was not moved away from its boundary line: ${JSON.stringify(result.pointLabelPlacement)}`);
+  if(result.pointLabelMeasureCount!==1)throw new Error(`SIMA point label measured the same text repeatedly: ${result.pointLabelMeasureCount}`);
+  if(result.spatial.fullPoints!==3||result.spatial.fullParcels!==2||result.spatial.localPoints!==1)throw new Error(`SIMA spatial index query failed: ${JSON.stringify(result.spatial)}`);
   if(!result.buttonActive||result.parcelSize!==14||result.pointSize!==11)throw new Error(`SIMA UI defaults failed: ${JSON.stringify(result)}`);
   if(result.loaded.points!==3||result.loaded.parcels!==2||!result.loaded.enabled||result.loaded.source!=="field.SIM"||!result.loaded.workspace||result.loaded.startup!=="none"||!/画地 1件/.test(result.loaded.status))throw new Error(`browser .SIM file import failed: ${JSON.stringify(result.loaded)}`);
   for(const key of ["scale","tx","ty"])if(Math.abs(result.loaded.simaHome[key]-result.loaded.restoredSimaView[key])>1e-9)throw new Error(`GPS stop did not return to the SIMA view: ${JSON.stringify(result.loaded)}`);

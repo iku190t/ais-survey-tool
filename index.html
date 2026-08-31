@@ -14321,8 +14321,48 @@ function registryTraceScreenPath(points,close=false){
   if(close)ctx.closePath();
   return true;
 }
-function simaEmptyState(){return {loaded:false,sourceName:"",points:[],parcels:[],warnings:[]};}
+function simaEmptyState(){return {loaded:false,sourceName:"",points:[],parcels:[],warnings:[],spatialIndex:null};}
 function simaBounds(points){return registryRingBounds(points);}
+function createSimaSpatialIndex(points,parcels){
+  const bounds=simaBounds(points);
+  if(!points.length||![bounds.minx,bounds.miny,bounds.maxx,bounds.maxy].every(Number.isFinite))return null;
+  const cellCount=Math.max(8,Math.min(48,Math.ceil(Math.sqrt((points.length+parcels.length)/24))));
+  const columns=cellCount,rows=cellCount;
+  const cellWidth=Math.max(1,(bounds.maxx-bounds.minx)/columns),cellHeight=Math.max(1,(bounds.maxy-bounds.miny)/rows);
+  const pointCells=new Map(),parcelCells=new Map();
+  const cellX=x=>Math.max(0,Math.min(columns-1,Math.floor((x-bounds.minx)/cellWidth)));
+  const cellY=y=>Math.max(0,Math.min(rows-1,Math.floor((y-bounds.miny)/cellHeight)));
+  const add=(cells,key,index)=>{let bucket=cells.get(key);if(!bucket){bucket=[];cells.set(key,bucket);}bucket.push(index);};
+  points.forEach((point,index)=>add(pointCells,`${cellX(point.x)}:${cellY(point.y)}`,index));
+  parcels.forEach((parcel,index)=>{
+    const bbox=parcel.bbox;if(!bbox)return;
+    const minX=cellX(bbox.minx),maxX=cellX(bbox.maxx),minY=cellY(bbox.miny),maxY=cellY(bbox.maxy);
+    for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++)add(parcelCells,`${x}:${y}`,index);
+  });
+  return {bounds,columns,rows,cellWidth,cellHeight,pointCells,parcelCells};
+}
+function querySimaSpatialIndex(state,visible){
+  const index=state.spatialIndex;
+  if(!index||!visible)return {points:state.points,parcels:state.parcels};
+  const b=index.bounds;
+  if(visible.minx<=b.minx&&visible.maxx>=b.maxx&&visible.miny<=b.miny&&visible.maxy>=b.maxy)return {points:state.points,parcels:state.parcels};
+  if(!registryBoundsOverlap(b,visible))return {points:[],parcels:[]};
+  const cellX=x=>Math.max(0,Math.min(index.columns-1,Math.floor((x-b.minx)/index.cellWidth)));
+  const cellY=y=>Math.max(0,Math.min(index.rows-1,Math.floor((y-b.miny)/index.cellHeight)));
+  const minX=cellX(visible.minx),maxX=cellX(visible.maxx),minY=cellY(visible.miny),maxY=cellY(visible.maxy);
+  const pointIndexes=[],parcelIndexes=new Set();
+  for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
+    const key=`${x}:${y}`;
+    for(const pointIndex of index.pointCells.get(key)||[])pointIndexes.push(pointIndex);
+    for(const parcelIndex of index.parcelCells.get(key)||[])parcelIndexes.add(parcelIndex);
+  }
+  pointIndexes.sort((a,b)=>a-b);
+  const sortedParcelIndexes=[...parcelIndexes].sort((a,b)=>a-b);
+  return {
+    points:pointIndexes.map(i=>state.points[i]).filter(point=>point.x>=visible.minx&&point.x<=visible.maxx&&point.y>=visible.miny&&point.y<=visible.maxy),
+    parcels:sortedParcelIndexes.map(i=>state.parcels[i]).filter(parcel=>registryBoundsOverlap(parcel.bbox,visible))
+  };
+}
 function getSimaBoundsWorld(){
   if(!hasLoadedSimaWorkspace())return null;
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
@@ -14370,7 +14410,7 @@ function simaToWorldState(parsed,sourceName){
     if(ring.length<2)continue;
     parcels.push({...parcel,points:ring,bbox:simaBounds(ring)});
   }
-  return {loaded:true,sourceName,points,parcels,warnings:parsed.warnings||[]};
+  return {loaded:true,sourceName,points,parcels,warnings:parsed.warnings||[],spatialIndex:createSimaSpatialIndex(points,parcels)};
 }
 function updateSimaMapUi(){
   const panelOpen=!!(simaMapPanel&&getComputedStyle(simaMapPanel).display!=="none");
@@ -14420,7 +14460,8 @@ async function loadSimaFile(file){
       updateDrawingDependentUi();
       requestAnimationFrame(()=>requestAnimationFrame(()=>{updateWrapLayout();resize(false);fitSimaToScreen();}));
     }
-    updateSimaMapUi();scheduleDraw();
+    updateSimaMapUi();
+    if(!simaOnly)scheduleDraw();
     showToast(`SIMAを読み込みました（画地 ${closedParcelCount}件／測点 ${simaMapState.points.length}点）`,2600);
   }catch(error){
     console.error(error);simaMapState=simaEmptyState();simaDisplayEnabled=false;
@@ -14437,14 +14478,19 @@ function drawSimaHorizontalLabel(text,screen,size,color){
   ctx.strokeText(text,screen.x,screen.y);
   ctx.fillStyle=color;ctx.fillText(text,screen.x,screen.y);
 }
-function simaLabelRect(text,screen,size,padding=2){
+function simaLabelMetrics(text,size,padding=2){
   ctx.font=`700 ${size}px sans-serif`;
   const width=Math.max(size*.7,ctx.measureText(String(text||"")).width)+padding*2;
   const height=size*1.18+padding*2;
+  return {width,height};
+}
+function simaLabelRectFromMetrics(screen,metrics){
+  const {width,height}=metrics;
   return {minX:screen.x-width/2,minY:screen.y-height/2,maxX:screen.x+width/2,maxY:screen.y+height/2};
 }
+function simaLabelRect(text,screen,size,padding=2){return simaLabelRectFromMetrics(screen,simaLabelMetrics(text,size,padding));}
 function createSimaLabelCollisionIndex(cellSize=64){
-  const cells=new Map();
+  const cells=new Map();let queryToken=0;
   const cellRange=rect=>({
     minX:Math.floor(rect.minX/cellSize),maxX:Math.floor(rect.maxX/cellSize),
     minY:Math.floor(rect.minY/cellSize),maxY:Math.floor(rect.maxY/cellSize)
@@ -14458,9 +14504,12 @@ function createSimaLabelCollisionIndex(cellSize=64){
       }
     },
     query(rect){
-      const range=cellRange(rect),found=new Set();
+      const range=cellRange(rect),found=[],token=++queryToken;
       for(let y=range.minY;y<=range.maxY;y++)for(let x=range.minX;x<=range.maxX;x++){
-        const bucket=cells.get(`${x}:${y}`);if(bucket)for(const item of bucket)found.add(item);
+        const bucket=cells.get(`${x}:${y}`);if(bucket)for(const item of bucket){
+          if(item._simaQueryToken===token)continue;
+          item._simaQueryToken=token;found.push(item);
+        }
       }
       return found;
     }
@@ -14479,12 +14528,14 @@ function simaRectTouchesSegment(rect,segment,padding=1.5){
   const box={minX:rect.minX-padding,minY:rect.minY-padding,maxX:rect.maxX+padding,maxY:rect.maxY+padding};
   let t0=0,t1=1;
   const dx=segment.x2-segment.x1,dy=segment.y2-segment.y1;
-  for(const [p,q] of [[-dx,segment.x1-box.minX],[dx,box.maxX-segment.x1],[-dy,segment.y1-box.minY],[dy,box.maxY-segment.y1]]){
-    if(Math.abs(p)<1e-9){if(q<0)return false;continue;}
-    const ratio=q/p;
-    if(p<0){if(ratio>t1)return false;if(ratio>t0)t0=ratio;}
-    else{if(ratio<t0)return false;if(ratio<t1)t1=ratio;}
-  }
+  let p=-dx,q=segment.x1-box.minX,ratio;
+  if(Math.abs(p)<1e-9){if(q<0)return false;}else{ratio=q/p;if(p<0){if(ratio>t1)return false;if(ratio>t0)t0=ratio;}else{if(ratio<t0)return false;if(ratio<t1)t1=ratio;}}
+  p=dx;q=box.maxX-segment.x1;
+  if(Math.abs(p)<1e-9){if(q<0)return false;}else{ratio=q/p;if(p<0){if(ratio>t1)return false;if(ratio>t0)t0=ratio;}else{if(ratio<t0)return false;if(ratio<t1)t1=ratio;}}
+  p=-dy;q=segment.y1-box.minY;
+  if(Math.abs(p)<1e-9){if(q<0)return false;}else{ratio=q/p;if(p<0){if(ratio>t1)return false;if(ratio>t0)t0=ratio;}else{if(ratio<t0)return false;if(ratio<t1)t1=ratio;}}
+  p=dy;q=box.maxY-segment.y1;
+  if(Math.abs(p)<1e-9){if(q<0)return false;}else{ratio=q/p;if(p<0){if(ratio>t1)return false;if(ratio>t0)t0=ratio;}else{if(ratio<t0)return false;if(ratio<t1)t1=ratio;}}
   return true;
 }
 function simaPointLabelCollisionScore(rect,index,viewportWidth,viewportHeight){
@@ -14497,72 +14548,98 @@ function simaPointLabelCollisionScore(rect,index,viewportWidth,viewportHeight){
   }
   return score;
 }
-function chooseSimaPointLabelPosition(anchor,text,size,index,viewportWidth,viewportHeight){
-  const measured=simaLabelRect(text,{x:0,y:0},size),halfW=(measured.maxX-measured.minX)/2,halfH=(measured.maxY-measured.minY)/2;
+function chooseSimaPointLabelPosition(anchor,text,size,index,viewportWidth,viewportHeight,searchRings=4){
+  const metrics=simaLabelMetrics(text,size),halfW=metrics.width/2,halfH=metrics.height/2;
   const pointRadius=4.5,gap=2.5;
   const directions=[
     {x:0,y:-1},{x:0,y:1},{x:1,y:0},{x:-1,y:0},
     {x:1,y:-1},{x:-1,y:-1},{x:1,y:1},{x:-1,y:1}
   ];
-  const candidates=[];
-  for(const extra of [0,size*.65,size*1.3,size*2])for(const direction of directions){
+  let best=null;
+  const extras=[0,size*.65,size*1.3,size*2].slice(0,Math.max(1,Math.min(4,searchRings)));
+  for(const extra of extras)for(const direction of directions){
     const offsetX=direction.x?(halfW+pointRadius+gap+extra):0;
     const offsetY=direction.y?(halfH+pointRadius+gap+extra):0;
     const screen={x:anchor.x+direction.x*offsetX,y:anchor.y+direction.y*offsetY};
-    const rect=simaLabelRect(text,screen,size);
+    const rect=simaLabelRectFromMetrics(screen,metrics);
     const distance=Math.hypot(screen.x-anchor.x,screen.y-anchor.y);
-    candidates.push({screen,rect,distance,score:simaPointLabelCollisionScore(rect,index,viewportWidth,viewportHeight)});
+    const candidate={screen,rect,distance,score:simaPointLabelCollisionScore(rect,index,viewportWidth,viewportHeight)};
+    if(!best||candidate.score<best.score||
+      (candidate.score===best.score&&(candidate.distance<best.distance||
+      (candidate.distance===best.distance&&(candidate.screen.y<best.screen.y||
+      (candidate.screen.y===best.screen.y&&candidate.screen.x<best.screen.x))))))best=candidate;
   }
-  candidates.sort((a,b)=>a.score-b.score||a.distance-b.distance||a.screen.y-b.screen.y||a.screen.x-b.screen.x);
-  return candidates[0]||{screen:{x:anchor.x,y:anchor.y-size},rect:simaLabelRect(text,{x:anchor.x,y:anchor.y-size},size)};
+  return best||{screen:{x:anchor.x,y:anchor.y-size},rect:simaLabelRectFromMetrics({x:anchor.x,y:anchor.y-size},metrics)};
+}
+function traceSimaScreenPath(screens,close=false){
+  if(!screens.length)return false;
+  ctx.moveTo(screens[0].x,screens[0].y);
+  for(let i=1;i<screens.length;i++)ctx.lineTo(screens[i].x,screens[i].y);
+  if(close)ctx.closePath();
+  return true;
+}
+function selectSimaPointLabelsForView(visiblePoints,width,height,size){
+  const maxLabels=Math.max(180,Math.floor((width*height)/Math.max(560,size*size*4.5)));
+  if(visiblePoints.length<=maxLabels)return visiblePoints;
+  const cellSize=Math.max(30,size*3.2),occupied=new Set(),selected=[];
+  for(const item of visiblePoints){
+    const {x,y}=item.screen;
+    if(x<-cellSize||x>width+cellSize||y<-cellSize||y>height+cellSize)continue;
+    const key=`${Math.floor(x/cellSize)}:${Math.floor(y/cellSize)}`;
+    if(occupied.has(key))continue;
+    occupied.add(key);selected.push(item);
+    if(selected.length>=maxLabels)break;
+  }
+  return selected;
 }
 function drawSimaOverlay(){
   if(!simaMapState.loaded||!simaDisplayEnabled)return;
   const visible=getVisibleWorldBounds(30),width=canvas.clientWidth||1,height=canvas.clientHeight||1;
+  const queried=querySimaSpatialIndex(simaMapState,visible);
+  const visibleParcels=[];
+  for(const parcel of queried.parcels){
+    if(parcel.points.length<2)continue;
+    const screens=parcel.points.map(point=>{const screen=worldToScreen(point.x,point.y);return {x:screen[0],y:screen[1]};});
+    visibleParcels.push({parcel,screens});
+  }
+  const visiblePoints=queried.points.map(point=>{const screen=worldToScreen(point.x,point.y);return {point,screen:{x:screen[0],y:screen[1]}};});
   const labelCollisionIndex=createSimaLabelCollisionIndex();
-  for(const parcel of simaMapState.parcels){
-    if(!registryBoundsOverlap(parcel.bbox,visible)||parcel.points.length<2)continue;
-    const screens=parcel.points.map(point=>worldToScreen(point.x,point.y));
+  for(const {parcel,screens} of visibleParcels){
     const segmentCount=screens.length-1+(parcel.type!=="2"&&screens.length>2?1:0);
     for(let index=0;index<segmentCount;index++){
       const start=screens[index%screens.length],end=screens[(index+1)%screens.length];
-      const rawBounds={minX:Math.min(start[0],end[0])-2,minY:Math.min(start[1],end[1])-2,maxX:Math.max(start[0],end[0])+2,maxY:Math.max(start[1],end[1])+2};
+      const rawBounds={minX:Math.min(start.x,end.x)-2,minY:Math.min(start.y,end.y)-2,maxX:Math.max(start.x,end.x)+2,maxY:Math.max(start.y,end.y)+2};
       if(rawBounds.maxX<-32||rawBounds.minX>width+32||rawBounds.maxY<-32||rawBounds.minY>height+32)continue;
       const bounds={minX:Math.max(-32,rawBounds.minX),minY:Math.max(-32,rawBounds.minY),maxX:Math.min(width+32,rawBounds.maxX),maxY:Math.min(height+32,rawBounds.maxY)};
-      labelCollisionIndex.add({type:"segment",x1:start[0],y1:start[1],x2:end[0],y2:end[1],bounds});
+      labelCollisionIndex.add({type:"segment",x1:start.x,y1:start.y,x2:end.x,y2:end.y,bounds});
     }
   }
-  for(const point of simaMapState.points){
-    if(point.x<visible.minx||point.x>visible.maxx||point.y<visible.miny||point.y>visible.maxy)continue;
-    const screen=worldToScreen(point.x,point.y);
-    labelCollisionIndex.add({type:"point",x:screen[0],y:screen[1],radius:3,bounds:{minX:screen[0]-5,minY:screen[1]-5,maxX:screen[0]+5,maxY:screen[1]+5}});
+  for(const {screen} of visiblePoints){
+    labelCollisionIndex.add({type:"point",x:screen.x,y:screen.y,radius:3,bounds:{minX:screen.x-5,minY:screen.y-5,maxX:screen.x+5,maxY:screen.y+5}});
   }
   ctx.save();ctx.lineJoin="round";ctx.lineCap="round";
   if(simaLayerVisibility.parcel){
     ctx.fillStyle=registryColorWithAlpha(simaLayerColors.parcel,.10);
-    for(const parcel of simaMapState.parcels){
-      if(parcel.type==="2"||parcel.points.length<3||!registryBoundsOverlap(parcel.bbox,visible))continue;
-      ctx.beginPath();registryTraceScreenPath(parcel.points,true);ctx.fill();
+    for(const {parcel,screens} of visibleParcels){
+      if(parcel.type==="2"||screens.length<3)continue;
+      ctx.beginPath();traceSimaScreenPath(screens,true);ctx.fill();
     }
   }
   if(simaLayerVisibility.boundary){
     ctx.strokeStyle=simaLayerColors.boundary;ctx.lineWidth=1.3;
-    for(const parcel of simaMapState.parcels){
-      if(!registryBoundsOverlap(parcel.bbox,visible))continue;
-      ctx.beginPath();registryTraceScreenPath(parcel.points,parcel.type!=="2");ctx.stroke();
+    for(const {parcel,screens} of visibleParcels){
+      ctx.beginPath();traceSimaScreenPath(screens,parcel.type!=="2");ctx.stroke();
     }
   }
   if(simaLayerVisibility.point){
     ctx.fillStyle=simaLayerColors.point;ctx.strokeStyle=darkTheme?"#111":"#fff";ctx.lineWidth=1;
-    for(const point of simaMapState.points){
-      if(point.x<visible.minx||point.x>visible.maxx||point.y<visible.miny||point.y>visible.maxy)continue;
-      const screen=worldToScreen(point.x,point.y);ctx.beginPath();ctx.arc(screen[0],screen[1],3,0,Math.PI*2);ctx.fill();ctx.stroke();
+    for(const {screen} of visiblePoints){
+      ctx.beginPath();ctx.arc(screen.x,screen.y,3,0,Math.PI*2);ctx.fill();ctx.stroke();
     }
   }
   if(simaLayerVisibility.parcelLabel){
-    for(const parcel of simaMapState.parcels){
-      if(parcel.type==="2"||!parcel.name||!registryBoundsOverlap(parcel.bbox,visible))continue;
-      const ring=parcel.points.map(point=>{const screen=worldToScreen(point.x,point.y);return {x:screen[0],y:screen[1]};});
+    for(const {parcel,screens:ring} of visibleParcels){
+      if(parcel.type==="2"||!parcel.name)continue;
       let screen=null;
       if(ring.length>=3)screen=window.EzSimaImport?.visibleLabelPoint?.(ring,width,height,Math.max(10,simaParcelLabelSize));
       if(!screen&&ring.length){const mid=ring[Math.floor(ring.length/2)];screen={x:mid.x,y:mid.y};}
@@ -14571,10 +14648,11 @@ function drawSimaOverlay(){
     }
   }
   if(simaLayerVisibility.pointLabel){
-    for(const point of simaMapState.points){
-      if(!point.name||point.x<visible.minx||point.x>visible.maxx||point.y<visible.miny||point.y>visible.maxy)continue;
-      const screen=worldToScreen(point.x,point.y);
-      const placement=chooseSimaPointLabelPosition({x:screen[0],y:screen[1]},point.name,simaPointLabelSize,labelCollisionIndex,width,height);
+    const pointLabels=selectSimaPointLabelsForView(visiblePoints,width,height,simaPointLabelSize);
+    const densePointLabels=pointLabels.length<visiblePoints.length;
+    for(const {point,screen} of pointLabels){
+      if(!point.name)continue;
+      const placement=chooseSimaPointLabelPosition(screen,point.name,simaPointLabelSize,labelCollisionIndex,width,height,densePointLabels?1:4);
       drawSimaHorizontalLabel(point.name,placement.screen,simaPointLabelSize,simaLayerColors.pointLabel);
       labelCollisionIndex.add({type:"label",bounds:placement.rect});
     }
