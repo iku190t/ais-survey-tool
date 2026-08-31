@@ -51,6 +51,11 @@ const server=http.createServer((req,res)=>{
       const bodyRect=document.body.getBoundingClientRect(),topbarRect=topbar.getBoundingClientRect(),canvasRect=canvas.getBoundingClientRect(),interactionRect=interactionCanvas.getBoundingClientRect(),wrapRect=wrap.getBoundingClientRect(),edgeRect=safeEdge.getBoundingClientRect();
       const startup=document.getElementById("startupBox");
       const startupModalRect=document.getElementById("startupModal").getBoundingClientRect();
+      const rect=id=>document.getElementById(id).getBoundingClientRect();
+      const firstColumn=["openIconBtn","fitBtn","bgBtn","measureBtn","drawBtn"].map(rect);
+      const secondColumn=["profileBtn","textSearchOpenBtn","settingsBtn","helpBtn"].map(rect);
+      const layerRect=rect("layerFab"),undoRect=rect("undoFab"),redoRect=rect("redoFab"),detailRect=rect("gpsDetailFab");
+      const gpsRect=rect("gpsBtn"),compassRect=rect("compassFab"),streetRect=rect("googleMapsLinkBtn"),creditRect=rect("creditWrap");
       return {
         landscape:innerWidth>innerHeight,
         blockerDisplay:getComputedStyle(blocker).display,
@@ -62,35 +67,73 @@ const server=http.createServer((req,res)=>{
         safeClass:document.body.classList.contains("mobile-landscape-safe-left"),
         safeLeft:Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mobile-landscape-safe-left"))||0,
         innerWidth,
+        innerHeight,
         bodyLeft:bodyRect.left,
         bodyRight:bodyRect.right,
         topbarLeft:topbarRect.left,
+        topbarRight:topbarRect.right,
+        topbarTop:topbarRect.top,
+        topbarBottom:topbarRect.bottom,
         wrapLeft:wrapRect.left,
+        wrapRight:wrapRect.right,
+        wrapWidth:wrapRect.width,
+        canvasPosition:getComputedStyle(canvas).position,
+        canvasOffsetParent:canvas.offsetParent?.id||canvas.offsetParent?.tagName||null,
         canvasLeft:canvasRect.left-wrapRect.left,
         interactionLeft:interactionRect.left-wrapRect.left,
         detailSecondCharacterLeft:edgeRect.left-wrapRect.left,
         startupModalLeft:startupModalRect.left,
         startupModalRight:startupModalRect.right,
+        firstColumn:firstColumn.map(r=>({left:r.left,top:r.top,width:r.width,height:r.height})),
+        secondColumn:secondColumn.map(r=>({left:r.left,top:r.top,width:r.width,height:r.height})),
+        creditBottom:creditRect.bottom,
+        layerTop:layerRect.top-wrapRect.top,
+        undoTop:undoRect.top-wrapRect.top,
+        redoTop:redoRect.top-wrapRect.top,
+        detailTop:detailRect.top-wrapRect.top,
+        gpsTop:gpsRect.top-wrapRect.top,
+        compassTop:compassRect.top-wrapRect.top,
+        streetTop:streetRect.top-wrapRect.top,
         fileButtonVisible:document.getElementById("openIconBtn").getBoundingClientRect().width>0,
         startupScrollable:startup.scrollHeight>startup.clientHeight
       };
     });
+    const sameColumn=(items)=>items.every((item,index)=>Math.abs(item.left-items[0].left)<=1&&Math.abs(item.width-48)<=1&&Math.abs(item.height-48)<=1&&(index===0||item.top>items[index-1].top));
     const safeAreaAligned=state.safeClass&&state.safeLeft>30
       &&Math.abs(state.bodyLeft-state.safeLeft)<=1.5
       &&Math.abs(state.bodyRight-state.innerWidth)<=1.5
       &&Math.abs(state.topbarLeft-state.bodyLeft)<=1
-      &&Math.abs(state.wrapLeft-state.bodyLeft)<=1
+      &&Math.abs(state.topbarRight-state.wrapLeft)<=1
+      &&Math.abs(state.topbarTop)<=1
+      &&Math.abs(state.topbarBottom-state.innerHeight)<=1
+      &&Math.abs(state.wrapRight-state.bodyRight)<=1
       &&Math.abs(state.canvasLeft)<=1
       &&Math.abs(state.interactionLeft)<=1
       &&Math.abs(state.detailSecondCharacterLeft-state.safeLeft)<=1.5
-      &&Math.abs(state.startupModalLeft-state.bodyLeft)<=1
+      &&Math.abs(state.startupModalLeft-state.wrapLeft)<=1
       &&Math.abs(state.startupModalRight-state.bodyRight)<=1;
-    if(!state.landscape||state.blockerDisplay!=="none"||state.portraitClass||state.topbarDisplay==="none"||state.photoToolDisplay!=="none"||!state.fileButtonVisible||state.canvasWidth<=state.canvasHeight||!state.startupScrollable||!safeAreaAligned){
+    const sidebarAligned=sameColumn(state.firstColumn)&&sameColumn(state.secondColumn)
+      &&state.secondColumn[0].left>state.firstColumn[0].left
+      &&Math.abs(state.firstColumn[0].top-state.secondColumn[0].top)<=1
+      &&Math.abs(state.creditBottom-state.innerHeight)<=8;
+    const mapToolsRaised=Math.abs(state.layerTop-12)<=1&&Math.abs(state.undoTop-12)<=1&&Math.abs(state.redoTop-12)<=1
+      &&Math.abs(state.detailTop-58)<=1&&Math.abs(state.gpsTop-12)<=1&&Math.abs(state.compassTop-12)<=1&&Math.abs(state.streetTop-58)<=1;
+    if(!state.landscape||state.blockerDisplay!=="none"||state.portraitClass||state.topbarDisplay==="none"||state.photoToolDisplay!=="none"||!state.fileButtonVisible||state.canvasWidth<=state.canvasHeight||!state.startupScrollable||!safeAreaAligned||!sidebarAligned||!mapToolsRaised){
       throw new Error(`mobile landscape state failed: ${JSON.stringify(state)}`);
     }
     await page.locator("#startupVideoBtn").scrollIntoViewIfNeeded();
     if(!(await page.locator("#startupVideoBtn").isVisible()))throw new Error("landscape startup actions cannot be reached by scrolling");
     await page.screenshot({path:path.join(os.tmpdir(),"ez-viewer-mobile-landscape.png")});
+    await page.setViewportSize({width:390,height:844});
+    await page.evaluate(()=>window.dispatchEvent(new Event("orientationchange")));
+    await page.waitForTimeout(300);
+    const restoredPortrait=await page.evaluate(()=>{
+      const bodyRect=document.body.getBoundingClientRect(),topbarRect=document.getElementById("topbar").getBoundingClientRect(),canvasRect=document.getElementById("canvas").getBoundingClientRect();
+      return {safeClass:document.body.classList.contains("mobile-landscape-safe-left"),bodyLeft:bodyRect.left,bodyRight:bodyRect.right,topbarLeft:topbarRect.left,topbarRight:topbarRect.right,canvasLeft:canvasRect.left};
+    });
+    if(restoredPortrait.safeClass||Math.abs(restoredPortrait.bodyLeft)>1||Math.abs(restoredPortrait.bodyRight-390)>1||Math.abs(restoredPortrait.topbarLeft)>1||Math.abs(restoredPortrait.topbarRight-390)>1||Math.abs(restoredPortrait.canvasLeft)>1){
+      throw new Error(`portrait layout was not restored after rotation: ${JSON.stringify(restoredPortrait)}`);
+    }
     console.log("Mobile portrait/landscape display validated");
   }finally{
     await browser.close();

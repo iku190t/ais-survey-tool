@@ -43,6 +43,7 @@ Tokushima Japan
   --button:#2a2a2a;
   --buttonText:#fff;
   --mobile-landscape-safe-left:0px;
+  --mobile-landscape-sidebar-width:112px;
 }
 body.light{
   --bg:#fff;
@@ -371,7 +372,73 @@ body.mobile-landscape-safe-left{
   margin-left:var(--mobile-landscape-safe-left);
   transform:translateZ(0);
 }
-body.mobile-landscape-safe-left #wrap{width:100%;}
+body.mobile-landscape-safe-left #topbar{
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:var(--mobile-landscape-sidebar-width);
+  height:100%;
+  padding:4px;
+  box-sizing:border-box;
+  border-right:1px solid var(--border);
+  border-bottom:0;
+  gap:0;
+}
+body.mobile-landscape-safe-left #topbarMain{
+  display:grid;
+  grid-template-columns:48px 48px;
+  grid-template-rows:repeat(5,48px) minmax(22px,1fr);
+  column-gap:6px;
+  row-gap:4px;
+  width:100%;
+  height:100%;
+  min-height:0;
+  align-items:start;
+  align-content:stretch;
+  overflow:hidden;
+}
+body.mobile-landscape-safe-left.help-labels #topbarMain{min-height:0;align-items:start;}
+body.mobile-landscape-safe-left.help-labels #topbarMain button[data-help-label]{
+  width:48px!important;
+  min-width:48px!important;
+  height:48px!important;
+  grid-template-rows:20px 14px;
+  row-gap:2px;
+  padding:2px 1px!important;
+}
+body.mobile-landscape-safe-left.help-labels #topbarMain button[data-help-label]::after{font-size:10.8px;letter-spacing:-.03em;}
+body.mobile-landscape-safe-left #openIconBtn{grid-column:1;grid-row:1;}
+body.mobile-landscape-safe-left #fitBtn{grid-column:1;grid-row:2;}
+body.mobile-landscape-safe-left #bgBtn{grid-column:1;grid-row:3;}
+body.mobile-landscape-safe-left #measureBtn{grid-column:1;grid-row:4;}
+body.mobile-landscape-safe-left #drawBtn{grid-column:1;grid-row:5;}
+body.mobile-landscape-safe-left #profileBtn{grid-column:2;grid-row:1;}
+body.mobile-landscape-safe-left #textSearchOpenBtn{grid-column:2;grid-row:2;}
+body.mobile-landscape-safe-left #settingsBtn{grid-column:2;grid-row:3;}
+body.mobile-landscape-safe-left #helpBtn{grid-column:2;grid-row:4;}
+body.mobile-landscape-safe-left #creditWrap{
+  grid-column:1 / 3;
+  grid-row:6;
+  align-self:end;
+  justify-self:stretch;
+  min-height:20px;
+  margin:0;
+  padding:0 2px 3px;
+  align-items:center;
+  justify-content:flex-end;
+}
+body.mobile-landscape-safe-left #viewerLabel{font-size:11px;margin:0;text-align:center;}
+body.mobile-landscape-safe-left #wrap{
+  width:calc(100% - var(--mobile-landscape-sidebar-width));
+  margin-left:var(--mobile-landscape-sidebar-width);
+}
+body.mobile-landscape-safe-left #canvas,
+body.mobile-landscape-safe-left #interactionCanvas{
+  left:var(--mobile-landscape-sidebar-width);
+  width:calc(100% - var(--mobile-landscape-sidebar-width));
+}
+body.mobile-landscape-safe-left #startupModal{left:var(--mobile-landscape-sidebar-width);}
 #fileDropOverlay{display:none;position:absolute;inset:10px;z-index:190;align-items:center;justify-content:center;pointer-events:none;border:3px dashed #2f7dff;border-radius:16px;background:rgba(18,78,145,.82);color:#fff;font-size:22px;font-weight:850;letter-spacing:.02em;text-align:center;box-sizing:border-box;box-shadow:inset 0 0 0 2px rgba(255,255,255,.16);}
 #fileDropOverlay.show{display:flex;}
 #fileDropOverlay span{padding:16px 22px;border-radius:14px;background:rgba(0,0,0,.24);}
@@ -2431,7 +2498,8 @@ function updateMobileLandscapeSafeArea(){
 function updateWrapLayout(){
   const topbar = document.getElementById("topbar");
   const vh = getViewportHeight();
-  const topH = topbar ? Math.ceil(topbar.getBoundingClientRect().height || topbar.offsetHeight || 54) : 54;
+  const mobileLandscape=updateMobileLandscapeSafeArea()>0;
+  const topH = mobileLandscape ? 0 : (topbar ? Math.ceil(topbar.getBoundingClientRect().height || topbar.offsetHeight || 54) : 54);
   document.documentElement.style.setProperty("--cad-toolbar-offset", "0px");
   document.documentElement.style.setProperty("--topbar-height", topH + "px");
   const h = Math.max(120, Math.round(vh - topH));
@@ -2440,7 +2508,6 @@ function updateWrapLayout(){
     wrap.style.maxHeight = h + "px";
     wrap.style.minHeight = h + "px";
   }
-  updateMobileLandscapeSafeArea();
 }
 function getViewportKeyboardDelta(){
   if (!baseViewportHeight) return 0;
