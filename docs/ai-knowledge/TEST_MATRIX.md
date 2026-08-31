@@ -1,13 +1,13 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-31 / `1cac1d9`
+最終実行: 2026-08-31 / `e02544f`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
 
 |変更領域|最低限実行するテスト|
 |---|---|
-|SIMA背景・画地・水平文字|`validate-sima-import.js`、`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-real-sfc-rendering.js sample.sfc`|
+|SIMA背景・画地・水平文字|`validate-sima-import.js`、`validate-sima-performance.js`、`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |法務局地図・境界|`validate-registry-progress-cancel.js`、`validate-registry-append-and-intersection.js`、`validate-registry-cad.js`、`validate-registry-layer-colors.js`|
 |基盤地図2500|`validate-foundation-map-gml.js`、`validate-foundation-map-import.js`、`validate-base-map-toggle.js`|
 |写真読込・削除・位置|`validate-photo-album.js`、`validate-photo-album-runtime.js`、`validate-photo-network-import.js`、`validate-photo-position-adjustment.js`|
@@ -33,6 +33,7 @@
 
 - `validate-mobile-landscape.js` — 縦固定メタ・マニフェスト・JavaScriptロックの解除、844×390横画面で遮断画面が出ないこと、PC専用の写真位置が非表示であること、左側2列ツールバーのボタン順・48px寸法・全高灰色領域・最下部ロゴ、図面と起動ポップアップの残り領域、レイヤー・詳細・Undo・Redo・現在地・方位・ストリートビューの上端配置を確認。縦画面から横画面、再び縦画面へ戻して従来の全幅配置へ復帰することも確認。
 - `validate-sima-import.js` — 大文字 `.SIM` とバイナリMIME、D00種別2の地番除外、閉画地件数、SIMA単独ホーム、現在地解除時の表示復帰、37度・116度回転時の画面水平文字、境界線上の測点名が線外の最短候補へ移ることを確認。
+- `validate-sima-performance.js` — 約1MB相当の800画地・6,400測点を読み込み、空間索引、全体表示時の点名段階表示、5倍拡大時の表示対象縮小を確認。並列回帰実行時に初回読込約0.29秒、全体描画約0.054秒、拡大後描画約0.016秒。
 - `validate-gps-startup-mode.js` — SFC従来経路の現在地状態復元が維持されることを確認。
 - `validate-compass-follow.js`
 - `validate-performance-indexes.js`

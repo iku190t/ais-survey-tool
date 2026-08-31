@@ -357,6 +357,20 @@
 - 検証: `validate-sima-import.js` で境界線上の測点名が線外へ移ることと37度・116度で水平を保つことを確認。`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-pc-map-toolbar.js`、`validate-default-settings.js`、`validate-real-sfc-rendering.js sample.sfc` も成功。
 - 戻し先: 自動配置に問題がある場合は `19aded8` のSIMA点名配置差分だけを戻し、SIMA解析・座標・線描画・SFC描画は戻さない。
 
+### BASE-SIMA-PERFORMANCE-20260831
+
+- 状態: `検証済み`
+- コミット: `e02544f`
+- 対象: 800画地規模のSIMA初回読込、パン・拡大・回転時の再描画。
+- 確認内容:
+  - SIMA専用の世界座標空間索引を読込時に1回作成し、拡大後は表示範囲内の画地・測点だけを描画する。
+  - 1回の描画中は画地・測点の画面座標を使い回し、同じ点名の文字幅測定を32候補ごとではなく1回だけ行う。
+  - 全体表示で点名が読めないほど密集する場合は、点・境界・地番名・元座標を維持したまま点名だけを画面格子ごとに段階表示する。拡大して表示点数が減ると全点名を4段階32候補の重なり回避へ戻す。
+  - SIMA単独読込では表示範囲確定前の不要な初回描画を行わず、全体表示確定後に描画する。
+- 性能検証: 合成SIMA 800画地・6,400測点で、調査中の全体描画約14.2秒から単独実行約0.030秒へ短縮。最終の並列回帰では初回読込約0.29秒、全体描画約0.054秒、5倍拡大後約0.016秒。
+- 回帰検証: `validate-sima-import.js`、`validate-sima-performance.js`、`validate-performance-indexes.js`、`validate-compass-follow.js`、`validate-pc-object-interaction.js`、`validate-pc-map-toolbar.js`、`validate-default-settings.js`、`validate-gps-startup-mode.js`、`validate-mobile-landscape.js`、`validate-real-sfc-rendering.js sample.sfc`。
+- 戻し先: 高速化だけに問題がある場合は `e02544f` の差分だけを戻し、`19aded8` の点名自動配置、SIMA解析、SFC・GPS・計測・手書き処理は戻さない。
+
 ## 復元時の原則
 
 1. いきなり古いコミット全体へ戻さない。
