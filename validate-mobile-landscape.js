@@ -33,10 +33,11 @@ const server=http.createServer((req,res)=>{
     await page.route(/^https:\/\//,route=>route.abort());
     await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:"load",timeout:10000});
     const portraitState=await page.evaluate(()=>({
+      bodyLeft:document.body.getBoundingClientRect().left,
       canvasLeft:document.getElementById("canvas").getBoundingClientRect().left,
       safeClass:document.body.classList.contains("mobile-landscape-safe-left")
     }));
-    if(portraitState.safeClass||Math.abs(portraitState.canvasLeft)>1)throw new Error(`portrait canvas gained a landscape inset: ${JSON.stringify(portraitState)}`);
+    if(portraitState.safeClass||Math.abs(portraitState.bodyLeft)>1||Math.abs(portraitState.canvasLeft)>1)throw new Error(`portrait app gained a landscape inset: ${JSON.stringify(portraitState)}`);
     await page.setViewportSize({width:844,height:390});
     await page.evaluate(()=>window.dispatchEvent(new Event("orientationchange")));
     await page.waitForTimeout(500);
@@ -47,8 +48,9 @@ const server=http.createServer((req,res)=>{
       const interactionCanvas=document.getElementById("interactionCanvas");
       const wrap=document.getElementById("wrap");
       const safeEdge=document.getElementById("gpsDetailSafeEdge");
-      const canvasRect=canvas.getBoundingClientRect(),interactionRect=interactionCanvas.getBoundingClientRect(),wrapRect=wrap.getBoundingClientRect(),edgeRect=safeEdge.getBoundingClientRect();
+      const bodyRect=document.body.getBoundingClientRect(),topbarRect=topbar.getBoundingClientRect(),canvasRect=canvas.getBoundingClientRect(),interactionRect=interactionCanvas.getBoundingClientRect(),wrapRect=wrap.getBoundingClientRect(),edgeRect=safeEdge.getBoundingClientRect();
       const startup=document.getElementById("startupBox");
+      const startupModalRect=document.getElementById("startupModal").getBoundingClientRect();
       return {
         landscape:innerWidth>innerHeight,
         blockerDisplay:getComputedStyle(blocker).display,
@@ -59,14 +61,30 @@ const server=http.createServer((req,res)=>{
         canvasHeight:canvas.clientHeight,
         safeClass:document.body.classList.contains("mobile-landscape-safe-left"),
         safeLeft:Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mobile-landscape-safe-left"))||0,
+        innerWidth,
+        bodyLeft:bodyRect.left,
+        bodyRight:bodyRect.right,
+        topbarLeft:topbarRect.left,
+        wrapLeft:wrapRect.left,
         canvasLeft:canvasRect.left-wrapRect.left,
         interactionLeft:interactionRect.left-wrapRect.left,
         detailSecondCharacterLeft:edgeRect.left-wrapRect.left,
+        startupModalLeft:startupModalRect.left,
+        startupModalRight:startupModalRect.right,
         fileButtonVisible:document.getElementById("openIconBtn").getBoundingClientRect().width>0,
         startupScrollable:startup.scrollHeight>startup.clientHeight
       };
     });
-    const safeAreaAligned=state.safeClass&&state.safeLeft>30&&Math.abs(state.canvasLeft-state.detailSecondCharacterLeft)<=1.5&&Math.abs(state.interactionLeft-state.canvasLeft)<=1;
+    const safeAreaAligned=state.safeClass&&state.safeLeft>30
+      &&Math.abs(state.bodyLeft-state.safeLeft)<=1.5
+      &&Math.abs(state.bodyRight-state.innerWidth)<=1.5
+      &&Math.abs(state.topbarLeft-state.bodyLeft)<=1
+      &&Math.abs(state.wrapLeft-state.bodyLeft)<=1
+      &&Math.abs(state.canvasLeft)<=1
+      &&Math.abs(state.interactionLeft)<=1
+      &&Math.abs(state.detailSecondCharacterLeft-state.safeLeft)<=1.5
+      &&Math.abs(state.startupModalLeft-state.bodyLeft)<=1
+      &&Math.abs(state.startupModalRight-state.bodyRight)<=1;
     if(!state.landscape||state.blockerDisplay!=="none"||state.portraitClass||state.topbarDisplay==="none"||state.photoToolDisplay!=="none"||!state.fileButtonVisible||state.canvasWidth<=state.canvasHeight||!state.startupScrollable||!safeAreaAligned){
       throw new Error(`mobile landscape state failed: ${JSON.stringify(state)}`);
     }

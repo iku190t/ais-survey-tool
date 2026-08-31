@@ -366,10 +366,12 @@ label.fileBtn{
 #canvas,#interactionCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #canvas{touch-action:none;background:var(--bg);}
 #interactionCanvas{z-index:1;pointer-events:none;background:transparent;}
-body.mobile-landscape-safe-left #canvas,
-body.mobile-landscape-safe-left #interactionCanvas{
-  left:var(--mobile-landscape-safe-left);width:calc(100% - var(--mobile-landscape-safe-left));
+body.mobile-landscape-safe-left{
+  width:calc(100% - var(--mobile-landscape-safe-left));
+  margin-left:var(--mobile-landscape-safe-left);
+  transform:translateZ(0);
 }
+body.mobile-landscape-safe-left #wrap{width:100%;}
 #fileDropOverlay{display:none;position:absolute;inset:10px;z-index:190;align-items:center;justify-content:center;pointer-events:none;border:3px dashed #2f7dff;border-radius:16px;background:rgba(18,78,145,.82);color:#fff;font-size:22px;font-weight:850;letter-spacing:.02em;text-align:center;box-sizing:border-box;box-shadow:inset 0 0 0 2px rgba(255,255,255,.16);}
 #fileDropOverlay.show{display:flex;}
 #fileDropOverlay span{padding:16px 22px;border-radius:14px;background:rgba(0,0,0,.24);}
