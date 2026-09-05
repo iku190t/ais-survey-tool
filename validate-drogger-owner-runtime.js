@@ -82,6 +82,28 @@ let browser;
   if(await page.evaluate(()=>window.__droggerBeeps)!==1)throw new Error("registration beep was not requested");
   const csv=await page.evaluate(()=>window.eval("DroggerOwnerMode.buildCsv(getDroggerCoordinateRecords())"));
   if(!csv.includes("P1")||!csv.includes("13.725")||!csv.includes("RTK状態")||!csv.includes("FIXED"))throw new Error("runtime CSV is incomplete");
+  const elevationDisplay=await page.evaluate(()=>{
+    const previousStrokes=inkStrokes,previousData=data,previousBlank=gpsOnlyBlankMode;
+    try{
+      const record={...getDroggerCoordinateRecords()[0],name:"P-display",elevation:2.010};
+      const labels=[];
+      for(const blank of [false,true]){
+        gpsOnlyBlankMode=blank;
+        data=blank?{lines:[],polys:[],texts:[],circles:[],arcs:[],ellipses:[],ellipseArcs:[],splines:[],markers:[],layerNames:{}}:previousData;
+        inkStrokes=DroggerOwnerMode.createRegistrationStrokes(record,500,droggerOwnerSettings);
+        // Simulate a saved label produced by the old rounding bug.
+        inkStrokes[4].photoTextLabel.text="2.00";
+        const before=JSON.stringify(inkStrokes);
+        const drawn=[];
+        const context=document.createElement("canvas").getContext("2d");
+        context.fillText=text=>drawn.push(String(text));
+        drawDroggerCadLabels(context);
+        labels.push({blank,drawn,unchanged:JSON.stringify(inkStrokes)===before});
+      }
+      return labels;
+    }finally{inkStrokes=previousStrokes;data=previousData;gpsOnlyBlankMode=previousBlank;}
+  });
+  if(elevationDisplay.some(result=>!result.drawn.includes("2.01")||result.drawn.includes("2.00")||!result.unchanged))throw new Error(`saved elevation labels were not corrected without data mutation: ${JSON.stringify(elevationDisplay)}`);
   await page.evaluate(()=>window.eval(`(()=>{
     gpsPosition.altitude=null;gpsPosition.altitudeAccuracy=null;gpsPosition.timestamp=Date.now()-60000;updateGpsUi();
   })()`));

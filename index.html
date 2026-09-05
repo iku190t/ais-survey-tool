@@ -2408,7 +2408,7 @@ gtag('config', 'G-88B9YPJXWP');
 <script src="foundation-map-gml.js?v=1"></script>
 <script src="sima-import.js?v=1"></script>
 <script src="drogger-geoid-model.js?v=1"></script>
-<script src="drogger-owner-mode.js?v=5"></script>
+<script src="drogger-owner-mode.js?v=6"></script>
 <script src="data/japan-plane-zones.js?v=1"></script>
 <script src="japan-plane-zone-resolver.js?v=1"></script>
 <script>
@@ -12135,10 +12135,8 @@ function drawDroggerGpsOnlyMarkers(drawCtx=ctx){
 function drawDroggerCadLabels(drawCtx=ctx){
   const fixedPreview=gpsOnlyBlankMode&&!hasLoadedDrawing();
   const recordCenters=new Map();
-  if(fixedPreview){
-    for(const stroke of inkStrokes||[]){
-      if(stroke?.droggerRecord&&stroke?.droggerPointId)recordCenters.set(stroke.droggerPointId,stroke.droggerRecord);
-    }
+  for(const stroke of inkStrokes||[]){
+    if(stroke?.droggerRecord&&stroke?.droggerPointId)recordCenters.set(stroke.droggerPointId,stroke.droggerRecord);
   }
   for(const stroke of inkStrokes||[]){
     if(stroke?.droggerLayerId!=="drogger:name"&&stroke?.droggerLayerId!=="drogger:elevation")continue;
@@ -12165,7 +12163,11 @@ function drawDroggerCadLabels(drawCtx=ctx){
     drawCtx.font=`${fontPx}px "MS Gothic", "Noto Sans JP", sans-serif`;
     drawCtx.textAlign="left";
     drawCtx.textBaseline="middle";
-    drawCtx.fillText(String(label.text),0,0);
+    // Saved labels can contain the old truncation error; render from the retained
+    // registered elevation without rewriting coordinates, geometry or metadata.
+    const elevationRecord=stroke.droggerLayerId==="drogger:elevation"?recordCenters.get(stroke.droggerPointId):null;
+    const displayText=elevationRecord?window.DroggerOwnerMode.drawingElevationText(elevationRecord.elevation):label.text;
+    drawCtx.fillText(String(displayText),0,0);
     drawCtx.restore();
   }
 }

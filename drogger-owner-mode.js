@@ -33,7 +33,11 @@
   function drawingElevationText(value){
     const numeric=finite(value);
     if(numeric==null)return "－";
-    return (Math.trunc((numeric+Math.sign(numeric)*Number.EPSILON)*100)/100).toFixed(2);
+    if(Math.abs(numeric)<.01)return "0.00";
+    if(Math.abs(numeric)>=1e21)return numeric.toFixed(2);
+    // Truncate decimal digits directly: 2.01 * 100 can be 200.99999999999997.
+    const [whole,fraction=""]=String(numeric).split(".");
+    return `${whole}.${(fraction+"00").slice(0,2)}`;
   }
   function nextPointName(records){
     const used=new Set((records||[]).map(item=>String(item&&item.name||"").trim()));

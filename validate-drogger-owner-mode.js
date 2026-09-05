@@ -11,10 +11,33 @@ vm.runInContext(fs.readFileSync(__dirname+"/drogger-owner-mode.js","utf8"),conte
 const feature=context.window.DroggerOwnerMode;
 if(!feature)throw new Error("Drogger owner module is not loaded");
 
+for(const [value,expected] of [
+  [2.010,"2.01"],["2.010","2.01"],[2.019,"2.01"],[2.050,"2.05"],[4.100,"4.10"],
+  [-2.019,"-2.01"],[-81.85,"-81.85"],[2.009999999999999,"2.00"],
+  [0,"0.00"],[-0,"0.00"],[.009,"0.00"],[-.009,"0.00"],[1e-7,"0.00"],
+  [null,"－"],[undefined,"－"],["","－"],[NaN,"－"],[Infinity,"－"]
+]){
+  const actual=feature.drawingElevationText(value);
+  if(actual!==expected)throw new Error(`elevation display mismatch: ${String(value)} -> ${actual}, expected ${expected}`);
+}
+// Use integer millimetres for an independent oracle, not the same floating-point formula.
+for(let mm=-100000;mm<=100000;mm++){
+  const expected=(Math.trunc(mm/10)/100).toFixed(2);
+  if(feature.drawingElevationText(mm/1000)!==expected)throw new Error(`millimetre elevation display mismatch at ${mm} mm`);
+}
+
 const settings=feature.normalizeSettings({antennaHeight:1.5,nameTextSizeMm:3,elevationTextSizeMm:2});
 const gps={lat:34.1,lon:134.5,zone:4,x:100.123,y:200.456,sfcX:200.456,sfcY:100.123,altitude:52.345,geoidHeight:37.1197,geoidModelName:"JPGEO2024",accuracy:.015,altitudeAccuracy:.025,fixMode:"FIXED",fixQuality:4,fixAgeMs:120,timestamp:Date.now()};
 const record=feature.createRecord(gps,settings,"K-1");
 if(!record||Math.abs(record.elevation-13.725)>1e-9||record.fixMode!=="FIXED"||record.fixQuality!==4)throw new Error("geoid correction or RTK state storage failed");
+for(const elevation of [2.010,2.019]){
+  const exactRecord=feature.createRecord({...gps,altitude:elevation,geoidHeight:0},{antennaHeight:0},"P-display");
+  const before=JSON.stringify(exactRecord);
+  const labels=feature.createRegistrationStrokes(exactRecord,500,settings);
+  if(labels[4].photoTextLabel.text!=="2.01")throw new Error("registration label did not use two-decimal truncation");
+  if(exactRecord.elevation!==elevation||JSON.stringify(exactRecord)!==before)throw new Error("display formatting changed the registered elevation");
+  if(feature.buildCsv([exactRecord]).split("\r\n")[1].split(",")[3]!==elevation.toFixed(3))throw new Error("CSV lost its three-decimal elevation");
+}
 const strokes=feature.createRegistrationStrokes(record,250,settings);
 if(strokes.length!==5)throw new Error("registration must create circle, plus and two labels");
 if(strokes[0].droggerLayerId!==feature.LAYERS.point||strokes[1].droggerLayerId!==feature.LAYERS.point||strokes[2].droggerLayerId!==feature.LAYERS.point||strokes[3].droggerLayerId!==feature.LAYERS.name||strokes[4].droggerLayerId!==feature.LAYERS.elevation)throw new Error("Drogger layers are not separated");
@@ -50,7 +73,7 @@ const required=[
   'id="droggerCoordinateModal"',
   'id="droggerOwnerMinimizeBtn"',
   'drogger-geoid-model.js?v=1',
-  'drogger-owner-mode.js?v=5',
+  'drogger-owner-mode.js?v=6',
   'id="droggerGeoidModelBtn"',
   'const DROGGER_OWNER_LONG_PRESS_MS=3000',
   'handleDroggerTitlePointerDown',
