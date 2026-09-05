@@ -19,7 +19,7 @@ const colorStart=html.indexOf("const SXF_PREDEFINED_COLOR_NAMES_BY_CODE");
 const colorEnd=html.indexOf("function adaptContrastColor",colorStart);
 const widthStart=html.indexOf("const SXF_PREDEFINED_WIDTH_BY_CODE");
 const widthEnd=html.indexOf("function parseSfcTextLegacyFallback",widthStart);
-const parserStart=html.indexOf("function getFlatSxfText");
+const parserStart=html.indexOf("function flattenSxfFeatureBlocks");
 const parserEnd=html.indexOf("function buildMemoColorDefinitionText",parserStart);
 if(colorStart<0||colorEnd<=colorStart||widthStart<0||widthEnd<=widthStart||parserStart<0||parserEnd<=parserStart){
   throw new Error("SXF definition helpers are missing");

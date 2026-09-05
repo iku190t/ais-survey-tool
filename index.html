@@ -2320,6 +2320,7 @@ gtag('config', 'G-88B9YPJXWP');
               <div class="helpBlock">本ソフトウェアは <b>GNU Affero General Public License version 3</b>（AGPL-3.0-only）に基づき、利用・改変・再配布できます。無保証で提供されます。</div>
               <div class="helpBlock"><div class="helpHead">改変版の原作者表示</div><b>「Ez Viewerを基に作成 / Original project: Ez Viewer」</b>という原作者表示を、改変版のヘルプ・概要・法的表示など利用者が確認できる場所に残してください。改変版の製品名をEz Viewerに固定する条件ではありません。</div>
               <div class="helpBlock"><a href="https://github.com/iku190t/ais-survey-tool" target="_blank" rel="noopener noreferrer">ソースコードを開く</a>　<a href="https://github.com/iku190t/ais-survey-tool/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">ライセンス全文</a>　<a href="https://github.com/iku190t/ais-survey-tool/blob/main/ADDITIONAL_TERMS.md" target="_blank" rel="noopener noreferrer">追加条件</a></div>
+              <div class="helpBlock">座標系の端末内判定は、<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-v3_1.html" target="_blank" rel="noopener noreferrer">国土数値情報（行政区域データ、2023年）</a>（国土交通省）をEz Viewerで編集・加工して使用しています。<a href="https://github.com/iku190t/ais-survey-tool/blob/main/data/JAPAN_PLANE_ZONES.md" target="_blank" rel="noopener noreferrer">加工内容・利用条件</a></div>
               <div class="helpBlock helpNote">測量成果・境界・標高等の最終判断には、正式な資料と現地確認を使用してください。</div>
             </div>
           </div>
@@ -2408,6 +2409,8 @@ gtag('config', 'G-88B9YPJXWP');
 <script src="sima-import.js?v=1"></script>
 <script src="drogger-geoid-model.js?v=1"></script>
 <script src="drogger-owner-mode.js?v=5"></script>
+<script src="data/japan-plane-zones.js?v=1"></script>
+<script src="japan-plane-zone-resolver.js?v=1"></script>
 <script>
 const GA_MEASUREMENT_ID = "G-88B9YPJXWP";
 const GA_PLACEHOLDER_ID = "G-88B9YPJXWP";
@@ -3273,15 +3276,14 @@ function calcDistanceFromPlaneToSfcBoundsMeters(xNorth,yEast,useMeshTransform=!!
   return Number.isFinite(minDistance)?minDistance:null;
 }
 function chooseJapanPlaneZone(lat, lon){
-  // 四国エリアは実務上ほぼ4系で使う前提に固定する
-  // 徳島・香川・愛媛・高知の現在地で、変な系へ飛ばないようにする
-  const inShikoku =
-    lat >= 32.4 && lat <= 34.9 &&
-    lon >= 132.0 && lon <= 134.95;
-  if (inShikoku) return 4;
-
-  // それ以外は現在地だけで判定する
-  // 図面の座標範囲は使わない
+  // Applicable zones follow administrative areas, not the nearest projection
+  // origin. All location matching runs locally; no reverse-geocoder request.
+  const resolver=window.EzJapanPlaneZoneResolver;
+  if(!resolver?.ready())throw new Error("座標系判定データを読み込めません。画面を再読み込みしてください");
+  const resolved=resolver.resolve(lat,lon);
+  if(resolved)return resolved.zone;
+  // Preserve the existing approximate projection choice outside the available
+  // administrative/coastal coverage (for example an overseas photo).
   const candidates = [];
   for (const z of JAPAN_PLANE_ZONES){
     try{

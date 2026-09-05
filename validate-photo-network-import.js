@@ -35,7 +35,7 @@ let browser;
   });
   await page.route(/^https:\/\//,route=>route.abort());
   await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:"commit",timeout:10000});
-  await page.waitForFunction(()=>typeof window.eval("readPhotoExif")==="function",null,{timeout:10000});
+  await page.waitForFunction(()=>typeof window.readPhotoExif==="function",null,{timeout:10000});
   const result=await page.evaluate(()=>window.eval(`(async()=>{
     const originalParser=parsePhotoExifBuffer;
     const makeFile=(fullSize,prefixShouldFail=false)=>{

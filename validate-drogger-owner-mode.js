@@ -50,7 +50,7 @@ const required=[
   'id="droggerCoordinateModal"',
   'id="droggerOwnerMinimizeBtn"',
   'drogger-geoid-model.js?v=1',
-  'drogger-owner-mode.js?v=4',
+  'drogger-owner-mode.js?v=5',
   'id="droggerGeoidModelBtn"',
   'const DROGGER_OWNER_LONG_PRESS_MS=3000',
   'handleDroggerTitlePointerDown',

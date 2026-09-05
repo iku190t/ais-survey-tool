@@ -8,7 +8,7 @@ const checks=[
   ["DEM欠損時の連続再取得を抑制",/const fresh=cache\.checked===true&&distance<=3&&Date\.now\(\)-cache\.updatedAt<15000/],
   ["GPS標高をDEM標高へ変更",/const elevationLabel=gpsPosition\.demSource\?`\$\{gpsPosition\.demSource\}標高`:'DEM標高'/],
   ["GPS更新時にDEM取得",/applyCachedGpsDemElevation\(gpsPosition\);[\s\S]*void refreshGpsDemElevation\(lat,lon\);/],
-  ["写真帳のファイル名から拡張子を除外",/if\(field==="fileName"\)return `ファイル名：\$\{String\(item\.fileName\|\|""\)\.replace\(\/\\\.\[\^\.\]\+\$\/u,""\)\}`/]
+  ["写真帳は拡張子と項目名なしでファイル名だけ表示",/if\(field==="fileName"\)return String\(item\.fileName\|\|""\)\.replace\(\/\\\.\[\^\.\]\+\$\/u,""\)/]
 ];
 for(const [label,pattern] of checks)if(!pattern.test(source))throw new Error(`Missing: ${label}`);
 

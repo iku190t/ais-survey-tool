@@ -3,7 +3,7 @@ const http=require("http");
 const path=require("path");
 const {chromium}=require("playwright");
 
-const source=fs.readFileSync("index.html","utf8");
+const source=fs.readFileSync("index.html","utf8").replace(/\r\n/g,"\n");
 const required=[
   "const TOUCH_PAN_ACTIVATION_PX=16;",
   "setTouchPanPreview(",
