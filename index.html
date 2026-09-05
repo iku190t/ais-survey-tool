@@ -2407,7 +2407,7 @@ gtag('config', 'G-88B9YPJXWP');
 <script src="foundation-map-gml.js?v=1"></script>
 <script src="sima-import.js?v=1"></script>
 <script src="drogger-geoid-model.js?v=1"></script>
-<script src="drogger-owner-mode.js?v=4"></script>
+<script src="drogger-owner-mode.js?v=5"></script>
 <script>
 const GA_MEASUREMENT_ID = "G-88B9YPJXWP";
 const GA_PLACEHOLDER_ID = "G-88B9YPJXWP";
@@ -2502,7 +2502,9 @@ function updateWrapLayout(){
   const topH = mobileLandscape ? 0 : (topbar ? Math.ceil(topbar.getBoundingClientRect().height || topbar.offsetHeight || 54) : 54);
   document.documentElement.style.setProperty("--cad-toolbar-offset", "0px");
   document.documentElement.style.setProperty("--topbar-height", topH + "px");
-  const h = Math.max(120, Math.round(vh - topH));
+  const notice=document.getElementById("envNotice");
+  const noticeH=notice&&getComputedStyle(notice).display!=="none"?notice.getBoundingClientRect().height:0;
+  const h = Math.max(120, Math.round(vh - topH - noticeH));
   if (wrap){
     wrap.style.height = h + "px";
     wrap.style.maxHeight = h + "px";
@@ -2583,6 +2585,9 @@ let data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [
 // Keep the opened SFC source in memory. Source-level edits and generated
 // annotations are reapplied during export, while Undo can restore prior state.
 let loadedSfcText = "";
+let recoveryWorkspaceSource = "";
+let simaSourceText = "";
+let recoveryFingerprintCache = null;
 let lastSaveHandle = null;
 let lastSfcSidecarDirectoryHandle = null;
 let currentLoadedKind = "sfc";
@@ -3616,6 +3621,7 @@ function profileZoneFromDevicePosition(pos){
 }
 async function resolveProfileZone(){
   if (!isDrawingActionAvailable() || !ensureProj4Defs()) return null;
+  if(gpsEnabled&&gpsTemporaryCoordinateZone)return gpsTemporaryCoordinateZone;
   const manualZone=getManualCoordinateZone();
   if(manualZone){
     profileZone=manualZone;
@@ -7115,7 +7121,10 @@ function updateGpsUi(){
   el.innerHTML = `測地系: ${JGD2024_NAME}<br>系番号: ${zoneMemo}<br>緯度: ${gpsPosition.lat.toFixed(7)}<br>経度: ${gpsPosition.lon.toFixed(7)}<br>平面直角X: ${gpsPosition.x.toFixed(3)}<br>平面直角Y: ${gpsPosition.y.toFixed(3)}<br>${elevationLabel}: ${altitudeText}<br>誤差: 約${formatGpsAccuracyMeters(gpsPosition.accuracy)}m`;
 }
 function hasLoadedDrawing(){
-  return !!(data && ((data.lines && data.lines.length) || (data.polys && data.polys.length) || (data.texts && data.texts.length) || (data.circles && data.circles.length)));
+  return hasDrawingGeometry(data);
+}
+function hasDrawingGeometry(drawing){
+  return !!drawing&&["lines","polys","texts","circles","arcs","ellipses","ellipseArcs","splines","markers"].some(key=>drawing[key]?.length);
 }
 function hasLoadedSimaWorkspace(){
   return !!(simaMapState&&simaMapState.loaded&&simaMapState.points&&simaMapState.points.length);
@@ -11687,13 +11696,18 @@ function sxfMeasurePointForItem(item,index,x,y,layer){
 function findNearestPoint(screenX,screenY){
   ensureMeasurePoints();
   let best=null,bestDist=Infinity;
-  for(const p of cachedMeasurePoints){
+  for(const points of [cachedMeasurePoints,getSimaSnapPoints(screenX,screenY,30)])for(const p of points){
     const [sx,sy]=worldToScreen(p.x,p.y);
     const d=Math.hypot(sx-screenX,sy-screenY);
     if(d<bestDist){ bestDist=d; best=p; }
   }
   if(bestDist<=30) return best;
   return null;
+}
+function getSimaSnapPoints(screenX,screenY,threshold){
+  if(!simaDisplayEnabled||!simaMapState.loaded||!simaLayerVisibility.point)return [];
+  const corners=[screenToWorld(screenX-threshold,screenY-threshold),screenToWorld(screenX+threshold,screenY-threshold),screenToWorld(screenX+threshold,screenY+threshold),screenToWorld(screenX-threshold,screenY+threshold)];
+  return querySimaSpatialIndex(simaMapState,{minx:Math.min(...corners.map(p=>p[0])),maxx:Math.max(...corners.map(p=>p[0])),miny:Math.min(...corners.map(p=>p[1])),maxy:Math.max(...corners.map(p=>p[1]))}).points;
 }
 function findNearestPointNumberText(screenX,screenY){
   if(!showText) return null;
@@ -11833,6 +11847,15 @@ function getVisibleSegmentsNearScreen(screenX,screenY,threshold=26){
     if(!isLayerVisible(layer))return;
     for(let i=1;i<(pts||[]).length;i++)consider(pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1],layer,item,i-1,i);
   });
+  if(simaDisplayEnabled&&simaMapState.loaded&&simaLayerVisibility.boundary){
+    for(const parcel of querySimaSpatialIndex(simaMapState,queryBounds).parcels){
+      const points=parcel.points||[],count=parcel.type==="2"?points.length-1:points.length;
+      for(let i=0;i<count;i++){
+        const a=points[i],b=points[(i+1)%points.length];
+        consider(a.x,a.y,b.x,b.y,null,null,0,1);
+      }
+    }
+  }
   // Dense drawings can place hundreds of short segments under one finger.
   // The nearest segments are sufficient to determine the intended crossing.
   nearby.sort((a,b)=>a.distance-b.distance);
@@ -11855,6 +11878,10 @@ function findNearestVisibleCircleCenter(screenX,screenY,threshold=28){
 function findNearestVisibleEndpoint(screenX,screenY,threshold=22){
   const segments=getVisibleSegmentsNearScreen(screenX,screenY,threshold+6);
   let best=null,bestDistance=Infinity;
+  for(const point of getSimaSnapPoints(screenX,screenY,threshold)){
+    const screen=worldToScreen(point.x,point.y),distance=Math.hypot(screen[0]-screenX,screen[1]-screenY);
+    if(distance<bestDistance){bestDistance=distance;best={x:point.x,y:point.y,end:true};}
+  }
   for(const segment of segments){
     for(const [point,model] of [[segment.a,segment.modelA],[segment.b,segment.modelB]]){
       const screen=worldToScreen(point.x,point.y),distance=Math.hypot(screen[0]-screenX,screen[1]-screenY);
@@ -14440,6 +14467,7 @@ function updateSimaMapUi(){
 }
 function clearSimaData(){
   simaMapState=simaEmptyState();simaDisplayEnabled=false;
+  simaSourceText="";recoveryWorkspaceSource="";
   if(simaFileInput)simaFileInput.value="";
   updateSimaMapUi();scheduleDraw();
 }
@@ -14449,7 +14477,11 @@ async function loadSimaFile(file){
   if(simaMapStatus)simaMapStatus.textContent="SIMAデータを解析しています…";
   try{
     const text=simaDecodeArrayBuffer(await file.arrayBuffer());
-    simaMapState=simaToWorldState(window.EzSimaImport.parse(text),file.name||"SIMA");
+    const nextState=simaToWorldState(window.EzSimaImport.parse(text),file.name||"SIMA");
+    if(!nextState.points.length)throw new Error("有効な座標がありません");
+    simaMapState=nextState;
+    simaSourceText=text;
+    recoveryWorkspaceSource="";
     simaDisplayEnabled=true;
     const closedParcelCount=simaMapState.parcels.filter(parcel=>parcel.type!=="2").length;
     const simaOnly=!hasLoadedDrawing();
@@ -14462,9 +14494,10 @@ async function loadSimaFile(file){
     }
     updateSimaMapUi();
     if(!simaOnly)scheduleDraw();
+    scheduleRecoverySnapshot();
     showToast(`SIMAを読み込みました（画地 ${closedParcelCount}件／測点 ${simaMapState.points.length}点）`,2600);
   }catch(error){
-    console.error(error);simaMapState=simaEmptyState();simaDisplayEnabled=false;
+    console.error(error);
     if(simaMapStatus)simaMapStatus.textContent=`読み込めません：${error?.message||"SIMA形式を確認してください"}`;
     scheduleDraw();
   }finally{if(simaFileInput)simaFileInput.value="";}
@@ -15031,7 +15064,7 @@ function resize(redraw=true){
 }
 
 function hasLoadedDrawing(){
-  return !!((data.lines&&data.lines.length)||(data.polys&&data.polys.length)||(data.texts&&data.texts.length)||(data.circles&&data.circles.length));
+  return hasDrawingGeometry(data);
 }
 function deleteCurrentRecoverySnapshot(){
   try{
@@ -15173,6 +15206,8 @@ function clearLoadedState(){
   largeDrawingStats={sourceBytes:0,features:0,vertices:0};
   data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [], ellipseArcs: [], markers: [], layerNames: {}, source_name: "" };
   loadedSfcText = "";
+  recoveryWorkspaceSource = "";
+  simaSourceText = "";
   inkStrokes = [];
   aerialCadImages = [];
   photoAnnotations = [];
@@ -18750,7 +18785,7 @@ function getSfcSaveErrorMessage(error,fallback="SFCを保存できませんで�
 function getPickerStartHandle(){
   return currentOpenHandle || lastSaveHandle || lastPickerHandle || null;
 }
-function computeRecoveryFingerprint(){
+function computeLegacyRecoveryFingerprint(){
   const src = String(loadedSfcText || "");
   const name = String((data && data.source_name) || "");
   const base = `${currentLoadedKind}::${name}::${src.length}`;
@@ -18763,6 +18798,25 @@ function computeRecoveryFingerprint(){
   h ^= name.length;
   h = (h >>> 0).toString(16);
   return `${base}::${h}`;
+}
+function getRecoverySourceText(){
+  if(loadedSfcText)return String(loadedSfcText);
+  if(!recoveryWorkspaceSource){
+    recoveryWorkspaceSource=JSON.stringify({kind:"workspace",id:crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`,simaText:simaSourceText,sourceName:simaMapState.sourceName||""});
+  }
+  return recoveryWorkspaceSource;
+}
+function computeRecoveryFingerprint(){
+  const src=getRecoverySourceText(),name=String(data?.source_name||""),kind=currentLoadedKind;
+  if(recoveryFingerprintCache?.src===src&&recoveryFingerprintCache.name===name&&recoveryFingerprintCache.kind===kind)return recoveryFingerprintCache.value;
+  let h=2166136261>>>0;
+  for(let i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}
+  const value=`v3::${kind}::${name}::${src.length}::${(h>>>0).toString(16)}`;
+  recoveryFingerprintCache={src,name,kind,value};
+  return value;
+}
+function recoveryFingerprintMatches(value){
+  return value===computeRecoveryFingerprint()||!!loadedSfcText&&value===computeLegacyRecoveryFingerprint();
 }
 
 function loadRecoveryIndex(){
@@ -18852,15 +18906,16 @@ function requestRecoveryStoragePersistence(){
   }catch(_e){}
 }
 async function persistRecoveryBaseSource(){
-  if(!data||!loadedSfcText)return false;
+  if(!data||!hasActiveWorkspace()&&!loadedSfcText)return false;
   const key=getRecoveryStorageKey();
   if(recoveryBaseStoredKeys.has(key))return true;
   const record={
     key,
     updatedAt:Date.now(),
-    sourceName:String(data.source_name||"recovery.sfc"),
+    sourceName:String(data.source_name||simaMapState.sourceName||"現在地の作業"),
     currentLoadedKind:String(currentLoadedKind||"sfc"),
-    sourceText:String(loadedSfcText)
+    sourceText:getRecoverySourceText(),
+    workspaceOnly:!loadedSfcText
   };
   try{
     requestRecoveryStoragePersistence();
@@ -18894,7 +18949,7 @@ async function flushRecoveryIndexedDbSave(){
   recoveryDbFlushBusy=true;
   try{
     while(recoveryDbPendingRecord){
-      const record=recoveryDbPendingRecord;
+      const {baseRecord,...record}=recoveryDbPendingRecord;
       recoveryDbPendingRecord=null;
       const db=await openRecoveryDb();
       const lastHistory=recoveryHistoryLastSaved.get(record.key)||0;
@@ -18902,8 +18957,10 @@ async function flushRecoveryIndexedDbSave(){
       const stores=addHistory
         ? [RECOVERY_DB_SNAPSHOT_STORE,RECOVERY_DB_HISTORY_STORE]
         : [RECOVERY_DB_SNAPSHOT_STORE];
+      if(baseRecord)stores.push(RECOVERY_DB_BASE_STORE);
       const tx=db.transaction(stores,"readwrite");
       const done=recoveryDbTransactionDone(tx);
+      if(baseRecord)tx.objectStore(RECOVERY_DB_BASE_STORE).put(baseRecord);
       tx.objectStore(RECOVERY_DB_SNAPSHOT_STORE).put(record);
       if(addHistory){
         tx.objectStore(RECOVERY_DB_HISTORY_STORE).add({
@@ -18915,6 +18972,7 @@ async function flushRecoveryIndexedDbSave(){
         });
       }
       await done;
+      if(baseRecord)recoveryBaseStoredKeys.add(record.key);
       if(addHistory){
         recoveryHistoryLastSaved.set(record.key,record.updatedAt);
         await pruneRecoveryHistory(db,record.key);
@@ -18963,10 +19021,12 @@ async function deleteRecoveryIndexedDbKey(key){
 }
 function buildRecoveryPayload(){
   return {
-    version: 2,
+    version: 3,
     ts: Date.now(),
     currentLoadedKind,
-    sourceName: String((data && data.source_name) || ""),
+    sourceName: String(data?.source_name||simaMapState.sourceName||"現在地の作業"),
+    workspaceProfileZone:!loadedSfcText?profileZone:null,
+    simaDisplayEnabled,
     fingerprint: computeRecoveryFingerprint(),
     darkTheme: !!darkTheme,
     showText: !!showText,
@@ -18983,11 +19043,11 @@ function buildRecoveryPayload(){
 }
 function saveRecoverySnapshot(options={}){
   try{
-    if (!data || !loadedSfcText) return false;
+    if (!data || !loadedSfcText&&!hasActiveWorkspace()) return false;
+    requestRecoveryStoragePersistence();
     const payload=buildRecoveryPayload();
     const key=getRecoveryStorageKey();
     const json=JSON.stringify(payload);
-    void persistRecoveryBaseSource();
     try{
       if(window.localStorage)localStorage.setItem(key,json);
     }catch(err){
@@ -18998,6 +19058,7 @@ function saveRecoverySnapshot(options={}){
     touchRecoveryIndex(key,payload.sourceName);
     queueRecoveryIndexedDbSave({
       key,
+      baseRecord:recoveryBaseStoredKeys.has(key)?null:{key,updatedAt:payload.ts,sourceName:payload.sourceName,currentLoadedKind,sourceText:getRecoverySourceText(),workspaceOnly:!loadedSfcText},
       updatedAt:payload.ts,
       sourceName:payload.sourceName,
       fingerprint:payload.fingerprint,
@@ -19143,7 +19204,12 @@ function migrateMemoLayerCirclesFromDataToInk(){
 }
 
 function applyRecoveryPayload(payload){
-  if(!payload||payload.fingerprint!==computeRecoveryFingerprint())return false;
+  if(!payload||!recoveryFingerprintMatches(payload.fingerprint))return false;
+  if(!loadedSfcText&&payload.workspaceProfileZone)profileZone=payload.workspaceProfileZone;
+  if(simaMapState.loaded){
+    simaDisplayEnabled=payload.simaDisplayEnabled!==false;
+    updateSimaMapUi();
+  }
   if(Array.isArray(payload.inkStrokes))inkStrokes=migrateInkStrokesToSingleFormat(payload.inkStrokes);
   aerialCadImages=(Array.isArray(payload.aerialCadImages)?payload.aerialCadImages:[]).map(normalizeAerialCadImageEntry).filter(Boolean);
   restorePhotoAnnotations(payload.photoAnnotations);
@@ -19185,7 +19251,7 @@ async function restoreRecoverySnapshotFromIndexedDb(key,fingerprint){
       records.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
       record=records[0]||null;
     }
-    if(!record||getRecoveryStorageKey()!==key||computeRecoveryFingerprint()!==fingerprint)return false;
+    if(!record||!recoveryFingerprintMatches(fingerprint))return false;
     const payload=JSON.parse(record.json);
     if(!applyRecoveryPayload(payload))return false;
     try{
@@ -19213,7 +19279,15 @@ function restoreRecoverySnapshotIfAvailable(){
         if(applyRecoveryPayload(payload))return true;
       }catch(err){console.warn("Recovery localStorage restore failed",err);}
     }
-    restoreRecoverySnapshotFromIndexedDb(key,fingerprint);
+    const legacyFingerprint=computeLegacyRecoveryFingerprint();
+    const legacyKey=RECOVERY_STORAGE_PREFIX+legacyFingerprint;
+    try{
+      const legacy=localStorage.getItem(legacyKey);
+      if(legacy&&applyRecoveryPayload(JSON.parse(legacy)))return true;
+    }catch(_e){}
+    restoreRecoverySnapshotFromIndexedDb(key,fingerprint).then(restored=>{
+      if(!restored&&recoveryFingerprintMatches(fingerprint))return restoreRecoverySnapshotFromIndexedDb(legacyKey,legacyFingerprint);
+    });
     return false;
   }catch(err){
     console.error(err);
@@ -19294,7 +19368,19 @@ async function restoreLatestRecoveryWork(){
     if(!work){showToast("復元できる前回作業がありません",2400);return false;}
     const {key,baseRecord,payload}=work;
     recoveryBaseStoredKeys.add(key);
-    await handleLoadedSource(
+    if(baseRecord.workspaceOnly){
+      const workspace=JSON.parse(baseRecord.sourceText);
+      clearLoadedState();
+      resetSessionFromLoad();
+      recoveryWorkspaceSource=baseRecord.sourceText;
+      profileZone=payload.workspaceProfileZone||null;
+      if(workspace.simaText){
+        simaSourceText=workspace.simaText;
+        simaMapState=simaToWorldState(window.EzSimaImport.parse(simaSourceText),workspace.sourceName||"SIMA");
+        simaDisplayEnabled=true;
+      }else enterGpsOnlyBlankMode();
+      document.getElementById("startupModal").style.display="none";
+    }else await handleLoadedSource(
       String(baseRecord.sourceText||""),
       String(baseRecord.sourceName||payload.sourceName||"recovery.sfc"),
       null,
@@ -19842,6 +19928,18 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   showBusy("SFCを解析中…");
   await waitForUiPaint();
   try{
+  const parseStarted=performance.now();
+  let parsed,renderSourceText;
+  try{
+    renderSourceText=getSfcRenderSourceText(srcText);
+    parsed=parseSfcText(renderSourceText,fileName||"loaded.sfc");
+    const metadata=parseMemoMetaPayload(srcText);
+    if(!hasDrawingGeometry(parsed)&&!metadata?.strokes?.length&&!metadata?.photoAnnotations?.length){
+      showToast("このSFCは読めません。現在の作業は維持します",2600);return false;
+    }
+  }catch(err){
+    console.error(err);showToast("SFC解析に失敗しました。現在の作業は維持します",2600);return false;
+  }
   window.__EMBED_PAYLOAD_B64__ = "";
   stopCompassFollow();
   clearLoadedState();
@@ -19850,15 +19948,7 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   loadedSfcText = srcText;
   lastSaveHandle = handleOverride || null;
   if (handleOverride) lastPickerHandle = handleOverride;
-  const parseStarted=performance.now();
-  try{
-    const renderSourceText=getSfcRenderSourceText(srcText);
-    data = prepareRenderMetadata(parseSfcText(renderSourceText, fileName || "loaded.sfc"),renderSourceText.length);
-  }catch(err){
-    console.error(err);
-    showToast("SFC解析に失敗しました",2600);
-    return;
-  }
+  data = prepareRenderMetadata(parsed,renderSourceText.length);
   data._parseElapsedMs=Math.round(performance.now()-parseStarted);
   const count = data.lines.length + data.polys.length + data.texts.length + data.circles.length +
     (data.splines?.length||0) + (data.arcs?.length||0) + (data.ellipses?.length||0) +

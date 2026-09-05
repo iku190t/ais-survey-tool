@@ -172,9 +172,9 @@
     }
     return result;
   }
-  function csvValue(value){
+  function csvValue(value,numeric=false){
     let text=value==null?"":String(value);
-    if(/^[=+\-@]/.test(text))text="'"+text;
+    if(!numeric&&/^[=+\-@]/.test(text))text="'"+text;
     return /[",\r\n]/.test(text)?`"${text.replace(/"/g,'""')}"`:text;
   }
   function buildCsv(records){
@@ -182,7 +182,7 @@
     const rows=(records||[]).map(record=>[
       record.name,finite(record.x),finite(record.y),finite(record.elevation)==null?null:Number(record.elevation).toFixed(3),finite(record.antennaAltitude),finite(record.antennaHeight),finite(record.accuracy),record.fixMode||"",finite(record.zone),finite(record.lat),finite(record.lon),record.registeredAt?new Date(record.registeredAt).toLocaleString("ja-JP"):""
     ]);
-    return [headers,...rows].map(row=>row.map(csvValue).join(",")).join("\r\n");
+    return [headers.map(value=>csvValue(value)).join(","),...rows.map(row=>row.map((value,index)=>csvValue(value,[1,2,3,4,5,6,8,9,10].includes(index))).join(","))].join("\r\n");
   }
 
   global.DroggerOwnerMode=Object.freeze({LAYERS,DEFAULT_SETTINGS,normalizeSettings,correctedElevation,drawingElevationText,nextPointName,incrementPointName,createRecord,createRegistrationStrokes,prepareRegistrationStrokesForPaper,recordsFromStrokes,updateTextStyles,buildCsv});
