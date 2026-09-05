@@ -1,12 +1,13 @@
 # 回帰テスト一覧
 
-最終実行: 2026-09-05 / `775ef60`
+最終実行: 2026-09-05 / `e70c5b2`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
 
 |変更領域|最低限実行するテスト|
 |---|---|
+|SFZ読込・最終SFC保存・写真の座標系・SIMA読込競合/復元・切替保存|`validate-audit-followup-regressions.js` と下記の各領域の既存テスト|
 |SIMA背景・画地・水平文字|`validate-sima-import.js`、`validate-sima-performance.js`、`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |法務局地図・境界|`validate-registry-progress-cancel.js`、`validate-registry-append-and-intersection.js`、`validate-registry-cad.js`、`validate-registry-layer-colors.js`|
 |基盤地図2500|`validate-foundation-map-gml.js`、`validate-foundation-map-import.js`、`validate-base-map-toggle.js`|
@@ -27,7 +28,15 @@
 |ライセンス・著作権表示|`validate-open-source-license.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |広いUI変更|上記関連テストに加え `validate-ui.js`、`validate-real-sfc-rendering.js sample.sfc`|
 
-## 2026-09-05 標高表示修正後の実行結果
+## 2026-09-05 追加監査8項目修正後の実行結果
+
+- 全48本: 46成功、2失敗。旧 `backgroundSxfOpenBtn` と旧ラスター名等で停止する既存2本は同じ失敗。今回の新規失敗はなし。
+- `validate-audit-followup-regressions.js`: 合成データ13ケースをPC・Android相当・iPhone相当で実行し39ケース成功。外部通信と実位置情報は使わない。モバイルはChromeの画面・タッチ・UA模擬で、実機Safari/Androidの検証ではない。
+- 正常/不正/展開失敗SFZ、Drogger/法務局文字の最終保存、不正な件数不足の拒否、GPSのみの保存ボタンとAndroid共有ZIP準備、1/500の保存往復、標高2桁/登録3桁、写真系一致、SIMAの新旧読込競合とSFC切替取消、SFC＋SIMAの最新作業復元と同一SFC再読込、表示設定と元データ1回保存、即時図面切替のレイヤー保持、キー別保存待機を確認。
+- `validate-drogger-owner-mode.js` の200,001標高値と既存Drogger実行時試験、写真・地形・現在地・方位・性能・同梱SFCも再実行。実Drogger・外部CAD・実メールアプリは未確認。
+- `EZ_VIEWER_TEST_URL` を設定すると同じ追加監査の実行時試験を指定された配信URLで行える。通常はローカルサーバー。公開確認も新規の隔離ブラウザ内で合成データだけを使う。
+
+## 2026-09-05 標高表示修正後の実行結果（先行修正）
 
 - 全47本: 45成功、2失敗。旧 `backgroundSxfOpenBtn` と旧ラスター名等の前提で停止する2本は同じ失敗。今回の新規失敗はなし。
 - `validate-drogger-owner-mode.js`: 200,001件のミリ単位標高を整数基準の期待値と照合。正負・欠測・ゼロ・切り捨て境界、新規ラベル2桁、登録値不変、CSV3桁を検証。
