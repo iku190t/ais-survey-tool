@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-08-31 / `e02544f`
+最終実行: 2026-09-05 / `5fe131f`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -15,7 +15,7 @@
 |パン・拡大縮小・ヒット|`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-coordinate-inspect.js`|
 |自動保存・前回作業復元・レイヤー色・SFC保存|`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |DEM・等高線・地形解析|`validate-terrain-advanced.js`、`validate-terrain-ui.js`、`validate-contour-text-horizontal.js`、`validate-contour-label-raster-quality.js`|
-|現在地・GPS|`validate-gps-startup-mode.js`、`validate-gps-detail-dem.js`|
+|現在地・GPS|`validate-gps-startup-mode.js`、`validate-gps-detail-dem.js`、`validate-japan-plane-zones.js`、`validate-japan-plane-zone-runtime.js`、`validate-audit-regressions.js`|
 |Drogger座標登録・専用Android FIX|`validate-android-drogger-bridge.js`、`validate-drogger-geoid-model.js`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |Android SFC・座標CSV共有|`validate-android-sfc-share.js`、`validate-drogger-owner-mode.js`、`validate-drogger-owner-runtime.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`。APK変更時は `gradlew.bat assembleDebug` 後、実機でループバックPOSTとAndroid `ChooserActivity` を確認する。|
 |スマホ方位追従・ホーム|`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-gps-startup-mode.js`|
@@ -26,6 +26,17 @@
 |SFC/SFZ・ラスター|`validate-real-sfc-rendering.js <実ファイル>`、`validate-raster-placement.js`、`validate-ui.js`|
 |ライセンス・著作権表示|`validate-open-source-license.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |広いUI変更|上記関連テストに加え `validate-ui.js`、`validate-real-sfc-rendering.js sample.sfc`|
+
+## 2026-09-05 地域判定修正後の実行結果
+
+- 全 `validate-*.js` 47本：45成功、2失敗。入力が必要な実SFC検証は同梱 `sample.sfc` を使用。
+- 失敗は `validate-background-sxf.js`（旧 `backgroundSxfOpenBtn`）と `validate-ui.js`（旧ラスター名等の前提）。検証を省略・成功扱いにしていない。
+- 新規 `validate-japan-plane-zones.js`：全19系76地点、座標データ未読込時、範囲外、実際の選択関数への接続を検証。外部通信を許さないVMでも成功。
+- 新規 `validate-japan-plane-zone-runtime.js`：モバイル相当ブラウザのGPS単独III系、SFC手動IV系の保持、GPSの一時III系と解除時のIV系復帰、SFC元データ不変、パン等20回で地域判定0回。CPU4倍抑制で初回約26～30ms。
+- 元の公開行政区域内に生成した9,668地点を別途照合し、系の不一致0。顧客データは検証記録へ保存していない。
+- GPS詳細、タッチ、ラスター、Drogger版番号、写真の初期化待機の5本はテストハーネスの前提を修正し成功。アプリを旧UIへ戻していない。
+- SIMA性能：800画地・6,400点で初回約213ms、全体描画約43ms、拡大描画約13ms。PC上の実測値であり実機保証ではない。
+- `git diff --check` 成功。iPhone/Android/Drogger実機・外部CADは未実施。
 
 ## 2026-08-31 実行結果
 
@@ -135,12 +146,12 @@
 - `validate-photo-position-adjustment.js`
 - `validate-open-source-license.js` — AGPL v3本文、追加条件、原作者表示、ソース導線、無保証、旧禁止表記の除去を確認。
 
-### 既知の失敗・要調査
+### 2026-08-22時点の失敗と現在の扱い
 
-- `validate-gps-detail-dem.js` — ファイル名表示の古い正規表現。実行時写真帳テストは拡張子なしを確認。
+- `validate-gps-detail-dem.js` — ファイル名表示の古い正規表現。`5fe131f` で現行仕様へ補修し成功。
 - `validate-background-sxf.js` — 旧 `backgroundSxfOpenBtn` を要求。
-- `validate-mobile-touch.js` — ソース改行の完全一致で停止。
-- `validate-raster-placement.js` — テスト環境に `flattenSxfFeatureBlocks` が無く停止。
+- `validate-mobile-touch.js` — ソース改行の完全一致で停止していた。`5fe131f` で補修し実タッチ試験まで成功。
+- `validate-raster-placement.js` — テスト環境に `flattenSxfFeatureBlocks` が無く停止していた。`5fe131f` で依存関数を読み込み成功。
 - `validate-ui.js` — 旧ラスター名テンプレートの完全一致で停止。
 
 詳細は `PROJECT_STATE.md` と `INCIDENTS.md` の `INC-OPEN-01` を参照する。
