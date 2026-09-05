@@ -2590,6 +2590,8 @@ let data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [
 let loadedSfcText = "";
 let recoveryWorkspaceSource = "";
 let simaSourceText = "";
+let simaLoadGeneration = 0;
+let simaRecoverySourceRecord = null;
 let recoveryFingerprintCache = null;
 let lastSaveHandle = null;
 let lastSfcSidecarDirectoryHandle = null;
@@ -2683,6 +2685,9 @@ const RECOVERY_HISTORY_INTERVAL_MS = 15000;
 let recoverySnapshotTimer = null;
 let recoveryDbPromise = null;
 let recoveryDbPendingRecord = null;
+const recoveryDbPendingByKey = new Map();
+const recoverySimaSourceCache = new Map();
+let recoveryRestoreRevision = 0;
 let recoveryDbFlushBusy = false;
 let recoveryDbFlushTimer = null;
 let recoveryRestoreInFlightKey = "";
@@ -2858,6 +2863,7 @@ function loadSimaDisplaySettings(){
 }
 function saveSimaDisplaySettings(){
   try{localStorage.setItem(SIMA_SETTINGS_STORAGE_KEY,JSON.stringify({colors:simaLayerColors,visibility:simaLayerVisibility,parcelLabelSize:simaParcelLabelSize,pointLabelSize:simaPointLabelSize}));}catch(_error){}
+  if(simaMapState.loaded)scheduleRecoverySnapshot();
 }
 const initialSimaDisplaySettings=loadSimaDisplaySettings();
 let simaLayerColors=initialSimaDisplaySettings.colors;
@@ -3228,8 +3234,7 @@ function getGpsDrawingReferenceBoundsWorld(){
   const fallback=getLoadedSfcBoundsWorld();
   return fallback?Object.assign({source:"all-drawing",pointCount:null},fallback):null;
 }
-function coordinateMeshSfcWorldToPlane(xWorldMm,yWorldMm){
-  const tr=activeCoordinateMeshTransform;
+function coordinateMeshSfcWorldToPlane(xWorldMm,yWorldMm,tr=activeCoordinateMeshTransform){
   if(!tr)return defaultSfcWorldToPlane(xWorldMm,yWorldMm);
   const world=[xWorldMm/1000,yWorldMm/1000];
   if(tr.kind==="affine"){
@@ -3321,8 +3326,8 @@ function defaultSfcWorldToPlane(xWorldMm, yWorldMm){
   if (GPS_TO_SFC.yFrom === "X") xNorth = second; else yEast = second;
   return {xNorth, yEast};
 }
-function planeToSfcWorld(xNorth, yEast){
-  if(gpsTemporaryCoordinateZone)return defaultPlaneToSfcWorld(xNorth,yEast);
+function planeToSfcWorld(xNorth, yEast,useDrawingFrame=false){
+  if(gpsTemporaryCoordinateZone&&!useDrawingFrame)return defaultPlaneToSfcWorld(xNorth,yEast);
   const tr=activeCoordinateMeshTransform;
   if(!tr) return defaultPlaneToSfcWorld(xNorth,yEast);
   if(tr.kind==="affine"){
@@ -14430,7 +14435,7 @@ function simaDecodeArrayBuffer(buffer){
 }
 function simaToWorldState(parsed,sourceName){
   const points=(parsed.points||[]).map(point=>{
-    const world=planeToSfcWorld(point.xNorth,point.yEast);
+    const world=planeToSfcWorld(point.xNorth,point.yEast,true);
     return {...point,x:world.x*1000,y:world.y*1000};
   });
   const byId=new Map(points.map(point=>[point.id,point]));
@@ -14470,6 +14475,8 @@ function updateSimaMapUi(){
   if(pointOutput)pointOutput.textContent=`${simaPointLabelSize}px`;
 }
 function clearSimaData(){
+  simaLoadGeneration++;
+  simaRecoverySourceRecord=null;
   simaMapState=simaEmptyState();simaDisplayEnabled=false;
   simaSourceText="";recoveryWorkspaceSource="";
   if(simaFileInput)simaFileInput.value="";
@@ -14478,13 +14485,16 @@ function clearSimaData(){
 async function loadSimaFile(file){
   if(!file)return;
   if(!window.EzSimaImport?.parse){showToast("SIMA解析機能を読み込めません",2400);return;}
+  const generation=++simaLoadGeneration;
   if(simaMapStatus)simaMapStatus.textContent="SIMAデータを解析しています…";
   try{
     const text=simaDecodeArrayBuffer(await file.arrayBuffer());
+    if(generation!==simaLoadGeneration)return;
     const nextState=simaToWorldState(window.EzSimaImport.parse(text),file.name||"SIMA");
     if(!nextState.points.length)throw new Error("有効な座標がありません");
     simaMapState=nextState;
     simaSourceText=text;
+    simaRecoverySourceRecord=null;
     recoveryWorkspaceSource="";
     simaDisplayEnabled=true;
     const closedParcelCount=simaMapState.parcels.filter(parcel=>parcel.type!=="2").length;
@@ -14494,17 +14504,21 @@ async function loadSimaFile(file){
       if(startupModal)startupModal.style.display="none";
       if(gpsEnabled)stopGps(false);else exitGpsOnlyBlankMode(false);
       updateDrawingDependentUi();
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{updateWrapLayout();resize(false);fitSimaToScreen();}));
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        if(generation!==simaLoadGeneration)return;
+        updateWrapLayout();resize(false);fitSimaToScreen();
+      }));
     }
     updateSimaMapUi();
     if(!simaOnly)scheduleDraw();
     scheduleRecoverySnapshot();
     showToast(`SIMAを読み込みました（画地 ${closedParcelCount}件／測点 ${simaMapState.points.length}点）`,2600);
   }catch(error){
+    if(generation!==simaLoadGeneration)return;
     console.error(error);
     if(simaMapStatus)simaMapStatus.textContent=`読み込めません：${error?.message||"SIMA形式を確認してください"}`;
     scheduleDraw();
-  }finally{if(simaFileInput)simaFileInput.value="";}
+  }finally{if(generation===simaLoadGeneration&&simaFileInput)simaFileInput.value="";}
 }
 function drawSimaHorizontalLabel(text,screen,size,color){
   if(!text||!screen)return;
@@ -15199,6 +15213,11 @@ function resetSessionFromLoad(){
   updateSettingsPanelUi();
 }
 function clearLoadedState(){
+  // Capture the outgoing workspace before any globals or debounce timers change.
+  clearTimeout(recoverySnapshotTimer);recoverySnapshotTimer=0;
+  if(recoverySnapshotDirty)saveRecoverySnapshot({immediate:true});
+  recoverySnapshotDirty=false;
+  recoveryRestoreRevision++;
   if(gpsEnabled||gpsSessionState)stopGps(false);
   droggerOwnerModeActive=false;
   cancelDroggerOwnerLongPress();
@@ -15885,7 +15904,7 @@ function getMemoWorldUnitsPerPaperMm(){
   return Math.max(1e-9,getDrawingCoordinateStorage().unitsPerPaperMm||1);
 }
 function getDroggerWorldUnitsPerPaperMm(){
-  return gpsOnlyBlankMode&&!hasLoadedDrawing()
+  return !loadedSfcText&&!hasLoadedDrawing()
     ?DROGGER_GPS_ONLY_SCALE_DENOMINATOR
     :getMemoWorldUnitsPerPaperMm();
 }
@@ -16064,6 +16083,8 @@ function beginPhotoPositionAdjustDrag(screenX,screenY){
 function getPhotoCoordinateZone(item){
   const manual=getManualCoordinateZone();
   if(manual)return manual;
+  const drawingZone=getRememberedProfileZone()||(!gpsTemporaryCoordinateZone?profileZone:null);
+  if(drawingZone>=1&&drawingZone<=19)return drawingZone;
   const stored=Number(item&&item.coordinateZone);
   if(stored>=1&&stored<=19)return stored;
   if(Number.isFinite(+(item&&item.originalLat))&&Number.isFinite(+(item&&item.originalLon)))return chooseJapanPlaneZone(+item.originalLat,+item.originalLon);
@@ -16072,7 +16093,7 @@ function getPhotoCoordinateZone(item){
 }
 function applyPhotoAdjustedWorldPosition(item,worldX,worldY){
   if(!item||![worldX,worldY].every(Number.isFinite))return false;
-  const plane=sfcWorldToPlane(worldX,worldY);
+  const plane=coordinateMeshSfcWorldToPlane(worldX,worldY);
   if(!Number.isFinite(plane?.xNorth)||!Number.isFinite(plane?.yEast))return false;
   item.worldX=worldX;item.worldY=worldY;item.markerX=worldX;item.markerY=worldY;
   item.xNorth=plane.xNorth;item.yEast=plane.yEast;item.manualPositionAdjusted=true;
@@ -17324,9 +17345,9 @@ async function importGeotaggedPhotos(files,options={}){
     if(!desktopImport)updateBusy(`写真を確認中… ${index+1}/${selected.length}`);
     try{
       const exif=await readPhotoExif(file);
-      const zone=chooseJapanPlaneZone(exif.lat,exif.lon);
+      const zone=getPhotoCoordinateZone({originalLat:exif.lat,originalLon:exif.lon});
       const xy=latLonToJgd2024XY(exif.lat,exif.lon,zone);
-      const world=planeToSfcWorld(xy.x,xy.y);
+      const world=planeToSfcWorld(xy.x,xy.y,true);
       const importedItem={
         number:0,fileName:file.name,lat:exif.lat,lon:exif.lon,direction:exif.direction,capturedAt:exif.capturedAt,
         xNorth:xy.x,yEast:xy.y,demElevation:null,demSource:null,demElevationChecked:false,
@@ -17733,15 +17754,15 @@ function buildInkPolylineFeatureText(baseText){
   id=widthBuild.nextId;
 
   const lineParts = [];
+  const expectedFeatureCounts={polyline_feature:0,circle_feature:0,text_string_feature:0};
   const allExportPoints=[];
   const generatedGeometryPoints=[];
   for(const stroke of normalized)for(const point of stroke.points||[]){
     if(Number.isFinite(+point.x)&&Number.isFinite(+point.y))generatedGeometryPoints.push({x:+point.x,y:+point.y});
   }
   const horizontalTextAngle=getGeneratedHorizontalSxfTextAngle(baseText,generatedGeometryPoints);
-  const appendTextLabel=(label,layerCode,colorCode,forceHorizontal=false)=>{
+  const appendTextLabel=(label,layerCode,colorCode,forceHorizontal=false,units=getMemoWorldUnitsPerPaperMm())=>{
     if(!label||!String(label.text||"").trim())return;
-    const units=getMemoWorldUnitsPerPaperMm();
     const sourceText=String(label.text||"");
     const text=encodeSfcText(sourceText);
     const height=Math.max(.5,+label.heightMm||2.5)*units;
@@ -17753,13 +17774,14 @@ function buildInkPolylineFeatureText(baseText){
 #${id} = text_string_feature('${layerCode}','${colorCode}','${generatedTextFontCode}',\\'${text}\\','${(+label.x).toFixed(6)}','${(+label.y).toFixed(6)}','${height.toFixed(6)}','${width.toFixed(6)}','0.000000','${angle.toFixed(6)}','0.000000','${anchor}','${direction}')
 SXF*/`);
     id+=1;
+    expectedFeatureCounts.text_string_feature+=1;
   };
 
   for (const s of normalized) {
     const exportPts = Array.isArray(s.points)
       ? s.points.map(p => ({ x:+p.x||0, y:+p.y||0 })).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
       : [];
-    if (exportPts.length < 2) continue;
+    if (exportPts.length < 2){expectedFeatureCounts.polyline_feature+=1;continue;}
     allExportPoints.push(...exportPts);
 
     const memoSpec = getMemoLayerSpecForStroke(s);
@@ -17774,6 +17796,7 @@ SXF*/`);
     const widthCode = String(widthBuild.codes[getStrokeWidthMm(s).toFixed(6)] || getMemoWidthInfo(baseText).code || "1");
 
     if (s.isCircleMemo) {
+      expectedFeatureCounts.circle_feature+=1;
       const first = exportPts[0], last = exportPts[exportPts.length - 1];
       const uniquePts = exportPts.length > 2 && Math.hypot(first.x-last.x, first.y-last.y) < 1e-7 ? exportPts.slice(0,-1) : exportPts;
       const cx = uniquePts.reduce((sum,p)=>sum+p.x,0) / uniquePts.length;
@@ -17784,7 +17807,7 @@ SXF*/`);
 #${id} = circle_feature('${layerCode}','${colorCode}','${typeCode}','${widthCode}','${cx.toFixed(6)}','${cy.toFixed(6)}','${radius.toFixed(6)}')
 SXF*/`);
         id += 1;
-        appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
+        appendTextLabel(s.photoTextLabel,layerCode,colorCode,true,s.droggerLayerId?getDroggerWorldUnitsPerPaperMm():getMemoWorldUnitsPerPaperMm());
       }
       continue;
     }
@@ -17795,7 +17818,9 @@ SXF*/`);
       if(!prev||Math.abs(p.x-prev.x)>=1e-9||Math.abs(p.y-prev.y)>=1e-9)compact.push(p);
     }
     if(compact.length<2&&s.photoTextLabel){
-      appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
+      const before=lineParts.length;
+      appendTextLabel(s.photoTextLabel,layerCode,colorCode,true,s.droggerLayerId?getDroggerWorldUnitsPerPaperMm():getMemoWorldUnitsPerPaperMm());
+      if(lineParts.length===before)expectedFeatureCounts.text_string_feature+=1;
       continue;
     }
     if(compact.length>=2){
@@ -17805,6 +17830,7 @@ SXF*/`);
 #${id} = polyline_feature('${layerCode}','${colorCode}','${typeCode}','${widthCode}','${compact.length}','(${xs})','(${ys})')
 SXF*/`);
       id += 1;
+      expectedFeatureCounts.polyline_feature+=1;
       if(s.isTerrainContour&&s.terrainContourKind==="index"&&s.terrainLabel){
         const label=s.terrainLabel,units=getMemoWorldUnitsPerPaperMm(),height=2.5*units,width=Math.max(2.5,String(label.text||"").length*1.7)*units;
         const text=encodeSfcText(label.text);
@@ -17815,16 +17841,18 @@ SXF*/`);
 #${id} = text_string_feature('${layerCode}','${colorCode}','${generatedTextFontCode}','${text}','${(+label.x).toFixed(6)}','${(+label.y).toFixed(6)}','${height.toFixed(6)}','${width.toFixed(6)}','0.000000','${angle.toFixed(6)}','0.000000','${anchor}','${direction}')
 SXF*/`);
         id += 1;
+        expectedFeatureCounts.text_string_feature+=1;
       }
-      appendTextLabel(s.photoTextLabel,layerCode,colorCode,true);
-    }
+      appendTextLabel(s.photoTextLabel,layerCode,colorCode,true,s.droggerLayerId?getDroggerWorldUnitsPerPaperMm():getMemoWorldUnitsPerPaperMm());
+    }else expectedFeatureCounts.polyline_feature+=1;
   }
   return {
     colorText,layerText,widthText,fontText,
     preludeText:"",
     rootPlacementText:"",backgroundMaskName:"",
     lineText:lineParts.join("\r\n"),
-    expectedFeatureCount:normalized.length,
+    expectedFeatureCount:Object.values(expectedFeatureCounts).reduce((sum,count)=>sum+count,0),
+    expectedFeatureCounts,
     exportPoints:allExportPoints
   };
 }
@@ -18042,6 +18070,10 @@ function findSfcFeatureBlockStartByName(text,featureName,wantedName){
 }
 function findMemoGeometryInsertion(baseText,points){
   const text=String(baseText||"");
+  if(text.includes("/* SFCVIEWER_STANDALONE_1_500 */")){
+    const index=findSfcFeatureBlockStartByName(text,"sfig_org_feature","EZ_GPS_1_500");
+    if(index>=0)return {index,partialFigure:"EZ_GPS_1_500",placementOrientation:0};
+  }
   const endAt=Math.max(0,text.search(/\r?\nENDSEC\s*;/i));
   const definitionTokens=["drawing_attribute_feature(","drawing_sheet_feature(","layer_feature("];
   const definitionPositions=definitionTokens.map(t=>text.indexOf(t)).filter(v=>v>=0&&(endAt<=0||v<endAt));
@@ -18233,12 +18265,19 @@ function validateSfcExportAgainstSource(baseText, ann){
 function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
   const text=String(sfcText||"");
   const generatedBlocks=[...text.matchAll(/\/\*\s*---\s*sfcviewer_generated_begin\s*---\s*\*\/([\s\S]*?)\/\*\s*---\s*sfcviewer_generated_end\s*---\s*\*\//g)].map(match=>match[1]);
-  if(!generatedBlocks.length)return expectedFeatureCount?{ok:false,reason:"手書き図形をSFC本文へ追加できませんでした。"}:{ok:true};
+  const expectedByType=expectedFeatureCount&&typeof expectedFeatureCount==="object"?expectedFeatureCount:null;
+  const expectedTotal=expectedByType?Object.values(expectedByType).reduce((sum,count)=>sum+count,0):expectedFeatureCount;
+  if(!generatedBlocks.length)return expectedTotal?{ok:false,reason:"手書き図形をSFC本文へ追加できませんでした。"}:{ok:true};
   const records=parseSxfFeatureRecords(getFlatSxfText(generatedBlocks.join("\r\n")));
   const geometries=records.filter(r=>r.name==="polyline_feature"||r.name==="circle_feature");
   const textFeatures=records.filter(r=>r.name==="text_string_feature");
   const fillFeatures=records.filter(r=>r.name==="fill_area_style_colour_feature"||r.name==="externally_defined_hatch_feature");
-  if(geometries.length<expectedFeatureCount){
+  if(expectedByType){
+    for(const [type,expected] of Object.entries(expectedByType)){
+      const actual=records.filter(record=>record.name===type).length;
+      if(actual<expected)return {ok:false,reason:`書出し件数が不足しています（${type}: ${actual}/${expected}）。`};
+    }
+  }else if(geometries.length<expectedFeatureCount){
     return {ok:false,reason:`手書き図形の書出し件数が不足しています（${geometries.length}/${expectedFeatureCount}）。`};
   }
   const flat=getFlatSxfTextIncludingGenerated(text);
@@ -18464,8 +18503,28 @@ function stripDeletedLayersFromSfc(srcText){
     return block.replace(inner,replaced);
   });
 }
+function buildStandaloneSfcExportBase(){
+  // Same SXF model/partial-figure/sheet structure as ordinary survey SFC.
+  // Keep recorded real-world coordinates; only the sheet placement is 1/500.
+  const points=(inkStrokes||[]).flatMap(stroke=>stroke.points||[]).filter(point=>Number.isFinite(+point.x)&&Number.isFinite(+point.y));
+  if(!points.length)return "";
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const point of points){minX=Math.min(minX,+point.x);minY=Math.min(minY,+point.y);maxX=Math.max(maxX,+point.x);maxY=Math.max(maxY,+point.y);}
+  const scale=DROGGER_GPS_ONLY_SCALE_DENOMINATOR;
+  const width=Math.max(297,Math.ceil((maxX-minX)/scale+40)),height=Math.max(210,Math.ceil((maxY-minY)/scale+40));
+  const x=(width-(minX+maxX)/scale)/2,y=(height-(minY+maxY)/scale)/2;
+  return ["ISO-10303-21;","HEADER;","FILE_DESCRIPTION(('SCADEC level2 feature_mode'),'2;1');",
+    `FILE_NAME('gps-work.sfc','${new Date().toISOString()}',(''),(''),'Ez Viewer','Ez Viewer','');`,
+    "FILE_SCHEMA(('ASSOCIATIVE_DRAUGHTING'));","ENDSEC;","DATA;","/* SFCVIEWER_STANDALONE_1_500 */",
+    sfcProfileRecord(10,"pre_defined_font_feature('continuous')"),
+    sfcProfileRecord(20,"text_font_feature('MS Gothic')"),
+    sfcProfileRecord(30,"sfig_org_feature('EZ_GPS_1_500','2')"),
+    sfcProfileRecord(40,`sfig_locate_feature('0','EZ_GPS_1_500','${x.toFixed(6)}','${y.toFixed(6)}','0','${1/scale}','${1/scale}')`),
+    sfcProfileRecord(50,`drawing_sheet_feature('','0','1','${width}','${height}')`),
+    "ENDSEC;","END-ISO-10303-21;",""].join("\r\n");
+}
 function prepareSfcExportBase(){
-  let source=stripEmbeddedAnnotations(String(loadedSfcText||""));
+  let source=stripEmbeddedAnnotations(String(loadedSfcText||buildStandaloneSfcExportBase()));
   source=applyLayerColorOverridesToSfc(source);
   let base=stripDeletedLayersFromSfc(source).replace(/[\s\r\n]+$/,"");
   base=insertMemoColorDefinitions(base,buildLayerOverrideColorDefinitions(base));
@@ -18484,7 +18543,7 @@ function buildSfcExportBlobAndName(){
   const exportText = ann.lineText + (metaComment ? "\r\n" + metaComment : "");
   let newSfc=insertMemoGeneralFeatures(base,exportText,ann.exportPoints,ann.preludeText);
   newSfc=insertGeneratedSxfRootPlacement(newSfc,ann.rootPlacementText).replace(/[\s\r\n]*$/,"\r\n");
-  const generatedValidation=validateGeneratedMemoSfc(newSfc,ann.expectedFeatureCount||0);
+  const generatedValidation=validateGeneratedMemoSfc(newSfc,ann.expectedFeatureCounts||ann.expectedFeatureCount||0);
   if(!generatedValidation.ok)return {ok:false,reason:generatedValidation.reason||"手書き図形をSFCへ書き込めませんでした。"};
   const overwriteName = normalizeExportFileName(data.source_name,"sfc_view.sfc");
   const saveAsName = overwriteName;
@@ -18518,7 +18577,7 @@ async function buildSfcExportBlobAndNameAsync(){
 
   updateBusy("SFC形式を最終確認中…");
   await waitForUiPaint();
-  const generatedValidation=validateGeneratedMemoSfc(newSfc,ann.expectedFeatureCount||0);
+  const generatedValidation=validateGeneratedMemoSfc(newSfc,ann.expectedFeatureCounts||ann.expectedFeatureCount||0);
   if(!generatedValidation.ok)return {ok:false,reason:generatedValidation.reason||"写真方向・一覧表をSFCへ書き込めませんでした"};
 
   updateBusy("保存ファイルを作成中…");
@@ -18810,6 +18869,23 @@ function getRecoverySourceText(){
   }
   return recoveryWorkspaceSource;
 }
+function getRecoverySimaSourceRecord(){
+  if(!simaMapState.loaded||!simaSourceText)return null;
+  if(simaRecoverySourceRecord?.sourceText===simaSourceText&&simaRecoverySourceRecord.sourceName===simaMapState.sourceName)return simaRecoverySourceRecord;
+  const key=`sima-source:${crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`}`;
+  simaRecoverySourceRecord={key,kind:"sima-source",updatedAt:Date.now(),sourceName:simaMapState.sourceName||"SIMA",sourceText:simaSourceText};
+  recoverySimaSourceCache.set(key,simaRecoverySourceRecord);
+  return simaRecoverySourceRecord;
+}
+async function cacheRecoverySimaSource(payload){
+  const key=payload?.simaSourceKey;
+  if(!key||recoverySimaSourceCache.has(key))return;
+  const db=await openRecoveryDb();
+  const record=await recoveryDbRequest(db.transaction(RECOVERY_DB_BASE_STORE,"readonly").objectStore(RECOVERY_DB_BASE_STORE).get(key));
+  if(!record||record.kind!=="sima-source"||!record.sourceText)throw new Error("SIMAの復元元データを読み込めません");
+  recoverySimaSourceCache.set(key,record);
+  recoveryBaseStoredKeys.add(key);
+}
 function computeRecoveryFingerprint(){
   const src=getRecoverySourceText(),name=String(data?.source_name||""),kind=currentLoadedKind;
   if(recoveryFingerprintCache?.src===src&&recoveryFingerprintCache.name===name&&recoveryFingerprintCache.kind===kind)return recoveryFingerprintCache.value;
@@ -18952,8 +19028,12 @@ async function flushRecoveryIndexedDbSave(){
   if(recoveryDbFlushBusy)return;
   recoveryDbFlushBusy=true;
   try{
-    while(recoveryDbPendingRecord){
-      const {baseRecord,...record}=recoveryDbPendingRecord;
+    while(recoveryDbPendingRecord||recoveryDbPendingByKey.size){
+      if(!recoveryDbPendingRecord){
+        const [key,pending]=recoveryDbPendingByKey.entries().next().value;
+        recoveryDbPendingByKey.delete(key);recoveryDbPendingRecord=pending;
+      }
+      const {baseRecord,simaSourceRecord,...record}=recoveryDbPendingRecord;
       recoveryDbPendingRecord=null;
       const db=await openRecoveryDb();
       const lastHistory=recoveryHistoryLastSaved.get(record.key)||0;
@@ -18961,10 +19041,11 @@ async function flushRecoveryIndexedDbSave(){
       const stores=addHistory
         ? [RECOVERY_DB_SNAPSHOT_STORE,RECOVERY_DB_HISTORY_STORE]
         : [RECOVERY_DB_SNAPSHOT_STORE];
-      if(baseRecord)stores.push(RECOVERY_DB_BASE_STORE);
+      if(baseRecord||simaSourceRecord)stores.push(RECOVERY_DB_BASE_STORE);
       const tx=db.transaction(stores,"readwrite");
       const done=recoveryDbTransactionDone(tx);
       if(baseRecord)tx.objectStore(RECOVERY_DB_BASE_STORE).put(baseRecord);
+      if(simaSourceRecord&&!recoveryBaseStoredKeys.has(simaSourceRecord.key))tx.objectStore(RECOVERY_DB_BASE_STORE).put(simaSourceRecord);
       tx.objectStore(RECOVERY_DB_SNAPSHOT_STORE).put(record);
       if(addHistory){
         tx.objectStore(RECOVERY_DB_HISTORY_STORE).add({
@@ -18977,6 +19058,7 @@ async function flushRecoveryIndexedDbSave(){
       }
       await done;
       if(baseRecord)recoveryBaseStoredKeys.add(record.key);
+      if(simaSourceRecord)recoveryBaseStoredKeys.add(simaSourceRecord.key);
       if(addHistory){
         recoveryHistoryLastSaved.set(record.key,record.updatedAt);
         await pruneRecoveryHistory(db,record.key);
@@ -18986,10 +19068,17 @@ async function flushRecoveryIndexedDbSave(){
     console.warn("Recovery IndexedDB save failed",err);
   }finally{
     recoveryDbFlushBusy=false;
-    if(recoveryDbPendingRecord)queueRecoveryIndexedDbSave(recoveryDbPendingRecord,true);
+    if(recoveryDbPendingRecord||recoveryDbPendingByKey.size){
+      clearTimeout(recoveryDbFlushTimer);
+      recoveryDbFlushTimer=setTimeout(flushRecoveryIndexedDbSave,300);
+    }
   }
 }
 function queueRecoveryIndexedDbSave(record,immediate=false){
+  if(recoveryDbPendingRecord&&recoveryDbPendingRecord.key!==record.key){
+    recoveryDbPendingByKey.set(recoveryDbPendingRecord.key,recoveryDbPendingRecord);
+  }
+  recoveryDbPendingByKey.delete(record.key);
   recoveryDbPendingRecord=record;
   clearTimeout(recoveryDbFlushTimer);
   if(immediate){
@@ -19000,9 +19089,11 @@ function queueRecoveryIndexedDbSave(record,immediate=false){
 }
 async function deleteRecoveryIndexedDbKey(key){
   try{
+    recoveryDbPendingByKey.delete(key);
     if(recoveryDbPendingRecord&&recoveryDbPendingRecord.key===key){
       recoveryDbPendingRecord=null;
       clearTimeout(recoveryDbFlushTimer);
+      if(recoveryDbPendingByKey.size)recoveryDbFlushTimer=setTimeout(flushRecoveryIndexedDbSave,300);
     }
     const db=await openRecoveryDb();
     const tx=db.transaction([RECOVERY_DB_SNAPSHOT_STORE,RECOVERY_DB_HISTORY_STORE,RECOVERY_DB_BASE_STORE],"readwrite");
@@ -19031,6 +19122,8 @@ function buildRecoveryPayload(){
     sourceName: String(data?.source_name||simaMapState.sourceName||"現在地の作業"),
     workspaceProfileZone:!loadedSfcText?profileZone:null,
     simaDisplayEnabled,
+    simaSourceKey:loadedSfcText?getRecoverySimaSourceRecord()?.key||null:null,
+    simaSettings:simaMapState.loaded?{colors:simaLayerColors,visibility:simaLayerVisibility,parcelLabelSize:simaParcelLabelSize,pointLabelSize:simaPointLabelSize}:null,
     fingerprint: computeRecoveryFingerprint(),
     darkTheme: !!darkTheme,
     showText: !!showText,
@@ -19048,6 +19141,7 @@ function buildRecoveryPayload(){
 function saveRecoverySnapshot(options={}){
   try{
     if (!data || !loadedSfcText&&!hasActiveWorkspace()) return false;
+    clearTimeout(recoverySnapshotTimer);recoverySnapshotTimer=0;
     requestRecoveryStoragePersistence();
     const payload=buildRecoveryPayload();
     const key=getRecoveryStorageKey();
@@ -19063,6 +19157,7 @@ function saveRecoverySnapshot(options={}){
     queueRecoveryIndexedDbSave({
       key,
       baseRecord:recoveryBaseStoredKeys.has(key)?null:{key,updatedAt:payload.ts,sourceName:payload.sourceName,currentLoadedKind,sourceText:getRecoverySourceText(),workspaceOnly:!loadedSfcText},
+      simaSourceRecord:payload.simaSourceKey&&!recoveryBaseStoredKeys.has(payload.simaSourceKey)?getRecoverySimaSourceRecord():null,
       updatedAt:payload.ts,
       sourceName:payload.sourceName,
       fingerprint:payload.fingerprint,
@@ -19078,6 +19173,7 @@ function saveRecoverySnapshot(options={}){
   }
 }
 function scheduleRecoverySnapshot(delayMs=AUTO_SAVE_DEBOUNCE_MS){
+  recoveryRestoreRevision++;
   recoverySnapshotDirty=true;
   clearTimeout(recoverySnapshotTimer);
   recoverySnapshotTimer=setTimeout(()=>saveRecoverySnapshot(),Math.max(120,delayMs||AUTO_SAVE_DEBOUNCE_MS));
@@ -19209,8 +19305,25 @@ function migrateMemoLayerCirclesFromDataToInk(){
 
 function applyRecoveryPayload(payload){
   if(!payload||!recoveryFingerprintMatches(payload.fingerprint))return false;
+  if(payload.simaSourceKey){
+    const record=recoverySimaSourceCache.get(payload.simaSourceKey);
+    if(!record)return false;
+    const nextState=simaToWorldState(window.EzSimaImport.parse(record.sourceText),record.sourceName);
+    if(!nextState.points.length)return false;
+    simaLoadGeneration++;
+    simaSourceText=record.sourceText;simaMapState=nextState;simaRecoverySourceRecord=record;
+  }else if(loadedSfcText&&payload.simaSourceKey===null&&simaMapState.loaded)clearSimaData();
   if(!loadedSfcText&&payload.workspaceProfileZone)profileZone=payload.workspaceProfileZone;
   if(simaMapState.loaded){
+    if(payload.simaSettings){
+      const settings=payload.simaSettings;
+      for(const key of Object.keys(SIMA_LAYER_DEFAULTS)){
+        if(/^#[0-9a-f]{6}$/i.test(settings.colors?.[key]||""))simaLayerColors[key]=settings.colors[key];
+        if(typeof settings.visibility?.[key]==="boolean")simaLayerVisibility[key]=settings.visibility[key];
+      }
+      if(Number.isFinite(settings.parcelLabelSize))simaParcelLabelSize=Math.max(8,Math.min(32,settings.parcelLabelSize));
+      if(Number.isFinite(settings.pointLabelSize))simaPointLabelSize=Math.max(8,Math.min(32,settings.pointLabelSize));
+    }
     simaDisplayEnabled=payload.simaDisplayEnabled!==false;
     updateSimaMapUi();
   }
@@ -19246,6 +19359,7 @@ function applyRecoveryPayload(payload){
 async function restoreRecoverySnapshotFromIndexedDb(key,fingerprint){
   if(recoveryRestoreInFlightKey===key)return false;
   recoveryRestoreInFlightKey=key;
+  const revision=recoveryRestoreRevision;
   try{
     const db=await openRecoveryDb();
     let record=await recoveryDbRequest(db.transaction(RECOVERY_DB_SNAPSHOT_STORE,"readonly").objectStore(RECOVERY_DB_SNAPSHOT_STORE).get(key));
@@ -19257,6 +19371,8 @@ async function restoreRecoverySnapshotFromIndexedDb(key,fingerprint){
     }
     if(!record||!recoveryFingerprintMatches(fingerprint))return false;
     const payload=JSON.parse(record.json);
+    await cacheRecoverySimaSource(payload);
+    if(revision!==recoveryRestoreRevision||!recoveryFingerprintMatches(fingerprint))return false;
     if(!applyRecoveryPayload(payload))return false;
     try{
       if(window.localStorage)localStorage.setItem(key,record.json);
@@ -19281,6 +19397,13 @@ function restoreRecoverySnapshotIfAvailable(){
       try{
         const payload=JSON.parse(raw);
         if(applyRecoveryPayload(payload))return true;
+        if(payload.simaSourceKey){
+          const revision=recoveryRestoreRevision;
+          cacheRecoverySimaSource(payload).then(()=>{
+            if(revision===recoveryRestoreRevision&&recoveryFingerprintMatches(fingerprint))applyRecoveryPayload(payload);
+          }).catch(error=>{console.warn("SIMA recovery failed",error);showToast("SIMAの復元データを読み込めません",2600);});
+          return false;
+        }
       }catch(err){console.warn("Recovery localStorage restore failed",err);}
     }
     const legacyFingerprint=computeLegacyRecoveryFingerprint();
@@ -19371,6 +19494,7 @@ async function restoreLatestRecoveryWork(){
     const work=await readLatestRecoverableWork();
     if(!work){showToast("復元できる前回作業がありません",2400);return false;}
     const {key,baseRecord,payload}=work;
+    await cacheRecoverySimaSource(payload);
     recoveryBaseStoredKeys.add(key);
     if(baseRecord.workspaceOnly){
       const workspace=JSON.parse(baseRecord.sourceText);
@@ -19405,6 +19529,7 @@ async function restoreLatestRecoveryWork(){
   }
 }
 function markMemoChanged(){
+  recoveryRestoreRevision++;
   gaTrackMemoWrite();
   ensureLayerVisibility();
   renderLayerList();
@@ -19728,7 +19853,7 @@ function sfcTupleNumbers(value){
   const text=unquoteSxfValue(value).replace(/^\s*\(/,"").replace(/\)\s*$/,"");
   return text.split(",").map(part=>Number(part.trim())).filter(Number.isFinite);
 }
-async function extractAerialCadImagesFromSfz(sfcText,zipBuffer,entries){
+async function extractAerialCadImagesFromSfz(sfcText,zipBuffer,entries,worldToPlane=sfcWorldToPlane){
   const records=parseSxfFeatureRecords(getFlatSxfText(sfcText));
   const recordById=new Map(records.map(record=>[String(record.id),record]));
   const num=ref=>{const value=parseFloat(unquoteSxfValue(ref));return Number.isFinite(value)?value:0;};
@@ -19778,7 +19903,7 @@ async function extractAerialCadImagesFromSfz(sfcText,zipBuffer,entries){
     const planePolygon=[];
     for(let index=0;index<pointCount;index++){
       const world=sxfAffinePoint(boundaryMatrix,xs[index],ys[index]);
-      const plane=sfcWorldToPlane(world[0],world[1]);
+      const plane=worldToPlane(world[0],world[1]);
       if(Number.isFinite(plane.xNorth)&&Number.isFinite(plane.yEast)){
         const previous=planePolygon[planePolygon.length-1];
         if(!previous||Math.hypot(plane.xNorth-previous.xNorth,plane.yEast-previous.yEast)>1e-7)planePolygon.push(plane);
@@ -19822,14 +19947,9 @@ async function handleLoadedSfzFile(file){
   const maxSfcBytes=Math.max(200*1024*1024,Number(sfcEntry.uncompressedSize)||0);
   const sfcBytes=await registryReadZipEntryBytesLight(zipBuffer,sfcEntry,maxSfcBytes);
   const sfcText=bytesToLatin1String(sfcBytes);
-  await handleLoadedSource(sfcText,String(sfcEntry.name||file.name).split("/").pop(),null,{restoreRecovery:false});
-  const restoredImages=await extractAerialCadImagesFromSfz(sfcText,zipBuffer,entries);
-  aerialCadImages=restoredImages;
-  aerialCadImageRuntime.clear();
-  ensureLayerVisibility();
-  renderLayerList();
-  applyDefaultFullViewAfterLoad();
-  scheduleDraw();
+  const loaded=await handleLoadedSource(sfcText,String(sfcEntry.name||file.name).split("/").pop(),null,{restoreRecovery:false,sfzArchive:{zipBuffer,entries}});
+  if(loaded===false)return false;
+  const restoredImages=aerialCadImages;
   saveRecoverySnapshot({immediate:true});
   showToast(restoredImages.length
     ? `SFZを開きました（航空写真 ${restoredImages.length}枚）`
@@ -19944,6 +20064,15 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   }catch(err){
     console.error(err);showToast("SFC解析に失敗しました。現在の作業は維持します",2600);return false;
   }
+  // Stage ZIP image reads before replacing any live data or recovery snapshot.
+  // Use the incoming drawing's transform, never the previous GPS/drawing frame.
+  let stagedAerialImages=null;
+  if(options.sfzArchive){
+    const candidate=analyzeCoordinateMeshTransform(parsed);
+    const transform=candidate&&candidate.currentResidual>Math.max(20,candidate.fittedResidual*6)?candidate:null;
+    stagedAerialImages=await extractAerialCadImagesFromSfz(srcText,options.sfzArchive.zipBuffer,options.sfzArchive.entries,
+      (x,y)=>coordinateMeshSfcWorldToPlane(x,y,transform));
+  }
   window.__EMBED_PAYLOAD_B64__ = "";
   stopCompassFollow();
   clearLoadedState();
@@ -19959,6 +20088,7 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
     (data.ellipseArcs?.length||0) + (data.markers?.length||0);
   resetSessionFromLoad();
   inkStrokes = restoreInkStrokesFromSourceText(srcText);
+  if(stagedAerialImages)aerialCadImages=stagedAerialImages;
   restorePhotoAnnotations(restorePhotoAnnotationsFromSourceText(srcText));
   deletedLayerNames = restoreDeletedLayerNamesFromSourceText(srcText);
   removedSourceLayerNames = new Set();
@@ -20762,7 +20892,8 @@ function isSaveMenuOpen(){
 }
 function setSaveMenuOpen(open){
   const modal=document.getElementById("saveMenuModal");
-  const hasDrawing=hasLoadedDrawing();
+  const hasDrawing=hasLoadedDrawing()||(inkStrokes||[]).some(stroke=>
+    stroke?.points?.length>=2&&!deletedLayerNames.has(getMemoLayerSpecForStroke(stroke).name));
   const overwriteBtn=document.getElementById("saveMenuOverwriteBtn");
   const saveAsBtn=document.getElementById("saveMenuSaveAsBtn");
   const androidShareBtn=document.getElementById("saveMenuAndroidShareBtn");
