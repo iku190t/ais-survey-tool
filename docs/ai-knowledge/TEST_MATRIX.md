@@ -1,6 +1,6 @@
 # 回帰テスト一覧
 
-最終実行: 2026-09-05 / `5fe131f`
+最終実行: 2026-09-05 / `775ef60`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
@@ -26,6 +26,13 @@
 |SFC/SFZ・ラスター|`validate-real-sfc-rendering.js <実ファイル>`、`validate-raster-placement.js`、`validate-ui.js`|
 |ライセンス・著作権表示|`validate-open-source-license.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |広いUI変更|上記関連テストに加え `validate-ui.js`、`validate-real-sfc-rendering.js sample.sfc`|
+
+## 2026-09-05 標高表示修正後の実行結果
+
+- 全47本: 45成功、2失敗。旧 `backgroundSxfOpenBtn` と旧ラスター名等の前提で停止する2本は同じ失敗。今回の新規失敗はなし。
+- `validate-drogger-owner-mode.js`: 200,001件のミリ単位標高を整数基準の期待値と照合。正負・欠測・ゼロ・切り捨て境界、新規ラベル2桁、登録値不変、CSV3桁を検証。
+- `validate-drogger-owner-runtime.js`: 図面あり／なしの両方で、保存済みの誤ラベル `2.00` を登録値 `2.010` から `2.01` と描画する。登録情報・ラベル位置・寸法等が変更されないことをJSON比較で確認。
+- 座標系、方位、パン、SIMA、写真、復元など既存回帰も実行。Drogger実信号・実端末は対象外。最終SFC保存の別不具合を成功扱いにする検証ではない。
 
 ## 2026-09-05 地域判定修正後の実行結果
 
