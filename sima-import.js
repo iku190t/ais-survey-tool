@@ -137,12 +137,31 @@
     });
     let best=null,bestDistance=-1;
     for(const candidate of candidates){
-      if(!pointInPolygon(candidate,clipped))continue;
+      if(!pointInPolygon(candidate,clipped)||!pointInPolygon(candidate,ring))continue;
       let distance=Infinity;
       for(let i=0,j=clipped.length-1;i<clipped.length;j=i++)distance=Math.min(distance,distanceToSegment(candidate,clipped[j],clipped[i]));
       if(distance>bestDistance){best=candidate;bestDistance=distance;}
     }
-    return best||polygonCentroid(clipped);
+    if(best)return best;
+    // A thin/disconnected visible part can miss every grid sample. A clipped
+    // concave polygon's centroid is not necessarily inside the original parcel.
+    // Scan between vertex heights only on this rare fallback path.
+    const levels=[...new Set(ys)].sort((a,b)=>a-b);
+    for(let row=1;row<levels.length;row++){
+      const y=(levels[row-1]+levels[row])/2,intersections=[];
+      for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+        const a=ring[j],b=ring[i];
+        if((a.y>y)!==(b.y>y))intersections.push(a.x+(b.x-a.x)*(y-a.y)/(b.y-a.y));
+      }
+      intersections.sort((a,b)=>a-b);
+      for(let i=0;i+1<intersections.length;i+=2){
+        const left=Math.max(inset,intersections[i]),right=Math.min(width-inset,intersections[i+1]);
+        if(right<=left)continue;
+        const candidate={x:(left+right)/2,y};
+        if(pointInPolygon(candidate,ring)&&pointInPolygon(candidate,clipped))return candidate;
+      }
+    }
+    return null;
   }
 
   return {parse,parseCsvLine,clipPolygonToRect,visibleLabelPoint,pointInPolygon};

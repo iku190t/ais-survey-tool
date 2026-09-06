@@ -2406,7 +2406,7 @@ gtag('config', 'G-88B9YPJXWP');
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.js"></script>
 <script src="https://unpkg.com/shpjs@6.2.0/dist/shp.min.js"></script>
 <script src="foundation-map-gml.js?v=1"></script>
-<script src="sima-import.js?v=1"></script>
+<script src="sima-import.js?v=2"></script>
 <script src="drogger-geoid-model.js?v=1"></script>
 <script src="drogger-owner-mode.js?v=6"></script>
 <script src="data/japan-plane-zones.js?v=1"></script>
@@ -2588,6 +2588,9 @@ let data = { lines: [], polys: [], texts: [], circles: [], arcs: [], ellipses: [
 // Keep the opened SFC source in memory. Source-level edits and generated
 // annotations are reapplied during export, while Undo can restore prior state.
 let loadedSfcText = "";
+let drawingLoadGeneration = 0;
+let drawingWorkspaceRevision = 0;
+let photoImportGeneration = 0;
 let recoveryWorkspaceSource = "";
 let simaSourceText = "";
 let simaLoadGeneration = 0;
@@ -2690,6 +2693,8 @@ const recoverySimaSourceCache = new Map();
 let recoveryRestoreRevision = 0;
 let recoveryDbFlushBusy = false;
 let recoveryDbFlushTimer = null;
+let recoveryDbRetryDelay = 300;
+let recoveryDbFailureNotified = false;
 let recoveryRestoreInFlightKey = "";
 let recoverySnapshotDirty = false;
 const recoveryHistoryLastSaved = new Map();
@@ -10123,10 +10128,12 @@ function fitToScreen(){
   draw();
 }
 function applyDefaultFullViewAfterLoad(){
+  const workspaceRevision=drawingWorkspaceRevision;
   // Mobile browser chrome and the startup overlay can still be changing the
   // canvas size when parsing finishes. Wait for layout, then use the exact
   // same calculation as the 全体表示 button.
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    if(workspaceRevision!==drawingWorkspaceRevision)return;
     updateWrapLayout();
     resize(false);
     fitToScreen();
@@ -15212,7 +15219,10 @@ function resetSessionFromLoad(){
   updateDrawingDependentUi();
   updateSettingsPanelUi();
 }
-function clearLoadedState(){
+function clearLoadedState(options={}){
+  if(!options.preserveDrawingLoad)drawingLoadGeneration++;
+  drawingWorkspaceRevision++;
+  photoImportGeneration++;
   // Capture the outgoing workspace before any globals or debounce timers change.
   clearTimeout(recoverySnapshotTimer);recoverySnapshotTimer=0;
   if(recoverySnapshotDirty)saveRecoverySnapshot({immediate:true});
@@ -15562,9 +15572,13 @@ function getAnnotationLayer(){
   return layers.length ? layers[0] : 1;
 }
 function getNextSfcFeatureId(srcText){
-  const nums = [...String(srcText || "").matchAll(/#(\d+)\s*=/g)].map(m => +m[1]).filter(Number.isFinite);
-  let n = nums.length ? Math.max(...nums) + 1 : 10000;
-  if (n < 10000) n = 10000;
+  // Spreading all IDs into Math.max exceeds the JS argument limit on large
+  // drawings. Scan without creating an array of every match/number instead.
+  let n=10000;
+  for(const match of String(srcText||"").matchAll(/#(\d+)\s*=/g)){
+    const id=Number(match[1]);
+    if(Number.isFinite(id)&&id>=n)n=id+1;
+  }
   return n;
 }
 function flattenSxfFeatureBlocks(srcText){
@@ -17337,14 +17351,19 @@ async function importGeotaggedPhotos(files,options={}){
   const replaceExisting=options&&options.replaceExisting===true;
   const selected=Array.from(files||[]).filter(file=>/\.jpe?g$/i.test(String(file.name||""))||String(file.type||"").toLowerCase()==="image/jpeg");
   if(!selected.length){showToast("JPEG写真を選択してください",2200);return;}
+  const generation=++photoImportGeneration,workspaceRevision=drawingWorkspaceRevision;
+  const isCurrent=()=>generation===photoImportGeneration&&workspaceRevision===drawingWorkspaceRevision;
   showBusy("写真の位置情報を読み込み中…");await waitForUiPaint();
+  if(!isCurrent())return;
   const imported=[],failed=[];
   const desktopImport=isDesktopPhotoTool();
   let completed=0;
   const processPhotoFile=async(file,index)=>{
+    if(!isCurrent())return;
     if(!desktopImport)updateBusy(`写真を確認中… ${index+1}/${selected.length}`);
     try{
       const exif=await readPhotoExif(file);
+      if(!isCurrent())return;
       const zone=getPhotoCoordinateZone({originalLat:exif.lat,originalLon:exif.lon});
       const xy=latLonToJgd2024XY(exif.lat,exif.lon,zone);
       const world=planeToSfcWorld(xy.x,xy.y,true);
@@ -17356,11 +17375,12 @@ async function importGeotaggedPhotos(files,options={}){
         originalXNorth:xy.x,originalYEast:xy.y,manualPositionAdjusted:false,manualDirectionAdjusted:false
       };
       imported.push(importedItem);
-      attachPhotoSourceFile(importedItem,file);
+      // Keep the file private to this import until the workspace is committed.
+      Object.defineProperty(importedItem,"_sourceFile",{value:file,writable:true,configurable:true});
     }catch(err){failed.push({name:file.name,reason:err&&err.message||"位置情報なし"});}
     finally{
       completed++;
-      if(desktopImport)updateBusy(`写真を確認中… ${completed}/${selected.length}`);
+      if(desktopImport&&isCurrent())updateBusy(`写真を確認中… ${completed}/${selected.length}`);
     }
   };
   if(desktopImport){
@@ -17369,16 +17389,19 @@ async function importGeotaggedPhotos(files,options={}){
   }else{
     for(let index=0;index<selected.length;index++)await processPhotoFile(selected[index],index);
   }
+  if(!isCurrent())return;
   if(!imported.length){hideBusy();showToast("位置情報付きJPEG写真がありません",2800);return;}
   updateBusy("DEM標高を取得中…");
   try{await ensurePhotoDemElevations(imported);}
   catch(error){console.warn("Photo DEM elevation import failed",error);}
-  finally{hideBusy();}
+  finally{if(isCurrent())hideBusy();}
+  if(!isCurrent())return;
   // A saved SFC can contain an older baked photo layer as ordinary CAD
   // features. Remove that copy before enabling the live photo layer so its
   // arrows cannot reappear together with newly imported photos.
   removeStalePhotoSourceGeometry();
   if(replaceExisting)replacePhotoImportState(imported);
+  else for(const item of imported)attachPhotoSourceFile(item,item._sourceFile);
   const merged=new Map(photoAnnotations.map(item=>[String(item.fileName).toLocaleLowerCase("ja"),item]));
   for(const item of imported)merged.set(String(item.fileName).toLocaleLowerCase("ja"),item);
   photoAnnotations=[...merged.values()].sort((a,b)=>String(a.fileName).localeCompare(String(b.fileName),"ja",{numeric:true,sensitivity:"base"}));
@@ -17389,7 +17412,7 @@ async function importGeotaggedPhotos(files,options={}){
   deletedLayerNames.delete(PHOTO_LIST_LAYER_NAME);
   ensureLayerVisibility();layerVisibility[PHOTO_POSITION_LAYER_ID]=true;layerVisibility[PHOTO_LIST_LAYER_ID]=true;
   renderLayerList();renderPhotoListPanel();scheduleDraw();saveRecoverySnapshot({immediate:true});
-  requestAnimationFrame(()=>requestAnimationFrame(fitPhotoListToScreen));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{if(isCurrent())fitPhotoListToScreen();}));
   const suffix=failed.length?`（位置情報なし ${failed.length}枚を除外）`:"";
   showToast(`${imported.length}枚の写真を配置しました${suffix}`,3000);
 }
@@ -18227,39 +18250,13 @@ function insertGeneratedSxfRootPlacement(baseText,placementText){
   return insertAerialSxfAssemblyRecords(baseText,[],[generated]);
 }
 function validateSfcExportAgainstSource(baseText, ann){
-  const srcSegs = getSourceFeatureSegments(baseText);
-  if (!srcSegs.length || !ann || !ann.lineText) return {ok:true};
-  let minx=Infinity, miny=Infinity, maxx=-Infinity, maxy=-Infinity;
-  for (const s of srcSegs){
-    minx=Math.min(minx,s.ax,s.bx); miny=Math.min(miny,s.ay,s.by); maxx=Math.max(maxx,s.ax,s.bx); maxy=Math.max(maxy,s.ay,s.by);
+  // Model coordinates may legitimately be near zero or outside the source
+  // extent (e.g. GPS points). Magnitude cannot distinguish them from pixels.
+  // SXF feature counts, definitions and numeric values are checked separately
+  // by validateGeneratedMemoSfc after assembly.
+  if((ann?.exportPoints||[]).some(point=>!Number.isFinite(point.x)||!Number.isFinite(point.y))){
+    return {ok:false,reason:"書き込む座標に無効な数値があります。保存を中止しました。"};
   }
-  const srcMag = Math.max(Math.abs(minx),Math.abs(miny),Math.abs(maxx),Math.abs(maxy));
-  const srcW = Math.max(1, maxx-minx), srcH = Math.max(1, maxy-miny);
-  const pts = [];
-  const re = /line_feature\('[^']*','[^']*','[^']*','[^']*','([^']*)','([^']*)','([^']*)','([^']*)'\)/g;
-  let m;
-  while((m = re.exec(ann.lineText)) !== null){
-    const nums = [m[1],m[2],m[3],m[4]].map(Number);
-    if (nums.every(Number.isFinite)) pts.push({x:nums[0],y:nums[1]},{x:nums[2],y:nums[3]});
-  }
-  const polyRe=/polyline_feature\('[^']*','[^']*','[^']*','[^']*','[^']*','\(([^)]*)\)','\(([^)]*)\)'\)/g;
-  while((m=polyRe.exec(ann.lineText))!==null){
-    const xs=m[1].split(',').map(Number),ys=m[2].split(',').map(Number);
-    for(let i=0;i<Math.min(xs.length,ys.length);i++)if(Number.isFinite(xs[i])&&Number.isFinite(ys[i]))pts.push({x:xs[i],y:ys[i]});
-  }
-  const circleRe=/circle_feature\('[^']*','[^']*','[^']*','[^']*','([^']*)','([^']*)','([^']*)'\)/g;
-  while((m=circleRe.exec(ann.lineText))!==null){
-    const x=Number(m[1]),y=Number(m[2]),r=Math.abs(Number(m[3]));
-    if([x,y,r].every(Number.isFinite))pts.push({x:x-r,y:y-r},{x:x+r,y:y+r});
-  }
-  if (!pts.length) return {ok:true};
-  let eminx=Infinity, eminy=Infinity, emaxx=-Infinity, emaxy=-Infinity;
-  for (const p of pts){ eminx=Math.min(eminx,p.x); eminy=Math.min(eminy,p.y); emaxx=Math.max(emaxx,p.x); emaxy=Math.max(emaxy,p.y); }
-  const expMag = Math.max(Math.abs(eminx),Math.abs(eminy),Math.abs(emaxx),Math.abs(emaxy));
-  const expW = Math.max(1, emaxx-eminx), expH = Math.max(1, emaxy-eminy);
-  if (srcMag >= 10000 && expMag < 1000) return {ok:false, reason:'手書きメモの座標が画面座標のままです。保存を中止しました。'};
-  if (srcW >= 10000 && expW > srcW * 1.2) return {ok:false, reason:'手書きメモのX座標範囲が元図面より不自然に大きいです。保存を中止しました。'};
-  if (srcH >= 10000 && expH > srcH * 1.2) return {ok:false, reason:'手書きメモのY座標範囲が元図面より不自然に大きいです。保存を中止しました。'};
   return {ok:true};
 }
 function validateGeneratedMemoSfc(sfcText,expectedFeatureCount){
@@ -18551,13 +18548,24 @@ function buildSfcExportBlobAndName(){
   return { ok:true, blob, overwriteName, saveAsName, text:newSfc };
 }
 async function buildSfcExportBlobAndNameAsync(){
+  const workspaceRevision=drawingWorkspaceRevision,sourceData=data,sourceText=loadedSfcText;
+  const isCurrent=()=>workspaceRevision===drawingWorkspaceRevision&&sourceData===data&&sourceText===loadedSfcText;
+  const changed=()=>({ok:false,reason:"保存の準備中に図面が切り替わりました。もう一度保存してください。"});
+  const overwriteName=normalizeExportFileName(data.source_name,"sfc_view.sfc");
   updateBusy("既存のSFCデータを整理中…");
   await waitForUiPaint();
+  if(!isCurrent())return changed();
+  const editRevision=recoveryRestoreRevision;
   let base=prepareSfcExportBase();
 
   updateBusy("写真方向・一覧表を書き込み中…");
   await waitForUiPaint();
+  if(!isCurrent())return changed();
+  if(editRevision!==recoveryRestoreRevision)return {ok:false,reason:"保存の準備中に編集されました。もう一度保存してください。"};
   const ann=buildSfcAnnotations(base);
+  // No await between geometry and its recovery metadata: both describe the
+  // same edit snapshot, even if the user draws again during later UI yields.
+  const metaComment=buildMemoMetaComment();
 
   updateBusy("書き込み内容を確認中…");
   await waitForUiPaint();
@@ -18570,7 +18578,6 @@ async function buildSfcExportBlobAndNameAsync(){
   base=insertMemoLayerDefinition(base,ann.layerText);
   base=insertMemoWidthDefinitions(base,ann.widthText);
   base=insertMemoFontDefinitions(base,ann.fontText);
-  const metaComment=buildMemoMetaComment();
   const exportText=ann.lineText+(metaComment?"\r\n"+metaComment:"");
   let newSfc=insertMemoGeneralFeatures(base,exportText,ann.exportPoints,ann.preludeText);
   newSfc=insertGeneratedSxfRootPlacement(newSfc,ann.rootPlacementText).replace(/[\s\r\n]*$/,"\r\n");
@@ -18582,7 +18589,7 @@ async function buildSfcExportBlobAndNameAsync(){
 
   updateBusy("保存ファイルを作成中…");
   await waitForUiPaint();
-  const overwriteName=normalizeExportFileName(data.source_name,"sfc_view.sfc");
+  if(!isCurrent())return changed();
   const saveAsName=overwriteName;
   const blob=new Blob([latin1StringToBytes(newSfc)],{type:"application/octet-stream"});
   return {ok:true,blob,overwriteName,saveAsName,text:newSfc};
@@ -18715,11 +18722,16 @@ function addAerialImageReferencesToSfc(srcText,imageSpecs){
   return text.slice(0,sheetAt)+block+"\r\n\r\n"+text.slice(sheetAt);
 }
 async function buildAerialSfcSidecarExport(requestedSfcFileName=""){
+  const workspaceRevision=drawingWorkspaceRevision,sourceData=data;
+  const assertCurrent=()=>{
+    if(workspaceRevision!==drawingWorkspaceRevision||sourceData!==data)throw new Error("保存の準備中に図面が切り替わりました。もう一度保存してください。");
+  };
   const images=getExportableAerialCadImages();
   if(!images.length)return {ok:false,reason:"CAD化した航空写真がありません"};
   const sourceExport=await buildSfcExportBlobAndNameAsync();
   if(!sourceExport.ok)return sourceExport;
-  const baseName=normalizeExportFileName((data&&data.source_name)||"drawing.sfc","drawing.sfc").replace(/\.sfc$/i,"");
+  assertCurrent();
+  const baseName=sourceExport.saveAsName.replace(/\.sfc$/i,"");
   const exportBase=normalizeExportFileName(`${baseName}_航空写真`,"drawing_aerial");
   let sfcFileName=normalizeExportFileName(requestedSfcFileName||`${exportBase}.sfc`,`${exportBase}.sfc`);
   if(!/\.sfc$/i.test(sfcFileName))sfcFileName+=".sfc";
@@ -18740,6 +18752,7 @@ async function buildAerialSfcSidecarExport(requestedSfcFileName=""){
     // interoperability. Their meaning is carried by the SXF layer name.
     const jpegFileName=`${index+1}.jpg`;
     const prepared=await prepareAerialRasterForSfcExport(entry,displayToPaper);
+    assertCurrent();
     imageSpecs.push({
       jpegFileName,bounds:entry.bounds,planePolygon:entry.planePolygon,
       paperCorners:prepared.paperCorners,layerName:entry.layerName
@@ -18749,6 +18762,7 @@ async function buildAerialSfcSidecarExport(requestedSfcFileName=""){
   updateBusy("航空写真の配置情報を作成中…");
   await waitForUiPaint();
   sfcText=addAerialImageReferencesToSfc(sfcText,imageSpecs);
+  assertCurrent();
   sfcText=sfcText.replace(/[\s\r\n]*$/,"\r\n");
   const sfcBlob=new Blob([latin1StringToBytes(sfcText)],{type:"application/octet-stream"});
   return {ok:true,sfcBlob,sfcFileName,text:sfcText,imageFiles,imageCount:images.length};
@@ -19027,13 +19041,15 @@ async function pruneRecoveryHistory(db,key){
 async function flushRecoveryIndexedDbSave(){
   if(recoveryDbFlushBusy)return;
   recoveryDbFlushBusy=true;
+  let activeRecord=null;
   try{
     while(recoveryDbPendingRecord||recoveryDbPendingByKey.size){
       if(!recoveryDbPendingRecord){
         const [key,pending]=recoveryDbPendingByKey.entries().next().value;
         recoveryDbPendingByKey.delete(key);recoveryDbPendingRecord=pending;
       }
-      const {baseRecord,simaSourceRecord,...record}=recoveryDbPendingRecord;
+      activeRecord=recoveryDbPendingRecord;
+      const {baseRecord,simaSourceRecord,...record}=activeRecord;
       recoveryDbPendingRecord=null;
       const db=await openRecoveryDb();
       const lastHistory=recoveryHistoryLastSaved.get(record.key)||0;
@@ -19057,20 +19073,35 @@ async function flushRecoveryIndexedDbSave(){
         });
       }
       await done;
+      activeRecord=null;
+      recoveryDbRetryDelay=300;
+      recoveryDbFailureNotified=false;
+      if(record.key===getRecoveryStorageKey()&&!recoverySnapshotTimer&&
+          recoveryDbPendingRecord?.key!==record.key&&!recoveryDbPendingByKey.has(record.key))recoverySnapshotDirty=false;
       if(baseRecord)recoveryBaseStoredKeys.add(record.key);
       if(simaSourceRecord)recoveryBaseStoredKeys.add(simaSourceRecord.key);
       if(addHistory){
         recoveryHistoryLastSaved.set(record.key,record.updatedAt);
-        await pruneRecoveryHistory(db,record.key);
+        await pruneRecoveryHistory(db,record.key).catch(error=>console.warn("Recovery history cleanup failed",error));
       }
     }
   }catch(err){
+    // A failed transaction must not discard its snapshot or supersede a newer one.
+    if(activeRecord&&recoveryDbPendingRecord?.key!==activeRecord.key&&!recoveryDbPendingByKey.has(activeRecord.key)){
+      recoveryDbPendingByKey.set(activeRecord.key,activeRecord);
+    }
+    if(activeRecord?.key===getRecoveryStorageKey())recoverySnapshotDirty=true;
+    if(!recoveryDbFailureNotified){
+      recoveryDbFailureNotified=true;
+      showToast("端末への自動保存を再試行中です。完了まで閉じず、必要ならファイル保存してください",5000);
+    }
     console.warn("Recovery IndexedDB save failed",err);
   }finally{
     recoveryDbFlushBusy=false;
     if(recoveryDbPendingRecord||recoveryDbPendingByKey.size){
       clearTimeout(recoveryDbFlushTimer);
-      recoveryDbFlushTimer=setTimeout(flushRecoveryIndexedDbSave,300);
+      recoveryDbFlushTimer=setTimeout(flushRecoveryIndexedDbSave,recoveryDbRetryDelay);
+      recoveryDbRetryDelay=Math.min(30000,recoveryDbRetryDelay*2);
     }
   }
 }
@@ -19356,23 +19387,42 @@ function applyRecoveryPayload(payload){
   showToast("前回のメモを復元しました",1700);
   return true;
 }
+function parseRecoveryRecord(record,key){
+  try{
+    if(!record||typeof record.json!=="string")return null;
+    const payload=JSON.parse(record.json);
+    if(!payload||`${RECOVERY_STORAGE_PREFIX}${payload.fingerprint}`!==key||!Array.isArray(payload.inkStrokes))return null;
+    return {record:{...record,key,updatedAt:Number(payload.ts)||Number(record.updatedAt)||0},payload};
+  }catch(_error){return null;}
+}
+async function readBestRecoveryRecord(db,key){
+  const candidates=[];
+  // The local copy can be newer when an IndexedDB write failed.
+  try{
+    const local=parseRecoveryRecord({json:localStorage.getItem(key)},key);
+    if(local)candidates.push(local);
+  }catch(_error){}
+  const primary=db?await recoveryDbRequest(db.transaction(RECOVERY_DB_SNAPSHOT_STORE,"readonly").objectStore(RECOVERY_DB_SNAPSHOT_STORE).get(key)):null;
+  const parsed=parseRecoveryRecord(primary,key);
+  if(parsed)candidates.push(parsed);
+  if(db&&!candidates.length){
+    const history=await recoveryDbRequest(db.transaction(RECOVERY_DB_HISTORY_STORE,"readonly").objectStore(RECOVERY_DB_HISTORY_STORE).index("key").getAll(IDBKeyRange.only(key)));
+    for(const record of history){const candidate=parseRecoveryRecord(record,key);if(candidate)candidates.push(candidate);}
+  }
+  candidates.sort((a,b)=>b.record.updatedAt-a.record.updatedAt);
+  return candidates[0]||null;
+}
 async function restoreRecoverySnapshotFromIndexedDb(key,fingerprint){
-  if(recoveryRestoreInFlightKey===key)return false;
   recoveryRestoreInFlightKey=key;
   const revision=recoveryRestoreRevision;
+  const loadGeneration=drawingLoadGeneration;
   try{
-    const db=await openRecoveryDb();
-    let record=await recoveryDbRequest(db.transaction(RECOVERY_DB_SNAPSHOT_STORE,"readonly").objectStore(RECOVERY_DB_SNAPSHOT_STORE).get(key));
-    if(!record){
-      const tx=db.transaction(RECOVERY_DB_HISTORY_STORE,"readonly");
-      const records=await recoveryDbRequest(tx.objectStore(RECOVERY_DB_HISTORY_STORE).index("key").getAll(IDBKeyRange.only(key)));
-      records.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-      record=records[0]||null;
-    }
-    if(!record||!recoveryFingerprintMatches(fingerprint))return false;
-    const payload=JSON.parse(record.json);
+    const db=await openRecoveryDb().catch(()=>null);
+    const best=await readBestRecoveryRecord(db,key);
+    if(!best||!recoveryFingerprintMatches(fingerprint))return false;
+    const {record,payload}=best;
     await cacheRecoverySimaSource(payload);
-    if(revision!==recoveryRestoreRevision||!recoveryFingerprintMatches(fingerprint))return false;
+    if(loadGeneration!==drawingLoadGeneration||revision!==recoveryRestoreRevision||!recoveryFingerprintMatches(fingerprint))return false;
     if(!applyRecoveryPayload(payload))return false;
     try{
       if(window.localStorage)localStorage.setItem(key,record.json);
@@ -19386,36 +19436,19 @@ async function restoreRecoverySnapshotFromIndexedDb(key,fingerprint){
     if(recoveryRestoreInFlightKey===key)recoveryRestoreInFlightKey="";
   }
 }
-function restoreRecoverySnapshotIfAvailable(){
+async function restoreRecoverySnapshotIfAvailable(){
   try{
     if(!data||!loadedSfcText)return false;
     const key=getRecoveryStorageKey();
     const fingerprint=computeRecoveryFingerprint();
-    let raw=null;
-    try{if(window.localStorage)raw=localStorage.getItem(key);}catch(_e){}
-    if(raw){
-      try{
-        const payload=JSON.parse(raw);
-        if(applyRecoveryPayload(payload))return true;
-        if(payload.simaSourceKey){
-          const revision=recoveryRestoreRevision;
-          cacheRecoverySimaSource(payload).then(()=>{
-            if(revision===recoveryRestoreRevision&&recoveryFingerprintMatches(fingerprint))applyRecoveryPayload(payload);
-          }).catch(error=>{console.warn("SIMA recovery failed",error);showToast("SIMAの復元データを読み込めません",2600);});
-          return false;
-        }
-      }catch(err){console.warn("Recovery localStorage restore failed",err);}
-    }
+    const revision=recoveryRestoreRevision,loadGeneration=drawingLoadGeneration;
+    // Do not briefly apply an older local copy while the newer DB copy loads:
+    // an edit in that interval could otherwise save over the newer snapshot.
+    if(await restoreRecoverySnapshotFromIndexedDb(key,fingerprint))return true;
+    if(loadGeneration!==drawingLoadGeneration||revision!==recoveryRestoreRevision||!recoveryFingerprintMatches(fingerprint))return false;
     const legacyFingerprint=computeLegacyRecoveryFingerprint();
     const legacyKey=RECOVERY_STORAGE_PREFIX+legacyFingerprint;
-    try{
-      const legacy=localStorage.getItem(legacyKey);
-      if(legacy&&applyRecoveryPayload(JSON.parse(legacy)))return true;
-    }catch(_e){}
-    restoreRecoverySnapshotFromIndexedDb(key,fingerprint).then(restored=>{
-      if(!restored&&recoveryFingerprintMatches(fingerprint))return restoreRecoverySnapshotFromIndexedDb(legacyKey,legacyFingerprint);
-    });
-    return false;
+    return await restoreRecoverySnapshotFromIndexedDb(legacyKey,legacyFingerprint);
   }catch(err){
     console.error(err);
     return false;
@@ -19424,29 +19457,17 @@ function restoreRecoverySnapshotIfAvailable(){
 async function readLatestRecoverableWork(){
   try{
     const db=await openRecoveryDb();
-    return await new Promise((resolve,reject)=>{
-      const tx=db.transaction([RECOVERY_DB_SNAPSHOT_STORE,RECOVERY_DB_BASE_STORE],"readonly");
-      const snapshots=tx.objectStore(RECOVERY_DB_SNAPSHOT_STORE);
-      const bases=tx.objectStore(RECOVERY_DB_BASE_STORE);
-      const request=snapshots.index("updatedAt").openCursor(null,"prev");
-      request.onerror=()=>reject(request.error||new Error("Recovery cursor failed"));
-      request.onsuccess=()=>{
-        const cursor=request.result;
-        if(!cursor){resolve(null);return;}
-        const snapshotRecord=cursor.value;
-        const baseRequest=bases.get(snapshotRecord.key);
-        baseRequest.onerror=()=>cursor.continue();
-        baseRequest.onsuccess=()=>{
-          const baseRecord=baseRequest.result;
-          if(!baseRecord||!baseRecord.sourceText){cursor.continue();return;}
-          try{
-            const payload=JSON.parse(snapshotRecord.json);
-            if(!payload||`${RECOVERY_STORAGE_PREFIX}${payload.fingerprint}`!==snapshotRecord.key){cursor.continue();return;}
-            resolve({key:snapshotRecord.key,snapshotRecord,baseRecord,payload});
-          }catch(_e){cursor.continue();}
-        };
-      };
-    });
+    // Enumerate keys without loading every large source/photo into memory.
+    const keys=await recoveryDbRequest(db.transaction(RECOVERY_DB_BASE_STORE,"readonly").objectStore(RECOVERY_DB_BASE_STORE).getAllKeys());
+    let latest=null;
+    for(const key of keys){
+      if(typeof key!=="string"||!key.startsWith(RECOVERY_STORAGE_PREFIX))continue;
+      const best=await readBestRecoveryRecord(db,key);
+      if(!best||latest&&best.record.updatedAt<=latest.snapshotRecord.updatedAt)continue;
+      const baseRecord=await recoveryDbRequest(db.transaction(RECOVERY_DB_BASE_STORE,"readonly").objectStore(RECOVERY_DB_BASE_STORE).get(key));
+      if(baseRecord?.sourceText)latest={key,snapshotRecord:best.record,baseRecord,payload:best.payload};
+    }
+    return latest;
   }catch(err){
     console.warn("Latest recovery lookup failed",err);
     return null;
@@ -19487,18 +19508,21 @@ async function refreshStartupRecoveryButton(){
 async function restoreLatestRecoveryWork(){
   const button=document.getElementById("startupRecoveryBtn");
   if(button?.disabled)return false;
+  const loadGeneration=++drawingLoadGeneration;
   if(button)button.disabled=true;
   showBusy("前回の作業を復元中…");
   await waitForUiPaint();
   try{
     const work=await readLatestRecoverableWork();
+    if(loadGeneration!==drawingLoadGeneration)return false;
     if(!work){showToast("復元できる前回作業がありません",2400);return false;}
     const {key,baseRecord,payload}=work;
     await cacheRecoverySimaSource(payload);
+    if(loadGeneration!==drawingLoadGeneration)return false;
     recoveryBaseStoredKeys.add(key);
     if(baseRecord.workspaceOnly){
       const workspace=JSON.parse(baseRecord.sourceText);
-      clearLoadedState();
+      clearLoadedState({preserveDrawingLoad:true});
       resetSessionFromLoad();
       recoveryWorkspaceSource=baseRecord.sourceText;
       profileZone=payload.workspaceProfileZone||null;
@@ -19508,12 +19532,13 @@ async function restoreLatestRecoveryWork(){
         simaDisplayEnabled=true;
       }else enterGpsOnlyBlankMode();
       document.getElementById("startupModal").style.display="none";
-    }else await handleLoadedSource(
+    }else if(await handleLoadedSource(
       String(baseRecord.sourceText||""),
       String(baseRecord.sourceName||payload.sourceName||"recovery.sfc"),
       null,
-      {restoreRecovery:false}
-    );
+      {restoreRecovery:false,loadGeneration}
+    )===false)return false;
+    if(loadGeneration!==drawingLoadGeneration)return false;
     currentLoadedKind=String(baseRecord.currentLoadedKind||payload.currentLoadedKind||"sfc");
     if(!applyRecoveryPayload(payload))throw new Error("復元データと元図面が一致しません");
     touchRecoveryIndex(key,payload.sourceName);
@@ -19521,10 +19546,11 @@ async function restoreLatestRecoveryWork(){
     return true;
   }catch(err){
     console.error(err);
+    if(loadGeneration!==drawingLoadGeneration)return false;
     showToast(err?.message||"前回の作業を復元できませんでした",3000);
     return false;
   }finally{
-    hideBusy();
+    if(loadGeneration===drawingLoadGeneration)hideBusy();
     if(!loadedSfcText)refreshStartupRecoveryButton().catch(()=>{});
   }
 }
@@ -19538,10 +19564,13 @@ function markMemoChanged(){
 }
 async function saveSfcOverwrite(){
   if(currentLoadedKind!=="sfc"){showToast("SFC図面を開いてください");return;}
+  const workspaceRevision=drawingWorkspaceRevision,sourceData=data;
+  const isCurrent=()=>workspaceRevision===drawingWorkspaceRevision&&sourceData===data;
   let exportData;
   showBusy("SFC保存データを準備中…");
   await waitForUiPaint();
   try{
+    if(!isCurrent())return;
     exportData=await buildSfcExportBlobAndNameAsync();
   }catch(error){
     hideBusy();
@@ -19550,6 +19579,7 @@ async function saveSfcOverwrite(){
     return;
   }
   hideBusy();
+  if(!isCurrent())return;
   if (!exportData.ok) { showToast(exportData.reason); return; }
   const { blob, overwriteName } = exportData;
 
@@ -19559,6 +19589,7 @@ async function saveSfcOverwrite(){
     showBusy("SFCを上書き保存中…");
     try{
       await writeBlobToHandle(silentHandle, blob);
+      if(!isCurrent()){showToast("切替前の図面を保存しました");return;}
       lastSaveHandle = silentHandle;
       currentOpenHandle = silentHandle;
       lastPickerHandle = silentHandle;
@@ -19568,6 +19599,7 @@ async function saveSfcOverwrite(){
       showToast("SFCを上書き保存しました");
       return;
     }catch(e){
+      if(!isCurrent())return;
       hideBusy();
       if (!(e && e.name === "AbortError")){
         console.error(e);
@@ -19589,8 +19621,10 @@ async function saveSfcOverwrite(){
       const startHandle = getPickerStartHandle();
       if (startHandle) saveOpts.startIn = startHandle;
       const handle = await window.showSaveFilePicker(saveOpts);
+      if(!isCurrent())return;
       showBusy("SFCを保存中…");
       await writeBlobToHandle(handle, blob);
+      if(!isCurrent()){showToast("切替前の図面を保存しました");return;}
       lastSaveHandle = handle;
       currentOpenHandle = handle;
       lastPickerHandle = handle;
@@ -19750,6 +19784,8 @@ async function readFileAsLatin1Text(file){
   return bytesToLatin1String(new Uint8Array(buf));
 }
 async function saveSfcAsDesktop({overwrite=false}={}){
+  const workspaceRevision=drawingWorkspaceRevision,sourceData=data;
+  const isCurrent=()=>workspaceRevision===drawingWorkspaceRevision&&sourceData===data;
   if(currentLoadedKind!=="sfc"){
     showToast("SFC図面を開いてください");
     return;
@@ -19770,12 +19806,16 @@ async function saveSfcAsDesktop({overwrite=false}={}){
         suggestedName,
         types:[{description:"SXF画像付き図面",accept:{"application/zip":[".sfz"]}}]
       });
+      if(!isCurrent())return;
       showBusy("画像付きSFZを準備中…");
       await waitForUiPaint();
+      if(!isCurrent())return;
       const exportData=await buildAerialSfzExport(handle.name||suggestedName);
+      if(!isCurrent())return;
       if(!exportData.ok)throw new Error(exportData.reason||"保存データを作成できませんでした");
       showBusy("画像付きSFZを保存中…");
       await writeBlobToHandle(handle,exportData.blob);
+      if(!isCurrent()){showToast("切替前の図面を保存しました");return;}
       lastSaveHandle=handle;lastPickerHandle=handle;
       // The handle points to the SFZ container, not directly to its inner SFC.
       // Keep currentOpenHandle unchanged so a later SFC-only overwrite cannot
@@ -19799,6 +19839,7 @@ async function saveSfcAsDesktop({overwrite=false}={}){
   showBusy("SFC保存データを準備中…");
   await waitForUiPaint();
   try{
+    if(!isCurrent())return;
     exportData=await buildSfcExportBlobAndNameAsync();
     if(!exportData.ok)throw new Error(exportData.reason||"保存データを作成できませんでした");
   }catch(error){
@@ -19808,6 +19849,7 @@ async function saveSfcAsDesktop({overwrite=false}={}){
     return;
   }
   hideBusy();
+  if(!isCurrent())return;
   const overwriteHandle=overwrite&&currentOpenHandle&&typeof currentOpenHandle.createWritable==="function"
     ? currentOpenHandle
     : null;
@@ -19815,11 +19857,13 @@ async function saveSfcAsDesktop({overwrite=false}={}){
     showBusy("SFCを上書き保存中…");
     try{
       await writeBlobToHandle(overwriteHandle,exportData.blob);
+      if(!isCurrent()){showToast("切替前の図面を保存しました");return;}
       lastSaveHandle=overwriteHandle;lastPickerHandle=overwriteHandle;
       data.source_name=overwriteHandle.name||exportData.overwriteName;
       hideBusy();showToast("SFCを上書き保存しました");
       return;
     }catch(error){
+      if(!isCurrent())return;
       hideBusy();
       if(error&&error.name==="AbortError")return;
       console.error(error);
@@ -19837,8 +19881,10 @@ async function saveSfcAsDesktop({overwrite=false}={}){
       suggestedName:overwrite?exportData.overwriteName:exportData.saveAsName,
       types:[{description:"SFC",accept:{"application/octet-stream":[".sfc"]}}]
     });
+    if(!isCurrent())return;
     showBusy("SFCを保存中…");
     await writeBlobToHandle(handle,exportData.blob);
+    if(!isCurrent()){showToast("切替前の図面を保存しました");return;}
     lastSaveHandle=handle;currentOpenHandle=handle;lastPickerHandle=handle;
     data.source_name=handle.name||(overwrite?exportData.overwriteName:exportData.saveAsName);
     hideBusy();showToast("SFCを保存しました");
@@ -19937,23 +19983,27 @@ async function extractAerialCadImagesFromSfz(sfcText,zipBuffer,entries,worldToPl
   }
   return restored;
 }
-async function handleLoadedSfzFile(file){
+async function handleLoadedSfzFile(file,options={}){
+  const loadGeneration=options.loadGeneration??++drawingLoadGeneration;
+  if(loadGeneration!==drawingLoadGeneration)return false;
   showBusy("SFZを展開中…");
   await waitForUiPaint();
   const zipBuffer=await file.arrayBuffer();
+  if(loadGeneration!==drawingLoadGeneration)return false;
   const entries=registryZipEntriesLight(zipBuffer);
   const sfcEntry=entries.find(entry=>/\.sfc$/i.test(String(entry.name||"")));
   if(!sfcEntry)throw new Error("SFZ内にSFC図面がありません");
   const maxSfcBytes=Math.max(200*1024*1024,Number(sfcEntry.uncompressedSize)||0);
   const sfcBytes=await registryReadZipEntryBytesLight(zipBuffer,sfcEntry,maxSfcBytes);
   const sfcText=bytesToLatin1String(sfcBytes);
-  const loaded=await handleLoadedSource(sfcText,String(sfcEntry.name||file.name).split("/").pop(),null,{restoreRecovery:false,sfzArchive:{zipBuffer,entries}});
+  const loaded=await handleLoadedSource(sfcText,String(sfcEntry.name||file.name).split("/").pop(),null,{loadGeneration,restoreRecovery:false,sfzArchive:{zipBuffer,entries}});
   if(loaded===false)return false;
   const restoredImages=aerialCadImages;
   saveRecoverySnapshot({immediate:true});
   showToast(restoredImages.length
     ? `SFZを開きました（航空写真 ${restoredImages.length}枚）`
     : "SFZを開きました（対応する航空写真はありません）",2600);
+  return true;
 }
 function restoreInkStrokesFromSourceText(srcText){
   const memoMeta = parseMemoMetaPayload(srcText);
@@ -20049,9 +20099,12 @@ function restoreInkStrokesFromSourceText(srcText){
   return restored;
 }
 async function handleLoadedSource(srcText, fileName, handleOverride, options={}){
+  const loadGeneration=options.loadGeneration??++drawingLoadGeneration;
+  if(loadGeneration!==drawingLoadGeneration)return false;
   showBusy("SFCを解析中…");
   await waitForUiPaint();
   try{
+  if(loadGeneration!==drawingLoadGeneration)return false;
   const parseStarted=performance.now();
   let parsed,renderSourceText;
   try{
@@ -20073,9 +20126,10 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
     stagedAerialImages=await extractAerialCadImagesFromSfz(srcText,options.sfzArchive.zipBuffer,options.sfzArchive.entries,
       (x,y)=>coordinateMeshSfcWorldToPlane(x,y,transform));
   }
+  if(loadGeneration!==drawingLoadGeneration)return false;
   window.__EMBED_PAYLOAD_B64__ = "";
   stopCompassFollow();
-  clearLoadedState();
+  clearLoadedState({preserveDrawingLoad:true});
   currentLoadedKind = "sfc";
   currentOpenHandle = handleOverride || null;
   loadedSfcText = srcText;
@@ -20112,17 +20166,20 @@ async function handleLoadedSource(srcText, fileName, handleOverride, options={})
   migrateMemoLayerCirclesFromDataToInk();
   renderLayerList();
   document.getElementById("startupModal").style.display="none";
-  if(options.restoreRecovery!==false)restoreRecoverySnapshotIfAvailable();
+  if(options.restoreRecovery!==false)await restoreRecoverySnapshotIfAvailable();
+  if(loadGeneration!==drawingLoadGeneration)return false;
   applyDefaultFullViewAfterLoad();
   await persistRecoveryBaseSource();
+  if(loadGeneration!==drawingLoadGeneration)return false;
   gaTrackOpenSfc("sfc");
   const loadModeLabel=(largeDrawingMode ? "大容量モード" : "通常モード")+
     (activeCoordinateMeshTransform ? "・座標メッシュ補正" : "");
   showToast(lastSaveHandle
     ? `読み込みました（${loadModeLabel}・上書き保存対応）`
     : `読み込みました（${loadModeLabel}）`);
+  return true;
   }finally{
-    hideBusy();
+    if(loadGeneration===drawingLoadGeneration)hideBusy();
   }
 }
 const RECENT_DRAWING_DB_NAME="sfcviewer-recent-drawings-v1";
@@ -20186,7 +20243,7 @@ async function writeRecentDrawingHistory(entries){
 function recentDrawingFingerprint(file){
   return `${String(file&&file.name||"")}\u0000${+file?.size||0}\u0000${+file?.lastModified||0}`;
 }
-async function rememberRecentDrawing(file,handle){
+async function rememberRecentDrawing(file,handle,loadGeneration=drawingLoadGeneration){
   if(!isDesktopPhotoTool()||!file||!/\.(?:sfc|sfz)$/i.test(String(file.name||"")))return;
   const entries=await readRecentDrawingHistory();
   const fingerprint=recentDrawingFingerprint(file);
@@ -20205,11 +20262,14 @@ async function rememberRecentDrawing(file,handle){
     handle:handle||existing&&existing.handle||null
   };
   entries.unshift(entry);
+  if(loadGeneration!==drawingLoadGeneration)return;
   await writeRecentDrawingHistory(entries);
   await renderRecentDrawingHistory();
 }
 async function openRecentDrawingEntry(entryId){
+  const loadGeneration=++drawingLoadGeneration;
   const entries=await readRecentDrawingHistory();
+  if(loadGeneration!==drawingLoadGeneration)return;
   const entry=entries.find(item=>String(item.id)===String(entryId));
   if(!entry)return;
   setSaveMenuOpen(false);
@@ -20224,10 +20284,9 @@ async function openRecentDrawingEntry(entryId){
     if(permission!=="granted"&&typeof handle.requestPermission==="function")permission=await handle.requestPermission({mode:"read"});
     if(permission!=="granted")throw new Error("permission denied");
     const file=await handle.getFile();
-    if(/\.sfz$/i.test(file.name))await handleLoadedSfzFile(file);
-    else await handleLoadedSource(await readFileAsLatin1Text(file),file.name,handle);
-    await rememberRecentDrawing(file,handle);
+    await handleSelectedDrawingFile(file,handle,{loadGeneration});
   }catch(error){
+    if(loadGeneration!==drawingLoadGeneration)return;
     console.error(error);
     hideBusy();
     showToast("ファイルを移動したか、参照権限が切れています",2600);
@@ -20273,16 +20332,10 @@ async function openSfcViaPickerOrInput(){
       if (startHandle) openOpts.startIn = startHandle;
       const [handle] = await window.showOpenFilePicker(openOpts);
       if (handle) {
+        const loadGeneration=++drawingLoadGeneration;
         showBusy("ファイルを読み込み中…");
         const file = await handle.getFile();
-        if(/\.sfz$/i.test(file.name)){
-          await handleLoadedSfzFile(file);
-          await rememberRecentDrawing(file,handle);
-          return;
-        }
-        const srcText = await readFileAsLatin1Text(file);
-        await handleLoadedSource(srcText, file.name, handle);
-        await rememberRecentDrawing(file,handle);
+        await handleSelectedDrawingFile(file,handle,{loadGeneration});
         return;
       }
     }catch(e){
@@ -20297,39 +20350,44 @@ async function openSfcViaPickerOrInput(){
     input.click();
   }
 }
-async function handleSelectedDrawingFile(file){
+async function handleSelectedDrawingFile(file,handle=null,options={}){
   if(!file) return;
   if(!/\.(?:sfc|sfz)$/i.test(String(file.name||""))){
     return;
   }
-  if(/\.sfz$/i.test(String(file.name||""))){
-    try{await handleLoadedSfzFile(file);await rememberRecentDrawing(file,null);}
-    catch(err){hideBusy();console.error(err);showToast(err&&err.message?err.message:"SFZを開けませんでした",2800);}
-    return;
-  }
+  const loadGeneration=options.loadGeneration??++drawingLoadGeneration;
+  if(loadGeneration!==drawingLoadGeneration)return false;
   showBusy("ファイルを読み込み中…");
   try{
-    const srcText = await readFileAsLatin1Text(file);
-    await handleLoadedSource(srcText, file.name, null);
-    await rememberRecentDrawing(file,null);
+    let loaded;
+    if(/\.sfz$/i.test(file.name))loaded=await handleLoadedSfzFile(file,{loadGeneration});
+    else{
+      let srcText;
+      try{srcText=await readFileAsLatin1Text(file);}
+      catch(error){
+        if(loadGeneration!==drawingLoadGeneration)return false;
+        srcText=await new Promise((resolve,reject)=>{
+          const reader=new FileReader();
+          reader.onload=()=>resolve(bytesToLatin1String(new Uint8Array(reader.result)));
+          reader.onerror=()=>reject(reader.error||error);
+          reader.readAsArrayBuffer(file);
+        });
+      }
+      loaded=await handleLoadedSource(srcText,file.name,handle,{loadGeneration});
+    }
+    if(loaded!==false&&loadGeneration===drawingLoadGeneration)await rememberRecentDrawing(file,handle,loadGeneration);
+    return loaded!==false&&loadGeneration===drawingLoadGeneration;
   }catch(err){
-    hideBusy();
-    try{
-      const reader=new FileReader();
-      reader.onload=async()=>{
-        const bytes=new Uint8Array(reader.result);
-        const srcText=bytesToLatin1String(bytes);
-        await handleLoadedSource(srcText, file.name, null);
-        await rememberRecentDrawing(file,null);
-      };
-      reader.onerror=()=>{hideBusy();showToast("読み込み失敗");};
-      reader.readAsArrayBuffer(file);
-    }catch(err2){ hideBusy();showToast("読み込み失敗"); }
+    if(loadGeneration===drawingLoadGeneration){console.error(err);showToast(err?.message||"読み込み失敗",2800);}
+    return false;
+  }finally{
+    if(loadGeneration===drawingLoadGeneration)hideBusy();
   }
 }
 async function openBundledSampleDrawing(){
   const button=document.getElementById("startupSampleBtn");
   if(button?.disabled)return;
+  const loadGeneration=++drawingLoadGeneration;
   if(button)button.disabled=true;
   showBusy("サンプル図面を読み込み中…");
   await waitForUiPaint();
@@ -20338,8 +20396,9 @@ async function openBundledSampleDrawing(){
     if(!response.ok)throw new Error(`sample.sfc: HTTP ${response.status}`);
     const bytes=new Uint8Array(await response.arrayBuffer());
     const srcText=bytesToLatin1String(bytes);
-    await handleLoadedSource(srcText,"サンプル平面.sfc",null);
+    await handleLoadedSource(srcText,"サンプル平面.sfc",null,{loadGeneration});
   }catch(err){
+    if(loadGeneration!==drawingLoadGeneration)return;
     console.error(err);
     hideBusy();
     showToast("サンプル図面を開けませんでした",2600);
