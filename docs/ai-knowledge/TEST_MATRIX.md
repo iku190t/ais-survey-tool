@@ -1,12 +1,16 @@
 # 回帰テスト一覧
 
-最終実行: 2026-09-05 / `e70c5b2`
+最終実行: 2026-09-06 / `41c69dc`
 実行方法: リポジトリ直下でNode.jsを使い `node <script>`。`validate-real-sfc-rendering.js` だけ入力SFCが必要。
 
 ## 変更領域ごとの必須テスト
 
 |変更領域|最低限実行するテスト|
 |---|---|
+|作業切替・非同期読込/保存・復元障害|`validate-workspace-state.js`、`validate-workspace-races.js`、`validate-audit-followup-regressions.js`|
+|ボタン組合せ・縦横・編集往復・表示非破壊|`validate-interaction-matrix.js` と下記の領域別テスト|
+|SIMAの凹形/入力境界・数値/CSV/地形の合成入力|`validate-data-matrix.js` と下記の領域別テスト|
+|大容量SFC読込・最終保存|`validate-large-drawing.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |SFZ読込・最終SFC保存・写真の座標系・SIMA読込競合/復元・切替保存|`validate-audit-followup-regressions.js` と下記の各領域の既存テスト|
 |SIMA背景・画地・水平文字|`validate-sima-import.js`、`validate-sima-performance.js`、`validate-compass-follow.js`、`validate-performance-indexes.js`、`validate-pc-object-interaction.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |法務局地図・境界|`validate-registry-progress-cancel.js`、`validate-registry-append-and-intersection.js`、`validate-registry-cad.js`、`validate-registry-layer-colors.js`|
@@ -27,6 +31,16 @@
 |SFC/SFZ・ラスター|`validate-real-sfc-rendering.js <実ファイル>`、`validate-raster-placement.js`、`validate-ui.js`|
 |ライセンス・著作権表示|`validate-open-source-license.js`、`validate-real-sfc-rendering.js sample.sfc`|
 |広いUI変更|上記関連テストに加え `validate-ui.js`、`validate-real-sfc-rendering.js sample.sfc`|
+
+## 2026-09-06 組合せ・障害・大容量の実行結果
+
+- 全53本: 51成功、2失敗。既存の `validate-background-sxf.js` と `validate-ui.js` は旧DOM/ラスター名等の同じ前提で停止。今回の新規失敗なし。
+- 新設: `validate-workspace-state.js` 96、`validate-interaction-matrix.js` 66、`validate-data-matrix.js` 単体71＋ブラウザ12、`validate-workspace-races.js` 27、`validate-large-drawing.js` 2、計274ケース成功。反復内の数値照合は別のブラウザケースとして数えない。
+- 共通ハーネスは `tests/audit-harness.js`。Node.jsとPlaywright、Chrome/Edgeを使用。6プロファイルのうちモバイルはChromeの画面・タッチ・UA模擬。実端末ではない。合成データと隔離保存領域のみを使い、実ファイル保存と共有送信は模擬する。
+- 起動時に `EZ_VIEWER_TEST_URL` を指定すると新設試験のブラウザ部分を配信URLで実行できる。未指定ならローカルサーバー。`EZ_AUDIT_OUTPUT_DIR` でJSON結果の保存先を変更できる。単体計算はローカルのソースを使用する。
+- `validate-large-drawing.js`: 24,249,500バイト、210,000線の合成SFCをFile経由で読み、回転/拡大後も線が画面内に存在すること、原文/端点、保存後メモを確認。実端末のフレームレート測定ではない。
+- 故意のIndexedDB失敗・容量不足・破損スナップショット・遅延読込/保存を含む。未捕捉のページ例外は失敗とし、通信遮断に伴う警告は記録する。
+- 詳細と未確認範囲は [AUDIT_20260906.md](AUDIT_20260906.md)。Androidネイティブビルドは必要依存のキャッシュ不足で完了せず、アプリ不具合とは判定していない。
 
 ## 2026-09-05 追加監査8項目修正後の実行結果
 
