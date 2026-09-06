@@ -38,6 +38,7 @@
 - 新設: `validate-workspace-state.js` 96、`validate-interaction-matrix.js` 66、`validate-data-matrix.js` 単体71＋ブラウザ12、`validate-workspace-races.js` 27、`validate-large-drawing.js` 2、計274ケース成功。反復内の数値照合は別のブラウザケースとして数えない。
 - 共通ハーネスは `tests/audit-harness.js`。Node.jsとPlaywright、Chrome/Edgeを使用。6プロファイルのうちモバイルはChromeの画面・タッチ・UA模擬。実端末ではない。合成データと隔離保存領域のみを使い、実ファイル保存と共有送信は模擬する。
 - 起動時に `EZ_VIEWER_TEST_URL` を指定すると新設試験のブラウザ部分を配信URLで実行できる。未指定ならローカルサーバー。`EZ_AUDIT_OUTPUT_DIR` でJSON結果の保存先を変更できる。単体計算はローカルのソースを使用する。
+- 公開 `?v=41c69dc` でも新設5本を再実行し、ブラウザ203＋単体71が全成功。配信HTML/SIMAとローカルソースの改行正規化後ハッシュ一致、Pages `ca6e015` のビルド成功を別途確認した。
 - `validate-large-drawing.js`: 24,249,500バイト、210,000線の合成SFCをFile経由で読み、回転/拡大後も線が画面内に存在すること、原文/端点、保存後メモを確認。実端末のフレームレート測定ではない。
 - 故意のIndexedDB失敗・容量不足・破損スナップショット・遅延読込/保存を含む。未捕捉のページ例外は失敗とし、通信遮断に伴う警告は記録する。
 - 詳細と未確認範囲は [AUDIT_20260906.md](AUDIT_20260906.md)。Androidネイティブビルドは必要依存のキャッシュ不足で完了せず、アプリ不具合とは判定していない。
