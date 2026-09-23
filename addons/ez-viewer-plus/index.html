@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="light" />
+    <title>EZ Viewer Plus — 現況3D・横断</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <svg viewBox="0 0 36 36" aria-hidden="true">
+          <path d="M3 13 18 4l15 9-15 9ZM3 20l15 9 15-9M3 27l15 8 15-8" />
+        </svg>
+        <div>
+          EZ Viewer <b>Plus</b><small>現況3D・横断作成 / 独立試作版 0.1</small>
+        </div>
+      </div>
+      <nav>
+        <button id="readShortcut" class="primary" data-busy>図面を読む</button
+        ><button id="demo" data-busy>合成例で試す</button
+        ><button id="saveProject">作業JSONを保存</button
+        ><label class="button"
+          >作業JSONを開く<input
+            id="openProject"
+            type="file"
+            accept=".json,application/json"
+            hidden /></label
+        ><button id="newProject" data-busy>新規</button>
+      </nav>
+    </header>
+    <div class="notice">
+      <span class="pill" id="modeBadge">図面のみ · DEM OFF</span
+      ><span
+        >実測値は動かさず、推定と未確定を分けて表示。元のEZ
+        Viewerとは別のページです。</span
+      >
+    </div>
+    <main class="layout">
+      <aside>
+        <details open>
+          <summary><span>01</span> 図面を読み込む</summary>
+          <div class="content">
+            <p class="sub">元ファイルを変更せず、この作業へ追加します。</p>
+            <label class="button primary file-button"
+              >SFC・SIMAを選択<input
+                id="files"
+                type="file"
+                accept=".sfc,.sim,.SIM,.sima,application/octet-stream"
+                multiple
+                hidden
+            /></label>
+            <div class="pair">
+              <label
+                >文字コード<select id="encoding">
+                  <option value="auto">自動（UTF-8 / Shift-JIS）</option>
+                  <option value="shift-jis">Shift-JIS</option>
+                  <option value="utf-8">UTF-8</option>
+                </select></label
+              ><label
+                >SFC元座標の単位<select id="unit">
+                  <option value="0.001">mm → m</option>
+                  <option value="1">m</option>
+                </select></label
+              >
+            </div>
+            <label class="check"
+              ><input
+                id="verifiedInput"
+                type="checkbox"
+              />SIMAのXYZを実測確認済みとして固定</label
+            >
+            <small
+              >未確認のSIMA座標は「入力座標」として区別します。高さがない点に0mを入れません。</small
+            >
+            <div id="sources" class="source-list">
+              <p class="empty-small">図面がまだありません</p>
+            </div>
+          </div>
+        </details>
+        <details open>
+          <summary><span>02</span> 高さと面を確認</summary>
+          <div class="content">
+            <button id="candidates" data-busy>
+              プロットと標高文字の候補を見る
+            </button>
+            <p class="sub">
+              候補は自動確定しません。文字の位置ではなく、選んだプロット中心を使用します。
+            </p>
+            <button id="pointList">高さ付き点の一覧</button>
+            <label>面の名前<input id="surfaceName" value="地形面" /></label>
+            <div class="pair">
+              <label
+                >種類<select id="surfaceKind">
+                  <option value="terrain">地形</option>
+                  <option value="road">道路</option>
+                  <option value="channel">側溝・水路</option>
+                  <option value="bridge">橋面（別階層）</option>
+                </select></label
+              ><label
+                >補間の最大辺長 m<input
+                  id="maxEdge"
+                  type="number"
+                  min="0.01"
+                  max="1000"
+                  value="20"
+              /></label>
+            </div>
+            <label
+              >所属点名（カンマ区切り）<textarea
+                id="surfaceNames"
+                rows="2"
+                placeholder="平面で点を選択、または P1,P2,P3…"
+              ></textarea>
+            </label>
+            <label
+              >跨いではいけない線（点名順、1行1本）<textarea
+                id="breaklines"
+                rows="2"
+                placeholder="P1,P2,P3"
+              ></textarea>
+            </label>
+            <div class="pair">
+              <button id="allPoints">全標高点を指定</button
+              ><button id="addSurface">面を追加</button>
+            </div>
+            <details class="inner">
+              <summary>擁壁・垂直面を追加</summary>
+              <label
+                >上端点名（順番に）<input
+                  id="wallUpper"
+                  placeholder="U1,U2,U3" /></label
+              ><label
+                >下端点名（上端と対応する順番に）<input
+                  id="wallLower"
+                  placeholder="L1,L2,L3" /></label
+              ><button id="addWall">上下の対応から面を追加</button
+              ><small
+                >上下のXYZが必要です。高さ不明の壁を標準寸法で補いません。</small
+              >
+            </details>
+            <div id="surfaces" class="source-list"></div>
+          </div>
+        </details>
+        <details open>
+          <summary><span>03</span> 横断を作る</summary>
+          <div class="content">
+            <div class="pair">
+              <button id="centerMode">中心線を平面で指定</button
+              ><button id="finishPath">指定を完了</button>
+            </div>
+            <p id="pathInfo" class="sub">
+              進行方向に2点以上。左側の離れを＋として出力。
+            </p>
+            <div class="pair">
+              <label
+                >横断ピッチ m<input
+                  id="pitch"
+                  type="number"
+                  value="10"
+                  min="0.1" /></label
+              ><label
+                >左右それぞれの幅 m<input
+                  id="width"
+                  type="number"
+                  value="20"
+                  min="0.1"
+                  max="1000"
+              /></label>
+            </div>
+            <div class="pair">
+              <label
+                >追加測点 m<input
+                  id="extras"
+                  placeholder="5, 12.5, 25" /></label
+              ><label
+                >直角からの追加角度 °<input
+                  id="sectionAngle"
+                  type="number"
+                  value="0"
+                  min="-80"
+                  max="80"
+              /></label>
+            </div>
+            <div class="dem-box">
+              <label class="check strong"
+                ><input id="useDem" type="checkbox" />DEMを補助に使う</label
+              ><small id="demExplanation"
+                >OFF：図面の高さだけで作成。DEM通信・DEM補完は行いません。</small
+              >
+              <div id="demOptions" hidden>
+                <label
+                  >平面直角座標の系<select id="zone">
+                    <option value="0">選択してください</option>
+                  </select></label
+                ><label class="check"
+                  ><input
+                    id="coordinatesConfirmed"
+                    type="checkbox"
+                  />現場の平面直角座標と確認済み</label
+                ><small
+                  >JGD2011/JGD2024相当の平面座標用。図面の高さは上書きしません。ONで生成すると周辺の地理院タイルを取得します（位置に対応するタイル番号を送信）。測量成果の精度を補償するものではありません。</small
+                >
+              </div>
+            </div>
+            <div class="pair">
+              <button id="build" class="primary" data-busy>
+                3D・横断を生成</button
+              ><button id="cancel" disabled>計算を中止</button>
+            </div>
+          </div>
+        </details>
+        <p class="storage-note">
+          この試作版は自動保存しません。終了前に「作業JSONを保存」してください。元EZ
+          Viewerの保存領域にはアクセスしません。
+        </p>
+      </aside>
+      <section class="workspace">
+        <div class="workspace-head">
+          <div>
+            <h1 id="projectTitle">図面の根拠から、断面へ。</h1>
+            <p id="stats">
+              SFC・SIMAを読み込むか、合成例で操作を確認できます。
+            </p>
+          </div>
+          <span id="version" class="version">未生成</span>
+        </div>
+        <div class="viewbar">
+          <div role="tablist">
+            <button id="planTab" class="active" role="tab" aria-selected="true">
+              平面</button
+            ><button id="threeTab" role="tab" aria-selected="false">3D</button>
+          </div>
+          <div>
+            <button id="fit">全体</button
+            ><button id="zoomIn" aria-label="拡大">＋</button
+            ><button id="zoomOut" aria-label="縮小">−</button
+            ><button id="maskMode">未確定範囲を除外</button
+            ><button id="clearMasks">除外を解除</button>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="plan" aria-label="原図と解析結果の平面表示"></canvas
+          ><canvas id="three" hidden aria-label="共通モデルの3D表示"></canvas>
+          <div id="welcome">
+            <span class="eyebrow">EVIDENCE FIRST</span>
+            <h2>確かな高さをつなぎ、<br />分からないところを残す。</h2>
+            <p>
+              平面・3D・横断を一つのモデルで確認。<br />推定した形を、実測値として扱いません。
+            </p>
+          </div>
+          <div id="canvasHint">
+            ドラッグ：移動 / ホイール・＋−：拡縮 / 点をタップ：選択
+          </div>
+          <div id="pickActions" hidden>
+            <button id="cancelPick">指定を中止</button
+            ><button id="finishCanvas" class="primary">指定を完了</button>
+          </div>
+        </div>
+        <div class="legend">
+          <span class="dot input">入力・固定点</span
+          ><span class="dot reconstructed">図面から復元</span
+          ><span class="dot surface">補間面</span
+          ><span class="dot dem">DEM補助</span
+          ><span>白い隙間＝情報不足の場合あり</span>
+        </div>
+        <div id="inspector" class="inspector">
+          点や横断線を選択すると、その根拠をここに表示します。
+        </div>
+        <div class="section-head">
+          <h2>横断</h2>
+          <select id="stationSelect" aria-label="横断測点">
+            <option>未生成</option></select
+          ><button id="csv">全断面CSV</button
+          ><button id="svg">表示断面SVG</button
+          ><button id="modelJson">モデル・根拠JSON</button>
+        </div>
+        <canvas id="section" aria-label="選択した横断。左側の離れが正"></canvas>
+        <p id="sectionInfo" class="sub section-note">
+          中心線と高さ付き面を指定してください。線のない区間は勝手につなぎません。
+        </p>
+        <details open class="report">
+          <summary>検査・要確認 <span id="issueCount">0</span></summary>
+          <div id="issues">
+            <p class="sub">
+              未生成。図面を読み込んだだけでは現況3Dの正しさは判定できません。
+            </p>
+          </div>
+        </details>
+        <footer>
+          EZ Viewer Plus · 原作品 EZ Viewer / AGPL-3.0-only ·
+          <a href="README.md" target="_blank" rel="noopener">対応範囲・制限</a>
+          ·
+          <a
+            href="https://maps.gsi.go.jp/development/ichiran.html"
+            target="_blank"
+            rel="noopener"
+            >DEM出典：国土地理院</a
+          >
+        </footer>
+      </section>
+    </main>
+    <div id="status" role="status" aria-live="polite">準備できました</div>
+    <dialog id="dataDialog">
+      <div class="dialog-head">
+        <h2 id="dialogTitle">確認</h2>
+        <button id="closeDialog">閉じる</button>
+      </div>
+      <div id="dialogBody"></div>
+    </dialog>
+    <script type="module" src="app.mjs"></script>
+  </body>
+</html>
