@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 const own = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
   root = path.resolve(own, "../..");
 const git = (...args) =>
-  execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+  execFileSync("git", args, { cwd: root, encoding: "utf8" }).trimEnd();
 const hash = (file) =>
   crypto
     .createHash("sha256")

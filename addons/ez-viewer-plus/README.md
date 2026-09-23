@@ -87,6 +87,8 @@ node scripts/protect-existing.mjs verify
 
 ブラウザ試験はPlaywrightが解決できる環境で `node tests/browser.cjs`。Chromeのパスは `CHROME_PATH`、公開URLは `BASE_URL` で上書きできます。既存リポジトリの依存管理は変更しません。ライブラリを再配置する場合だけ、この追加フォルダーで `pnpm install --frozen-lockfile --ignore-scripts` → `node scripts/vendor.mjs`。
 
+任意の実通信試験は `node tests/live-dem.cjs`（顧客位置ではない座標系原点で確認）、公開資産との照合は `node scripts/verify-public.mjs`。前者は通信が必要で、通信成功は標高精度の保証ではありません。
+
 主な構成: `index.html` / `styles.css` / `app.mjs` / `views.mjs` / `worker.mjs`、`core/`（読込・根拠・幾何・面・DEM・保存）、`fixtures/`（合成例）、`tests/`、`scripts/`、`vendor/`、`docs/`。
 
 ## ライセンス・出典

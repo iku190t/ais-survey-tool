@@ -2,6 +2,15 @@
 
 状態: 検証済み（下記の範囲）。2026-09-23実装作業。
 
+## 公開確認
+
+- 実装コミット: `a58d564eb378453fe17fc1365797927228e39ccc`。
+- GitHub Pages: 同コミットのビルド成功を確認。元と同じmain/ルート公開の設定を変更せず、追加パスだけを公開。
+- 公開URLに対する `tests/browser.cjs`: ローカルと同じ14項目に成功、pageerror 0。
+- `scripts/verify-public.mjs`: 元の `index.html` とPlusの主要9資産がGitの内容とSHA-256一致。
+- `tests/live-dem.cjs`: 顧客位置ではない第9系原点付近で公式PNG取得・デコードに成功、DEM5Aの有効35点。標高の現地精度検証ではない。
+- 戻し先（本体基準）: `e4f14b5da3f2137bb823ff2a52f6e763f690ee8d`。元本体を巻き戻す必要はなく、元URLは継続して使える。
+
 ## 実行結果
 
 - `node --test tests/core.test.mjs`: **28/28成功、失敗0、スキップ0**。
