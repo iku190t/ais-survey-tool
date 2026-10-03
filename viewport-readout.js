@@ -9,7 +9,8 @@
   #viewportCenter:before,#viewportCenter:after{content:'';position:absolute;background:currentColor}
   #viewportCenter:before{left:0;top:9.5px;width:20px;height:1px}
   #viewportCenter:after{top:0;left:9.5px;width:1px;height:20px}
-  #viewportCoordinates{position:absolute;bottom:max(env(safe-area-inset-bottom),calc(2px + env(safe-area-inset-bottom) - 1em));left:28px;right:28px;text-align:center;font:10px/13px system-ui,sans-serif;font-variant-numeric:tabular-nums;display:flex;justify-content:center;gap:0 10px;flex-wrap:wrap;background:var(--readout-mask);border-radius:3px}
+  #viewportCoordinates{position:absolute;bottom:max(env(safe-area-inset-bottom),calc(2px + env(safe-area-inset-bottom) - 1em));left:28px;right:28px;text-align:center;font:10px/13px system-ui,sans-serif;font-variant-numeric:tabular-nums;display:flex;justify-content:center;gap:0 10px;flex-wrap:wrap;isolation:isolate}
+  #viewportCoordinates:before{content:'';position:absolute;inset:0 -28px;background:var(--readout-mask);z-index:-1}
   #viewportScale{position:absolute;left:24px;width:75px;height:18px;overflow:visible}
   body.viewport-instruments #gpsReturnBtn{bottom:calc(50px + env(safe-area-inset-bottom))}
   body.viewport-instruments #droggerOwnerActions{bottom:calc(96px + env(safe-area-inset-bottom))}
@@ -31,7 +32,7 @@
     const parent=canvas.parentElement.getBoundingClientRect();
     const w=canvas.clientWidth,h=canvas.clientHeight;
     Object.assign(hud.style,{left:`${parent.left+canvas.offsetLeft}px`,top:`${parent.top+canvas.offsetTop}px`,width:`${w}px`,height:`${h}px`,color:darkTheme?'#fff':'#000'});
-    hud.style.setProperty('--readout-mask',darkTheme?'rgba(0,0,0,.75)':'rgba(255,255,255,.75)');
+    hud.style.setProperty('--readout-mask',darkTheme?'rgba(0,0,0,.95)':'rgba(255,255,255,.95)');
     const dx=touchPanPreviewActive?touchPanPreviewDx:0,dy=touchPanPreviewActive?touchPanPreviewDy:0;
     const world=screenToWorld(w/2-dx,h/2-dy),plane=sfcWorldToPlane(...world);
     const edge=sfcWorldToPlane(...screenToWorld(w/2-dx+100,h/2-dy));
@@ -59,7 +60,7 @@
     const safeBottom=parseFloat(getComputedStyle(hud.querySelector('#viewportCoordinates')).bottom);
     const upperEdge=buttonRect.height?buttonRect.bottom:rect.bottom-50-safeBottom;
     ruler.style.top=`${Math.min(coordinates.top-20,(upperEdge+coordinates.top)/2-6)-rect.top}px`;
-    ruler.style.left=`${(w-buttonWidth*2/3)/2}px`;
+    ruler.style.left=`${buttonRect.width?buttonRect.left-rect.left:parseFloat(getComputedStyle(returnButton).left)||12}px`;
     if(zone&&!pending&&done!==key&&Date.now()-changed>=250){
       const request=key;pending=true;
       (async()=>{

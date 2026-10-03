@@ -1,5 +1,13 @@
 # Viewport readout — 2026-10-03
 
+## Full-width mask and left-aligned scale
+
+状態: 検証済み（Chromium、実機未確認）。基準2eda9a9。
+マスクalpha .75→.95（親opacity .7維持、合成後.665）。疑似要素を左右28px延長して図面表示領域の全幅を覆う。
+文字の左右余白・中央位置・高さは維持。スケールは現在地に戻るボタンの実測左端へ一致、高さ計算は変更なし。
+validate-viewport-readout.jsで縦横の左右端一致、マスク色/濃度、ボタン左端一致、非重複、PC非表示を確認。
+validate-mobile-landscape.jsも成功。
+
 ## Stronger coordinate mask
 
 基準647970d。座標マスクの背景alphaを0.5から0.75へ変更（親HUDのopacity 0.7は維持、合成後の背景不透明度は0.35→0.525）。位置・文字・スケール・保存処理は変更なし。

@@ -21,7 +21,8 @@ const server=http.createServer((req,res)=>{const p=path.join(__dirname,req.url.s
   for(const dark of [true,false]){
    await page.evaluate(d=>{darkTheme=d;},dark);await page.waitForTimeout(130);
    assert.equal(await page.locator('#viewportReadout').evaluate(e=>getComputedStyle(e).color),dark?'rgb(255, 255, 255)':'rgb(0, 0, 0)');
-   assert.equal(await page.locator('#viewportCoordinates').evaluate(e=>getComputedStyle(e).backgroundColor),dark?'rgba(0, 0, 0, 0.75)':'rgba(255, 255, 255, 0.75)');
+   assert.equal(await page.locator('#viewportCoordinates').evaluate(e=>getComputedStyle(e,'::before').backgroundColor),dark?'rgba(0, 0, 0, 0.95)':'rgba(255, 255, 255, 0.95)');
+   assert(await page.locator('#viewportCoordinates').evaluate(e=>{const p=getComputedStyle(e,'::before'),h=document.getElementById('viewportReadout').getBoundingClientRect(),r=e.getBoundingClientRect();return Math.abs(r.left+parseFloat(p.left)-h.left)<1&&Math.abs(r.right-parseFloat(p.right)-h.right)<1;}));
   }
   const before=await page.locator('#viewportXY').textContent();
   await page.evaluate(()=>{view.tx+=100;rotationDeg=37;});await page.waitForTimeout(150);
@@ -40,7 +41,7 @@ const server=http.createServer((req,res)=>{const p=path.join(__dirname,req.url.s
   const placement=await page.evaluate(()=>{const s=document.getElementById('viewportScale').getBoundingClientRect(),b=document.getElementById('gpsReturnBtn').getBoundingClientRect(),c=document.getElementById('viewportCoordinates').getBoundingClientRect();return {ratio:s.width/b.width,between:s.top>=b.bottom&&s.bottom<=c.top,labels:document.querySelectorAll('#viewportScale text').length};});
   assert(Math.abs(placement.ratio-2/3)<.01);assert(placement.between,JSON.stringify(placement));assert.equal(placement.labels,1);
   assert.match(await page.locator('#viewportScale').textContent(),/^\d+(?:\.\d)? (?:m|cm|km)$/);
-  assert(await page.evaluate(()=>{const s=document.getElementById('viewportScale').getBoundingClientRect(),c=document.getElementById('viewportCoordinates').getBoundingClientRect();return Math.abs((s.left+s.right-c.left-c.right)/2)<1&&c.bottom<=innerHeight;}));
+  assert(await page.evaluate(()=>{const s=document.getElementById('viewportScale').getBoundingClientRect(),b=document.getElementById('gpsReturnBtn').getBoundingClientRect(),c=document.getElementById('viewportCoordinates').getBoundingClientRect();return Math.abs(s.left-b.left)<1&&c.bottom<=innerHeight;}));
   console.log('PASS',size,layout);await page.close();
  }
  }finally{await browser.close();server.close();}
