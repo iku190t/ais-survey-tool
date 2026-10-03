@@ -9,8 +9,8 @@
   #viewportCenter:before,#viewportCenter:after{content:'';position:absolute;background:currentColor}
   #viewportCenter:before{left:0;top:9.5px;width:20px;height:1px}
   #viewportCenter:after{top:0;left:9.5px;width:1px;height:20px}
-  #viewportCoordinates{position:absolute;bottom:calc(8px + env(safe-area-inset-bottom));left:28px;right:28px;text-align:center;font:11px/16px system-ui,sans-serif;font-variant-numeric:tabular-nums;display:flex;justify-content:center;gap:3px 12px;flex-wrap:wrap}
-  #viewportScale{position:absolute;left:24px;width:160px;height:34px;overflow:visible}
+  #viewportCoordinates{position:absolute;bottom:calc(2px + env(safe-area-inset-bottom));left:28px;right:28px;text-align:center;font:10px/13px system-ui,sans-serif;font-variant-numeric:tabular-nums;display:flex;justify-content:center;gap:0 10px;flex-wrap:wrap}
+  #viewportScale{position:absolute;left:24px;width:75px;height:18px;overflow:visible}
   body.viewport-instruments #gpsReturnBtn{bottom:calc(50px + env(safe-area-inset-bottom))}
   body.viewport-instruments #droggerOwnerActions{bottom:calc(96px + env(safe-area-inset-bottom))}
   body.viewport-instruments #mapOverlayInfoStack{bottom:calc(50px + env(safe-area-inset-bottom))}
@@ -21,10 +21,10 @@
   document.body.append(hud);
   const xy=hud.querySelector('#viewportXY'),height=hud.querySelector('#viewportElevation'),ruler=hud.querySelector('svg');
   let key='',changed=0,pending=false,done='',lastRuler='';
-  const nice=value=>{const p=10**Math.floor(Math.log10(value));return [5,2,1].map(n=>n*p).find(n=>n<=value)||p/2;};
+  let buttonWidth=112;
   function update(){
     if(document.hidden)return;
-    const active=hasActiveWorkspace();
+    const active=isTouchMobileLike()&&hasActiveWorkspace();
     hud.hidden=!active;document.body.classList.toggle('viewport-instruments',active);
     if(!active){key='';return;}
     // offsetWidth avoids the temporary CSS pan/zoom preview transform.
@@ -39,23 +39,26 @@
     const next=[drawingWorkspaceRevision,zone,plane.xNorth.toFixed(3),plane.yEast.toFixed(3)].join(':');
     xy.textContent=`X: ${plane.xNorth.toFixed(3)}  Y: ${plane.yEast.toFixed(3)}`;
     if(next!==key){key=next;done='';changed=Date.now();height.textContent=zone?'DEM標高: …':'DEM標高: —（系未設定）';}
+    const returnButton=document.getElementById('gpsReturnBtn');
+    const buttonRect=returnButton.getBoundingClientRect();
+    if(buttonRect.width)buttonWidth=buttonRect.width;
     if(Number.isFinite(metersPerPixel)&&metersPerPixel>0){
-      const distance=nice(metersPerPixel*Math.min(150,w*.35)),width=distance/metersPerPixel;
+      const width=buttonWidth*2/3,distance=metersPerPixel*width;
       const signature=`${distance}:${width.toFixed(1)}`;
       if(signature!==lastRuler){
         lastRuler=signature;ruler.style.width=`${width}px`;
-        const labels=[0,.25,.5,1].map(f=>`<text x="${width*f}" y="11" text-anchor="${f===0?'start':f===1?'end':'middle'}">${+(distance*f/(distance>=1000?1000:1)).toPrecision(4)}${f===1?(distance>=1000?' km':' m'):''}</text>`).join('');
-        const ticks=Array.from({length:21},(_,i)=>`M${width*i/20},30v-${i%5===0?11:5}`).join(' ');
-        ruler.innerHTML=`<g fill="currentColor" font-family="system-ui" font-size="10">${labels}</g><path d="M0,30H${width} ${ticks}" fill="none" stroke="currentColor" stroke-width="1"/>`;
+        const unit=distance>=1000?'km':distance<1?'cm':'m';
+        const value=distance/(unit==='km'?1000:unit==='cm'?.01:1);
+        const label=`${+value.toPrecision(3)} ${unit}`;
+        ruler.innerHTML=`<text x="${width/2}" y="9" text-anchor="middle" fill="currentColor" font-family="system-ui" font-size="10">${label}</text><path d="M0,12V17H${width}V12" fill="none" stroke="currentColor" stroke-width="1"/>`;
       }
     }
-    const rect=hud.getBoundingClientRect();let bottom=52;
-    for(const id of ['gpsReturnBtn','droggerOwnerActions','mapOverlayInfoStack']){
-      const el=document.getElementById(id);if(!el||!el.getClientRects().length)continue;
-      const r=el.getBoundingClientRect();
-      if(r.height&&r.left<rect.left+190&&r.right>rect.left+24)bottom=Math.max(bottom,rect.bottom-r.top+8);
-    }
-    ruler.style.bottom=`${bottom}px`;
+    const rect=hud.getBoundingClientRect();
+    const coordinates=hud.querySelector('#viewportCoordinates').getBoundingClientRect();
+    const safeBottom=parseFloat(getComputedStyle(hud.querySelector('#viewportCoordinates')).bottom)-2;
+    const upperEdge=buttonRect.height?buttonRect.bottom:rect.bottom-50-safeBottom;
+    ruler.style.top=`${(upperEdge+coordinates.top)/2-rect.top-9}px`;
+    ruler.style.left=`${12+buttonWidth/6}px`;
     if(zone&&!pending&&done!==key&&Date.now()-changed>=250){
       const request=key;pending=true;
       (async()=>{

@@ -1,5 +1,18 @@
 # Viewport readout — 2026-10-03
 
+## Compact mobile revision
+
+状態: 検証済み（Chromiumタッチ端末エミュレーション）。基準 da206e7。
+従来のPC表示・可変幅E型目盛りは廃止。isTouchMobileLike()のスマホ判定時のみ表示。
+スケールは現在地へ戻るボタン実測幅の2/3、非表示時は直近幅（初期112px基準）を使用。
+ズームで変わるのは距離ラベルのみ。両端と基線だけの18px高、ラベルは1つ。
+座標は安全領域+2pxまで下げ、13px行高。スケールはボタン下端と座標上端の中間。
+現在地へ戻るボタンの位置はda206e7から変更しない。
+validate-viewport-readout.jsで固定幅、距離変化、幅比2/3、上下配置、単一ラベル、PC非表示を追加検証。
+validate-mobile-landscape.js、validate-compass-follow.jsも成功。実機未確認。
+
+## Initial revision (historical)
+
 状態: 検証済み（ローカルChromium）。iPhone/Android実機は未検証。
 
 基準コミット: 5aa7b2b。変更は viewport-readout.js と index.html の読込1行に分離。
