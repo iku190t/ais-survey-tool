@@ -12,7 +12,7 @@ const server=http.createServer((req,res)=>{const p=path.join(__dirname,req.url.s
   let addressRequests=0;
   await page.route('https://mreversegeocoder.gsi.go.jp/**',async r=>{addressRequests++;await r.fulfill({json:{results:{muniCd:'13101',lv01Nm:'テスト町'}}});});
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
-  await page.evaluate(()=>{document.getElementById('startupModal').style.display='none';gpsOnlyBlankMode=true;view.scale=.1;view.tx=100;view.ty=200;profileZone=4;ensureProj4Defs=()=>true;jgd2024XYToLatLon=()=>({lat:34,lon:134});sampleDemElevationBilinear=async()=>12.345;});
+  await page.evaluate(()=>{document.getElementById('startupModal').style.display='none';gpsOnlyBlankMode=true;view.scale=.1;view.tx=100;view.ty=200;profileZone=null;window.zoneCalls=0;resolveProfileZone=async()=>{window.zoneCalls++;await new Promise(r=>setTimeout(r,100));profileZone=4;return 4;};ensureProj4Defs=()=>true;jgd2024XYToLatLon=()=>({lat:34,lon:134});sampleDemElevationBilinear=async()=>12.345;});
   await page.waitForTimeout(1200);
   if(size[0]>=1000){
    assert(await page.locator('#viewportReadout').isHidden());
@@ -21,6 +21,7 @@ const server=http.createServer((req,res)=>{const p=path.join(__dirname,req.url.s
    assert.deepEqual(errors,[]);console.log('PASS desktop instruments disabled');await page.close();continue;
   }
   assert.match(await page.locator('#viewportElevation').textContent(),/12.35/);
+  assert.equal(await page.evaluate(()=>window.zoneCalls),1,'initial zone resolved without long press');
   assert.equal(await page.locator('#viewportAddress').textContent(),'中心住所: 東京都千代田区テスト町');
   assert.equal(addressRequests,1);
   assert(await page.evaluate(()=>document.getElementById('viewportAddress').getBoundingClientRect().bottom<=document.getElementById('viewportXY').getBoundingClientRect().top));
@@ -49,7 +50,11 @@ const server=http.createServer((req,res)=>{const p=path.join(__dirname,req.url.s
   assert.match(await page.locator('#viewportScale').textContent(),/^\d+(?:\.\d)? (?:m|cm|km)$/);
   assert(await page.evaluate(()=>{const s=document.getElementById('viewportScale').getBoundingClientRect(),b=document.getElementById('gpsReturnBtn').getBoundingClientRect(),c=document.getElementById('viewportCoordinates').getBoundingClientRect();return Math.abs(s.left-b.left)<1&&c.bottom<=innerHeight;}));
   assert.equal(addressRequests,1,'cached location reused during view changes');
-  await page.evaluate(()=>{profileZone=null;});await page.waitForTimeout(150);
+  await page.evaluate(()=>{drawingWorkspaceRevision++;profileZone=null;});
+  await page.waitForTimeout(600);
+  assert.equal(await page.evaluate(()=>window.zoneCalls),2,'new drawing initializes without long press');
+  assert.match(await page.locator('#viewportElevation').textContent(),/12.35/);
+  await page.evaluate(()=>{profileZone=null;resolveProfileZone=async()=>null;});await page.waitForTimeout(150);
   assert.equal(await page.locator('#viewportAddress').textContent(),'付近の住所: —');
   if(size[0]===390){
    await page.route('https://mreversegeocoder.gsi.go.jp/**',async r=>{addressRequests++;await new Promise(resolve=>setTimeout(resolve,500));await r.fulfill({json:{results:{muniCd:'13101',lv01Nm:'古い町'}}}).catch(()=>{});});

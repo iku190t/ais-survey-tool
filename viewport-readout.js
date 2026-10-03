@@ -69,6 +69,16 @@
   }
   const xy=hud.querySelector('#viewportXY'),height=hud.querySelector('#viewportElevation'),ruler=hud.querySelector('svg');
   let key='',changed=0,pending=false,done='',lastRuler='';
+  let zoneAttemptRevision=null,zonePending=false,zoneRetryAt=0;
+  function prepareZone(zone){
+    if(zone||zonePending||!ensureProj4Defs())return;
+    const revision=drawingWorkspaceRevision;
+    if(zoneAttemptRevision===revision&&Date.now()<zoneRetryAt)return;
+    zoneAttemptRevision=revision;zonePending=true;zoneRetryAt=Date.now()+30000;
+    // Same initialization as long-press inspection; it respects manual/GPS zones
+    // and guards its own asynchronous drawing changes. Never assign its result here.
+    Promise.resolve().then(()=>resolveProfileZone()).catch(()=>{}).finally(()=>{zonePending=false;});
+  }
   let buttonWidth=112;
   function update(){
     if(document.hidden)return;
@@ -85,6 +95,7 @@
     const edge=sfcWorldToPlane(...screenToWorld(w/2-dx+100,h/2-dy));
     const metersPerPixel=Math.hypot(edge.xNorth-plane.xNorth,edge.yEast-plane.yEast)/100;
     const zone=(gpsEnabled&&gpsTemporaryCoordinateZone)||getManualCoordinateZone()||profileZone||null;
+    prepareZone(zone);
     const next=[drawingWorkspaceRevision,zone,plane.xNorth.toFixed(3),plane.yEast.toFixed(3)].join(':');
     xy.textContent=`X: ${plane.xNorth.toFixed(3)}  Y: ${plane.yEast.toFixed(3)}`;
     if(next!==key){key=next;done='';changed=Date.now();height.textContent=zone?'DEM標高: …':'DEM標高: —（系未設定）';}
@@ -109,7 +120,7 @@
     const upperEdge=buttonRect.height?buttonRect.bottom:rect.bottom-63-safeBottom;
     ruler.style.top=`${Math.min(coordinates.top-20,(upperEdge+coordinates.top)/2-6)-rect.top}px`;
     ruler.style.left=`${buttonRect.width?buttonRect.left-rect.left:parseFloat(getComputedStyle(returnButton).left)||12}px`;
-    if(zone&&!pending&&done!==key&&Date.now()-changed>=250){
+    if(zone&&ensureProj4Defs()&&!pending&&done!==key&&Date.now()-changed>=250){
       const request=key;pending=true;
       (async()=>{
         let elevation=null;

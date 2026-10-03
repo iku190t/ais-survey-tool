@@ -1,5 +1,15 @@
 # Viewport readout — 2026-10-03
 
+## Initial zone preparation
+
+状態: 検証済み（Chromium模擬端末・モック座標解決、実機未確認）。戻し先269e3cd。
+変更コミット: `git log --grep="Initialize viewport coordinate zone"`。
+原因: HUDはmanual/profileZoneの値を読むだけで、長押しのopenCoordinateInspectModalが呼ぶresolveProfileZoneを実行していなかった。
+未設定時は既存resolveProfileZoneを呼ぶ。戻り値を独自代入せず既存の図面切替ガード/手動優先を維持。同時1回、未解決は30秒間隔、図面revision変更時は再試行可能。
+投影ライブラリ未準備時はDEMを完了扱いにしない。GPS追従を開始せず、既存座標解決と同じ位置情報許可を求める場合がある。
+validate-viewport-readout.jsで初回/次図面の未準備から長押しなしで住所・DEMが表示されること、PC非実行、縦横配置・通信失敗を確認。
+validate-coordinate-inspect.js、validate-compass-follow.js成功。保存/図面描画のコードは変更なし。
+
 ## Center address revision
 
 状態: 検証済み（対象自動テストと公開地点API応答。全地域の住所精度/実機未確認）。戻し先2c4d9dc。
