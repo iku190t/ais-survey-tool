@@ -1,5 +1,10 @@
 # Viewport readout — 2026-10-03
 
+## Stronger coordinate mask
+
+基準647970d。座標マスクの背景alphaを0.5から0.75へ変更（親HUDのopacity 0.7は維持、合成後の背景不透明度は0.35→0.525）。位置・文字・スケール・保存処理は変更なし。
+validate-viewport-readout.jsで白黒両背景のalphaと既存配置・PC非表示を検証。
+
 ## Centered scale and readout mask revision
 
 状態: 検証済み（Chromium、実機未確認）。基準 f3618a5。

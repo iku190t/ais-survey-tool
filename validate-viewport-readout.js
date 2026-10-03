@@ -21,7 +21,7 @@ const server=http.createServer((req,res)=>{const p=path.join(__dirname,req.url.s
   for(const dark of [true,false]){
    await page.evaluate(d=>{darkTheme=d;},dark);await page.waitForTimeout(130);
    assert.equal(await page.locator('#viewportReadout').evaluate(e=>getComputedStyle(e).color),dark?'rgb(255, 255, 255)':'rgb(0, 0, 0)');
-   assert.equal(await page.locator('#viewportCoordinates').evaluate(e=>getComputedStyle(e).backgroundColor),dark?'rgba(0, 0, 0, 0.5)':'rgba(255, 255, 255, 0.5)');
+   assert.equal(await page.locator('#viewportCoordinates').evaluate(e=>getComputedStyle(e).backgroundColor),dark?'rgba(0, 0, 0, 0.75)':'rgba(255, 255, 255, 0.75)');
   }
   const before=await page.locator('#viewportXY').textContent();
   await page.evaluate(()=>{view.tx+=100;rotationDeg=37;});await page.waitForTimeout(150);

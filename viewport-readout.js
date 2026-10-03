@@ -31,7 +31,7 @@
     const parent=canvas.parentElement.getBoundingClientRect();
     const w=canvas.clientWidth,h=canvas.clientHeight;
     Object.assign(hud.style,{left:`${parent.left+canvas.offsetLeft}px`,top:`${parent.top+canvas.offsetTop}px`,width:`${w}px`,height:`${h}px`,color:darkTheme?'#fff':'#000'});
-    hud.style.setProperty('--readout-mask',darkTheme?'rgba(0,0,0,.5)':'rgba(255,255,255,.5)');
+    hud.style.setProperty('--readout-mask',darkTheme?'rgba(0,0,0,.75)':'rgba(255,255,255,.75)');
     const dx=touchPanPreviewActive?touchPanPreviewDx:0,dy=touchPanPreviewActive?touchPanPreviewDy:0;
     const world=screenToWorld(w/2-dx,h/2-dy),plane=sfcWorldToPlane(...world);
     const edge=sfcWorldToPlane(...screenToWorld(w/2-dx+100,h/2-dy));
