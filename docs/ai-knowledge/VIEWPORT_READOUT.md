@@ -1,5 +1,18 @@
 # Viewport readout — 2026-10-03
 
+## Nearby address
+
+状態: 検証済み（Chromium縦横・PC、実機未確認）。戻し先47bd291。
+変更コミットは `git log --grep="Add throttled nearby address"` で特定する。
+HeartRails Geo APIから中心座標付近の町域を取得、座標欄の上に1行表示。地番や包含区域の確定値ではない。
+800ms停止後・最短5秒間隔・6秒タイムアウト。メモリ内128件、成功10分/失敗1分キャッシュ。永続保存なし。
+古い位置の返答は表示しない。PC/作業なし/座標系なしでは問い合わせない。エラーでもXYや図面操作は継続。
+住所行13px分だけ下部ボタンを上げる。出典・外部中心座標送信・精度の限界をヘルプに記載。
+公開APIのCORS許可ヘッダーとJSON応答を公開地点で確認。位置代表点候補に建物階名が含まれる場合もあり、同距離では短い町域名を優先。正確な地番取得とは扱わない。
+validate-viewport-readout.js: モック成功、キャッシュ、古い応答無視、503時再試行抑止、系なし、縦横配置、テーマ、PC通信なしを確認。
+validate-mobile-landscape.js、validate-compass-follow.js成功。保存/描画/GPS本体は変更なし。
+API仕様 https://geoapi.heartrails.com/api.html 、規約 https://www.heartrails.com/ja/company/terms 。高負荷は禁止、無制限利用は保証しない。
+
 ## Full-width mask and left-aligned scale
 
 状態: 検証済み（Chromium、実機未確認）。基準2eda9a9。

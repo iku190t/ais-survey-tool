@@ -11,15 +11,55 @@
   #viewportCenter:after{top:0;left:9.5px;width:1px;height:20px}
   #viewportCoordinates{position:absolute;bottom:max(env(safe-area-inset-bottom),calc(2px + env(safe-area-inset-bottom) - 1em));left:28px;right:28px;text-align:center;font:10px/13px system-ui,sans-serif;font-variant-numeric:tabular-nums;display:flex;justify-content:center;gap:0 10px;flex-wrap:wrap;isolation:isolate}
   #viewportCoordinates:before{content:'';position:absolute;inset:0 -28px;background:var(--readout-mask);z-index:-1}
+  #viewportAddress{flex-basis:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #viewportScale{position:absolute;left:24px;width:75px;height:18px;overflow:visible}
-  body.viewport-instruments #gpsReturnBtn{bottom:calc(50px + env(safe-area-inset-bottom))}
-  body.viewport-instruments #droggerOwnerActions{bottom:calc(96px + env(safe-area-inset-bottom))}
-  body.viewport-instruments #mapOverlayInfoStack{bottom:calc(50px + env(safe-area-inset-bottom))}
+  body.viewport-instruments #gpsReturnBtn{bottom:calc(63px + env(safe-area-inset-bottom))}
+  body.viewport-instruments #droggerOwnerActions{bottom:calc(109px + env(safe-area-inset-bottom))}
+  body.viewport-instruments #mapOverlayInfoStack{bottom:calc(63px + env(safe-area-inset-bottom))}
   `;
   document.head.append(style);
   const hud=document.createElement('div');hud.id='viewportReadout';hud.hidden=true;
   hud.innerHTML='<div id="viewportCenter" aria-hidden="true"></div><svg id="viewportScale" aria-label="距離スケール"></svg><div id="viewportCoordinates"><span id="viewportXY"></span><span id="viewportElevation">DEM標高: —</span></div>';
   document.body.append(hud);
+  const address=document.createElement('span');address.id='viewportAddress';address.textContent='付近の住所: —';
+  hud.querySelector('#viewportCoordinates').prepend(address);
+  const credit=document.createElement('div');credit.className='helpBlock';
+  credit.innerHTML='付近の住所：<a href="https://geoapi.heartrails.com/" target="_blank" rel="noopener noreferrer">HeartRails Geo API</a>。出典：<a href="https://nlftp.mlit.go.jp/isj/" target="_blank" rel="noopener noreferrer">「位置参照情報ダウンロードサービス」（国土交通省）</a>を加工して作成。中心座標を外部サービスへ送信します。町域の代表位置による候補であり、地番・境界を確定する情報ではありません。';
+  document.getElementById('helpModalBody')?.append(credit);
+  const addressCache=new Map();
+  let addressKey='',addressPending=false,lastAddressRequest=0;
+  function updateAddress(plane,zone){
+    let ll=null;
+    try{if(zone&&ensureProj4Defs())ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);}catch(_error){}
+    if(!ll||!Number.isFinite(ll.lat)||!Number.isFinite(ll.lon)||ll.lat<20||ll.lat>46||ll.lon<122||ll.lon>154){addressKey='';address.textContent='付近の住所: —';return;}
+    const target=`${ll.lat.toFixed(5)},${ll.lon.toFixed(5)}`;
+    if(target!==addressKey){addressKey=target;address.textContent='付近の住所: …';}
+    const cached=addressCache.get(target);
+    if(cached&&cached.expires>Date.now()){address.textContent=cached.text;return;}
+    if(addressPending||Date.now()-changed<800||Date.now()-lastAddressRequest<5000)return;
+    addressPending=true;lastAddressRequest=Date.now();
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),6000);
+    (async()=>{
+      let text='付近の住所: 取得できません',success=false;
+      try{
+        const response=await fetch(`https://geoapi.heartrails.com/api/json?method=searchByGeoLocation&x=${ll.lon}&y=${ll.lat}`,{signal:controller.signal,credentials:'omit',referrerPolicy:'no-referrer'});
+        if(!response.ok)throw new Error('address unavailable');
+        const data=await response.json();
+        const locations=data?.response?.location;
+        if(Array.isArray(locations)){
+          const candidates=locations.filter(p=>['prefecture','city','town'].every(k=>typeof p[k]==='string'&&p[k].length<150)&&Number.isFinite(Number(p.x))&&Number.isFinite(Number(p.y)));
+          const distance=p=>Math.hypot((Number(p.x)-ll.lon)*Math.cos(ll.lat*Math.PI/180),Number(p.y)-ll.lat);
+          candidates.sort((a,b)=>distance(a)-distance(b)||a.town.length-b.town.length);
+          if(candidates.length){const p=candidates[0];text=`付近: ${p.prefecture}${p.city}${p.town}`;success=true;}
+        }
+      }catch(_error){}finally{
+        clearTimeout(timer);addressPending=false;
+        addressCache.set(target,{text,expires:Date.now()+(success?600000:60000)});
+        if(addressCache.size>128)addressCache.delete(addressCache.keys().next().value);
+        if(!hud.hidden&&addressKey===target)address.textContent=text;
+      }
+    })();
+  }
   const xy=hud.querySelector('#viewportXY'),height=hud.querySelector('#viewportElevation'),ruler=hud.querySelector('svg');
   let key='',changed=0,pending=false,done='',lastRuler='';
   let buttonWidth=112;
@@ -27,7 +67,7 @@
     if(document.hidden)return;
     const active=isTouchMobileLike()&&hasActiveWorkspace();
     hud.hidden=!active;document.body.classList.toggle('viewport-instruments',active);
-    if(!active){key='';return;}
+    if(!active){key='';addressKey='';return;}
     // offsetWidth avoids the temporary CSS pan/zoom preview transform.
     const parent=canvas.parentElement.getBoundingClientRect();
     const w=canvas.clientWidth,h=canvas.clientHeight;
@@ -41,6 +81,7 @@
     const next=[drawingWorkspaceRevision,zone,plane.xNorth.toFixed(3),plane.yEast.toFixed(3)].join(':');
     xy.textContent=`X: ${plane.xNorth.toFixed(3)}  Y: ${plane.yEast.toFixed(3)}`;
     if(next!==key){key=next;done='';changed=Date.now();height.textContent=zone?'DEM標高: …':'DEM標高: —（系未設定）';}
+    updateAddress(plane,zone);
     const returnButton=document.getElementById('gpsReturnBtn');
     const buttonRect=returnButton.getBoundingClientRect();
     if(buttonRect.width)buttonWidth=buttonRect.width;
@@ -58,7 +99,7 @@
     const rect=hud.getBoundingClientRect();
     const coordinates=hud.querySelector('#viewportCoordinates').getBoundingClientRect();
     const safeBottom=parseFloat(getComputedStyle(hud.querySelector('#viewportCoordinates')).bottom);
-    const upperEdge=buttonRect.height?buttonRect.bottom:rect.bottom-50-safeBottom;
+    const upperEdge=buttonRect.height?buttonRect.bottom:rect.bottom-63-safeBottom;
     ruler.style.top=`${Math.min(coordinates.top-20,(upperEdge+coordinates.top)/2-6)-rect.top}px`;
     ruler.style.left=`${buttonRect.width?buttonRect.left-rect.left:parseFloat(getComputedStyle(returnButton).left)||12}px`;
     if(zone&&!pending&&done!==key&&Date.now()-changed>=250){
