@@ -9,7 +9,7 @@
   #viewportCenter:before,#viewportCenter:after{content:'';position:absolute;background:currentColor}
   #viewportCenter:before{left:0;top:9.5px;width:20px;height:1px}
   #viewportCenter:after{top:0;left:9.5px;width:1px;height:20px}
-  #viewportCoordinates{position:absolute;bottom:calc(2px + env(safe-area-inset-bottom));left:28px;right:28px;text-align:center;font:10px/13px system-ui,sans-serif;font-variant-numeric:tabular-nums;display:flex;justify-content:center;gap:0 10px;flex-wrap:wrap}
+  #viewportCoordinates{position:absolute;bottom:max(env(safe-area-inset-bottom),calc(2px + env(safe-area-inset-bottom) - 1em));left:28px;right:28px;text-align:center;font:10px/13px system-ui,sans-serif;font-variant-numeric:tabular-nums;display:flex;justify-content:center;gap:0 10px;flex-wrap:wrap;background:var(--readout-mask);border-radius:3px}
   #viewportScale{position:absolute;left:24px;width:75px;height:18px;overflow:visible}
   body.viewport-instruments #gpsReturnBtn{bottom:calc(50px + env(safe-area-inset-bottom))}
   body.viewport-instruments #droggerOwnerActions{bottom:calc(96px + env(safe-area-inset-bottom))}
@@ -31,6 +31,7 @@
     const parent=canvas.parentElement.getBoundingClientRect();
     const w=canvas.clientWidth,h=canvas.clientHeight;
     Object.assign(hud.style,{left:`${parent.left+canvas.offsetLeft}px`,top:`${parent.top+canvas.offsetTop}px`,width:`${w}px`,height:`${h}px`,color:darkTheme?'#fff':'#000'});
+    hud.style.setProperty('--readout-mask',darkTheme?'rgba(0,0,0,.5)':'rgba(255,255,255,.5)');
     const dx=touchPanPreviewActive?touchPanPreviewDx:0,dy=touchPanPreviewActive?touchPanPreviewDy:0;
     const world=screenToWorld(w/2-dx,h/2-dy),plane=sfcWorldToPlane(...world);
     const edge=sfcWorldToPlane(...screenToWorld(w/2-dx+100,h/2-dy));
@@ -49,16 +50,16 @@
         lastRuler=signature;ruler.style.width=`${width}px`;
         const unit=distance>=1000?'km':distance<1?'cm':'m';
         const value=distance/(unit==='km'?1000:unit==='cm'?.01:1);
-        const label=`${+value.toPrecision(3)} ${unit}`;
+        const label=`${+value.toFixed(1)} ${unit}`;
         ruler.innerHTML=`<text x="${width/2}" y="9" text-anchor="middle" fill="currentColor" font-family="system-ui" font-size="10">${label}</text><path d="M0,12V17H${width}V12" fill="none" stroke="currentColor" stroke-width="1"/>`;
       }
     }
     const rect=hud.getBoundingClientRect();
     const coordinates=hud.querySelector('#viewportCoordinates').getBoundingClientRect();
-    const safeBottom=parseFloat(getComputedStyle(hud.querySelector('#viewportCoordinates')).bottom)-2;
+    const safeBottom=parseFloat(getComputedStyle(hud.querySelector('#viewportCoordinates')).bottom);
     const upperEdge=buttonRect.height?buttonRect.bottom:rect.bottom-50-safeBottom;
-    ruler.style.top=`${(upperEdge+coordinates.top)/2-rect.top-9}px`;
-    ruler.style.left=`${12+buttonWidth/6}px`;
+    ruler.style.top=`${Math.min(coordinates.top-20,(upperEdge+coordinates.top)/2-6)-rect.top}px`;
+    ruler.style.left=`${(w-buttonWidth*2/3)/2}px`;
     if(zone&&!pending&&done!==key&&Date.now()-changed>=250){
       const request=key;pending=true;
       (async()=>{

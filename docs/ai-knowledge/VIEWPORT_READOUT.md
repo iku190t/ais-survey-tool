@@ -1,5 +1,16 @@
 # Viewport readout — 2026-10-03
 
+## Centered scale and readout mask revision
+
+状態: 検証済み（Chromium、実機未確認）。基準 f3618a5。
+スケールは座標欄と同じ水平中心へ移動、座標欄の2px上までの範囲で少し下げる。
+ラベルはtoFixed(1)で四捨五入し末尾の.0を省略。XY小数3桁・DEM小数2桁は維持。
+座標欄全体にテーマ同色の50%半透明マスクを追加。
+座標を1em下げる要求はsafe-area下端で制限するため、旧2px余白からの実移動は最大2px。
+ホームバー領域へ押し込まない。スマホ専用、固定幅2/3、操作透過を維持。
+validate-viewport-readout.jsにマスク色、中央一致、1桁ラベル、下端見切れなしを追加して成功。
+validate-mobile-landscape.jsも成功。
+
 ## Compact mobile revision
 
 状態: 検証済み（Chromiumタッチ端末エミュレーション）。基準 da206e7。
