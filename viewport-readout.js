@@ -24,15 +24,16 @@
   const address=document.createElement('span');address.id='viewportAddress';address.textContent='付近の住所: —';
   hud.querySelector('#viewportCoordinates').prepend(address);
   const credit=document.createElement('div');credit.className='helpBlock';
-  credit.innerHTML='付近の住所：<a href="https://geoapi.heartrails.com/" target="_blank" rel="noopener noreferrer">HeartRails Geo API</a>。出典：<a href="https://nlftp.mlit.go.jp/isj/" target="_blank" rel="noopener noreferrer">「位置参照情報ダウンロードサービス」（国土交通省）</a>を加工して作成。中心座標を外部サービスへ送信します。町域の代表位置による候補であり、地番・境界を確定する情報ではありません。';
+  credit.innerHTML='中心住所（大字・丁目まで）：出典 <a href="https://maps.gsi.go.jp/" target="_blank" rel="noopener noreferrer">国土地理院</a>（住所検索・市区町村コード表を加工）。中心座標を国土地理院へ送信します。地番・境界を確定する情報ではありません。地域やデータ更新状況による誤差・欠落があり、サービスの継続提供は保証されません。';
   document.getElementById('helpModalBody')?.append(credit);
   const addressCache=new Map();
+  let municipalityNames=null;
   let addressKey='',addressPending=false,lastAddressRequest=0;
   function updateAddress(plane,zone){
     let ll=null;
     try{if(zone&&ensureProj4Defs())ll=jgd2024XYToLatLon(plane.xNorth,plane.yEast,zone);}catch(_error){}
     if(!ll||!Number.isFinite(ll.lat)||!Number.isFinite(ll.lon)||ll.lat<20||ll.lat>46||ll.lon<122||ll.lon>154){addressKey='';address.textContent='付近の住所: —';return;}
-    const target=`${ll.lat.toFixed(5)},${ll.lon.toFixed(5)}`;
+    const target=`${ll.lat.toFixed(7)},${ll.lon.toFixed(7)}`;
     if(target!==addressKey){addressKey=target;address.textContent='付近の住所: …';}
     const cached=addressCache.get(target);
     if(cached&&cached.expires>Date.now()){address.textContent=cached.text;return;}
@@ -42,15 +43,21 @@
     (async()=>{
       let text='付近の住所: 取得できません',success=false;
       try{
-        const response=await fetch(`https://geoapi.heartrails.com/api/json?method=searchByGeoLocation&x=${ll.lon}&y=${ll.lat}`,{signal:controller.signal,credentials:'omit',referrerPolicy:'no-referrer'});
+        const response=await fetch(`https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=${ll.lat}&lon=${ll.lon}`,{signal:controller.signal,credentials:'omit',referrerPolicy:'no-referrer'});
         if(!response.ok)throw new Error('address unavailable');
         const data=await response.json();
-        const locations=data?.response?.location;
-        if(Array.isArray(locations)){
-          const candidates=locations.filter(p=>['prefecture','city','town'].every(k=>typeof p[k]==='string'&&p[k].length<150)&&Number.isFinite(Number(p.x))&&Number.isFinite(Number(p.y)));
-          const distance=p=>Math.hypot((Number(p.x)-ll.lon)*Math.cos(ll.lat*Math.PI/180),Number(p.y)-ll.lat);
-          candidates.sort((a,b)=>distance(a)-distance(b)||a.town.length-b.town.length);
-          if(candidates.length){const p=candidates[0];text=`付近: ${p.prefecture}${p.city}${p.town}`;success=true;}
+        const result=data?.results,code=String(result?.muniCd||'').padStart(5,'0');
+        if(/^\d{5}$/.test(code)&&code!=='00000'){
+          if(!municipalityNames){
+            const names=await fetch('data/gsi-municipality-names.json',{signal:controller.signal});
+            if(!names.ok)throw new Error('municipality unavailable');
+            municipalityNames=await names.json();
+          }
+          const city=municipalityNames[code],town=result?.lv01Nm;
+          if(typeof city==='string'){
+            const hasTown=typeof town==='string'&&town.length<150&&town.trim()&&!/^[-－ー]+$/.test(town.trim());
+            text=`中心住所: ${city}${hasTown?town:'（町域不明）'}`;success=true;
+          }
         }
       }catch(_error){}finally{
         clearTimeout(timer);addressPending=false;

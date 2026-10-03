@@ -1,5 +1,18 @@
 # Viewport readout — 2026-10-03
 
+## Center address revision
+
+状態: 検証済み（対象自動テストと公開地点API応答。全地域の住所精度/実機未確認）。戻し先2c4d9dc。
+変更コミット: `git log --grep="Use GSI center address"`。
+観察: ユーザーより住所精度不足。再現済み: 東京駅付近の公開座標で旧APIは近隣ビル階名候補、GSIは丸の内一丁目を返した。
+HeartRails代表点候補選択を廃止し、既存法務局取得でも使用しているGSI LonLatToAddressのmuniCd/lv01Nmを採用。
+中心住所は大字・丁目まで。GSI内部のポリゴン判定方式を独自検証したものではなく、全国の包含区域/地番の正確性は保証しない。
+取得不能で旧検索へフォールバックしない。町域欠落は市区町村＋町域不明。キャッシュキー7桁へ変更し境界付近の約1m単位の使い回しを避ける（精度保証ではない）。
+国土地理院muni.jsから市区町村名1919件をJSON化し同梱。出典は data/GSI_MUNICIPALITY_NAMES.md。
+公開3地点（東京駅/東京タワー/徳島市役所）の応答と公開Origin付きCORSを確認。顧客位置情報は使用していない。
+validate-viewport-readout.js、validate-mobile-landscape.js、validate-compass-follow.js成功。レイアウト/描画/保存処理は維持。
+GSI動的サービスは予告なく変更/停止される可能性がある。https://github.com/gsi-cyberjapan/gsimaps の留意点参照。
+
 ## Nearby address
 
 状態: 検証済み（Chromium縦横・PC、実機未確認）。戻し先47bd291。

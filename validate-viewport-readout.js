@@ -10,7 +10,7 @@ const server=http.createServer((req,res)=>{const p=path.join(__dirname,req.url.s
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route(/^https:\/\//,r=>r.abort());
   let addressRequests=0;
-  await page.route('https://geoapi.heartrails.com/**',async r=>{addressRequests++;await r.fulfill({json:{response:{location:[{prefecture:'テスト県',city:'テスト市',town:'テスト町',x:'134',y:'34'}]}}});});
+  await page.route('https://mreversegeocoder.gsi.go.jp/**',async r=>{addressRequests++;await r.fulfill({json:{results:{muniCd:'13101',lv01Nm:'テスト町'}}});});
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.evaluate(()=>{document.getElementById('startupModal').style.display='none';gpsOnlyBlankMode=true;view.scale=.1;view.tx=100;view.ty=200;profileZone=4;ensureProj4Defs=()=>true;jgd2024XYToLatLon=()=>({lat:34,lon:134});sampleDemElevationBilinear=async()=>12.345;});
   await page.waitForTimeout(1200);
@@ -21,7 +21,7 @@ const server=http.createServer((req,res)=>{const p=path.join(__dirname,req.url.s
    assert.deepEqual(errors,[]);console.log('PASS desktop instruments disabled');await page.close();continue;
   }
   assert.match(await page.locator('#viewportElevation').textContent(),/12.35/);
-  assert.equal(await page.locator('#viewportAddress').textContent(),'付近: テスト県テスト市テスト町');
+  assert.equal(await page.locator('#viewportAddress').textContent(),'中心住所: 東京都千代田区テスト町');
   assert.equal(addressRequests,1);
   assert(await page.evaluate(()=>document.getElementById('viewportAddress').getBoundingClientRect().bottom<=document.getElementById('viewportXY').getBoundingClientRect().top));
   for(const dark of [true,false]){
@@ -52,14 +52,14 @@ const server=http.createServer((req,res)=>{const p=path.join(__dirname,req.url.s
   await page.evaluate(()=>{profileZone=null;});await page.waitForTimeout(150);
   assert.equal(await page.locator('#viewportAddress').textContent(),'付近の住所: —');
   if(size[0]===390){
-   await page.route('https://geoapi.heartrails.com/**',async r=>{addressRequests++;await new Promise(resolve=>setTimeout(resolve,500));await r.fulfill({json:{response:{location:[{prefecture:'古い県',city:'古い市',town:'古い町',x:'135',y:'35'}]}}}).catch(()=>{});});
+   await page.route('https://mreversegeocoder.gsi.go.jp/**',async r=>{addressRequests++;await new Promise(resolve=>setTimeout(resolve,500));await r.fulfill({json:{results:{muniCd:'13101',lv01Nm:'古い町'}}}).catch(()=>{});});
    await page.evaluate(()=>{profileZone=4;jgd2024XYToLatLon=()=>({lat:35,lon:135});});
    await page.waitForFunction(()=>document.getElementById('viewportAddress').textContent==='付近の住所: …');
    while(addressRequests<2)await page.waitForTimeout(100);
    await page.evaluate(()=>{jgd2024XYToLatLon=()=>({lat:36,lon:136});view.tx+=10;});
    await page.waitForTimeout(650);
    assert(!/古い/.test(await page.locator('#viewportAddress').textContent()),'stale reply ignored');
-   await page.route('https://geoapi.heartrails.com/**',async r=>{addressRequests++;await r.fulfill({status:503,body:'unavailable'});});
+   await page.route('https://mreversegeocoder.gsi.go.jp/**',async r=>{addressRequests++;await r.fulfill({status:503,body:'unavailable'});});
    await page.waitForFunction(()=>document.getElementById('viewportAddress').textContent==='付近の住所: 取得できません',{},{timeout:8000});
    const count=addressRequests;await page.waitForTimeout(1000);assert.equal(addressRequests,count,'failure does not loop');
    assert.match(await page.locator('#viewportXY').textContent(),/X:/);
