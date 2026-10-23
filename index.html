@@ -1723,7 +1723,8 @@ gtag('config', 'G-88B9YPJXWP');
       <label class="droggerOwnerRow"><span>点名</span><input id="droggerPointName" type="text" maxlength="40" autocomplete="off"></label>
       <label class="droggerOwnerRow"><span>アンテナ高 (m)</span><input id="droggerAntennaHeight" type="number" min="-20" max="100" step="0.001"></label>
       <div class="droggerOwnerRow"><span>ジオイドモデル</span><button id="droggerGeoidModelBtn" type="button" title="公式ISGファイルを読み込みます">読込</button><input id="droggerGeoidModelInput" type="file" accept=".isg,text/plain" hidden></div>
-      <label class="droggerOwnerRow"><span>点名文字 (mm)</span><input id="droggerNameTextSize" type="number" min="1" max="10" step="0.1"></label>
+      <label class="droggerOwnerRow"><span>マーク直径 (mm)</span><input id="droggerMarkerDiameter" type="number" min="0.1" max="10" step="0.1"></label>
+      <label class="droggerOwnerRow"><span>点名文字 (mm)</span><input id="droggerNameTextSize" type="number" min="0.1" max="10" step="0.1"></label>
       <label class="droggerOwnerRow"><span>標高文字 (mm)</span><input id="droggerElevationTextSize" type="number" min="1" max="10" step="0.1"></label>
     </div>
   </div>
@@ -2408,7 +2409,7 @@ gtag('config', 'G-88B9YPJXWP');
 <script src="foundation-map-gml.js?v=1"></script>
 <script src="sima-import.js?v=2"></script>
 <script src="drogger-geoid-model.js?v=1"></script>
-<script src="drogger-owner-mode.js?v=6"></script>
+<script src="drogger-owner-mode.js?v=7"></script>
 <script src="data/japan-plane-zones.js?v=1"></script>
 <script src="japan-plane-zone-resolver.js?v=1"></script>
 <script>
@@ -6882,6 +6883,8 @@ function updateDroggerOwnerControlsUi(){
   const pointName=document.getElementById("droggerPointName");
   const antenna=document.getElementById("droggerAntennaHeight");
   const nameSize=document.getElementById("droggerNameTextSize");
+  const markerSize=document.getElementById("droggerMarkerDiameter");
+  if(markerSize&&document.activeElement!==markerSize)markerSize.value=String(droggerOwnerSettings.markerDiameterMm??.8);
   const elevationSize=document.getElementById("droggerElevationTextSize");
   if(pointName&&!pointName.value)pointName.value=window.DroggerOwnerMode.nextPointName(getDroggerCoordinateRecords());
   if(antenna&&document.activeElement!==antenna)antenna.value=String(droggerOwnerSettings.antennaHeight);
@@ -6967,10 +6970,15 @@ function updateDroggerSettingsFromInputs(options={}){
   const previous=droggerOwnerSettings;
   droggerOwnerSettings=window.DroggerOwnerMode.normalizeSettings({
     antennaHeight:document.getElementById("droggerAntennaHeight")?.value,
+    markerDiameterMm:document.getElementById("droggerMarkerDiameter")?.value,
     nameTextSizeMm:document.getElementById("droggerNameTextSize")?.value,
     elevationTextSizeMm:document.getElementById("droggerElevationTextSize")?.value
   });
   saveDroggerOwnerSettings();
+  if(options.updateMarkers&&previous.markerDiameterMm!==droggerOwnerSettings.markerDiameterMm){
+    window.DroggerOwnerMode.updateMarkerStyles(inkStrokes,droggerOwnerSettings);
+    cachedMeasurePointsDirty=true;scheduleDraw();markMemoChanged();
+  }
   if(options.updateLabels&&(previous.nameTextSizeMm!==droggerOwnerSettings.nameTextSizeMm||previous.elevationTextSizeMm!==droggerOwnerSettings.elevationTextSizeMm)){
     window.DroggerOwnerMode.updateTextStyles(inkStrokes,droggerOwnerSettings);
     scheduleDraw();
@@ -12131,7 +12139,7 @@ function drawDroggerGpsOnlyMarkers(drawCtx=ctx){
     const layer=getInkStrokeLayerId(stroke);
     if(layer!=null&&!isLayerVisible(layer))continue;
     const [sx,sy]=worldToScreen(record.sfcX*1000,record.sfcY*1000);
-    const radius=8;
+    const radius=8*(Number(stroke.paperDiameterMm)||Number(record.markerDiameterMm)||.8)/.8;
     const color=adaptContrastColor(getCurrentLayerColor(layer,getMemoLayerSpecForStroke(stroke).color));
     drawCtx.save();
     drawCtx.strokeStyle=color;
@@ -12161,9 +12169,10 @@ function drawDroggerCadLabels(drawCtx=ctx){
     const y=record?record.sfcY*1000:(Number.isFinite(+label.y)?+label.y:+stroke.points?.[0]?.y);
     if(!Number.isFinite(x)||!Number.isFinite(y))continue;
     const [sx,sy]=worldToScreen(x,y);
+    const smallTextFactor=Math.min(1,Number(label.heightMm)||1);
     const fontPx=fixedPreview
-      ?Math.max(10,Math.min(30,(Number(label.heightMm)||1.8)*8))
-      :Math.max(7,Math.min(72,(Number(label.heightMm)||2.5)*getMemoWorldUnitsPerPaperMm()*Math.abs(view.scale)));
+      ?Math.max(10*smallTextFactor,Math.min(30,(Number(label.heightMm)||1.8)*8))
+      :Math.max(7*smallTextFactor,Math.min(72,(Number(label.heightMm)||2.5)*getMemoWorldUnitsPerPaperMm()*Math.abs(view.scale)));
     const color=adaptContrastColor(getCurrentLayerColor(layer,getMemoLayerSpecForStroke(stroke).color));
     drawCtx.save();
     const fixedOffsetX=fixedPreview?13:0;
@@ -15924,9 +15933,9 @@ function getDroggerWorldUnitsPerPaperMm(){
 }
 function ensureDroggerGpsOnlyRegistrationScale(){
   if(!gpsOnlyBlankMode||hasLoadedDrawing()||!window.DroggerOwnerMode?.prepareRegistrationStrokesForPaper)return false;
-  const targetDiameter=.8*DROGGER_GPS_ONLY_SCALE_DENOMINATOR;
   const needsMigration=(inkStrokes||[]).some(stroke=>{
     if(stroke?.droggerLayerId!=="drogger:point"||!stroke.isCircleMemo||!Array.isArray(stroke.points)||stroke.points.length<25)return false;
+    const targetDiameter=(Number(stroke.paperDiameterMm)||Number(stroke.droggerRecord?.markerDiameterMm)||.8)*DROGGER_GPS_ONLY_SCALE_DENOMINATOR;
     const diameter=Math.hypot(stroke.points[0].x-stroke.points[24].x,stroke.points[0].y-stroke.points[24].y);
     return !Number.isFinite(diameter)||Math.abs(diameter-targetDiameter)>.001;
   });
@@ -17784,12 +17793,12 @@ function buildInkPolylineFeatureText(baseText){
     if(Number.isFinite(+point.x)&&Number.isFinite(+point.y))generatedGeometryPoints.push({x:+point.x,y:+point.y});
   }
   const horizontalTextAngle=getGeneratedHorizontalSxfTextAngle(baseText,generatedGeometryPoints);
-  const appendTextLabel=(label,layerCode,colorCode,forceHorizontal=false,units=getMemoWorldUnitsPerPaperMm())=>{
+  const appendTextLabel=(label,layerCode,colorCode,forceHorizontal=false,units=getMemoWorldUnitsPerPaperMm(),minimumMm=.5)=>{
     if(!label||!String(label.text||"").trim())return;
     const sourceText=String(label.text||"");
     const text=encodeSfcText(sourceText);
-    const height=Math.max(.5,+label.heightMm||2.5)*units;
-    const width=Math.max(.5,+label.widthMm||Math.max(2.5,Array.from(sourceText).length*1.7))*units;
+    const height=Math.max(minimumMm,+label.heightMm||2.5)*units;
+    const width=Math.max(minimumMm,+label.widthMm||Math.max(2.5,Array.from(sourceText).length*1.7))*units;
     const anchor=Math.min(9,Math.max(1,Math.round(+label.align1||1)));
     const direction=(+label.align2===2)?2:1;
     const angle=forceHorizontal ? horizontalTextAngle : normalizeSxfTextAngle(label.angle);
@@ -17830,7 +17839,7 @@ SXF*/`);
 #${id} = circle_feature('${layerCode}','${colorCode}','${typeCode}','${widthCode}','${cx.toFixed(6)}','${cy.toFixed(6)}','${radius.toFixed(6)}')
 SXF*/`);
         id += 1;
-        appendTextLabel(s.photoTextLabel,layerCode,colorCode,true,s.droggerLayerId?getDroggerWorldUnitsPerPaperMm():getMemoWorldUnitsPerPaperMm());
+        appendTextLabel(s.photoTextLabel,layerCode,colorCode,true,s.droggerLayerId?getDroggerWorldUnitsPerPaperMm():getMemoWorldUnitsPerPaperMm(),s.droggerLayerId? .1 : .5);
       }
       continue;
     }
@@ -17842,7 +17851,7 @@ SXF*/`);
     }
     if(compact.length<2&&s.photoTextLabel){
       const before=lineParts.length;
-      appendTextLabel(s.photoTextLabel,layerCode,colorCode,true,s.droggerLayerId?getDroggerWorldUnitsPerPaperMm():getMemoWorldUnitsPerPaperMm());
+      appendTextLabel(s.photoTextLabel,layerCode,colorCode,true,s.droggerLayerId?getDroggerWorldUnitsPerPaperMm():getMemoWorldUnitsPerPaperMm(),s.droggerLayerId? .1 : .5);
       if(lineParts.length===before)expectedFeatureCounts.text_string_feature+=1;
       continue;
     }
@@ -17866,7 +17875,7 @@ SXF*/`);
         id += 1;
         expectedFeatureCounts.text_string_feature+=1;
       }
-      appendTextLabel(s.photoTextLabel,layerCode,colorCode,true,s.droggerLayerId?getDroggerWorldUnitsPerPaperMm():getMemoWorldUnitsPerPaperMm());
+      appendTextLabel(s.photoTextLabel,layerCode,colorCode,true,s.droggerLayerId?getDroggerWorldUnitsPerPaperMm():getMemoWorldUnitsPerPaperMm(),s.droggerLayerId? .1 : .5);
     }else expectedFeatureCounts.polyline_feature+=1;
   }
   return {
@@ -20545,6 +20554,7 @@ document.getElementById("droggerCoordinateShareBtn")?.addEventListener("click",s
 document.getElementById("droggerCoordinateModal")?.addEventListener("click",event=>{if(event.target===event.currentTarget)closeDroggerCoordinateManager();});
 document.getElementById("droggerAntennaHeight")?.addEventListener("change",()=>updateDroggerSettingsFromInputs());
 document.getElementById("droggerNameTextSize")?.addEventListener("change",()=>updateDroggerSettingsFromInputs({updateLabels:true}));
+document.getElementById("droggerMarkerDiameter")?.addEventListener("change",()=>updateDroggerSettingsFromInputs({updateMarkers:true}));
 document.getElementById("droggerElevationTextSize")?.addEventListener("change",()=>updateDroggerSettingsFromInputs({updateLabels:true}));
 document.getElementById("droggerGeoidModelBtn")?.addEventListener("click",()=>document.getElementById("droggerGeoidModelInput")?.click());
 document.getElementById("droggerGeoidModelInput")?.addEventListener("change",event=>{

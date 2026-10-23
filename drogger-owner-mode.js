@@ -8,6 +8,7 @@
   });
   const DEFAULT_SETTINGS=Object.freeze({
     antennaHeight:0,
+    markerDiameterMm:.8,
     nameTextSizeMm:1.8,
     elevationTextSizeMm:1.8
   });
@@ -18,7 +19,8 @@
     const input=value&&typeof value==="object"?value:{};
     return {
       antennaHeight:clamp(finite(input.antennaHeight,DEFAULT_SETTINGS.antennaHeight),-20,100),
-      nameTextSizeMm:clamp(finite(input.nameTextSizeMm,DEFAULT_SETTINGS.nameTextSizeMm),1,10),
+      markerDiameterMm:clamp(finite(input.markerDiameterMm,DEFAULT_SETTINGS.markerDiameterMm),.1,10),
+      nameTextSizeMm:clamp(finite(input.nameTextSizeMm,DEFAULT_SETTINGS.nameTextSizeMm),.1,10),
       elevationTextSizeMm:clamp(finite(input.elevationTextSizeMm,DEFAULT_SETTINGS.elevationTextSizeMm),1,10)
     };
   }
@@ -75,6 +77,7 @@
       geoidHeight:finite(gps.geoidHeight),
       geoidModelName:String(gps.geoidModelName||""),
       antennaHeight:normalized.antennaHeight,
+      markerDiameterMm:normalized.markerDiameterMm,
       nameTextSizeMm:normalized.nameTextSizeMm,
       elevationTextSizeMm:normalized.elevationTextSizeMm,
       elevation:roundedElevation(correctedElevation(gps.altitude,gps.geoidHeight,normalized.antennaHeight)),
@@ -89,7 +92,7 @@
   }
   function labelPayload(text,x,y,heightMm){
     const value=String(text||"");
-    const height=clamp(finite(heightMm,DEFAULT_SETTINGS.nameTextSizeMm),1,10);
+    const height=clamp(finite(heightMm,DEFAULT_SETTINGS.nameTextSizeMm),.1,10);
     return {text:value,x,y,heightMm:height,widthMm:Math.max(height,value.length*height*.95),align1:4,align2:0};
   }
   function createRegistrationStrokes(record,worldUnitsPerPaperMm,settings){
@@ -97,7 +100,7 @@
     const units=Math.max(1e-9,finite(worldUnitsPerPaperMm,1));
     const normalized=normalizeSettings(settings);
     const cx=record.sfcX*1000,cy=record.sfcY*1000;
-    const radius=.4*units;
+    const radius=normalized.markerDiameterMm/2*units;
     const points=[];
     for(let i=0;i<=48;i++){
       const angle=Math.PI*2*i/48;
@@ -109,7 +112,7 @@
     const nameY=cy+.78*units;
     const elevationY=cy-.78*units;
     return [
-      {...base,droggerLayerId:LAYERS.point,droggerRecord:{...record},isCircleMemo:true,paperDiameterMm:.8,circleGeometryVersion:2,points},
+      {...base,droggerLayerId:LAYERS.point,droggerRecord:{...record,markerDiameterMm:normalized.markerDiameterMm},isCircleMemo:true,paperDiameterMm:normalized.markerDiameterMm,circleGeometryVersion:2,points},
       {...base,droggerLayerId:LAYERS.point,points:[{x:cx-radius,y:cy},{x:cx+radius,y:cy}]},
       {...base,droggerLayerId:LAYERS.point,points:[{x:cx,y:cy-radius},{x:cx,y:cy+radius}]},
       {...base,droggerLayerId:LAYERS.name,worldWidthMm:.006,width:1,photoTextLabel:labelPayload(record.name,textX,nameY,normalized.nameTextSizeMm),points:[{x:textX,y:nameY},{x:textX,y:nameY}]},
@@ -118,6 +121,21 @@
   }
   function recordsFromStrokes(strokes){
     return (strokes||[]).filter(stroke=>stroke&&stroke.droggerLayerId===LAYERS.point&&stroke.droggerRecord).map(stroke=>({...stroke.droggerRecord})).sort((a,b)=>(+a.registeredAt||0)-(+b.registeredAt||0));
+  }
+  function updateMarkerStyles(strokes,settings){
+    const diameter=normalizeSettings(settings).markerDiameterMm;
+    for(const circle of strokes||[]){
+      if(circle?.droggerLayerId!==LAYERS.point||!circle.isCircleMemo||!circle.droggerRecord||circle.points?.length<25)continue;
+      const cx=(circle.points[0].x+circle.points[24].x)/2,cy=(circle.points[0].y+circle.points[24].y)/2;
+      const previous=finite(circle.paperDiameterMm,finite(circle.droggerRecord.markerDiameterMm,.8));
+      if(!(previous>0))continue;
+      const ratio=diameter/previous;
+      for(const stroke of strokes){
+        if(stroke?.droggerPointId!==circle.droggerPointId||stroke.droggerLayerId!==LAYERS.point)continue;
+        stroke.points=stroke.points.map(p=>({...p,x:cx+(p.x-cx)*ratio,y:cy+(p.y-cy)*ratio}));
+      }
+      circle.paperDiameterMm=diameter;circle.droggerRecord.markerDiameterMm=diameter;
+    }
   }
   function updateTextStyles(strokes,settings){
     const normalized=normalizeSettings(settings);
@@ -161,6 +179,7 @@
       const elevationLabel=group.find(stroke=>stroke?.droggerLayerId===LAYERS.elevation&&stroke.photoTextLabel)?.photoTextLabel;
       const settings=normalizeSettings({
         antennaHeight:record.antennaHeight,
+        markerDiameterMm:finite(recordStroke.paperDiameterMm,finite(record.markerDiameterMm,.8)),
         nameTextSizeMm:finite(nameLabel?.heightMm,finite(record.nameTextSizeMm,DEFAULT_SETTINGS.nameTextSizeMm)),
         elevationTextSizeMm:finite(elevationLabel?.heightMm,finite(record.elevationTextSizeMm,DEFAULT_SETTINGS.elevationTextSizeMm))
       });
@@ -189,5 +208,5 @@
     return [headers.map(value=>csvValue(value)).join(","),...rows.map(row=>row.map((value,index)=>csvValue(value,[1,2,3,4,5,6,8,9,10].includes(index))).join(","))].join("\r\n");
   }
 
-  global.DroggerOwnerMode=Object.freeze({LAYERS,DEFAULT_SETTINGS,normalizeSettings,correctedElevation,drawingElevationText,nextPointName,incrementPointName,createRecord,createRegistrationStrokes,prepareRegistrationStrokesForPaper,recordsFromStrokes,updateTextStyles,buildCsv});
+  global.DroggerOwnerMode=Object.freeze({LAYERS,DEFAULT_SETTINGS,normalizeSettings,correctedElevation,drawingElevationText,nextPointName,incrementPointName,createRecord,createRegistrationStrokes,prepareRegistrationStrokesForPaper,recordsFromStrokes,updateTextStyles,updateMarkerStyles,buildCsv});
 })(window);

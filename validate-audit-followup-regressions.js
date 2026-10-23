@@ -154,6 +154,17 @@ async function exportState(page){
       });
       assert.equal(roundTrip.ok,true);assert.equal(roundTrip.unchanged,true);
       assert.equal(roundTrip.units,500);assert.deepEqual(roundTrip.heights,[900,900]);assert.deepEqual(roundTrip.radii,[200]);
+      const small=await page.evaluate(async()=>{
+        const csv=DroggerOwnerMode.buildCsv(getDroggerCoordinateRecords());
+        DroggerOwnerMode.updateTextStyles(inkStrokes,{nameTextSizeMm:.1,elevationTextSizeMm:1.8});
+        DroggerOwnerMode.updateMarkerStyles(inkStrokes,{markerDiameterMm:.1});
+        const output=await buildSfcExportBlobAndNameAsync();
+        await handleLoadedSource(output.text,'small.sfc',null,{restoreRecovery:false});
+        const next=await buildSfcExportBlobAndNameAsync();
+        const records=parseSxfFeatureRecords(getFlatSxfTextIncludingGenerated(next.text));
+        return {ok:next.ok,unchanged:csv===DroggerOwnerMode.buildCsv(getDroggerCoordinateRecords()),heights:records.filter(r=>r.name==='text_string_feature').map(r=>Number(unquoteSxfValue(r.args[6]))),radii:records.filter(r=>r.name==='circle_feature').map(r=>Number(unquoteSxfValue(r.args[6])))};
+      });
+      assert(small.ok&&small.unchanged);assert.deepEqual(small.heights,[50,900]);assert.deepEqual(small.radii,[25]);
     },mobile);
     await run('A02 registry CAD parcel labels survive FINAL SFC export',async page=>{
       const result=await page.evaluate(async source=>{

@@ -133,5 +133,17 @@ let browser;
   await page.locator("#gpsTitle").dispatchEvent("pointerup",{pointerId:8,pointerType:"touch",clientX:80,clientY:80,button:0});
   if(await page.evaluate(()=>window.eval("droggerOwnerModeActive")))throw new Error("three-second hold did not close hidden mode");
   if(await page.locator("#droggerOwnerActions").evaluate(element=>getComputedStyle(element).display)!=="none")throw new Error("floating actions remained after hidden mode closed");
-  console.log("OK: Drogger 3-second hold, minimized accuracy with external actions, geoid-corrected GPS-only registration, beep, increment, 0.8 mm plus marker, metadata and grouped undo");
+  const smallSizes=await page.evaluate(()=>{
+    const csv=DroggerOwnerMode.buildCsv(getDroggerCoordinateRecords());
+    const name=document.getElementById('droggerNameTextSize'),marker=document.getElementById('droggerMarkerDiameter');
+    name.value='.1';name.dispatchEvent(new Event('change'));
+    marker.value='.1';marker.dispatchEvent(new Event('change'));
+    updateGpsUi();
+    const restored=parseMemoMetaPayload(buildMemoMetaComment()).strokes;
+    const circles=restored.filter(s=>s.isCircleMemo&&s.droggerPointId);
+    const labels=restored.filter(s=>s.droggerLayerId==='drogger:name');
+    return {valid:name.checkValidity()&&marker.checkValidity(),step:name.step,markerStep:marker.step,diameters:circles.map(s=>s.paperDiameterMm),world:circles.map(s=>Math.hypot(s.points[0].x-s.points[24].x,s.points[0].y-s.points[24].y)),sizes:labels.map(s=>s.photoTextLabel.heightMm),unchanged:csv===DroggerOwnerMode.buildCsv(getDroggerCoordinateRecords())};
+  });
+  if(!smallSizes.valid||smallSizes.step!=='.1'&&smallSizes.step!=='0.1'||smallSizes.markerStep!=='0.1'||smallSizes.diameters.some(v=>v!==.1)||smallSizes.world.some(v=>Math.abs(v-50)>1e-6)||smallSizes.sizes.some(v=>v!==.1)||!smallSizes.unchanged)throw new Error(`small-size UI/persistence failed: ${JSON.stringify(smallSizes)}`);
+  console.log("OK: Drogger runtime, 0.1 mm UI/geometry/metadata and unchanged coordinate CSV");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.close();});

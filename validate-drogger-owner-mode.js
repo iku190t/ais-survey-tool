@@ -29,6 +29,21 @@ for(let mm=-100000;mm<=100000;mm++){
 const settings=feature.normalizeSettings({antennaHeight:1.5,nameTextSizeMm:3,elevationTextSizeMm:2});
 const gps={lat:34.1,lon:134.5,zone:4,x:100.123,y:200.456,sfcX:200.456,sfcY:100.123,altitude:52.345,geoidHeight:37.1197,geoidModelName:"JPGEO2024",accuracy:.015,altitudeAccuracy:.025,fixMode:"FIXED",fixQuality:4,fixAgeMs:120,timestamp:Date.now()};
 const record=feature.createRecord(gps,settings,"K-1");
+for(let i=1;i<=10;i++){
+  const size=i/10;
+  const small=feature.normalizeSettings({...settings,markerDiameterMm:size,nameTextSizeMm:size});
+  const original=JSON.stringify(record);
+  const marks=feature.createRegistrationStrokes(record,500,small);
+  if(marks[3].photoTextLabel.heightMm!==size||marks[0].paperDiameterMm!==size)throw new Error('sub-mm setting lost');
+  const diameter=s=>Math.hypot(s[0].points[0].x-s[0].points[24].x,s[0].points[0].y-s[0].points[24].y);
+  if(Math.abs(diameter(marks)-size*500)>1e-6)throw new Error('sub-mm geometry wrong');
+  const saved=JSON.parse(JSON.stringify(marks));
+  const rebuilt=feature.prepareRegistrationStrokesForPaper(saved,500);
+  if(Math.abs(diameter(rebuilt)-size*500)>1e-6||rebuilt[3].photoTextLabel.heightMm!==size)throw new Error('sub-mm export/restore lost');
+  const csv=feature.buildCsv(feature.recordsFromStrokes(marks));
+  feature.updateMarkerStyles(marks,{markerDiameterMm:.1});
+  if(Math.abs(diameter(marks)-50)>1e-6||feature.buildCsv(feature.recordsFromStrokes(marks))!==csv||JSON.stringify(record)!==original)throw new Error('resize changed survey data');
+}
 if(!record||Math.abs(record.elevation-13.725)>1e-9||record.fixMode!=="FIXED"||record.fixQuality!==4)throw new Error("geoid correction or RTK state storage failed");
 for(const elevation of [2.010,2.019]){
   const exactRecord=feature.createRecord({...gps,altitude:elevation,geoidHeight:0},{antennaHeight:0},"P-display");
@@ -73,7 +88,7 @@ const required=[
   'id="droggerCoordinateModal"',
   'id="droggerOwnerMinimizeBtn"',
   'drogger-geoid-model.js?v=1',
-  'drogger-owner-mode.js?v=6',
+  'drogger-owner-mode.js?v=7',
   'id="droggerGeoidModelBtn"',
   'const DROGGER_OWNER_LONG_PRESS_MS=3000',
   'handleDroggerTitlePointerDown',
