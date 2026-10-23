@@ -21,7 +21,7 @@
       antennaHeight:clamp(finite(input.antennaHeight,DEFAULT_SETTINGS.antennaHeight),-20,100),
       markerDiameterMm:clamp(finite(input.markerDiameterMm,DEFAULT_SETTINGS.markerDiameterMm),.1,10),
       nameTextSizeMm:clamp(finite(input.nameTextSizeMm,DEFAULT_SETTINGS.nameTextSizeMm),.1,10),
-      elevationTextSizeMm:clamp(finite(input.elevationTextSizeMm,DEFAULT_SETTINGS.elevationTextSizeMm),1,10)
+      elevationTextSizeMm:clamp(finite(input.elevationTextSizeMm,DEFAULT_SETTINGS.elevationTextSizeMm),.1,10)
     };
   }
   function correctedElevation(ellipsoidHeight,geoidHeight,antennaHeight){

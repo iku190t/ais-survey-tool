@@ -135,15 +135,34 @@ let browser;
   if(await page.locator("#droggerOwnerActions").evaluate(element=>getComputedStyle(element).display)!=="none")throw new Error("floating actions remained after hidden mode closed");
   const smallSizes=await page.evaluate(()=>{
     const csv=DroggerOwnerMode.buildCsv(getDroggerCoordinateRecords());
-    const name=document.getElementById('droggerNameTextSize'),marker=document.getElementById('droggerMarkerDiameter');
+    const name=document.getElementById('droggerNameTextSize'),marker=document.getElementById('droggerMarkerDiameter'),elevation=document.getElementById('droggerElevationTextSize');
     name.value='.1';name.dispatchEvent(new Event('change'));
+    elevation.value='.1';elevation.dispatchEvent(new Event('change'));
     marker.value='.1';marker.dispatchEvent(new Event('change'));
     updateGpsUi();
     const restored=parseMemoMetaPayload(buildMemoMetaComment()).strokes;
     const circles=restored.filter(s=>s.isCircleMemo&&s.droggerPointId);
-    const labels=restored.filter(s=>s.droggerLayerId==='drogger:name');
-    return {valid:name.checkValidity()&&marker.checkValidity(),step:name.step,markerStep:marker.step,diameters:circles.map(s=>s.paperDiameterMm),world:circles.map(s=>Math.hypot(s.points[0].x-s.points[24].x,s.points[0].y-s.points[24].y)),sizes:labels.map(s=>s.photoTextLabel.heightMm),unchanged:csv===DroggerOwnerMode.buildCsv(getDroggerCoordinateRecords())};
+    const labels=restored.filter(s=>s.droggerLayerId==='drogger:name'||s.droggerLayerId==='drogger:elevation');
+    return {valid:name.checkValidity()&&marker.checkValidity()&&elevation.checkValidity(),step:name.step,markerStep:marker.step,elevationStep:elevation.step,diameters:circles.map(s=>s.paperDiameterMm),world:circles.map(s=>Math.hypot(s.points[0].x-s.points[24].x,s.points[0].y-s.points[24].y)),sizes:labels.map(s=>s.photoTextLabel.heightMm),unchanged:csv===DroggerOwnerMode.buildCsv(getDroggerCoordinateRecords())};
   });
-  if(!smallSizes.valid||smallSizes.step!=='.1'&&smallSizes.step!=='0.1'||smallSizes.markerStep!=='0.1'||smallSizes.diameters.some(v=>v!==.1)||smallSizes.world.some(v=>Math.abs(v-50)>1e-6)||smallSizes.sizes.some(v=>v!==.1)||!smallSizes.unchanged)throw new Error(`small-size UI/persistence failed: ${JSON.stringify(smallSizes)}`);
-  console.log("OK: Drogger runtime, 0.1 mm UI/geometry/metadata and unchanged coordinate CSV");
+  if(!smallSizes.valid||smallSizes.step!=='.1'&&smallSizes.step!=='0.1'||smallSizes.markerStep!=='0.1'||smallSizes.elevationStep!=='0.1'||smallSizes.diameters.some(v=>v!==.1)||smallSizes.world.some(v=>Math.abs(v-50)>1e-6)||smallSizes.sizes.some(v=>v!==.1)||!smallSizes.unchanged)throw new Error(`small-size UI/persistence failed: ${JSON.stringify(smallSizes)}`);
+  const previewSizes=await page.evaluate(()=>{
+    const previous=inkStrokes;
+    const record={...getDroggerCoordinateRecords()[0],elevation:2.010};
+    try{
+      return [.1,.2,.8,1.8,4,10].map(size=>{
+        inkStrokes=DroggerOwnerMode.createRegistrationStrokes(record,500,{markerDiameterMm:size,nameTextSizeMm:size,elevationTextSizeMm:size});
+        const before=JSON.stringify(inkStrokes),fonts=[],diameters=[],widths=[];
+        const context=document.createElement('canvas').getContext('2d');
+        context.arc=(x,y,r)=>{diameters.push(r*2);widths.push(context.lineWidth);};
+        context.fillText=()=>fonts.push(parseFloat(context.font));
+        drawDroggerGpsOnlyMarkers(context);drawDroggerCadLabels(context);
+        return {size,fonts,diameters,widths,unchanged:before===JSON.stringify(inkStrokes)};
+      });
+    }finally{inkStrokes=previous;}
+  });
+  for(const preview of previewSizes){
+    if(preview.diameters.length!==1||preview.fonts.length!==2||preview.fonts.some(v=>Math.abs(v-preview.diameters[0])>1e-5)||preview.widths[0]>preview.diameters[0]/8+1e-6||!preview.unchanged)throw new Error(`GPS-only mark/text proportions differ: ${JSON.stringify(preview)}`);
+  }
+  console.log("OK: Drogger runtime, 0.1 mm mark/name/elevation UI, matched preview proportions, metadata and unchanged coordinate CSV");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.close();});

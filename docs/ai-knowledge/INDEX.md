@@ -15,7 +15,7 @@
 |過去の不具合、原因、再発防止|[INCIDENTS.md](INCIDENTS.md)|
 |機能別に実行する検証コマンド|[TEST_MATRIX.md](TEST_MATRIX.md)|
 |新しい知見を記録する書式|[ENTRY_TEMPLATE.md](ENTRY_TEMPLATE.md)|
-|GPS登録のマーク・点名0.1mm設定、保存互換|[DROGGER_SUB_MM.md](DROGGER_SUB_MM.md)|
+|GPS登録のマーク・点名・標高0.1mm設定、表示寸法比と保存互換|[DROGGER_SUB_MM.md](DROGGER_SUB_MM.md)|
 |2026-09-05総合監査、修正済み範囲、未確認事項|[AUDIT_20260905.md](AUDIT_20260905.md)|
 |2026-09-06の読込/保存競合・保存再試行・大容量修正、274ケースと制限|[AUDIT_20260906.md](AUDIT_20260906.md)|
 |座標系の行政区域データ、出典、加工・限界・再生成|[JAPAN_PLANE_ZONES.md](../../data/JAPAN_PLANE_ZONES.md)|

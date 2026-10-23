@@ -31,15 +31,15 @@ const gps={lat:34.1,lon:134.5,zone:4,x:100.123,y:200.456,sfcX:200.456,sfcY:100.1
 const record=feature.createRecord(gps,settings,"K-1");
 for(let i=1;i<=10;i++){
   const size=i/10;
-  const small=feature.normalizeSettings({...settings,markerDiameterMm:size,nameTextSizeMm:size});
+  const small=feature.normalizeSettings({...settings,markerDiameterMm:size,nameTextSizeMm:size,elevationTextSizeMm:size});
   const original=JSON.stringify(record);
   const marks=feature.createRegistrationStrokes(record,500,small);
-  if(marks[3].photoTextLabel.heightMm!==size||marks[0].paperDiameterMm!==size)throw new Error('sub-mm setting lost');
+  if(marks[3].photoTextLabel.heightMm!==size||marks[4].photoTextLabel.heightMm!==size||marks[0].paperDiameterMm!==size)throw new Error('sub-mm setting lost');
   const diameter=s=>Math.hypot(s[0].points[0].x-s[0].points[24].x,s[0].points[0].y-s[0].points[24].y);
   if(Math.abs(diameter(marks)-size*500)>1e-6)throw new Error('sub-mm geometry wrong');
   const saved=JSON.parse(JSON.stringify(marks));
   const rebuilt=feature.prepareRegistrationStrokesForPaper(saved,500);
-  if(Math.abs(diameter(rebuilt)-size*500)>1e-6||rebuilt[3].photoTextLabel.heightMm!==size)throw new Error('sub-mm export/restore lost');
+  if(Math.abs(diameter(rebuilt)-size*500)>1e-6||rebuilt[3].photoTextLabel.heightMm!==size||rebuilt[4].photoTextLabel.heightMm!==size)throw new Error('sub-mm export/restore lost');
   const csv=feature.buildCsv(feature.recordsFromStrokes(marks));
   feature.updateMarkerStyles(marks,{markerDiameterMm:.1});
   if(Math.abs(diameter(marks)-50)>1e-6||feature.buildCsv(feature.recordsFromStrokes(marks))!==csv||JSON.stringify(record)!==original)throw new Error('resize changed survey data');
@@ -88,7 +88,7 @@ const required=[
   'id="droggerCoordinateModal"',
   'id="droggerOwnerMinimizeBtn"',
   'drogger-geoid-model.js?v=1',
-  'drogger-owner-mode.js?v=7',
+  'drogger-owner-mode.js?v=8',
   'id="droggerGeoidModelBtn"',
   'const DROGGER_OWNER_LONG_PRESS_MS=3000',
   'handleDroggerTitlePointerDown',

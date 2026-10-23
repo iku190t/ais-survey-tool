@@ -1725,7 +1725,7 @@ gtag('config', 'G-88B9YPJXWP');
       <div class="droggerOwnerRow"><span>ジオイドモデル</span><button id="droggerGeoidModelBtn" type="button" title="公式ISGファイルを読み込みます">読込</button><input id="droggerGeoidModelInput" type="file" accept=".isg,text/plain" hidden></div>
       <label class="droggerOwnerRow"><span>マーク直径 (mm)</span><input id="droggerMarkerDiameter" type="number" min="0.1" max="10" step="0.1"></label>
       <label class="droggerOwnerRow"><span>点名文字 (mm)</span><input id="droggerNameTextSize" type="number" min="0.1" max="10" step="0.1"></label>
-      <label class="droggerOwnerRow"><span>標高文字 (mm)</span><input id="droggerElevationTextSize" type="number" min="1" max="10" step="0.1"></label>
+      <label class="droggerOwnerRow"><span>標高文字 (mm)</span><input id="droggerElevationTextSize" type="number" min="0.1" max="10" step="0.1"></label>
     </div>
   </div>
   <div id="droggerOwnerActions" aria-hidden="true"><button id="droggerRegisterBtn" type="button">登録</button><button id="droggerManageBtn" type="button">座標管理</button></div>
@@ -2409,7 +2409,7 @@ gtag('config', 'G-88B9YPJXWP');
 <script src="foundation-map-gml.js?v=1"></script>
 <script src="sima-import.js?v=2"></script>
 <script src="drogger-geoid-model.js?v=1"></script>
-<script src="drogger-owner-mode.js?v=7"></script>
+<script src="drogger-owner-mode.js?v=8"></script>
 <script src="data/japan-plane-zones.js?v=1"></script>
 <script src="japan-plane-zone-resolver.js?v=1"></script>
 <script>
@@ -12128,6 +12128,8 @@ function drawInkStroke(stroke,drawCtx=ctx){
   drawCtx.stroke();
   drawCtx.restore();
 }
+// GPS-only previews use one paper-size conversion for both marks and text.
+const DROGGER_GPS_PREVIEW_PIXELS_PER_MM=8;
 function drawDroggerGpsOnlyMarkers(drawCtx=ctx){
   if(!gpsOnlyBlankMode||hasLoadedDrawing())return;
   const drawn=new Set();
@@ -12139,11 +12141,11 @@ function drawDroggerGpsOnlyMarkers(drawCtx=ctx){
     const layer=getInkStrokeLayerId(stroke);
     if(layer!=null&&!isLayerVisible(layer))continue;
     const [sx,sy]=worldToScreen(record.sfcX*1000,record.sfcY*1000);
-    const radius=8*(Number(stroke.paperDiameterMm)||Number(record.markerDiameterMm)||.8)/.8;
+    const radius=(Number(stroke.paperDiameterMm)||Number(record.markerDiameterMm)||.8)*DROGGER_GPS_PREVIEW_PIXELS_PER_MM/2;
     const color=adaptContrastColor(getCurrentLayerColor(layer,getMemoLayerSpecForStroke(stroke).color));
     drawCtx.save();
     drawCtx.strokeStyle=color;
-    drawCtx.lineWidth=1.2;
+    drawCtx.lineWidth=Math.min(1.2,radius/4);
     drawCtx.beginPath();
     drawCtx.arc(sx,sy,radius,0,Math.PI*2);
     drawCtx.moveTo(sx-radius,sy);drawCtx.lineTo(sx+radius,sy);
@@ -12171,7 +12173,7 @@ function drawDroggerCadLabels(drawCtx=ctx){
     const [sx,sy]=worldToScreen(x,y);
     const smallTextFactor=Math.min(1,Number(label.heightMm)||1);
     const fontPx=fixedPreview
-      ?Math.max(10*smallTextFactor,Math.min(30,(Number(label.heightMm)||1.8)*8))
+      ?(Number(label.heightMm)||1.8)*DROGGER_GPS_PREVIEW_PIXELS_PER_MM
       :Math.max(7*smallTextFactor,Math.min(72,(Number(label.heightMm)||2.5)*getMemoWorldUnitsPerPaperMm()*Math.abs(view.scale)));
     const color=adaptContrastColor(getCurrentLayerColor(layer,getMemoLayerSpecForStroke(stroke).color));
     drawCtx.save();

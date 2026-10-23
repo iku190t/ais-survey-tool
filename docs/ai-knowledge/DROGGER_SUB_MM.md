@@ -1,5 +1,19 @@
 # GPS登録点の0.1mm設定
 
+## 2026-10-23 標高文字とGPS単独プレビューの寸法比
+
+状態: 検証済み（自動テスト、実機未確認）。直前/戻し先: `e276a6e`。
+変更コミット: `git log --grep="Match GPS preview dimensions"` で特定する。
+
+- 旧コードのGPS単独プレビューは円直径が設定値×20px、0.1mmの文字は最小値補正で1px。0.1mm同士で円2px/文字1pxとなっていた。半径の保存計算は正しく、設定直径÷2だった。
+- マークと点名・標高文字の固定プレビューを共通8px/mmへ統一。マーク線幅も小径では比例縮小し、固定1.2pxの線が小さな円を覆うことを防ぐ。画面上の実寸mmではなく紙面設定値の表示倍率であり、字形の実際の黒い領域とフォント公称高さは同一ではない。
+- 標高文字もHTML/設定正規化の下限0.1mm、step0.1。既存設定/既定1.8mmを自動的に0.1へ置き換えない。図面ありの描画、登録座標、標高値、CSV、円の保存幾何、保存線幅は変更しない。
+- 下記の旧「標高文字1～10mm」「マークと文字の別々の固定表示倍率」は廃止。SFCの既存縮尺変換は維持。
+- 成功（終了コード0）: `validate-drogger-owner-mode.js`（0.1～1.0mmの両文字/直径と復元）、`validate-drogger-owner-runtime.js`（入力/メタデータ、0.1/0.2/0.8/1.8/4/10mmの実描画引数の寸法比、描画でデータ不変）、`validate-audit-followup-regressions.js`（39ケース、点名/標高0.1mmと直径0.1mmのSFC再保存で1/500の文字高50/半径25を確認）、`validate-android-drogger-bridge.js`、`validate-drogger-geoid-model.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`。
+- 描画試験の初回はCanvasのfloat32線幅0.8000000119と期待0.8の差で停止。比較許容値を1e-6へ修正し同じ製品コードで成功。実機Safari/Android・外部CADは未確認、APK変更なし。
+
+## 初回の0.1mm対応（e276a6e）
+
 状態: 検証済み（自動テスト、実機未確認）。基準/戻し先: ac516c6。
 変更コミット: `git log --grep="Allow 0.1 mm GPS marker"` で特定する。
 
