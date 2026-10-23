@@ -1,8 +1,20 @@
 # GPS登録点の0.1mm設定
 
+## 2026-10-23 小径・小文字の視認性回復
+
+状態: 検証済み（ブラウザ自動試験・描画画像確認。実機未確認）。直前: `81bfdde`（不可視に近くなる不具合版であり正常基準ではない）。
+変更コミット: `git log --grep="Keep sub-mm GPS previews visible"` で特定する。
+
+- 再現済み: 81bfddeでGPS単独0.1mmの円直径/文字高が0.8px、線幅0.1px。新しい最低視認寸法テストがこの値で失敗。旧テストは寸法比と保存値だけを確認し、読める描画サイズを検証していなかった。
+- 修正: GPS単独表示だけ、円直径と点名/標高文字の公称高さを共通の `max(10px, 設定mm×8)` とする。円線幅1.2pxへ復帰。大きいマークではラベルを円の右側へ避ける。
+- 最低表示サイズの範囲では異なる小さい設定値も同じ表示サイズになる。これは画面表示の補助で、設定値/紙面寸法/登録座標/標高/CSV/既存メタデータを上書きしない。0.1mm設定、標高文字0.1mm対応、SFCの1/500寸法は維持。図面ありの描画は変更なし。
+- 成功（全て終了コード0）: `validate-drogger-owner-runtime.js`（0.1～10mmの表示値、実Canvasの不透明画素数、データ不変）、`validate-drogger-owner-mode.js`、`validate-android-drogger-bridge.js`、`validate-drogger-geoid-model.js`、`validate-gps-startup-mode.js`、`validate-recovery-autosave.js`、`validate-last-work-recovery.js`、`validate-real-sfc-rendering.js sample.sfc`、`validate-audit-followup-regressions.js`（39ケース）。`git diff --check`成功。
+- 0.1mmの実描画は円/十字57画素、点名＋標高48～58画素がalpha128以上。白黒の背景へ合成した画像で円/十字・P1・2.01を確認。合成背景は実地図/実機表示そのものの検証ではない。
+- 戻す場合はこの表示差分だけを戻す。81bfddeへ戻すと不可視問題も戻る。APK変更なし、iPhone/Android実機・外部CAD未確認。
+
 ## 2026-10-23 標高文字とGPS単独プレビューの寸法比
 
-状態: 検証済み（自動テスト、実機未確認）。直前/戻し先: `e276a6e`。
+状態: 保存/寸法比は検証済み。ただし最低サイズなしの表示仕様は視認性不足のため廃止（上記で修正）。直前: `e276a6e`。
 変更コミット: `git log --grep="Match GPS preview dimensions"` で特定する。
 
 - 旧コードのGPS単独プレビューは円直径が設定値×20px、0.1mmの文字は最小値補正で1px。0.1mm同士で円2px/文字1pxとなっていた。半径の保存計算は正しく、設定直径÷2だった。

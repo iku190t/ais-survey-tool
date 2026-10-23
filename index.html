@@ -12128,8 +12128,12 @@ function drawInkStroke(stroke,drawCtx=ctx){
   drawCtx.stroke();
   drawCtx.restore();
 }
-// GPS-only previews use one paper-size conversion for both marks and text.
+// Display-only floor: keep sub-mm marks/labels visible without changing SFC sizes.
 const DROGGER_GPS_PREVIEW_PIXELS_PER_MM=8;
+const DROGGER_GPS_PREVIEW_MIN_PX=10;
+function getDroggerGpsPreviewSizePx(paperMm){
+  return Math.max(DROGGER_GPS_PREVIEW_MIN_PX,paperMm*DROGGER_GPS_PREVIEW_PIXELS_PER_MM);
+}
 function drawDroggerGpsOnlyMarkers(drawCtx=ctx){
   if(!gpsOnlyBlankMode||hasLoadedDrawing())return;
   const drawn=new Set();
@@ -12141,11 +12145,11 @@ function drawDroggerGpsOnlyMarkers(drawCtx=ctx){
     const layer=getInkStrokeLayerId(stroke);
     if(layer!=null&&!isLayerVisible(layer))continue;
     const [sx,sy]=worldToScreen(record.sfcX*1000,record.sfcY*1000);
-    const radius=(Number(stroke.paperDiameterMm)||Number(record.markerDiameterMm)||.8)*DROGGER_GPS_PREVIEW_PIXELS_PER_MM/2;
+    const radius=getDroggerGpsPreviewSizePx(Number(stroke.paperDiameterMm)||Number(record.markerDiameterMm)||.8)/2;
     const color=adaptContrastColor(getCurrentLayerColor(layer,getMemoLayerSpecForStroke(stroke).color));
     drawCtx.save();
     drawCtx.strokeStyle=color;
-    drawCtx.lineWidth=Math.min(1.2,radius/4);
+    drawCtx.lineWidth=1.2;
     drawCtx.beginPath();
     drawCtx.arc(sx,sy,radius,0,Math.PI*2);
     drawCtx.moveTo(sx-radius,sy);drawCtx.lineTo(sx+radius,sy);
@@ -12173,11 +12177,11 @@ function drawDroggerCadLabels(drawCtx=ctx){
     const [sx,sy]=worldToScreen(x,y);
     const smallTextFactor=Math.min(1,Number(label.heightMm)||1);
     const fontPx=fixedPreview
-      ?(Number(label.heightMm)||1.8)*DROGGER_GPS_PREVIEW_PIXELS_PER_MM
+      ?getDroggerGpsPreviewSizePx(Number(label.heightMm)||1.8)
       :Math.max(7*smallTextFactor,Math.min(72,(Number(label.heightMm)||2.5)*getMemoWorldUnitsPerPaperMm()*Math.abs(view.scale)));
     const color=adaptContrastColor(getCurrentLayerColor(layer,getMemoLayerSpecForStroke(stroke).color));
     drawCtx.save();
-    const fixedOffsetX=fixedPreview?13:0;
+    const fixedOffsetX=fixedPreview?Math.max(13,getDroggerGpsPreviewSizePx(Number(record?.markerDiameterMm)||.8)/2+5):0;
     const fixedOffsetY=fixedPreview?(stroke.droggerLayerId==="drogger:name"?-fontPx*.48:fontPx*.62):0;
     drawCtx.translate(sx+fixedOffsetX,sy+fixedOffsetY);
     drawCtx.rotate(-rotationDeg*Math.PI/180);

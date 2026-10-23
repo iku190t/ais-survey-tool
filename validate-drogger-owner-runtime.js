@@ -162,7 +162,38 @@ let browser;
     }finally{inkStrokes=previous;}
   });
   for(const preview of previewSizes){
-    if(preview.diameters.length!==1||preview.fonts.length!==2||preview.fonts.some(v=>Math.abs(v-preview.diameters[0])>1e-5)||preview.widths[0]>preview.diameters[0]/8+1e-6||!preview.unchanged)throw new Error(`GPS-only mark/text proportions differ: ${JSON.stringify(preview)}`);
+    if(preview.diameters.length!==1||preview.fonts.length!==2||preview.fonts.some(v=>Math.abs(v-preview.diameters[0])>1e-5)||preview.diameters[0]<10||preview.widths[0]<1||!preview.unchanged)throw new Error(`GPS-only mark/text visibility or proportions differ: ${JSON.stringify(preview)}`);
   }
+  const pixels=await page.evaluate(()=>{
+    const previous=inkStrokes,previousRotation=rotationDeg;
+    const record={...getDroggerCoordinateRecords()[0],name:'P1',elevation:2.010};
+    const sheet=document.createElement('canvas');sheet.id='droggerVisibilityPreview';sheet.width=360;sheet.height=160;
+    const sheetContext=sheet.getContext('2d'),results=[];
+    try{
+      inkStrokes=DroggerOwnerMode.createRegistrationStrokes(record,500,{markerDiameterMm:.1,nameTextSizeMm:.1,elevationTextSizeMm:.1});
+      const before=JSON.stringify(inkStrokes);
+      for(const [row,angle] of [0,37].entries()){
+        rotationDeg=angle;
+        const [rx,ry]=worldToScreen(record.sfcX*1000,record.sfcY*1000);
+        for(const [column,background] of ['#fff','#000'].entries()){
+          const canvas=document.createElement('canvas');canvas.width=180;canvas.height=80;
+          const context=canvas.getContext('2d');context.translate(35-rx,40-ry);
+          drawDroggerGpsOnlyMarkers(context);
+          const count=()=>{const rgba=context.getImageData(0,0,180,80).data;let n=0;for(let i=3;i<rgba.length;i+=4)if(rgba[i]>=128)n++;return n;};
+          const marker=count();context.clearRect(rx-35,ry-40,180,80);
+          drawDroggerCadLabels(context);const labels=count();
+          drawDroggerGpsOnlyMarkers(context);
+          sheetContext.fillStyle=background;sheetContext.fillRect(column*180,row*80,180,80);
+          sheetContext.drawImage(canvas,column*180,row*80);
+          results.push({angle,background,marker,labels});
+        }
+      }
+      document.body.append(sheet);sheet.style.cssText='position:fixed;left:0;top:0;z-index:2147483647;width:360px;height:160px';
+      return {results,unchanged:before===JSON.stringify(inkStrokes)};
+    }finally{inkStrokes=previous;rotationDeg=previousRotation;}
+  });
+  if(!pixels.unchanged||pixels.results.some(p=>p.marker<15||p.labels<25))throw new Error(`0.1 mm preview has insufficient visible pixels: ${JSON.stringify(pixels)}`);
+  await page.locator('#droggerVisibilityPreview').screenshot({path:path.join(require('os').tmpdir(),'ez-drogger-visibility.png')});
+  console.log('0.1 mm rendered pixels:',JSON.stringify(pixels));
   console.log("OK: Drogger runtime, 0.1 mm mark/name/elevation UI, matched preview proportions, metadata and unchanged coordinate CSV");
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.close();});
